@@ -141,7 +141,7 @@ cython_debug/
 .idea/
 
 # VSCode stuff
-.vscode
+.vscode/
 
 # Misc
 *.yaml

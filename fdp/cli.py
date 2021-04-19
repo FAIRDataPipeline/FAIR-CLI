@@ -4,7 +4,7 @@ import click
 @click.group()
 def cli():
     """Welcome to the FAIR data pipeline command-line interface."""
-    pass
+    print("I can do things")
 
 
 @cli.command()
