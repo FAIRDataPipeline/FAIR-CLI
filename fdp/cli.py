@@ -14,6 +14,7 @@ def cli():
         click.echo(f"No registry")
         sys.exit(1)
 
+
 @cli.command()
 @click.argument("config", type=click.Path(exists=True))
 def run(config):
