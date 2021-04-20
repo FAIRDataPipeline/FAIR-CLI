@@ -1,11 +1,18 @@
+import sys
+
 import click
+
+from fdp.services import registry_installed
 
 
 @click.group()
 def cli():
     """Welcome to the FAIR data pipeline command-line interface."""
-    print("I can do things")
-
+    if registry_installed():
+        click.echo(f"Local registry installed and running")
+    else:
+        click.echo(f"No registry")
+        sys.exit(1)
 
 @cli.command()
 @click.argument("config", type=click.Path(exists=True))
