@@ -1,7 +1,7 @@
 import requests
 
 
-def registry_installed():
+def registry_running():
     try:
         r = requests.get("http://localhost:8000/api?")
     except requests.exceptions.ConnectionError:

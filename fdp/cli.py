@@ -2,16 +2,18 @@ import sys
 
 import click
 
-from fdp.services import registry_installed
+from fdp.services import registry_running
 
 
 @click.group()
 def cli():
     """Welcome to the FAIR data pipeline command-line interface."""
-    if registry_installed():
+    if registry_running():
         click.echo(f"Local registry installed and running")
     else:
-        click.echo(f"No registry")
+        click.echo(f"You do not have a local registry running. Please see "
+                   "https://scottishcovidresponse.github.io/docs/data_pipeline/local_registry/"
+                   "for information on how to install and run a local registry.")
         sys.exit(1)
 
 
