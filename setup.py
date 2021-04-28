@@ -1,11 +1,13 @@
 from setuptools import setup, find_packages
 
+
 def read_requirements():
     with open("requirements.txt") as req:
         content = req.read()
         requirements = content.split("\n")
     
     return requirements
+
 
 setup(
     name='fdp',

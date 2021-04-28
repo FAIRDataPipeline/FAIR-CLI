@@ -18,6 +18,9 @@ def registry_running():
 
 
 def token():
+    """
+    TODO: Use the registry's get_token endpoint for this
+    """
     with open("token.txt", "r") as file:
         api_token = file.read()
         return api_token

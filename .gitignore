@@ -145,4 +145,5 @@ cython_debug/
 
 # Misc
 *.yaml
+*.yml
 token.txt
