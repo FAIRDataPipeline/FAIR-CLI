@@ -65,7 +65,7 @@ def run(config: str):
 
 
 @cli.command()
-@cli.arguement("api-token")
+@click.argument("api-token")
 def push(api_token):
     """
     push new files (generated from write: and register:) to the remote data store
