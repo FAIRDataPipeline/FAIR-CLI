@@ -11,3 +11,10 @@ def registry_running():
             return True
         else:
             return False
+
+
+def download_data(config):
+    """
+    Download any data required by read: from the remote data store.
+    """
+    pass
