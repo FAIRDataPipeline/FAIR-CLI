@@ -1,15 +1,15 @@
-import os
+from pathlib import Path
 import sys
 
 import click
 
-from fdp.services import registry_running, download_data
+from fdp.services import registry_installed, registry_running, download_data
 
 
 @click.group()
 def cli():
     """Welcome to the FAIR data pipeline command-line interface."""
-    if os.path.exists("~/.scrc") and registry_running():
+    if registry_installed() and registry_running():
         click.echo(f"Local registry installed and running")
     else:
         click.echo(f"You do not have a local registry running. Please see "
@@ -94,9 +94,13 @@ def status():
 
 
 @cli.command()
-def config():
+@click.argument("user_name")
+def config_user(user_name):
     """
     TODO: should update a user file in .scrc containing user information (API token, associated namespace, local data
           store, login node, and so on).
     """
     click.echo(f"config command called")
+    user_home = Path.home()
+    scrc_user_dir = user_home.joinpath(f".scrc/.users/{user_name}")
+    scrc_user_dir.mkdir(parents=True, exist_ok=True)

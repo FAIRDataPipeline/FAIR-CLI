@@ -1,8 +1,14 @@
-import os
+from pathlib import Path
 
 import requests
 
 from data_pipeline_api.registry.download import download_from_config_file
+
+
+def registry_installed():
+    user_home = Path.home()
+    scrc_dir = user_home.joinpath(".scrc")
+    return scrc_dir.exists()
 
 
 def registry_running():
