@@ -1,3 +1,4 @@
+import os
 import sys
 
 import click
@@ -8,7 +9,7 @@ from fdp.services import registry_running, download_data
 @click.group()
 def cli():
     """Welcome to the FAIR data pipeline command-line interface."""
-    if registry_running():
+    if os.path.exists("~/.scrc") and registry_running():
         click.echo(f"Local registry installed and running")
     else:
         click.echo(f"You do not have a local registry running. Please see "
