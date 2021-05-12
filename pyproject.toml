@@ -1,0 +1,34 @@
+[tool.poetry]
+name = "fdp"
+version = "0.1.0"
+description = "Synchronization interface for the SCRC FAIR Data Pipeline"
+authors = [
+    "Nathan Cummings <nathan.cummings@ukaea.uk>",
+    "Kristian Zarebski <kristian.zarebski@ukaea.uk>"
+]
+license = "BSD-2-Clause"
+
+[tool.poetry.dependencies]
+python = "^3.7"
+click = "^7.1.2"
+requests = "^2.25.1"
+data-pipeline-api = "^0.7.3"
+PyYAML = "^5.4.1"
+rich = "^10.1.0"
+
+[tool.poetry.dev-dependencies]
+pytest = "^6.2.4"
+black = "^21.5b1"
+mypy = "^0.812"
+bandit = "^1.7.0"
+pycodestyle = "^2.7.0"
+flake8 = "^3.9.2"
+pydocstyle = "^6.0.0"
+pylama = "^7.7.1"
+
+[tool.poetry.scripts]
+fairdp = 'fdp.cli:cli'
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
