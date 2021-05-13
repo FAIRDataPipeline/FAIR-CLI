@@ -16,7 +16,11 @@ class Staging:
         self._cache: Dict = {}
 
     def __enter__(self) -> None:
-        self._cache = yaml.load(open(self._cache_file), Loader=yaml.SafeLoader)
+        if os.path.exists(self._cache_file):
+            self._cache = yaml.load(
+                open(self._cache_file),
+                Loader=yaml.SafeLoader
+            )
         if not self._cache:
             self._cache = {}
         return self
@@ -33,6 +37,9 @@ class Staging:
         )
         self._cache[_label] = stage
 
+    def set_configuration():
+        pass
+
     def remove_file(self, file_name: str, cached: bool = False) -> None:
         _label = os.path.relpath(
             file_name,
@@ -46,6 +53,9 @@ class Staging:
         if not cached:
             os.remove(file_name)
 
+    def add_remote():
+        pass
+
     def status(self) -> None:
         _staged = [i for i, j in self._cache.items() if j]
         _unstaged = [i for i, j in self._cache.items() if not j]
@@ -58,7 +68,7 @@ class Staging:
 
         if _unstaged:
             print('Files not staged for synchronization:')
-            print(f'\t(use "fairdp add <file>..." to stage files)')
+            print(f'\t(use "fdp add <file>..." to stage files)')
 
             for file_name in _unstaged:
                 rich.print(f'[red]\t\t{file_name}[/]')

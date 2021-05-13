@@ -1,2 +1,2 @@
 # Unreleased
-- Creation of an interface for `fairdp` using `click`.
+- Creation of an interface for `fdp` using `click`.

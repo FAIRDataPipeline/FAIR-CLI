@@ -1,5 +1,6 @@
 from pathlib import Path
 import os
+import toml
 
 import click
 
@@ -36,13 +37,13 @@ def status() -> None:
 @cli.command()
 def purge() -> None:
     _purge = click.prompt(
-        "Are you sure you want to reset fairdp tracking, "
+        "Are you sure you want to reset fdp tracking, "
         "this is not reversible [Y/N]? ",
         type=click.BOOL
     )
     if _purge:
         if not os.path.exists(os.path.join(Path.home(), '.scrc', '.fdp_staging')):
-            click.echo('No fairdp tracking has been initialised')
+            click.echo('No fdp tracking has been initialised')
         else:
             os.remove(os.path.join(Path.home(), '.scrc', '.fdp_staging'))
 
@@ -122,6 +123,17 @@ def run(config: str):
     click.echo(f"run command called with config {config}")
 
 
+@cli.group()
+def remote():
+    pass
+
+
+@remote.command()
+@click.argument('label')
+def add(label: str = 'origin') -> None:
+    pass
+
+
 @cli.command()
 @click.argument("api-token")
 def push(api_token: str):
@@ -154,7 +166,28 @@ def config_user(user_name: str) -> None:
     (API token, associated namespace, local data
     store, login node, and so on).
     """
-    click.echo("config command called")
+    user_home = Path.home()
+    scrc_user_config = os.path.join(user_home, '.scrc', 'config')
+    if not os.path.exists(scrc_user_config):
+        u_config = {}
+    else:
+        u_config = toml.load(scrc_user_config)
+    if 'user' not in u_config:
+        u_config['user'] = {}
+    u_config['user']['name'] = user_name
     user_home = Path.home()
     scrc_user_dir = os.path.join(user_home, ".scrc", "users", user_name)
     scrc_user_dir.mkdir(parents=True, exist_ok=True)
+
+@config.command(name='user.email')
+@click.argument('user_email')
+def config_email(user_email: str) -> None:
+    user_home = Path.home()
+    scrc_user_config = os.path.join(user_home, '.scrc', 'fdpconfig')
+    if not os.path.exists(scrc_user_config):
+        u_config = {}
+    else:
+        u_config = toml.load(scrc_user_config)
+    if 'user' not in u_config:
+        u_config['email'] = {}
+    u_config['user']['email'] = user_email

@@ -15,6 +15,7 @@ requests = "^2.25.1"
 data-pipeline-api = "^0.7.3"
 PyYAML = "^5.4.1"
 rich = "^10.1.0"
+toml = "^0.10.2"
 
 [tool.poetry.dev-dependencies]
 pytest = "^6.2.4"
@@ -27,7 +28,7 @@ pydocstyle = "^6.0.0"
 pylama = "^7.7.1"
 
 [tool.poetry.scripts]
-fairdp = 'fdp.cli:cli'
+fdp = 'fdp.cli:cli'
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
