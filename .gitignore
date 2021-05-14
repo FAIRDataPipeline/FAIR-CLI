@@ -147,3 +147,4 @@ cython_debug/
 *.yaml
 *.yml
 token.txt
+.dante
