@@ -4,15 +4,15 @@ import toml
 
 import click
 
-from fdp.services import registry_installed, registry_running, download_data
-from fdp.staging import Staging
+from dante.services import registry_installed, registry_running, download_data
+from dante.staging import DANTE
 
 from typing import List
 
 
 @click.group()
 def cli():
-    """Welcome to the FAIR data pipeline command-line interface."""
+    """Welcome to DANTE the FAIR data pipeline command-line interface."""
     # if registry_installed() and registry_running():
     #     click.echo("Local registry installed and running")
     # else:
@@ -30,27 +30,33 @@ def status() -> None:
     """
     Get the status of staging
     """
-    with Staging() as s:
+    with DANTE() as s:
         s.status()
 
 
 @cli.command()
+def init() -> None:
+    """Initialise repository in current location"""
+    with DANTE() as dante:
+        dante.initialise()
+
+@cli.command()
 def purge() -> None:
     _purge = click.prompt(
-        "Are you sure you want to reset fdp tracking, "
+        "Are you sure you want to reset dante tracking, "
         "this is not reversible [Y/N]? ",
         type=click.BOOL
     )
     if _purge:
-        if not os.path.exists(os.path.join(Path.home(), '.scrc', '.fdp_staging')):
-            click.echo('No fdp tracking has been initialised')
+        if not os.path.exists(os.path.join(Path.home(), '.scrc', '.dante_staging')):
+            click.echo('No dante tracking has been initialised')
         else:
-            os.remove(os.path.join(Path.home(), '.scrc', '.fdp_staging'))
+            os.remove(os.path.join(Path.home(), '.scrc', '.dante_staging'))
 
 @cli.command()
 @click.argument('file_paths', type=click.Path(exists=True), nargs=-1)
 def reset(file_paths: List[str]) -> None:
-    with Staging() as s:
+    with DANTE() as s:
         for file_name in file_paths:
             s.change_staging_state(file_name, False)
 
@@ -58,7 +64,7 @@ def reset(file_paths: List[str]) -> None:
 @cli.command()
 @click.argument('file_paths', type=click.Path(exists=True), nargs=-1)
 def add(file_paths: List[str]) -> None:
-    with Staging() as s:
+    with DANTE() as s:
         for file_name in file_paths:
             s.change_staging_state(file_name, True)
 
@@ -71,7 +77,7 @@ def add(file_paths: List[str]) -> None:
     help='remove from tracking but do not delete from file system'
 )
 def rm(file_paths: List[str], cached: bool = False) -> None:
-    with Staging() as s:
+    with DANTE() as s:
         for file_name in file_paths:
             s.remove_file(file_name, cached)
 
@@ -117,7 +123,7 @@ def run(config: str):
     config.yaml should contain either script: that should be saved as the submission script, or script_path: that
     points to the file that should be saved as the submission script) and register metadata in the data registry
 
-    save the path to <local_store>/coderun/<date>-<time>/ in the global environment as $fdp_config_dir so that it can
+    save the path to <local_store>/coderun/<date>-<time>/ in the global environment as $dante_config_dir so that it can
     be picked up by the script that is run after this has been completed execute the submission script
     """
     click.echo(f"run command called with config {config}")
@@ -129,10 +135,19 @@ def remote():
 
 
 @remote.command()
+@click.argument('url')
 @click.argument('label')
-def add(label: str = 'origin') -> None:
-    pass
+def add(url: str, label: str = 'origin') -> None:
+    """Add a remote registry URL with option to give it a label if multiple
+    remotes may be used.
 
+    Parameters
+    ----------
+    label : str, optional
+        label for given remote, by default 'origin'
+    """
+    with DANTE() as dante:
+        dante.add_remote(label, )
 
 @cli.command()
 @click.argument("api-token")
@@ -183,7 +198,7 @@ def config_user(user_name: str) -> None:
 @click.argument('user_email')
 def config_email(user_email: str) -> None:
     user_home = Path.home()
-    scrc_user_config = os.path.join(user_home, '.scrc', 'fdpconfig')
+    scrc_user_config = os.path.join(user_home, '.scrc', 'danteconfig')
     if not os.path.exists(scrc_user_config):
         u_config = {}
     else:

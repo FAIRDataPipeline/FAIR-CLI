@@ -10,13 +10,13 @@ def read_requirements():
 
 
 setup(
-    name='fdp',
+    name='dante',
     version='0.0.1',
     packages=find_packages(),
     install_requires=read_requirements(),
     entry_points={
         'console_scripts': [
-            'fdp=fdp.cli:cli'
+            'dante=dante.cli:cli'
         ]
     }
 )
