@@ -42,21 +42,23 @@ def init() -> None:
     with DANTE() as dante:
         dante.initialise()
 
+
 @cli.command()
 def purge() -> None:
     _purge = click.prompt(
         "Are you sure you want to reset dante tracking, "
         "this is not reversible [Y/N]? ",
-        type=click.BOOL
+        type=click.BOOL,
     )
     if _purge:
-        if not os.path.exists(os.path.join(Path.home(), '.scrc', '.dante_staging')):
-            click.echo('No dante tracking has been initialised')
+        if not os.path.exists(os.path.join(Path.home(), ".scrc", ".dante_staging")):
+            click.echo("No dante tracking has been initialised")
         else:
-            os.remove(os.path.join(Path.home(), '.scrc', '.dante_staging'))
+            os.remove(os.path.join(Path.home(), ".scrc", ".dante_staging"))
+
 
 @cli.command()
-@click.argument('file_paths', type=click.Path(exists=True), nargs=-1)
+@click.argument("file_paths", type=click.Path(exists=True), nargs=-1)
 def reset(file_paths: List[str]) -> None:
     with DANTE() as s:
         for file_name in file_paths:
@@ -64,7 +66,7 @@ def reset(file_paths: List[str]) -> None:
 
 
 @cli.command()
-@click.argument('file_paths', type=click.Path(exists=True), nargs=-1)
+@click.argument("file_paths", type=click.Path(exists=True), nargs=-1)
 def add(file_paths: List[str]) -> None:
     with DANTE() as s:
         for file_name in file_paths:
@@ -72,11 +74,11 @@ def add(file_paths: List[str]) -> None:
 
 
 @cli.command()
-@click.argument('file_paths', type=click.Path(exists=True), nargs=-1)
+@click.argument("file_paths", type=click.Path(exists=True), nargs=-1)
 @click.option(
-    '--cached/--not-cached',
+    "--cached/--not-cached",
     default=False,
-    help='remove from tracking but do not delete from file system'
+    help="remove from tracking but do not delete from file system",
 )
 def rm(file_paths: List[str], cached: bool = False) -> None:
     with DANTE() as s:
@@ -132,25 +134,24 @@ def run(config: str):
 
 
 @cli.group(invoke_without_command=True)
-@click.option('--verbose/--no-verbose', '-v/')
+@click.option("--verbose/--no-verbose", "-v/")
 @click.pass_context
 def remote(ctx, verbose: bool = False):
-    """List remotes if no additional command is provided
-    """
+    """List remotes if no additional command is provided"""
     if not ctx.invoked_subcommand:
         with DANTE() as dante:
             dante.list_remotes(verbose)
 
-@remote.command(name='verbose')
+
+@remote.command(name="verbose")
 def remote_list_verbose():
-    """List remotes verbosely
-    """
+    """List remotes verbosely"""
     with DANTE() as dante:
         dante.list_remotes(True)
 
 
 @remote.command()
-@click.argument('options', nargs=-1)
+@click.argument("options", nargs=-1)
 def add(options: List[str]) -> None:
     """Add a remote registry URL with option to give it a label if multiple
     remotes may be used.
@@ -163,14 +164,14 @@ def add(options: List[str]) -> None:
             - url
     """
     _url = options[1] if len(options) > 1 else options[0]
-    _label = options[0] if len(options) > 1 else 'origin'
+    _label = options[0] if len(options) > 1 else "origin"
 
     with DANTE() as dante:
         dante.add_remote(_url, _label)
 
 
 @remote.command()
-@click.argument('label')
+@click.argument("label")
 def remove(label: str) -> None:
     """Removes the specified remote from the remotes list
 
@@ -182,8 +183,9 @@ def remove(label: str) -> None:
     with DANTE() as dante:
         dante.remove_remove(label)
 
+
 @remote.command()
-@click.argument('options', nargs=-1)
+@click.argument("options", nargs=-1)
 def modify(options: List[str]) -> None:
     """Modify a remote address
 
@@ -192,10 +194,11 @@ def modify(options: List[str]) -> None:
     options : List[str]
         List of 1 or 2 containing name of remote to modify
     """
-    _label = options[0] if len(options) > 1 else 'origin'
+    _label = options[0] if len(options) > 1 else "origin"
     _url = options[1] if len(options) > 1 else options[0]
     with DANTE() as dante:
         dante.modify_remote(_label, _url)
+
 
 @cli.command()
 @click.argument("api-token")
@@ -221,8 +224,9 @@ def push(api_token: str):
 def config():
     pass
 
-@config.command(name='user.name')
-@click.argument('user_name')
+
+@config.command(name="user.name")
+@click.argument("user_name")
 def config_user(user_name: str) -> None:
     """
     TODO: should update a user file in .scrc containing user information
@@ -230,27 +234,28 @@ def config_user(user_name: str) -> None:
     store, login node, and so on).
     """
     user_home = Path.home()
-    scrc_user_config = os.path.join(user_home, '.scrc', 'config')
+    scrc_user_config = os.path.join(user_home, ".scrc", "config")
     if not os.path.exists(scrc_user_config):
         u_config = {}
     else:
         u_config = toml.load(scrc_user_config)
-    if 'user' not in u_config:
-        u_config['user'] = {}
-    u_config['user']['name'] = user_name
+    if "user" not in u_config:
+        u_config["user"] = {}
+    u_config["user"]["name"] = user_name
     user_home = Path.home()
     scrc_user_dir = os.path.join(user_home, ".scrc", "users", user_name)
     scrc_user_dir.mkdir(parents=True, exist_ok=True)
 
-@config.command(name='user.email')
-@click.argument('user_email')
+
+@config.command(name="user.email")
+@click.argument("user_email")
 def config_email(user_email: str) -> None:
     user_home = Path.home()
-    scrc_user_config = os.path.join(user_home, '.scrc', 'danteconfig')
+    scrc_user_config = os.path.join(user_home, ".scrc", "danteconfig")
     if not os.path.exists(scrc_user_config):
         u_config = {}
     else:
         u_config = toml.load(scrc_user_config)
-    if 'user' not in u_config:
-        u_config['email'] = {}
-    u_config['user']['email'] = user_email
+    if "user" not in u_config:
+        u_config["email"] = {}
+    u_config["user"]["email"] = user_email
