@@ -4,7 +4,6 @@ import sys
 from pathlib import Path
 from typing import Dict
 
-from click import decorators
 import rich
 import toml
 import click
@@ -104,6 +103,15 @@ class DANTE:
             click.echo(f"No such entry '{label}' in available remotes")
             sys.exit(1)
         self._local_config[label] = url
+
+    def purge(self) -> None:
+        if not os.path.exists(self._staging_file) and not os.path.exists(
+            self._local_config_file
+        ):
+            click.echo("No dante tracking has been initialised")
+        else:
+            os.remove(self._staging_file)
+            os.remove(self._local_config_file)
 
     def list_remotes(self, verbose: bool = False) -> None:
         self.check_is_repo()

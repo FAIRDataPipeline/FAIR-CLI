@@ -51,26 +51,25 @@ def purge() -> None:
         type=click.BOOL,
     )
     if _purge:
-        if not os.path.exists(os.path.join(Path.home(), ".scrc", ".dante_staging")):
-            click.echo("No dante tracking has been initialised")
-        else:
-            os.remove(os.path.join(Path.home(), ".scrc", ".dante_staging"))
+        with DANTE() as dante:
+            dante.purge()
 
 
 @cli.command()
 @click.argument("file_paths", type=click.Path(exists=True), nargs=-1)
 def reset(file_paths: List[str]) -> None:
-    with DANTE() as s:
+    with DANTE() as dante:
         for file_name in file_paths:
-            s.change_staging_state(file_name, False)
+            dante.change_staging_state(file_name, False)
 
 
 @cli.command()
 @click.argument("file_paths", type=click.Path(exists=True), nargs=-1)
 def add(file_paths: List[str]) -> None:
-    with DANTE() as s:
+    """Add a file to staging"""
+    with DANTE() as dante:
         for file_name in file_paths:
-            s.change_staging_state(file_name, True)
+            dante.change_staging_state(file_name, True)
 
 
 @cli.command()
@@ -81,15 +80,15 @@ def add(file_paths: List[str]) -> None:
     help="remove from tracking but do not delete from file system",
 )
 def rm(file_paths: List[str], cached: bool = False) -> None:
-    with DANTE() as s:
+    with DANTE() as dante:
         for file_name in file_paths:
-            s.remove_file(file_name, cached)
+            dante.remove_file(file_name, cached)
 
 
 @cli.command()
 @click.argument("config", type=click.Path(exists=True))
 def pull(config: str):
-    """
+    """parate scripts to add their data/results to the local registry. However for static languages like C++ they will likel i
     download any data required by read: from the remote data store and record metadata in the data registry (whilst
     editing relevant entries, e.g. storage_root)
 
@@ -141,13 +140,6 @@ def remote(ctx, verbose: bool = False):
     if not ctx.invoked_subcommand:
         with DANTE() as dante:
             dante.list_remotes(verbose)
-
-
-@remote.command(name="verbose")
-def remote_list_verbose():
-    """List remotes verbosely"""
-    with DANTE() as dante:
-        dante.list_remotes(True)
 
 
 @remote.command()
