@@ -1,5 +1,6 @@
 from pathlib import Path
 import os
+from click.types import DateTime
 import toml
 
 import click
@@ -11,6 +12,7 @@ from typing import List
 
 
 @click.group()
+@click.version_option()
 def cli():
     """Welcome to DANTE the FAIR data pipeline command-line interface."""
     # if registry_installed() and registry_running():
@@ -129,25 +131,71 @@ def run(config: str):
     click.echo(f"run command called with config {config}")
 
 
-@cli.group()
-def remote():
-    pass
+@cli.group(invoke_without_command=True)
+@click.option('--verbose/--no-verbose', '-v/')
+@click.pass_context
+def remote(ctx, verbose: bool = False):
+    """List remotes if no additional command is provided
+    """
+    if not ctx.invoked_subcommand:
+        with DANTE() as dante:
+            dante.list_remotes(verbose)
+
+@remote.command(name='verbose')
+def remote_list_verbose():
+    """List remotes verbosely
+    """
+    with DANTE() as dante:
+        dante.list_remotes(True)
 
 
 @remote.command()
-@click.argument('url')
-@click.argument('label')
-def add(url: str, label: str = 'origin') -> None:
+@click.argument('options', nargs=-1)
+def add(options: List[str]) -> None:
     """Add a remote registry URL with option to give it a label if multiple
     remotes may be used.
 
     Parameters
     ----------
-    label : str, optional
-        label for given remote, by default 'origin'
+    options : List[str]
+        size 1 or 2 list containing either:
+            - label, url
+            - url
+    """
+    _url = options[1] if len(options) > 1 else options[0]
+    _label = options[0] if len(options) > 1 else 'origin'
+
+    with DANTE() as dante:
+        dante.add_remote(_url, _label)
+
+
+@remote.command()
+@click.argument('label')
+def remove(label: str) -> None:
+    """Removes the specified remote from the remotes list
+
+    Parameters
+    ----------
+    label : str
+        label of remote to remove
     """
     with DANTE() as dante:
-        dante.add_remote(label, )
+        dante.remove_remove(label)
+
+@remote.command()
+@click.argument('options', nargs=-1)
+def modify(options: List[str]) -> None:
+    """Modify a remote address
+
+    Parameters
+    ----------
+    options : List[str]
+        List of 1 or 2 containing name of remote to modify
+    """
+    _label = options[0] if len(options) > 1 else 'origin'
+    _url = options[1] if len(options) > 1 else options[0]
+    with DANTE() as dante:
+        dante.modify_remote(_label, _url)
 
 @cli.command()
 @click.argument("api-token")
