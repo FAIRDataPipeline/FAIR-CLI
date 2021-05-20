@@ -53,6 +53,7 @@ def init() -> None:
 
 @cli.command()
 def purge() -> None:
+    """resets the repository deleting all local caches"""
     _purge = click.prompt(
         "Are you sure you want to reset dante tracking, "
         "this is not reversible [Y/N]? ",
@@ -66,6 +67,7 @@ def purge() -> None:
 @cli.command()
 @click.argument("file_paths", type=click.Path(exists=True), nargs=-1)
 def reset(file_paths: List[str]) -> None:
+    """Removes files/runs from staging"""
     with DANTE() as dante:
         for file_name in file_paths:
             dante.change_staging_state(file_name, False)
@@ -88,6 +90,7 @@ def add(file_paths: List[str]) -> None:
     help="remove from tracking but do not delete from file system",
 )
 def rm(file_paths: List[str], cached: bool = False) -> None:
+    """removes files from system or just tracking"""
     with DANTE() as dante:
         for file_name in file_paths:
             dante.remove_file(file_name, cached)
@@ -117,6 +120,7 @@ def pull(config: str):
 @cli.group(invoke_without_command=True)
 @click.pass_context
 def run(ctx):
+    """Initialises a run with the option to specify a bash command"""
     if not ctx.invoked_subcommand:
         with DANTE() as dante:
             dante.run_bash_command()
@@ -192,6 +196,7 @@ def modify(options: List[str]) -> None:
 
 @cli.command()
 def log() -> None:
+    """Show a full run history"""
     with DANTE() as dante:
         dante.show_history()
 
@@ -218,6 +223,7 @@ def push(api_token: str):
 
 @cli.group()
 def config():
+    """Configure user information"""
     pass
 
 
