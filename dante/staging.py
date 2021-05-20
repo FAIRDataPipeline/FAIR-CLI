@@ -1,12 +1,14 @@
-from os.path import abspath
 import os
 import sys
 from pathlib import Path
 from typing import Dict
 
-import rich
 import toml
 import click
+import socket
+import subprocess
+
+from dante.templates import config_template
 
 
 class DANTE:
@@ -21,6 +23,7 @@ class DANTE:
         self._local_config_file = (
             os.path.join(self._here, "config") if self._here else ""
         )
+        self._soft_data_dir = os.path.join(self._here, ".dante", "data")
         self._stage_status: Dict = {}
         self._local_config: Dict = {}
 
@@ -81,6 +84,24 @@ class DANTE:
         if not cached:
             os.remove(file_name)
 
+    def run_bash_command(self, cmd_str: str) -> None:
+        """Execute a bash process as part of a model run
+
+        Parameters
+        ----------
+        cmd_str : str
+            command to execute
+        """
+        _cmd_list = cmd_str.split()
+        subprocess.run(
+            _cmd_list,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            shell=False,
+            check=True,
+        )
+
     def add_remote(self, remote_url: str, label: str = "origin") -> None:
         self.check_is_repo()
         if "remotes" not in self._local_config:
@@ -135,26 +156,68 @@ class DANTE:
             click.echo("Changes to be synchronized:")
 
             for file_name in _staged:
-                rich.print(f"[green]\t\t{file_name}[/]")
+                click.echo(click.style(f"\t\t{file_name}", fg="green"))
 
         if _unstaged:
             click.echo("Files not staged for synchronization:")
             click.echo(f'\t(use "dante add <file>..." to stage files)')
 
             for file_name in _unstaged:
-                rich.print(f"[red]\t\t{file_name}[/]")
+                click.echo(click.style(f"\t\t{file_name}", fg="red"))
+
+    def _config_query(self) -> None:
+        click.echo(
+            "Initialising DANTE repository, setup will now ask for basic info:\n"
+        )
+        _def_name = socket.gethostname()
+        _def_local = "http://localhost:8000/api/"
+        _desc = click.prompt("Project description")
+        _user_name = click.prompt(f"User name", default=_def_name)
+        _remote_url = click.prompt(f"Remote API URL")
+        _local_url = click.prompt(f"Local API URL", default=_def_local)
+        if len(_user_name.strip().split()) == 2:
+            _def_ospace = _user_name.strip().lower().split()
+            _def_ospace = _def_ospace[0][0] + _def_ospace[1]
+        else:
+            _def_ospace = _user_name.lower().replace(" ", "")
+
+        self._local_config["namespaces"] = {"output": _def_ospace, "input": "null"}
+
+        self._local_config["remotes"] = {"origin": _remote_url, "local": _local_url}
+        self._local_config["description"] = _desc
+
+        with open(self._local_config_file, "w") as f:
+            toml.dump(self._local_config, f)
+
+    def _make_starter_config(self) -> None:
+        """Create a starter config.yaml"""
+        if "remotes" not in self._local_config:
+            click.echo(
+                "Cannot generate config.yaml, you need to set the remote URL by running: \n"
+                "\n\tdante remote add <url>\n"
+            )
+            sys.exit(1)
+        with open(os.path.join(self._here, "config.yaml"), "w") as f:
+            f.write(
+                config_template.render(
+                    instance=self, local_repo=os.path.abspath(self._here)
+                )
+            )
 
     def initialise(self) -> None:
         """Initialise an dante repository within the current location"""
         _dante_dir = os.path.abspath(os.path.join(os.getcwd(), ".dante"))
         try:
             os.mkdir(_dante_dir)
+            os.mkdir(os.path.join(_dante_dir, "data"))
         except FileExistsError:
             click.echo(f"fatal: dante repository is already initialised.")
             sys.exit(1)
-        click.echo(f"Initialised empty dante repository in {_dante_dir}")
         self._local_config_file = os.path.join(_dante_dir, "config")
         self._staging_file = os.path.join(_dante_dir, "staging")
+        self._config_query()
+        self._make_starter_config()
+        click.echo(f"Initialised empty dante repository in {_dante_dir}")
 
     def __exit__(self, *args) -> None:
         if not os.path.exists(self.LOCAL_FOLDER):

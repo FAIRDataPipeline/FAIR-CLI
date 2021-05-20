@@ -10,11 +10,11 @@ license = "BSD-2-Clause"
 
 [tool.poetry.dependencies]
 python = "^3.7"
-click = "^7.1.2"
+click = "^8.0.0"
 requests = "^2.25.1"
 data-pipeline-api = "^0.7.3"
-rich = "^10.1.0"
 toml = "^0.10.2"
+Jinja2 = "^3.0.1"
 
 [tool.poetry.dev-dependencies]
 pytest = "^6.2.4"
