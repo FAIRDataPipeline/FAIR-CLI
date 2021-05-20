@@ -2,6 +2,7 @@ from pathlib import Path
 import os
 from click.types import DateTime
 import toml
+import hashlib
 
 import click
 
@@ -113,30 +114,20 @@ def pull(config: str):
     download_data(config)
 
 
-@cli.command()
-@click.argument("config", type=click.Path(exists=True))
-def run(config: str):
-    """
-    Run the submission script referred to in the given config file.
+@cli.group(invoke_without_command=True)
+@click.pass_context
+def run(ctx):
+    if not ctx.invoked_subcommand:
+        with DANTE() as dante:
+            dante.run_bash_command()
 
-    read (and validate) the config.yaml file
 
-    generate a working config.yaml file
-        - globbing (* and ** replaced with all matching objects, all components listed), specific version numbers, and
-          any variables (e.g. {CONFIG_PATH}, {VERSION}, {DATETIME}) is replaced with true values
-        - register: is removed and external objects / data products are written in read:
-
-    save the working config.yaml file in the local data store (in <local_store>/coderun/<date>-<time>/config.yaml) and
-    register metadata in the data registry
-
-    save the submission script to the local data store in <local_store>/coderun/<date>-<time>/script.sh (note that
-    config.yaml should contain either script: that should be saved as the submission script, or script_path: that
-    points to the file that should be saved as the submission script) and register metadata in the data registry
-
-    save the path to <local_store>/coderun/<date>-<time>/ in the global environment as $dante_config_dir so that it can
-    be picked up by the script that is run after this has been completed execute the submission script
-    """
-    click.echo(f"run command called with config {config}")
+@run.command()
+@click.argument("bash_command")
+def bash(bash_command: str):
+    """Run a BASH command and set this to be the default run command"""
+    with DANTE() as dante:
+        dante.run_bash_command(bash_command)
 
 
 @cli.group(invoke_without_command=True)
@@ -200,6 +191,12 @@ def modify(options: List[str]) -> None:
 
 
 @cli.command()
+def log() -> None:
+    with DANTE() as dante:
+        dante.show_history()
+
+
+@cli.command()
 @click.argument("api-token")
 def push(api_token: str):
     """
@@ -232,29 +229,12 @@ def config_user(user_name: str) -> None:
     (API token, associated namespace, local data
     store, login node, and so on).
     """
-    user_home = Path.home()
-    scrc_user_config = os.path.join(user_home, ".scrc", "config")
-    if not os.path.exists(scrc_user_config):
-        u_config = {}
-    else:
-        u_config = toml.load(scrc_user_config)
-    if "user" not in u_config:
-        u_config["user"] = {}
-    u_config["user"]["name"] = user_name
-    user_home = Path.home()
-    scrc_user_dir = os.path.join(user_home, ".scrc", "users", user_name)
-    scrc_user_dir.mkdir(parents=True, exist_ok=True)
+    with DANTE() as dante:
+        dante.set_user(user_name)
 
 
 @config.command(name="user.email")
 @click.argument("user_email")
 def config_email(user_email: str) -> None:
-    user_home = Path.home()
-    scrc_user_config = os.path.join(user_home, ".scrc", "danteconfig")
-    if not os.path.exists(scrc_user_config):
-        u_config = {}
-    else:
-        u_config = toml.load(scrc_user_config)
-    if "user" not in u_config:
-        u_config["email"] = {}
-    u_config["user"]["email"] = user_email
+    with DANTE() as dante:
+        dante.set_email(user_email)

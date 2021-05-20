@@ -15,6 +15,7 @@ requests = "^2.25.1"
 data-pipeline-api = "^0.7.3"
 toml = "^0.10.2"
 Jinja2 = "^3.0.1"
+rich = "^10.2.2"
 
 [tool.poetry.dev-dependencies]
 pytest = "^6.2.4"
