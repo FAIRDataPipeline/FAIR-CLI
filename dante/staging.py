@@ -28,9 +28,11 @@ class DANTE:
         self._local_config_file = (
             os.path.join(self._here, "config") if self._here else ""
         )
+        self._global_config_file = os.path.join(self.GLOBAL_FOLDER, "danteconfig")
         self._soft_data_dir = os.path.join(self._here, ".dante", "data")
         self._stage_status: Dict = {}
         self._local_config: Dict = {}
+        self._global_config: Dict = {}
 
     def check_is_repo(self) -> None:
         if not self._find_dante_root():
@@ -59,6 +61,8 @@ class DANTE:
     def __enter__(self) -> None:
         if os.path.exists(self._staging_file):
             self._stage_status = toml.load(self._staging_file)
+        if os.path.exists(self._global_config_file):
+            self._global_config = toml.load(self._global_config_file)
         if os.path.exists(self._local_config_file):
             self._local_config = toml.load(self._local_config_file)
         if not self._stage_status:
@@ -254,27 +258,54 @@ class DANTE:
     def set_user(self, name: str) -> None:
         self._local_config["user"]["name"] = name
 
-    def _config_query(self) -> None:
-        click.echo(
-            "Initialising DANTE repository, setup will now ask for basic info:\n"
-        )
-        _def_name = socket.gethostname()
+    def _global_config_query(self) -> None:
         _def_local = "http://localhost:8000/api/"
-        _desc = click.prompt("Project description")
-        _user_name = click.prompt(f"User name", default=_def_name)
-        _user_email = click.prompt("User email")
+
         _remote_url = click.prompt(f"Remote API URL")
         _local_url = click.prompt(f"Local API URL", default=_def_local)
+
+        _def_name = socket.gethostname()
+        _user_name = click.prompt("User name", default=_def_name)
+        _user_email = click.prompt("User email")
+        _user_orcid = click.prompt("User ORCID", default="None")
+        _user_orcid = _user_orcid if _user_orcid != "None" else None
+
         if len(_user_name.strip().split()) == 2:
             _def_ospace = _user_name.strip().lower().split()
             _def_ospace = _def_ospace[0][0] + _def_ospace[1]
         else:
             _def_ospace = _user_name.lower().replace(" ", "")
 
-        self._local_config["namespaces"] = {"output": _def_ospace, "input": "null"}
-        self._local_config["user"] = {"name": _user_name, "email": _user_email}
+        _def_ispace = click.prompt("Default input namespace", default="None")
+        _def_ispace = _def_ispace if _def_ispace != "None" else None
+        _def_ospace = click.prompt("Default output namespace", default=_def_ospace)
 
-        self._local_config["remotes"] = {"origin": _remote_url, "local": _local_url}
+        if not os.path.exists(self.GLOBAL_FOLDER):
+            os.mkdir(self.GLOBAL_FOLDER)
+
+        self._global_config = {
+            "user": {"name": _user_name, "email": _user_email, "orcid": _user_orcid},
+            "remotes": {"local": _local_url, "origin": _remote_url},
+            "namespaces": {"input": _def_ispace, "output": _def_ospace},
+        }
+
+    def _local_config_query(self, first_time_setup: bool = False) -> None:
+        _desc = click.prompt("Project description")
+
+        _def_remote = self._global_config["remotes"]["origin"]
+        _def_local = self._global_config["remotes"]["local"]
+        _def_ospace = self._global_config["namespaces"]["output"]
+        _def_ispace = self._global_config["namespaces"]["input"]
+
+        if not first_time_setup:
+            _def_remote = click.prompt(f"Remote API URL", default=_def_remote)
+            _def_local = click.prompt(f"Local API URL", default=_def_local)
+            _def_ospace = click.prompt("Default output namespace", default=_def_ospace)
+            _def_ispace = click.prompt("Default input namespace", default=_def_ispace)
+
+        self._local_config["namespaces"] = {"output": _def_ospace, "input": _def_ispace}
+
+        self._local_config["remotes"] = {"origin": _def_remote, "local": _def_local}
         self._local_config["description"] = _desc
 
     def _make_starter_config(self) -> None:
@@ -303,7 +334,15 @@ class DANTE:
 
         self._local_config_file = os.path.join(_dante_dir, "config")
         self._staging_file = os.path.join(_dante_dir, "staging")
-        self._config_query()
+
+        click.echo(
+            "Initialising DANTE repository, setup will now ask for basic info:\n"
+        )
+
+        if not os.path.exists(self._global_config_file):
+            self._global_config_query()
+
+        self._local_config_query(first_time_setup=True)
 
         os.mkdir(_dante_dir)
 
@@ -317,5 +356,7 @@ class DANTE:
             return
         with open(self._staging_file, "w") as f:
             toml.dump(self._stage_status, f)
+        with open(self._global_config_file, "w") as f:
+            toml.dump(self._global_config, f)
         with open(self._local_config_file, "w") as f:
             toml.dump(self._local_config, f)
