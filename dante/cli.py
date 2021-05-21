@@ -57,13 +57,6 @@ def cli():
     pass
 
 
-@cli.command(name="user-config")
-def make_config() -> None:
-    """Generate a starter config file"""
-    with DANTE() as dante:
-        dante.make_starter_config()
-
-
 @cli.command()
 def status() -> None:
     """Get the status of files under staging"""
