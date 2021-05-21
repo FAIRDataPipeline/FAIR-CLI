@@ -202,6 +202,14 @@ def log() -> None:
 
 
 @cli.command()
+@click.argument("run_id")
+def view(run_id: str) -> None:
+    """View log for a given run"""
+    with DANTE() as dante:
+        dante.show_run_log(run_id)
+
+
+@cli.command()
 @click.argument("api-token")
 def push(api_token: str):
     """

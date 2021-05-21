@@ -5,7 +5,7 @@ import hashlib
 import rich
 from pathlib import Path
 from typing import Dict
-from datetime import date, datetime
+from datetime import datetime
 
 import toml
 import yaml
@@ -150,8 +150,8 @@ class DANTE:
             click.echo("Nothing to run.")
             sys.exit(0)
         _cmd_list = _cfg["run_metadata"]["script"].split()
-        _user = self._local_config["user"]["name"]
-        _email = self._local_config["user"]["email"]
+        _user = self._global_config["user"]["name"]
+        _email = self._global_config["user"]["email"]
         _namespace = self._local_config["namespaces"]["output"]
 
         with open(_log_file, "a") as f:
@@ -188,6 +188,21 @@ class DANTE:
 
         if _process.returncode != 0:
             sys.exit(_process.returncode)
+
+    def show_run_log(self, run_id: str) -> None:
+        _time_sorted_logs = sorted(
+            glob.glob(os.path.join(self._here, "logs", "*")), key=os.path.getmtime
+        )
+
+        for log_file in _time_sorted_logs:
+            _run_id = hashlib.sha1(open(log_file).read().encode("utf-8")).hexdigest()
+
+            if _run_id[: len(run_id)] == run_id:
+                with open(log_file) as f:
+                    click.echo(f.read())
+                return
+        click.echo(f"Could not find run matching id '{run_id}'")
+        sys.exit(1)
 
     def add_remote(self, remote_url: str, label: str = "origin") -> None:
         self.check_is_repo()
