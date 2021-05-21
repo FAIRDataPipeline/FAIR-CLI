@@ -1,40 +1,142 @@
+#!/usr/bin/env python
+"""
+Contains definitions for the synchronisation tool for communication between
+remote and local FAIR Data Pipeline registries.
+
+BSD 2-Clause License
+
+Copyright (c) 2021, Scottish COVID Response Consortium
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this
+   list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+"""
+
 import os
 import glob
 import sys
 import hashlib
 import rich
-from pathlib import Path
-from typing import Dict
-from datetime import datetime
+import pathlib
+import typing
+import datetime
+import subprocess
 
 import toml
 import yaml
 import click
 import socket
-import subprocess
 
 from dante.templates import config_template, hist_template
 
+__author__ = "Scottish COVID Response Consortium"
+__credits__ = ["Nathan Cummings (UKAEA)", "Kristian Zarebski (UKAEA)"]
+__license__ = "BSD-2-Clause"
+__status__ = "Development"
+__copyright__ = "Copyright 2021, DANTE"
+
+
+__doc__ = """
+Manage synchronisation of data and metadata relating to runs using the SCRC FAIR Data Pipeline system.
+
+Classes:
+
+    DANTE
+
+Misc Variables:
+
+    __author__
+    __license__
+    __credits__
+    __status__
+    __copyright__
+
+"""
+
 
 class DANTE:
+    """
+    A class which provides the main interface for managing runs and data transfer
+    between FAIR Data Pipeline registries.
+
+    Attributes
+    ----------
+    LOCAL_FOLDER
+        the name of the directory created in each repository
+    GLOBAL_FOLDER
+        the address of the global SCRC folder used to store global configs
+
+    Methods
+    ----------
+    check_is_repo()
+    change_staging_state(file_to_stage: str, stage: bool = True)
+    remove_file(file_name: str, cached: bool = False)
+    show_history()
+    run_bash_command(bash_cmd: str = None)
+    show_run_log(run_id: str)
+    add_remote(url: str, label: str = "origin")
+    remove_remote(label: str)
+    modify_remote(label: str, url: str)
+    purge()
+    list_remotes(verbose: bool = False)
+    status()
+    set_email(email: str)
+    set_user(user_name: str)
+    initialise()
+
+    """
+
     LOCAL_FOLDER = ".dante"
-    GLOBAL_FOLDER = os.path.join(Path.home(), ".scrc")
+    GLOBAL_FOLDER = os.path.join(pathlib.Path.home(), ".scrc")
 
     def __init__(self) -> None:
+        """Initialise instance of DANTE sync tool"""
+
+        # Creates $HOME/.scrc if it does not exist
         if not os.path.exists(self.GLOBAL_FOLDER):
             os.makedirs(self.GLOBAL_FOLDER)
+
+        # Find the nearest '.dante' folder to determine repository root
         self._here = self._find_dante_root()
+
+        # Create staging file, this is used to keep track of which files
+        # and runs are to be pushed to the remote
         self._staging_file = os.path.join(self._here, "staging") if self._here else ""
-        self._local_config_file = (
-            os.path.join(self._here, "config") if self._here else ""
-        )
+
+        # Path of local configuration file
+        self._local_config_file = os.path.join(self._here, "config")
+
+        # Path of global configuration file
         self._global_config_file = os.path.join(self.GLOBAL_FOLDER, "danteconfig")
+
+        # Local data store containing symlinks to data files stored on the system
         self._soft_data_dir = os.path.join(self._here, ".dante", "data")
-        self._stage_status: Dict = {}
-        self._local_config: Dict = {}
-        self._global_config: Dict = {}
+
+        # Initialise all configuration/staging status dictionaries
+        self._stage_status: typing.Dict[str, typing.Any] = {}
+        self._local_config: typing.Dict[str, typing.Any] = {}
+        self._global_config: typing.Dict[str, typing.Any] = {}
 
     def check_is_repo(self) -> None:
+        """Check that the current location is a DANTE repository"""
         if not self._find_dante_root():
             click.echo("fatal: not a dante repository, run 'dante init' to initialise")
             sys.exit(1)
@@ -51,51 +153,86 @@ class DANTE:
 
         # Keep upward searching until you find '.dante', stop at the level of
         # the user's home directory
-        while _current_dir != Path.home():
+        while _current_dir != pathlib.Path.home():
             _dante_dir = os.path.join(_current_dir, self.LOCAL_FOLDER)
             if os.path.exists(_dante_dir):
                 return _dante_dir
-            _current_dir = Path(_current_dir).parent
+            _current_dir = pathlib.Path(_current_dir).parent
         return ""
 
     def __enter__(self) -> None:
+        """Method called when using 'with' statement.
+
+        This ensures all configurations and staging statuses are read at the
+        start of every session.
+
+        """
         if os.path.exists(self._staging_file):
             self._stage_status = toml.load(self._staging_file)
         if os.path.exists(self._global_config_file):
             self._global_config = toml.load(self._global_config_file)
         if os.path.exists(self._local_config_file):
             self._local_config = toml.load(self._local_config_file)
-        if not self._stage_status:
-            self._stage_status = {}
-        if not self._local_config:
-            self._local_config = {}
         return self
 
-    def change_staging_state(self, file_to_stage: str, stage=True) -> None:
+    def change_staging_state(self, file_to_stage: str, stage: bool = True) -> None:
+        """Change the staging status of a given file
+
+        Parameters
+        ----------
+        file_to_stage : str
+            path of the file to be staged/unstaged
+        stage : bool, optional
+            whether to stage/unstage file, by default True (staged)
+        """
         self.check_is_repo()
+
         if not os.path.exists(file_to_stage):
             click.echo(f"No such file '{file_to_stage}.")
             sys.exit(1)
+
+        # Create a label with which to store the staging status of the given file
+        # using its path with respect to the staging status file
         _label = os.path.relpath(file_to_stage, os.path.dirname(self._staging_file))
+
         self._stage_status[_label] = stage
 
-    def set_configuration(self):
-        self.check_is_repo()
-
     def remove_file(self, file_name: str, cached: bool = False) -> None:
+        """Remove a file from the file system and tracking
+
+        Parameters
+        ----------
+        file_name : str
+            path of file to be removed
+        cached : bool, optional
+            remove from tracking but not from system, by default False
+        """
         self.check_is_repo()
         _label = os.path.relpath(file_name, os.path.dirname(self._staging_file))
         if _label in self._stage_status:
             del self._stage_status[_label]
         else:
             click.echo(f"File '{file_name}' is not tracked, so will not be removed")
+            return
 
         if not cached:
             os.remove(file_name)
 
-    def show_history(self) -> None:
-        _all_log_files = glob.glob(os.path.join(self._here, "logs", "*"))
-        for log in _all_log_files:
+    def show_history(self, length: int = 10) -> None:
+        """Show run history, by time sorting log outputs and displaying their metadata"""
+
+        # Read in all log files from the log storage by reverse sorting them
+        # by datetime created
+        _time_sorted_logs = sorted(
+            glob.glob(os.path.join(self._here, "logs", "*")),
+            key=os.path.getmtime,
+            reverse=True,
+        )
+
+        # Iterate through the logs printing out the run author
+        for i, log in enumerate(_time_sorted_logs):
+            if i == length:
+                return
             _run_id = hashlib.sha1(open(log).read().encode("utf-8")).hexdigest()
             with open(log) as f:
                 _metadata = f.readlines()[:5]
@@ -118,13 +255,15 @@ class DANTE:
         cmd_str : str
             command to execute
         """
-        _now = datetime.now()
+        # Record the time the run was executed, create a log and both
+        # print output and write it to the log file
+        _now = datetime.datetime.now()
         _timestamp = _now.strftime("%Y-%m-%d_%H_%M_%S")
         _logs_dir = os.path.join(self._here, "logs")
         if not os.path.exists(_logs_dir):
             os.mkdir(_logs_dir)
         _log_file = os.path.join(_logs_dir, f"run_{_timestamp}.log")
-        _cfg_yml = os.path.join(Path(self._here).parent, "config.yaml")
+        _cfg_yml = os.path.join(pathlib.Path(self._here).parent, "config.yaml")
 
         if not os.path.exists(_cfg_yml):
             click.echo("error: expected file 'config.yaml' at head of repository")
@@ -181,7 +320,7 @@ class DANTE:
             click.echo(line, nl=False)
             sys.stdout.flush()
         _process.wait()
-        _end_time = datetime.now()
+        _end_time = datetime.datetime.now()
         with open(_log_file, "a") as f:
             _duration = _end_time - _now
             f.writelines([f"------- time taken {_duration} -------\n"])
@@ -190,8 +329,11 @@ class DANTE:
             sys.exit(_process.returncode)
 
     def show_run_log(self, run_id: str) -> None:
+        """Show the log from a given run"""
         _time_sorted_logs = sorted(
-            glob.glob(os.path.join(self._here, "logs", "*")), key=os.path.getmtime
+            glob.glob(os.path.join(self._here, "logs", "*")),
+            key=os.path.getmtime,
+            reverse=True,
         )
 
         for log_file in _time_sorted_logs:
@@ -205,6 +347,7 @@ class DANTE:
         sys.exit(1)
 
     def add_remote(self, remote_url: str, label: str = "origin") -> None:
+        """Add a remote to the list of remote URLs"""
         self.check_is_repo()
         if "remotes" not in self._local_config:
             self._local_config["remotes"] = {}
@@ -214,6 +357,7 @@ class DANTE:
         self._local_config["remotes"][label] = remote_url
 
     def remove_remote(self, label: str) -> None:
+        """Remove a remote URL from the list of remotes by label"""
         self.check_is_repo()
         if "remotes" not in self._local_config or label not in self._local_config:
             self.fail(f"No such entry '{label}' in available remotes")
@@ -221,6 +365,7 @@ class DANTE:
         del self._local_config[label]
 
     def modify_remote(self, label: str, url: str) -> None:
+        """Update a remote URL for a given remote"""
         self.check_is_repo()
         if "remotes" not in self._local_config or label not in self._local_config:
             click.echo(f"No such entry '{label}' in available remotes")
@@ -228,15 +373,18 @@ class DANTE:
         self._local_config[label] = url
 
     def purge(self) -> None:
+        """Remove all local DANTE tracking records and caches"""
         if not os.path.exists(self._staging_file) and not os.path.exists(
             self._local_config_file
         ):
             click.echo("No dante tracking has been initialised")
         else:
             os.remove(self._staging_file)
+            os.remove(self._global_config_file)
             os.remove(self._local_config_file)
 
     def list_remotes(self, verbose: bool = False) -> None:
+        """List the available RestAPI URLs"""
         self.check_is_repo()
         if "remotes" not in self._local_config:
             return
@@ -250,6 +398,7 @@ class DANTE:
             click.echo("\n".join(_remote_print))
 
     def status(self) -> None:
+        """Get the status of staging"""
         self.check_is_repo()
         _staged = [i for i, j in self._stage_status.items() if j]
         _unstaged = [i for i, j in self._stage_status.items() if not j]
@@ -268,12 +417,15 @@ class DANTE:
                 click.echo(click.style(f"\t\t{file_name}", fg="red"))
 
     def set_email(self, email: str) -> None:
+        """Update the email address for the user"""
         self._local_config["user"]["email"] = email
 
     def set_user(self, name: str) -> None:
+        """Update the name of the user"""
         self._local_config["user"]["name"] = name
 
     def _global_config_query(self) -> None:
+        """Ask user question set for creating global DANTE config"""
         _def_local = "http://localhost:8000/api/"
 
         _remote_url = click.prompt(f"Remote API URL")
@@ -295,9 +447,6 @@ class DANTE:
         _def_ispace = _def_ispace if _def_ispace != "None" else None
         _def_ospace = click.prompt("Default output namespace", default=_def_ospace)
 
-        if not os.path.exists(self.GLOBAL_FOLDER):
-            os.mkdir(self.GLOBAL_FOLDER)
-
         self._global_config = {
             "user": {"name": _user_name, "email": _user_email, "orcid": _user_orcid},
             "remotes": {"local": _local_url, "origin": _remote_url},
@@ -305,6 +454,7 @@ class DANTE:
         }
 
     def _local_config_query(self, first_time_setup: bool = False) -> None:
+        """Ask user questions to create local user config"""
         _desc = click.prompt("Project description")
 
         _def_remote = self._global_config["remotes"]["origin"]
@@ -331,8 +481,9 @@ class DANTE:
                 "\n\tdante remote add <url>\n"
             )
             sys.exit(1)
-        print(self._here)
-        with open(os.path.join(Path(self._here).parent, "config.yaml"), "w") as f:
+        with open(
+            os.path.join(pathlib.Path(self._here).parent, "config.yaml"), "w"
+        ) as f:
             f.write(
                 config_template.render(
                     instance=self, local_repo=os.path.abspath(self._here)
@@ -367,6 +518,7 @@ class DANTE:
         click.echo(f"Initialised empty dante repository in {_dante_dir}")
 
     def __exit__(self, *args) -> None:
+        """Upon exiting, dump all configurations to file"""
         if not os.path.exists(self.LOCAL_FOLDER):
             return
         with open(self._staging_file, "w") as f:

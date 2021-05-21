@@ -14,7 +14,7 @@ click = "^8.0.0"
 requests = "^2.25.1"
 data-pipeline-api = "^0.7.3"
 toml = "^0.10.2"
-Jinja2 = "^3.0.1"
+Jinja2 = "^2.11.1"
 rich = "^10.2.2"
 
 [tool.poetry.dev-dependencies]
@@ -26,6 +26,7 @@ pycodestyle = "^2.7.0"
 flake8 = "^3.9.2"
 pydocstyle = "^6.0.0"
 pylama = "^7.7.1"
+poetry = "^1.1.6"
 
 [tool.poetry.scripts]
 dante = 'dante.cli:cli'

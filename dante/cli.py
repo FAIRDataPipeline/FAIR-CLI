@@ -1,21 +1,50 @@
-from pathlib import Path
-import os
-from click.types import DateTime
-import toml
-import hashlib
+#!/usr/bin/env python
+"""
+Command line interface to the FAIR Data Pipeline synchronisation tool.
 
+BSD 2-Clause License
+
+Copyright (c) 2021, Scottish COVID Response Consortium
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this
+   list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+"""
 import click
+import typing
 
-from dante.services import registry_installed, registry_running, download_data
-from dante.staging import DANTE
+from dante.services import download_data
+from dante.dante import DANTE
 
-from typing import List
+__author__ = "Scottish COVID Response Consortium"
+__credits__ = ["Nathan Cummings (UKAEA)", "Kristian Zarebski (UKAEA)"]
+__license__ = "BSD-2-Clause"
+__status__ = "Development"
+__copyright__ = "Copyright 2021, DANTE"
 
 
 @click.group()
 @click.version_option()
 def cli():
-    """Welcome to DANTE the FAIR data pipeline command-line interface."""
+    """Welcome to DANTE, the FAIR data pipeline command-line interface."""
     # if registry_installed() and registry_running():
     #     click.echo("Local registry installed and running")
     # else:
@@ -37,9 +66,7 @@ def make_config() -> None:
 
 @cli.command()
 def status() -> None:
-    """
-    Get the status of staging
-    """
+    """Get the status of files under staging"""
     with DANTE() as s:
         s.status()
 
@@ -66,7 +93,7 @@ def purge() -> None:
 
 @cli.command()
 @click.argument("file_paths", type=click.Path(exists=True), nargs=-1)
-def reset(file_paths: List[str]) -> None:
+def reset(file_paths: typing.List[str]) -> None:
     """Removes files/runs from staging"""
     with DANTE() as dante:
         for file_name in file_paths:
@@ -75,7 +102,7 @@ def reset(file_paths: List[str]) -> None:
 
 @cli.command()
 @click.argument("file_paths", type=click.Path(exists=True), nargs=-1)
-def add(file_paths: List[str]) -> None:
+def add(file_paths: typing.List[str]) -> None:
     """Add a file to staging"""
     with DANTE() as dante:
         for file_name in file_paths:
@@ -89,7 +116,7 @@ def add(file_paths: List[str]) -> None:
     default=False,
     help="remove from tracking but do not delete from file system",
 )
-def rm(file_paths: List[str], cached: bool = False) -> None:
+def rm(file_paths: typing.List[str], cached: bool = False) -> None:
     """removes files from system or just tracking"""
     with DANTE() as dante:
         for file_name in file_paths:
@@ -138,7 +165,7 @@ def bash(bash_command: str):
 @click.option("--verbose/--no-verbose", "-v/")
 @click.pass_context
 def remote(ctx, verbose: bool = False):
-    """List remotes if no additional command is provided"""
+    """typing.List remotes if no additional command is provided"""
     if not ctx.invoked_subcommand:
         with DANTE() as dante:
             dante.list_remotes(verbose)
@@ -146,13 +173,13 @@ def remote(ctx, verbose: bool = False):
 
 @remote.command()
 @click.argument("options", nargs=-1)
-def add(options: List[str]) -> None:
+def add(options: typing.List[str]) -> None:
     """Add a remote registry URL with option to give it a label if multiple
     remotes may be used.
 
     Parameters
     ----------
-    options : List[str]
+    options : typing.List[str]
         size 1 or 2 list containing either:
             - label, url
             - url
@@ -180,13 +207,13 @@ def remove(label: str) -> None:
 
 @remote.command()
 @click.argument("options", nargs=-1)
-def modify(options: List[str]) -> None:
+def modify(options: typing.List[str]) -> None:
     """Modify a remote address
 
     Parameters
     ----------
-    options : List[str]
-        List of 1 or 2 containing name of remote to modify
+    options : typing.List[str]
+        typing.List of 1 or 2 containing name of remote to modify
     """
     _label = options[0] if len(options) > 1 else "origin"
     _url = options[1] if len(options) > 1 else options[0]
