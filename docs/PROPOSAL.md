@@ -1,3 +1,4 @@
+![Workflow](./workflow.svg)
 # Proposal for an SCRC FAIR Data Pipeline Synchronisation Client Command Line Interface
 In the following document I outline a proposal for the synchronisation system `dante` which aims to synchronise a local version of the SCRC FAIR Data pipeline registry. Much of this plan proposes using commands which mirror those contained within the `git` interface. My argument for this is it is an interface familiar to many already and so easy to learn.
 
