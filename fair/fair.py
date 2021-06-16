@@ -45,13 +45,13 @@ import yaml
 import click
 import socket
 
-from dante.templates import config_template, hist_template
+from fair.templates import config_template, hist_template
 
 __author__ = "Scottish COVID Response Consortium"
 __credits__ = ["Nathan Cummings (UKAEA)", "Kristian Zarebski (UKAEA)"]
 __license__ = "BSD-2-Clause"
 __status__ = "Development"
-__copyright__ = "Copyright 2021, DANTE"
+__copyright__ = "Copyright 2021, FAIR"
 
 
 __doc__ = """
@@ -59,7 +59,7 @@ Manage synchronisation of data and metadata relating to runs using the SCRC FAIR
 
 Classes:
 
-    DANTE
+    FAIR
 
 Misc Variables:
 
@@ -72,7 +72,7 @@ Misc Variables:
 """
 
 
-class DANTE:
+class FAIR:
     """
     A class which provides the main interface for managing runs and data transfer
     between FAIR Data Pipeline registries.
@@ -104,18 +104,18 @@ class DANTE:
 
     """
 
-    LOCAL_FOLDER = ".dante"
+    LOCAL_FOLDER = ".fair"
     GLOBAL_FOLDER = os.path.join(pathlib.Path.home(), ".scrc")
 
     def __init__(self) -> None:
-        """Initialise instance of DANTE sync tool"""
+        """Initialise instance of FAIR sync tool"""
 
         # Creates $HOME/.scrc if it does not exist
         if not os.path.exists(self.GLOBAL_FOLDER):
             os.makedirs(self.GLOBAL_FOLDER)
 
-        # Find the nearest '.dante' folder to determine repository root
-        self._here = self._find_dante_root()
+        # Find the nearest '.fair' folder to determine repository root
+        self._here = self._find_fair_root()
 
         # Create staging file, this is used to keep track of which files
         # and runs are to be pushed to the remote
@@ -125,10 +125,10 @@ class DANTE:
         self._local_config_file = os.path.join(self._here, "config")
 
         # Path of global configuration file
-        self._global_config_file = os.path.join(self.GLOBAL_FOLDER, "danteconfig")
+        self._global_config_file = os.path.join(self.GLOBAL_FOLDER, "fairconfig")
 
         # Local data store containing symlinks to data files stored on the system
-        self._soft_data_dir = os.path.join(self._here, ".dante", "data")
+        self._soft_data_dir = os.path.join(self._here, ".fair", "data")
 
         # Initialise all configuration/staging status dictionaries
         self._stage_status: typing.Dict[str, typing.Any] = {}
@@ -136,27 +136,27 @@ class DANTE:
         self._global_config: typing.Dict[str, typing.Any] = {}
 
     def check_is_repo(self) -> None:
-        """Check that the current location is a DANTE repository"""
-        if not self._find_dante_root():
-            click.echo("fatal: not a dante repository, run 'dante init' to initialise")
+        """Check that the current location is a FAIR repository"""
+        if not self._find_fair_root():
+            click.echo("fatal: not a fair repository, run 'fair init' to initialise")
             sys.exit(1)
 
-    def _find_dante_root(self) -> str:
-        """Locate the .dante folder within the current hierarchy
+    def _find_fair_root(self) -> str:
+        """Locate the .fair folder within the current hierarchy
 
         Returns
         -------
         str
-            absolute path of the .dante folder
+            absolute path of the .fair folder
         """
         _current_dir = os.getcwd()
 
-        # Keep upward searching until you find '.dante', stop at the level of
+        # Keep upward searching until you find '.fair', stop at the level of
         # the user's home directory
         while _current_dir != pathlib.Path.home():
-            _dante_dir = os.path.join(_current_dir, self.LOCAL_FOLDER)
-            if os.path.exists(_dante_dir):
-                return _dante_dir
+            _fair_dir = os.path.join(_current_dir, self.LOCAL_FOLDER)
+            if os.path.exists(_fair_dir):
+                return _fair_dir
             _current_dir = pathlib.Path(_current_dir).parent
         return ""
 
@@ -373,11 +373,11 @@ class DANTE:
         self._local_config[label] = url
 
     def purge(self) -> None:
-        """Remove all local DANTE tracking records and caches"""
+        """Remove all local FAIR tracking records and caches"""
         if not os.path.exists(self._staging_file) and not os.path.exists(
             self._local_config_file
         ):
-            click.echo("No dante tracking has been initialised")
+            click.echo("No fair tracking has been initialised")
         else:
             os.remove(self._staging_file)
             os.remove(self._global_config_file)
@@ -411,7 +411,7 @@ class DANTE:
 
         if _unstaged:
             click.echo("Files not staged for synchronization:")
-            click.echo(f'\t(use "dante add <file>..." to stage files)')
+            click.echo(f'\t(use "fair add <file>..." to stage files)')
 
             for file_name in _unstaged:
                 click.echo(click.style(f"\t\t{file_name}", fg="red"))
@@ -425,7 +425,7 @@ class DANTE:
         self._local_config["user"]["name"] = name
 
     def _global_config_query(self) -> None:
-        """Ask user question set for creating global DANTE config"""
+        """Ask user question set for creating global FAIR config"""
         _def_local = "http://localhost:8000/api/"
 
         _remote_url = click.prompt(f"Remote API URL")
@@ -478,7 +478,7 @@ class DANTE:
         if "remotes" not in self._local_config:
             click.echo(
                 "Cannot generate config.yaml, you need to set the remote URL by running: \n"
-                "\n\tdante remote add <url>\n"
+                "\n\tfair remote add <url>\n"
             )
             sys.exit(1)
         with open(
@@ -491,18 +491,18 @@ class DANTE:
             )
 
     def initialise(self) -> None:
-        """Initialise an dante repository within the current location"""
-        _dante_dir = os.path.abspath(os.path.join(os.getcwd(), ".dante"))
+        """Initialise an fair repository within the current location"""
+        _fair_dir = os.path.abspath(os.path.join(os.getcwd(), ".fair"))
 
-        if os.path.exists(_dante_dir):
-            click.echo(f"fatal: dante repository is already initialised.")
+        if os.path.exists(_fair_dir):
+            click.echo(f"fatal: fair repository is already initialised.")
             sys.exit(1)
 
-        self._local_config_file = os.path.join(_dante_dir, "config")
-        self._staging_file = os.path.join(_dante_dir, "staging")
+        self._local_config_file = os.path.join(_fair_dir, "config")
+        self._staging_file = os.path.join(_fair_dir, "staging")
 
         click.echo(
-            "Initialising DANTE repository, setup will now ask for basic info:\n"
+            "Initialising FAIR repository, setup will now ask for basic info:\n"
         )
 
         if not os.path.exists(self._global_config_file):
@@ -510,12 +510,12 @@ class DANTE:
 
         self._local_config_query(first_time_setup=True)
 
-        os.mkdir(_dante_dir)
+        os.mkdir(_fair_dir)
 
         with open(self._local_config_file, "w") as f:
             toml.dump(self._local_config, f)
         self._make_starter_config()
-        click.echo(f"Initialised empty dante repository in {_dante_dir}")
+        click.echo(f"Initialised empty fair repository in {_fair_dir}")
 
     def __exit__(self, *args) -> None:
         """Upon exiting, dump all configurations to file"""

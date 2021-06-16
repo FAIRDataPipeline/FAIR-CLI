@@ -1,2 +1,2 @@
 # Unreleased
-- Creation of an interface for `dante` using `click`.
+- Creation of an interface for `fair` using `click`.

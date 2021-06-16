@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "dante"
+name = "fair"
 version = "0.1.0"
 description = "Synchronization interface for the SCRC FAIR Data Pipeline registry"
 authors = [
@@ -29,7 +29,7 @@ pylama = "^7.7.1"
 poetry = "^1.1.6"
 
 [tool.poetry.scripts]
-dante = 'dante.cli:cli'
+fair = 'fair.cli:cli'
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
