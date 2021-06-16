@@ -158,7 +158,7 @@ def bash(bash_command: str):
 @click.option("--verbose/--no-verbose", "-v/")
 @click.pass_context
 def remote(ctx, verbose: bool = False):
-    """typing.List remotes if no additional command is provided"""
+    """List remotes if no additional command is provided"""
     if not ctx.invoked_subcommand:
         with FAIR() as fair:
             fair.list_remotes(verbose)

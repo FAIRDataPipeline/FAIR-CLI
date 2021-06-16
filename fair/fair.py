@@ -39,6 +39,7 @@ import pathlib
 import typing
 import datetime
 import subprocess
+import requests
 
 import toml
 import yaml
@@ -119,13 +120,17 @@ class FAIR:
 
         # Create staging file, this is used to keep track of which files
         # and runs are to be pushed to the remote
-        self._staging_file = os.path.join(self._here, "staging") if self._here else ""
+        self._staging_file = (
+            os.path.join(self._here, "staging") if self._here else ""
+        )
 
         # Path of local configuration file
         self._local_config_file = os.path.join(self._here, "config")
 
         # Path of global configuration file
-        self._global_config_file = os.path.join(self.GLOBAL_FOLDER, "fairconfig")
+        self._global_config_file = os.path.join(
+            self.GLOBAL_FOLDER, "fairconfig"
+        )
 
         # Local data store containing symlinks to data files stored on the system
         self._soft_data_dir = os.path.join(self._here, ".fair", "data")
@@ -135,10 +140,73 @@ class FAIR:
         self._local_config: typing.Dict[str, typing.Any] = {}
         self._global_config: typing.Dict[str, typing.Any] = {}
 
+    def _launch_server(self) -> None:
+        """Start the FAIR Data Pipeline local server"""
+
+        # If the registry server is already running ignore or no setup has
+        # yet been performed
+        if self._server_up_file or not self._local_config:
+            return
+
+        _server_start_script = os.path.join(
+            self.GLOBAL_FOLDER, "scripts", "run_scrc_server"
+        )
+
+        if not os.path.exists(_server_start_script):
+            click.echo(
+                "Error: failed to find local registry executable,"
+                " is the FAIR data pipeline properly installed on this system?"
+            )
+            sys.exit(1)
+
+        _start = subprocess.Popen([_server_start_script], shell=False)
+        _start.wait()
+
+        if (
+            not requests.get(
+                self._local_config["remotes"]["local"]
+            ).status_code
+            == 200
+        ):
+            click.echo(
+                "Error: Failed to start local registry, no response from server"
+            )
+            sys.exit(1)
+
+    def _stop_server(self) -> None:
+        """Stops the FAIR Data Pipeline local server"""
+        # If the local registry server is not running ignore
+        if self._server_up_file:
+            return
+
+        _server_stop_script = os.path.join(
+            self.GLOBAL_FOLDER, "scripts", "stop_scrc_server"
+        )
+
+        if not os.path.exists(_server_stop_script):
+            click.echo(
+                "Error: failed to find local registry executable,"
+                " is the FAIR data pipeline properly installed on this system?"
+            )
+            sys.exit(1)
+
+        _stop = subprocess.Popen(_server_stop_script, shell=False)
+
+        _stop.wait()
+
+        if (
+            requests.get(self._local_config["remotes"]["local"]).status_code
+            == 200
+        ):
+            click.echo("Error: Failed to stop local registry")
+            sys.exit(1)
+
     def check_is_repo(self) -> None:
         """Check that the current location is a FAIR repository"""
         if not self._find_fair_root():
-            click.echo("fatal: not a fair repository, run 'fair init' to initialise")
+            click.echo(
+                "fatal: not a fair repository, run 'fair init' to initialise"
+            )
             sys.exit(1)
 
     def _find_fair_root(self) -> str:
@@ -173,9 +241,12 @@ class FAIR:
             self._global_config = toml.load(self._global_config_file)
         if os.path.exists(self._local_config_file):
             self._local_config = toml.load(self._local_config_file)
+        self._launch_server()
         return self
 
-    def change_staging_state(self, file_to_stage: str, stage: bool = True) -> None:
+    def change_staging_state(
+        self, file_to_stage: str, stage: bool = True
+    ) -> None:
         """Change the staging status of a given file
 
         Parameters
@@ -193,7 +264,9 @@ class FAIR:
 
         # Create a label with which to store the staging status of the given file
         # using its path with respect to the staging status file
-        _label = os.path.relpath(file_to_stage, os.path.dirname(self._staging_file))
+        _label = os.path.relpath(
+            file_to_stage, os.path.dirname(self._staging_file)
+        )
 
         self._stage_status[_label] = stage
 
@@ -208,11 +281,15 @@ class FAIR:
             remove from tracking but not from system, by default False
         """
         self.check_is_repo()
-        _label = os.path.relpath(file_name, os.path.dirname(self._staging_file))
+        _label = os.path.relpath(
+            file_name, os.path.dirname(self._staging_file)
+        )
         if _label in self._stage_status:
             del self._stage_status[_label]
         else:
-            click.echo(f"File '{file_name}' is not tracked, so will not be removed")
+            click.echo(
+                f"File '{file_name}' is not tracked, so will not be removed"
+            )
             return
 
         if not cached:
@@ -233,7 +310,9 @@ class FAIR:
         for i, log in enumerate(_time_sorted_logs):
             if i == length:
                 return
-            _run_id = hashlib.sha1(open(log).read().encode("utf-8")).hexdigest()
+            _run_id = hashlib.sha1(
+                open(log).read().encode("utf-8")
+            ).hexdigest()
             with open(log) as f:
                 _metadata = f.readlines()[:5]
             _user = _metadata[2].split("=")[1]
@@ -266,7 +345,9 @@ class FAIR:
         _cfg_yml = os.path.join(pathlib.Path(self._here).parent, "config.yaml")
 
         if not os.path.exists(_cfg_yml):
-            click.echo("error: expected file 'config.yaml' at head of repository")
+            click.echo(
+                "error: expected file 'config.yaml' at head of repository"
+            )
             sys.exit(1)
 
         with open(_cfg_yml) as f:
@@ -274,7 +355,9 @@ class FAIR:
             assert _cfg
 
         if "run_metadata" not in _cfg or "script" not in _cfg["run_metadata"]:
-            click.echo("error: failed to find executable method in configuration")
+            click.echo(
+                "error: failed to find executable method in configuration"
+            )
             sys.exit(1)
 
         if bash_cmd:
@@ -337,7 +420,9 @@ class FAIR:
         )
 
         for log_file in _time_sorted_logs:
-            _run_id = hashlib.sha1(open(log_file).read().encode("utf-8")).hexdigest()
+            _run_id = hashlib.sha1(
+                open(log_file).read().encode("utf-8")
+            ).hexdigest()
 
             if _run_id[: len(run_id)] == run_id:
                 with open(log_file) as f:
@@ -359,7 +444,10 @@ class FAIR:
     def remove_remote(self, label: str) -> None:
         """Remove a remote URL from the list of remotes by label"""
         self.check_is_repo()
-        if "remotes" not in self._local_config or label not in self._local_config:
+        if (
+            "remotes" not in self._local_config
+            or label not in self._local_config
+        ):
             self.fail(f"No such entry '{label}' in available remotes")
             sys.exit(1)
         del self._local_config[label]
@@ -367,7 +455,10 @@ class FAIR:
     def modify_remote(self, label: str, url: str) -> None:
         """Update a remote URL for a given remote"""
         self.check_is_repo()
-        if "remotes" not in self._local_config or label not in self._local_config:
+        if (
+            "remotes" not in self._local_config
+            or label not in self._local_config
+        ):
             click.echo(f"No such entry '{label}' in available remotes")
             sys.exit(1)
         self._local_config[label] = url
@@ -445,10 +536,16 @@ class FAIR:
 
         _def_ispace = click.prompt("Default input namespace", default="None")
         _def_ispace = _def_ispace if _def_ispace != "None" else None
-        _def_ospace = click.prompt("Default output namespace", default=_def_ospace)
+        _def_ospace = click.prompt(
+            "Default output namespace", default=_def_ospace
+        )
 
         self._global_config = {
-            "user": {"name": _user_name, "email": _user_email, "orcid": _user_orcid},
+            "user": {
+                "name": _user_name,
+                "email": _user_email,
+                "orcid": _user_orcid,
+            },
             "remotes": {"local": _local_url, "origin": _remote_url},
             "namespaces": {"input": _def_ispace, "output": _def_ospace},
         }
@@ -465,12 +562,22 @@ class FAIR:
         if not first_time_setup:
             _def_remote = click.prompt(f"Remote API URL", default=_def_remote)
             _def_local = click.prompt(f"Local API URL", default=_def_local)
-            _def_ospace = click.prompt("Default output namespace", default=_def_ospace)
-            _def_ispace = click.prompt("Default input namespace", default=_def_ispace)
+            _def_ospace = click.prompt(
+                "Default output namespace", default=_def_ospace
+            )
+            _def_ispace = click.prompt(
+                "Default input namespace", default=_def_ispace
+            )
 
-        self._local_config["namespaces"] = {"output": _def_ospace, "input": _def_ispace}
+        self._local_config["namespaces"] = {
+            "output": _def_ospace,
+            "input": _def_ispace,
+        }
 
-        self._local_config["remotes"] = {"origin": _def_remote, "local": _def_local}
+        self._local_config["remotes"] = {
+            "origin": _def_remote,
+            "local": _def_local,
+        }
         self._local_config["description"] = _desc
 
     def _make_starter_config(self) -> None:
@@ -521,6 +628,7 @@ class FAIR:
         """Upon exiting, dump all configurations to file"""
         if not os.path.exists(self.LOCAL_FOLDER):
             return
+        self._stop_server()
         with open(self._staging_file, "w") as f:
             toml.dump(self._stage_status, f)
         with open(self._global_config_file, "w") as f:
