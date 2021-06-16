@@ -206,7 +206,7 @@ def modify(options: typing.List[str]) -> None:
     Parameters
     ----------
     options : typing.List[str]
-        typing.List of 1 or 2 containing name of remote to modify
+        List of 1 or 2 containing name of remote to modify
     """
     _label = options[0] if len(options) > 1 else "origin"
     _url = options[1] if len(options) > 1 else options[0]
