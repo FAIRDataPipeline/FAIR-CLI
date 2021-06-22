@@ -35,15 +35,13 @@ def show_run_log(run_id: str) -> None:
     sys.exit(1)
 
 
-def show_history(self, length: int = 10) -> None:
+def show_history(length: int = 10) -> None:
     """Show run history by time sorting log outputs, display metadata"""
 
     # Read in all log files from the log storage by reverse sorting them
     # by datetime created
     _time_sorted_logs = sorted(
-        glob.glob(os.path.join(history_directory(), "*")),
-        key=os.path.getmtime,
-        reverse=True,
+        glob.glob(os.path.join(history_directory(), "*")), key=os.path.getmtime
     )
 
     # Iterate through the logs printing out the run author
@@ -53,6 +51,8 @@ def show_history(self, length: int = 10) -> None:
         _run_id = hashlib.sha1(open(log).read().encode("utf-8")).hexdigest()
         with open(log) as f:
             _metadata = f.readlines()[:5]
+        if not _metadata:
+            continue
         _user = _metadata[2].split("=")[1]
         _name = _user.split("<")[0].strip()
         _email = _user.replace(_name, "").strip()

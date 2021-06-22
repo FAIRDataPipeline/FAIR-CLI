@@ -14,7 +14,7 @@ def flatten_dict(
         new_label = f"{parent_key}{separator}{label}" if parent_key else label
         if isinstance(value, dict):
             flatten_dict(
-                in_dict=value, output_dict=out_dict, parent_key=new_label
+                in_dict=value, out_dict=out_dict, parent_key=new_label
             )
             continue
 

@@ -10,11 +10,11 @@ import fair.common as fdp_com
 
 def read_local_fdpconfig() -> MutableMapping:
     _local_config: MutableMapping = {}
-    _local_config_file_addr = fdp_com.local_config()
+    _local_config_file_addr = fdp_com.local_fdpconfig()
 
     if os.path.exists(_local_config_file_addr):
         _local_config = yaml.load(
-            _local_config_file_addr, Loader=yaml.SafeLoader
+            open(_local_config_file_addr), Loader=yaml.BaseLoader
         )
 
     return _local_config
@@ -25,7 +25,9 @@ def read_global_fdpconfig() -> MutableMapping:
     _global_config_addr = fdp_com.GLOBAL_FAIR_CONFIG
 
     if os.path.exists(_global_config_addr):
-        _global_config = yaml.load(_global_config_addr, Loader=yaml.SafeLoader)
+        _global_config = yaml.load(
+            open(_global_config_addr), Loader=yaml.BaseLoader
+        )
 
     return _global_config
 
@@ -36,7 +38,6 @@ def _get_config_property(config_data: MutableMapping, *args) -> Any:
         try:
             _object = _object[key]
         except KeyError:
-            print(_object)
             click.echo(
                 "Failed to retrieve property "
                 f"'{'/'.join(args)}' from configuration"
@@ -49,14 +50,14 @@ def set_email(email: str) -> None:
     """Update the email address for the user"""
     _loc_conf = read_local_fdpconfig()
     _loc_conf["user"]["email"] = email
-    yaml.dump(_loc_conf, open(fdp_com.local_config(), "w"))
+    yaml.dump(_loc_conf, open(fdp_com.local_fdpconfig(), "w"))
 
 
 def set_user(name: str) -> None:
     """Update the name of the user"""
     _loc_conf = read_local_fdpconfig()
     _loc_conf["user"]["name"] = name
-    yaml.dump(_loc_conf, open(fdp_com.local_config(), "w"))
+    yaml.dump(_loc_conf, open(fdp_com.local_fdpconfig(), "w"))
 
 
 def get_current_user() -> str:

@@ -73,7 +73,8 @@ class FAIR:
                 "mean the local registry has not been installed."
             )
 
-        os.makedirs(fdp_com.GLOBAL_CONFIG_DIR)
+        if not os.path.exists(fdp_com.GLOBAL_CONFIG_DIR):
+            os.makedirs(fdp_com.GLOBAL_CONFIG_DIR)
 
         # Initialise all configuration/staging status dictionaries
         self._stage_status: typing.Dict[str, typing.Any] = {}
@@ -121,7 +122,9 @@ class FAIR:
             sys.exit(1)
 
     def run(
-        self, config_yaml: str = fdp_com.local_config(), bash_cmd: str = ""
+        self,
+        config_yaml: str = fdp_com.local_user_config(),
+        bash_cmd: str = "",
     ) -> None:
         """Execute a run using the given user configuration file
 
@@ -130,6 +133,7 @@ class FAIR:
         config_yaml : str, optional
             user configuration file, defaults to FAIR repository config.yaml
         """
+        self.check_is_repo()
         fdp_run.run_bash_command(config_yaml, bash_cmd)
 
     def _stop_server(self) -> None:
@@ -180,11 +184,11 @@ class FAIR:
         """
         if os.path.exists(fdp_com.staging_cache()):
             self._stage_status = yaml.load(
-                fdp_com.staging_cache(), Loader=yaml.SafeLoader
+                open(fdp_com.staging_cache()), Loader=yaml.BaseLoader
             )
         if os.path.exists(fdp_com.GLOBAL_FAIR_CONFIG):
             self._global_config = fdp_conf.read_global_fdpconfig()
-        if os.path.exists(fdp_com.local_config()):
+        if os.path.exists(fdp_com.local_fdpconfig()):
             self._local_config = fdp_conf.read_local_fdpconfig()
         self._launch_server()
         return self
@@ -275,13 +279,13 @@ class FAIR:
     def purge(self) -> None:
         """Remove all local FAIR tracking records and caches"""
         if not os.path.exists(self._staging_file) and not os.path.exists(
-            fdp_com.local_config()
+            fdp_com.local_fdpconfig()
         ):
             click.echo("No fair tracking has been initialised")
         else:
             os.remove(fdp_com.staging_cache())
             os.remove(fdp_com.GLOBAL_FAIR_CONFIG)
-            os.remove(fdp_com.local_config())
+            os.remove(fdp_com.local_fdpconfig())
 
     def list_remotes(self, verbose: bool = False) -> None:
         """List the available RestAPI URLs"""
@@ -373,7 +377,7 @@ class FAIR:
                 " in order to use the registry you will need to specify one"
                 " within this local configuration."
             )
-            _def_ispace = "null"
+            _def_ispace = None
         else:
             _def_ispace = self._global_config["namespaces"]["input"]
 
@@ -411,13 +415,15 @@ class FAIR:
         with open(
             os.path.join(fdp_com.find_fair_root(), "config.yaml"), "w"
         ) as f:
-            f.write(
-                config_template.render(
-                    instance=self,
-                    data_dir=fdp_com.default_data_dir(),
-                    local_repo=os.path.abspath(fdp_com.find_fair_root()),
-                )
+            _yaml_str = config_template.render(
+                instance=self,
+                data_dir=fdp_com.data_dir(),
+                local_repo=os.path.abspath(fdp_com.find_fair_root()),
             )
+            _yaml_dict = yaml.load(_yaml_str, Loader=yaml.BaseLoader)
+            _yaml_dict["fail_on_hash_mismatch"] = True
+            _yaml_dict["run_metadata"]["script"] = None
+            yaml.dump(_yaml_dict, f)
 
     def initialise(self) -> None:
         """Initialise an fair repository within the current location"""
@@ -441,7 +447,7 @@ class FAIR:
 
         os.mkdir(_fair_dir)
 
-        with open(fdp_com.local_config(), "w") as f:
+        with open(fdp_com.local_fdpconfig(), "w") as f:
             yaml.dump(self._local_config, f)
         self._make_starter_config()
         click.echo(f"Initialised empty fair repository in {_fair_dir}")
@@ -455,5 +461,5 @@ class FAIR:
             yaml.dump(self._stage_status, f)
         with open(fdp_com.GLOBAL_FAIR_CONFIG, "w") as f:
             yaml.dump(self._global_config, f)
-        with open(fdp_com.local_config(), "w") as f:
+        with open(fdp_com.local_fdpconfig(), "w") as f:
             yaml.dump(self._local_config, f)

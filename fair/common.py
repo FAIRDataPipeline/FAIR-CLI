@@ -39,9 +39,17 @@ def staging_cache() -> str:
     return os.path.join(find_fair_root(), FAIR_FOLDER, "staging")
 
 
-def default_data_dir() -> str:
+def data_dir() -> str:
     return os.path.join(REGISTRY_HOME, "data")
 
 
-def local_config() -> str:
+def local_fdpconfig() -> str:
     return os.path.join(find_fair_root(), FAIR_FOLDER, FAIR_CLI_CONFIG)
+
+
+def local_user_config() -> str:
+    return os.path.join(find_fair_root(), "config.yaml")
+
+
+def coderun_dir() -> str:
+    return os.path.join(data_dir(), "coderun")

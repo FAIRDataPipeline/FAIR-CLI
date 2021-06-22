@@ -144,7 +144,7 @@ def pull(config: str):
 @click.option(
     "--config",
     help="Specify alternate config.yaml",
-    default=fdp_com.local_config(),
+    default=fdp_com.local_user_config(),
 )
 @click.pass_context
 def run(ctx, config):
@@ -159,7 +159,7 @@ def run(ctx, config):
 @click.option(
     "--config",
     help="Specify alternate config.yaml",
-    default=fdp_com.local_config(),
+    default=fdp_com.local_user_config(),
 )
 def bash(bash_command: str):
     """Run a BASH command and set this to be the default run command"""
