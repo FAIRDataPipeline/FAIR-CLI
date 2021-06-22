@@ -1,62 +1,21 @@
-#!/usr/bin/env python
-"""
-Contains definitions for the synchronisation tool for communication between
-remote and local FAIR Data Pipeline registries.
-
-BSD 2-Clause License
-
-Copyright (c) 2021, Scottish COVID Response Consortium
-All rights reserved.
-
-Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions are met:
-
-1. Redistributions of source code must retain the above copyright notice, this
-   list of conditions and the following disclaimer.
-
-2. Redistributions in binary form must reproduce the above copyright notice,
-   this list of conditions and the following disclaimer in the documentation
-   and/or other materials provided with the distribution.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
-FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-"""
-
 import os
-import glob
 import sys
-import hashlib
-import rich
-import pathlib
 import typing
-import datetime
 import subprocess
 import requests
 
-import toml
-import yaml
 import click
+import yaml
 import socket
 
-from fair.templates import config_template, hist_template
-
-__author__ = "Scottish COVID Response Consortium"
-__credits__ = ["Nathan Cummings (UKAEA)", "Kristian Zarebski (UKAEA)"]
-__license__ = "BSD-2-Clause"
-__status__ = "Development"
-__copyright__ = "Copyright 2021, FAIR"
-
+from fair.templates import config_template
+import fair.common as fdp_com
+import fair.run as fdp_run
+import fair.configuration as fdp_conf
 
 __doc__ = """
-Manage synchronisation of data and metadata relating to runs using the SCRC FAIR Data Pipeline system.
+Manage synchronisation of data and metadata relating to runs using the
+FAIR Data Pipeline system.
 
 Classes:
 
@@ -75,8 +34,8 @@ Misc Variables:
 
 class FAIR:
     """
-    A class which provides the main interface for managing runs and data transfer
-    between FAIR Data Pipeline registries.
+    A class which provides the main interface for managing runs and data
+    transfer between FAIR Data Pipeline registries.
 
     Attributes
     ----------
@@ -91,7 +50,6 @@ class FAIR:
     change_staging_state(file_to_stage: str, stage: bool = True)
     remove_file(file_name: str, cached: bool = False)
     show_history()
-    run_bash_command(bash_cmd: str = None)
     show_run_log(run_id: str)
     add_remote(url: str, label: str = "origin")
     remove_remote(label: str)
@@ -105,35 +63,17 @@ class FAIR:
 
     """
 
-    LOCAL_FOLDER = ".fair"
-    GLOBAL_FOLDER = os.path.join(pathlib.Path.home(), ".scrc")
-
     def __init__(self) -> None:
         """Initialise instance of FAIR sync tool"""
 
         # Creates $HOME/.scrc if it does not exist
-        if not os.path.exists(self.GLOBAL_FOLDER):
-            os.makedirs(self.GLOBAL_FOLDER)
+        if not os.path.exists(fdp_com.REGISTRY_HOME):
+            click.echo(
+                "Warning: User registry directory was not found, this could "
+                "mean the local registry has not been installed."
+            )
 
-        # Find the nearest '.fair' folder to determine repository root
-        self._here = self._find_fair_root()
-
-        # Create staging file, this is used to keep track of which files
-        # and runs are to be pushed to the remote
-        self._staging_file = (
-            os.path.join(self._here, "staging") if self._here else ""
-        )
-
-        # Path of local configuration file
-        self._local_config_file = os.path.join(self._here, "config")
-
-        # Path of global configuration file
-        self._global_config_file = os.path.join(
-            self.GLOBAL_FOLDER, "fairconfig"
-        )
-
-        # Local data store containing symlinks to data files stored on the system
-        self._soft_data_dir = os.path.join(self._here, ".fair", "data")
+        os.makedirs(fdp_com.GLOBAL_CONFIG_DIR)
 
         # Initialise all configuration/staging status dictionaries
         self._stage_status: typing.Dict[str, typing.Any] = {}
@@ -149,7 +89,7 @@ class FAIR:
             return
 
         _server_start_script = os.path.join(
-            self.GLOBAL_FOLDER, "scripts", "run_scrc_server"
+            fdp_com.REGISTRY_HOME, "scripts", "run_scrc_server"
         )
 
         if not os.path.exists(_server_start_script):
@@ -175,16 +115,29 @@ class FAIR:
             == 200
         ):
             click.echo(
-                "Error: Failed to start local registry, no response from server"
+                "Error: Failed to start local registry,"
+                " no response from server"
             )
             sys.exit(1)
+
+    def run(
+        self, config_yaml: str = fdp_com.local_config(), bash_cmd: str = ""
+    ) -> None:
+        """Execute a run using the given user configuration file
+
+        Parameters
+        ----------
+        config_yaml : str, optional
+            user configuration file, defaults to FAIR repository config.yaml
+        """
+        fdp_run.run_bash_command(config_yaml, bash_cmd)
 
     def _stop_server(self) -> None:
         """Stops the FAIR Data Pipeline local server"""
         # If the local registry server is not running ignore
 
         _server_stop_script = os.path.join(
-            self.GLOBAL_FOLDER, "scripts", "stop_scrc_server"
+            fdp_com.REGISTRY_HOME, "scripts", "stop_scrc_server"
         )
 
         if not os.path.exists(_server_stop_script):
@@ -212,30 +165,11 @@ class FAIR:
 
     def check_is_repo(self) -> None:
         """Check that the current location is a FAIR repository"""
-        if not self._find_fair_root():
+        if not fdp_com.find_fair_root():
             click.echo(
                 "fatal: not a fair repository, run 'fair init' to initialise"
             )
             sys.exit(1)
-
-    def _find_fair_root(self) -> str:
-        """Locate the .fair folder within the current hierarchy
-
-        Returns
-        -------
-        str
-            absolute path of the .fair folder
-        """
-        _current_dir = os.getcwd()
-
-        # Keep upward searching until you find '.fair', stop at the level of
-        # the user's home directory
-        while _current_dir != pathlib.Path.home():
-            _fair_dir = os.path.join(_current_dir, self.LOCAL_FOLDER)
-            if os.path.exists(_fair_dir):
-                return _fair_dir
-            _current_dir = pathlib.Path(_current_dir).parent
-        return ""
 
     def __enter__(self) -> None:
         """Method called when using 'with' statement.
@@ -244,12 +178,14 @@ class FAIR:
         start of every session.
 
         """
-        if os.path.exists(self._staging_file):
-            self._stage_status = toml.load(self._staging_file)
-        if os.path.exists(self._global_config_file):
-            self._global_config = toml.load(self._global_config_file)
-        if os.path.exists(self._local_config_file):
-            self._local_config = toml.load(self._local_config_file)
+        if os.path.exists(fdp_com.staging_cache()):
+            self._stage_status = yaml.load(
+                fdp_com.staging_cache(), Loader=yaml.SafeLoader
+            )
+        if os.path.exists(fdp_com.GLOBAL_FAIR_CONFIG):
+            self._global_config = fdp_conf.read_global_fdpconfig()
+        if os.path.exists(fdp_com.local_config()):
+            self._local_config = fdp_conf.read_local_fdpconfig()
         self._launch_server()
         return self
 
@@ -271,8 +207,8 @@ class FAIR:
             click.echo(f"No such file '{file_to_stage}.")
             sys.exit(1)
 
-        # Create a label with which to store the staging status of the given file
-        # using its path with respect to the staging status file
+        # Create a label with which to store the staging status of the given
+        # file using its path with respect to the staging status file
         _label = os.path.relpath(
             file_to_stage, os.path.dirname(self._staging_file)
         )
@@ -303,142 +239,6 @@ class FAIR:
 
         if not cached:
             os.remove(file_name)
-
-    def show_history(self, length: int = 10) -> None:
-        """Show run history, by time sorting log outputs and displaying their metadata"""
-
-        # Read in all log files from the log storage by reverse sorting them
-        # by datetime created
-        _time_sorted_logs = sorted(
-            glob.glob(os.path.join(self._here, "logs", "*")),
-            key=os.path.getmtime,
-            reverse=True,
-        )
-
-        # Iterate through the logs printing out the run author
-        for i, log in enumerate(_time_sorted_logs):
-            if i == length:
-                return
-            _run_id = hashlib.sha1(
-                open(log).read().encode("utf-8")
-            ).hexdigest()
-            with open(log) as f:
-                _metadata = f.readlines()[:5]
-            _user = _metadata[2].split("=")[1]
-            _name = _user.split("<")[0].strip()
-            _email = _user.replace(_name, "").strip()
-            _meta = {
-                "sha": _run_id,
-                "user": _name,
-                "user_email": _email,
-                "datetime": _metadata[1].split("=")[1].strip(),
-            }
-            rich.print(hist_template.render(**_meta))
-
-    def run_bash_command(self, bash_cmd: str = None) -> None:
-        """Execute a bash process as part of a model run
-
-        Parameters
-        ----------
-        cmd_str : str
-            command to execute
-        """
-        # Record the time the run was executed, create a log and both
-        # print output and write it to the log file
-        _now = datetime.datetime.now()
-        _timestamp = _now.strftime("%Y-%m-%d_%H_%M_%S")
-        _logs_dir = os.path.join(self._here, "logs")
-        if not os.path.exists(_logs_dir):
-            os.mkdir(_logs_dir)
-        _log_file = os.path.join(_logs_dir, f"run_{_timestamp}.log")
-        _cfg_yml = os.path.join(pathlib.Path(self._here).parent, "config.yaml")
-
-        if not os.path.exists(_cfg_yml):
-            click.echo(
-                "error: expected file 'config.yaml' at head of repository"
-            )
-            sys.exit(1)
-
-        with open(_cfg_yml) as f:
-            _cfg = yaml.load(f, Loader=yaml.SafeLoader)
-            assert _cfg
-
-        if "run_metadata" not in _cfg or "script" not in _cfg["run_metadata"]:
-            click.echo(
-                "error: failed to find executable method in configuration"
-            )
-            sys.exit(1)
-
-        if bash_cmd:
-            _cfg["run_metadata"]["script"] = bash_cmd
-
-            with open(_cfg_yml, "w") as f:
-                yaml.dump(_cfg, f)
-
-        _cmd = _cfg["run_metadata"]["script"]
-
-        if not _cmd:
-            click.echo("Nothing to run.")
-            sys.exit(0)
-        _cmd_list = _cfg["run_metadata"]["script"].split()
-        _user = self._global_config["user"]["name"]
-        _email = self._global_config["user"]["email"]
-        _namespace = self._local_config["namespaces"]["output"]
-
-        with open(_log_file, "a") as f:
-            _out_str = _now.strftime("%a %b %d %H:%M:%S %Y %Z")
-            f.writelines(
-                [
-                    "--------------------------------\n",
-                    f" Commenced = {_out_str}\n",
-                    f" Author    = {_user} <{_email}>\n",
-                    f" Namespace = {_namespace}\n",
-                    "--------------------------------\n",
-                ]
-            )
-        _process = subprocess.Popen(
-            _cmd_list,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            universal_newlines=True,
-            bufsize=1,
-            text=True,
-            shell=False,
-        )
-
-        for line in iter(_process.stdout.readline, ""):
-            with open(_log_file, "a") as f:
-                f.writelines([line])
-            click.echo(line, nl=False)
-            sys.stdout.flush()
-        _process.wait()
-        _end_time = datetime.datetime.now()
-        with open(_log_file, "a") as f:
-            _duration = _end_time - _now
-            f.writelines([f"------- time taken {_duration} -------\n"])
-
-        if _process.returncode != 0:
-            sys.exit(_process.returncode)
-
-    def show_run_log(self, run_id: str) -> None:
-        """Show the log from a given run"""
-        _time_sorted_logs = sorted(
-            glob.glob(os.path.join(self._here, "logs", "*")),
-            key=os.path.getmtime,
-            reverse=True,
-        )
-
-        for log_file in _time_sorted_logs:
-            _run_id = hashlib.sha1(
-                open(log_file).read().encode("utf-8")
-            ).hexdigest()
-
-            if _run_id[: len(run_id)] == run_id:
-                with open(log_file) as f:
-                    click.echo(f.read())
-                return
-        click.echo(f"Could not find run matching id '{run_id}'")
-        sys.exit(1)
 
     def add_remote(self, remote_url: str, label: str = "origin") -> None:
         """Add a remote to the list of remote URLs"""
@@ -475,13 +275,13 @@ class FAIR:
     def purge(self) -> None:
         """Remove all local FAIR tracking records and caches"""
         if not os.path.exists(self._staging_file) and not os.path.exists(
-            self._local_config_file
+            fdp_com.local_config()
         ):
             click.echo("No fair tracking has been initialised")
         else:
-            os.remove(self._staging_file)
-            os.remove(self._global_config_file)
-            os.remove(self._local_config_file)
+            os.remove(fdp_com.staging_cache())
+            os.remove(fdp_com.GLOBAL_FAIR_CONFIG)
+            os.remove(fdp_com.local_config())
 
     def list_remotes(self, verbose: bool = False) -> None:
         """List the available RestAPI URLs"""
@@ -515,14 +315,6 @@ class FAIR:
 
             for file_name in _unstaged:
                 click.echo(click.style(f"\t\t{file_name}", fg="red"))
-
-    def set_email(self, email: str) -> None:
-        """Update the email address for the user"""
-        self._local_config["user"]["email"] = email
-
-    def set_user(self, name: str) -> None:
-        """Update the name of the user"""
-        self._local_config["user"]["name"] = name
 
     def _global_config_query(self) -> None:
         """Ask user question set for creating global FAIR config"""
@@ -582,6 +374,8 @@ class FAIR:
                 " within this local configuration."
             )
             _def_ispace = "null"
+        else:
+            _def_ispace = self._global_config["namespaces"]["input"]
 
         _desc = click.prompt("Project description")
 
@@ -610,16 +404,18 @@ class FAIR:
         """Create a starter config.yaml"""
         if "remotes" not in self._local_config:
             click.echo(
-                "Cannot generate config.yaml, you need to set the remote URL by running: \n"
-                "\n\tfair remote add <url>\n"
+                "Cannot generate config.yaml, you need to set the remote URL"
+                " by running: \n\n\tfair remote add <url>\n"
             )
             sys.exit(1)
         with open(
-            os.path.join(pathlib.Path(self._here).parent, "config.yaml"), "w"
+            os.path.join(fdp_com.find_fair_root(), "config.yaml"), "w"
         ) as f:
             f.write(
                 config_template.render(
-                    instance=self, local_repo=os.path.abspath(self._here)
+                    instance=self,
+                    data_dir=fdp_com.default_data_dir(),
+                    local_repo=os.path.abspath(fdp_com.find_fair_root()),
                 )
             )
 
@@ -631,14 +427,13 @@ class FAIR:
             click.echo(f"fatal: fair repository is already initialised.")
             sys.exit(1)
 
-        self._local_config_file = os.path.join(_fair_dir, "config")
         self._staging_file = os.path.join(_fair_dir, "staging")
 
         click.echo(
             "Initialising FAIR repository, setup will now ask for basic info:\n"
         )
 
-        if not os.path.exists(self._global_config_file):
+        if not os.path.exists(fdp_com.GLOBAL_FAIR_CONFIG):
             self._global_config_query()
             self._local_config_query(first_time_setup=True)
         else:
@@ -646,19 +441,19 @@ class FAIR:
 
         os.mkdir(_fair_dir)
 
-        with open(self._local_config_file, "w") as f:
-            toml.dump(self._local_config, f)
+        with open(fdp_com.local_config(), "w") as f:
+            yaml.dump(self._local_config, f)
         self._make_starter_config()
         click.echo(f"Initialised empty fair repository in {_fair_dir}")
 
     def __exit__(self, *args) -> None:
         """Upon exiting, dump all configurations to file"""
-        if not os.path.exists(self.LOCAL_FOLDER):
+        if not os.path.exists(fdp_com.FAIR_FOLDER):
             return
         self._stop_server()
-        with open(self._staging_file, "w") as f:
-            toml.dump(self._stage_status, f)
-        with open(self._global_config_file, "w") as f:
-            toml.dump(self._global_config, f)
-        with open(self._local_config_file, "w") as f:
-            toml.dump(self._local_config, f)
+        with open(fdp_com.staging_cache(), "w") as f:
+            yaml.dump(self._stage_status, f)
+        with open(fdp_com.GLOBAL_FAIR_CONFIG, "w") as f:
+            yaml.dump(self._global_config, f)
+        with open(fdp_com.local_config(), "w") as f:
+            yaml.dump(self._local_config, f)

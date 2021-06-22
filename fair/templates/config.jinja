@@ -5,6 +5,6 @@ run_metadata:
   local_data_registry: {{instance._local_config['remotes']['local']}}
   default_input_namespace: {{instance._local_config['namespaces']['input'] if instance._local_config['namespaces']['input'] else 'null'}}
   default_output_namespace: {{instance._local_config['namespaces']['output']}}
-  default_data_store: {{instance._soft_data_dir}}
+  default_data_store: {{data_dir}}
   local_repo: {{local_repo}}
   script: null
