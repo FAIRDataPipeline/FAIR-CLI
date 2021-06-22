@@ -145,7 +145,7 @@ class FAIR:
 
         # If the registry server is already running ignore or no setup has
         # yet been performed
-        if self._server_up_file or not self._local_config:
+        if not self._local_config:
             return
 
         _server_start_script = os.path.join(
@@ -159,7 +159,13 @@ class FAIR:
             )
             sys.exit(1)
 
-        _start = subprocess.Popen([_server_start_script], shell=False)
+        _start = subprocess.Popen(
+            [_server_start_script],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            shell=False,
+        )
+
         _start.wait()
 
         if (
@@ -176,8 +182,6 @@ class FAIR:
     def _stop_server(self) -> None:
         """Stops the FAIR Data Pipeline local server"""
         # If the local registry server is not running ignore
-        if self._server_up_file:
-            return
 
         _server_stop_script = os.path.join(
             self.GLOBAL_FOLDER, "scripts", "stop_scrc_server"
@@ -190,16 +194,21 @@ class FAIR:
             )
             sys.exit(1)
 
-        _stop = subprocess.Popen(_server_stop_script, shell=False)
+        _stop = subprocess.Popen(
+            _server_stop_script,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            shell=False,
+        )
 
         _stop.wait()
 
-        if (
-            requests.get(self._local_config["remotes"]["local"]).status_code
-            == 200
-        ):
+        try:
+            requests.get(self._local_config["remotes"]["local"])
             click.echo("Error: Failed to stop local registry")
             sys.exit(1)
+        except requests.exceptions.ConnectionError:
+            pass
 
     def check_is_repo(self) -> None:
         """Check that the current location is a FAIR repository"""
@@ -523,9 +532,9 @@ class FAIR:
         _local_url = click.prompt(f"Local API URL", default=_def_local)
 
         _def_name = socket.gethostname()
-        _user_name = click.prompt("User name", default=_def_name)
-        _user_email = click.prompt("User email")
-        _user_orcid = click.prompt("User ORCID", default="None")
+        _user_name = click.prompt("Full name", default=_def_name)
+        _user_email = click.prompt("Email")
+        _user_orcid = click.prompt("ORCID", default="None")
         _user_orcid = _user_orcid if _user_orcid != "None" else None
 
         if len(_user_name.strip().split()) == 2:
@@ -552,12 +561,29 @@ class FAIR:
 
     def _local_config_query(self, first_time_setup: bool = False) -> None:
         """Ask user questions to create local user config"""
-        _desc = click.prompt("Project description")
+        try:
+            _def_remote = self._global_config["remotes"]["origin"]
+            _def_local = self._global_config["remotes"]["local"]
+            _def_ospace = self._global_config["namespaces"]["output"]
+        except KeyError:
+            click.echo(
+                "Error: Failed to read global configuration,"
+                " re-running global setup."
+            )
+            self._global_config_query()
+            _def_remote = self._global_config["remotes"]["origin"]
+            _def_local = self._global_config["remotes"]["local"]
+            _def_ospace = self._global_config["namespaces"]["output"]
 
-        _def_remote = self._global_config["remotes"]["origin"]
-        _def_local = self._global_config["remotes"]["local"]
-        _def_ospace = self._global_config["namespaces"]["output"]
-        _def_ispace = self._global_config["namespaces"]["input"]
+        if "input" not in self._global_config["namespaces"]:
+            click.echo(
+                "Warning: No global input namespace declared,"
+                " in order to use the registry you will need to specify one"
+                " within this local configuration."
+            )
+            _def_ispace = "null"
+
+        _desc = click.prompt("Project description")
 
         if not first_time_setup:
             _def_remote = click.prompt(f"Remote API URL", default=_def_remote)
@@ -614,8 +640,9 @@ class FAIR:
 
         if not os.path.exists(self._global_config_file):
             self._global_config_query()
-
-        self._local_config_query(first_time_setup=True)
+            self._local_config_query(first_time_setup=True)
+        else:
+            self._local_config_query()
 
         os.mkdir(_fair_dir)
 
