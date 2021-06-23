@@ -14,7 +14,7 @@ def read_local_fdpconfig() -> MutableMapping:
 
     if os.path.exists(_local_config_file_addr):
         _local_config = yaml.load(
-            open(_local_config_file_addr), Loader=yaml.BaseLoader
+            open(_local_config_file_addr), Loader=yaml.SafeLoader
         )
 
     return _local_config
@@ -22,11 +22,11 @@ def read_local_fdpconfig() -> MutableMapping:
 
 def read_global_fdpconfig() -> MutableMapping:
     _global_config: MutableMapping = {}
-    _global_config_addr = fdp_com.GLOBAL_FAIR_CONFIG
+    _global_config_addr = fdp_com.global_fdpconfig()
 
     if os.path.exists(_global_config_addr):
         _global_config = yaml.load(
-            open(_global_config_addr), Loader=yaml.BaseLoader
+            open(_global_config_addr), Loader=yaml.SafeLoader
         )
 
     return _global_config

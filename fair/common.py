@@ -4,8 +4,6 @@ import pathlib
 
 REGISTRY_HOME = os.path.join(pathlib.Path.home(), ".scrc")
 FAIR_CLI_CONFIG = "cli-config.yaml"
-GLOBAL_CONFIG_DIR = os.path.join(REGISTRY_HOME, "cli")
-GLOBAL_FAIR_CONFIG = os.path.join(GLOBAL_CONFIG_DIR, FAIR_CLI_CONFIG)
 FAIR_FOLDER = ".fair"
 
 
@@ -53,3 +51,11 @@ def local_user_config() -> str:
 
 def coderun_dir() -> str:
     return os.path.join(data_dir(), "coderun")
+
+
+def global_config_dir() -> str:
+    return os.path.join(REGISTRY_HOME, "cli")
+
+
+def global_fdpconfig() -> str:
+    return os.path.join(global_config_dir(), FAIR_CLI_CONFIG)

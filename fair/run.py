@@ -22,7 +22,7 @@ import os
 import sys
 import glob
 import re
-from collections import Mapping
+from collections.abc import Mapping
 from typing import Dict, Any
 from datetime import datetime
 
@@ -33,7 +33,6 @@ import subprocess
 
 import fair.configuration as fdp_conf
 import fair.common as fdp_com
-import fair.history as fdp_hist
 import fair.utilities as fdp_util
 
 
@@ -57,17 +56,13 @@ def run_bash_command(
     # print output and write it to the log file
     _now = datetime.now()
     _timestamp = _now.strftime("%Y-%m-%d_%H_%M_%S")
-    _logs_dir = fdp_hist.history_directory()
-    if not os.path.exists(_logs_dir):
-        os.mkdir(_logs_dir)
-    _log_file = os.path.join(_logs_dir, f"run_{_timestamp}.log")
 
     if not os.path.exists(config_yaml):
         click.echo("error: expected file 'config.yaml' at head of repository")
         sys.exit(1)
 
     with open(config_yaml) as f:
-        _cfg = yaml.load(f, Loader=yaml.BaseLoader)
+        _cfg = yaml.load(f, Loader=yaml.SafeLoader)
         assert _cfg
 
     if "run_metadata" not in _cfg or (
@@ -87,7 +82,7 @@ def run_bash_command(
     if bash_cmd:
         _cfg["run_metadata"]["script"] = bash_cmd
 
-        _work_cfg = yaml.load(_work_cfg_yml, Loader=yaml.BaseLoader)
+        _work_cfg = yaml.load(_work_cfg_yml, Loader=yaml.SafeLoader)
         _work_cfg["run_metadata"]["script"] = bash_cmd
 
         with open(config_yaml, "w") as f:
@@ -109,22 +104,7 @@ def run_bash_command(
 
     _glob_conf = fdp_conf.read_global_fdpconfig()
     _loc_conf = fdp_conf.read_local_fdpconfig()
-    _user = _glob_conf["user"]["name"]
-    _email = _glob_conf["user"]["email"]
-    _namespace = _loc_conf["namespaces"]["output"]
 
-    with open(_log_file, "a") as f:
-        _out_str = _now.strftime("%a %b %d %H:%M:%S %Y %Z")
-        f.writelines(
-            [
-                "--------------------------------\n",
-                f" Commenced = {_out_str}\n",
-                f" Author    = {_user} <{_email}>\n",
-                f" Namespace = {_namespace}\n",
-                f" Command   = {' '.join(_cmd_list)}\n",
-                "--------------------------------\n",
-            ]
-        )
     _process = subprocess.Popen(
         _cmd_list,
         stdout=subprocess.PIPE,
@@ -136,16 +116,7 @@ def run_bash_command(
         env=_cmd_setup["env"],
     )
 
-    for line in iter(_process.stdout.readline, ""):
-        with open(_log_file, "a") as f:
-            f.writelines([line])
-        click.echo(line, nl=False)
-        sys.stdout.flush()
     _process.wait()
-    _end_time = datetime.now()
-    with open(_log_file, "a") as f:
-        _duration = _end_time - _now
-        f.writelines([f"------- time taken {_duration} -------\n"])
 
     if _process.returncode != 0:
         sys.exit(_process.returncode)
@@ -166,7 +137,7 @@ def create_working_config(
         "DATE": lambda x: time.strftime(
             "%Y{0}%m{0}%d".format("" if "version" in x else "-"),
         ),
-        "DATETIME": lambda x: time,
+        "DATETIME": lambda x: time.strftime("%Y-%m-%s %H:%M:S"),
         "USER": fdp_conf.get_current_user,
         "REPO_DIR": lambda x: fdp_com.find_fair_root(
             os.path.dirname(config_yaml)
@@ -184,7 +155,7 @@ def create_working_config(
         .name,
     }
 
-    _conf_yaml = yaml.load(open(config_yaml), Loader=yaml.BaseLoader)
+    _conf_yaml = yaml.load(open(config_yaml), Loader=yaml.SafeLoader)
 
     # Remove 'register' from working configuration
     if "register" in _conf_yaml:
@@ -198,6 +169,9 @@ def create_working_config(
     _regex_env = re.compile(r"\$\{?([0-9\_A-Z]+)\}?", re.IGNORECASE)
 
     for key, value in _flat_conf.items():
+        if not isinstance(value, str):
+            continue
+
         # Search for '${{ fair.variable }}' then also make an exclusive search
         # to extract 'variable'
         _var_search = _regex_var_candidate.findall(value)
@@ -254,7 +228,7 @@ def create_working_config(
 
 
 def setup_run_script(config_yaml: str, output_dir: str) -> Dict[str, Any]:
-    _conf_yaml = yaml.load(open(config_yaml), Loader=yaml.BaseLoader)
+    _conf_yaml = yaml.load(open(config_yaml), Loader=yaml.SafeLoader)
     _cmd = None
     _run_env = os.environ.copy()
 
@@ -281,7 +255,7 @@ def setup_run_script(config_yaml: str, output_dir: str) -> Dict[str, Any]:
     # written to a file with no suffix as this cannot be determined
     # by the shell choice or contents
     if "script" in _conf_yaml["run_metadata"]:
-        _cmd = _conf_yaml["script"]
+        _cmd = _conf_yaml["run_metadata"]["script"]
         _out_file = os.path.join(output_dir, "run_script")
         with open(_out_file, "w") as f:
             f.write(_cmd)

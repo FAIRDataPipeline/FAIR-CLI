@@ -49,7 +49,6 @@ class FAIR:
     check_is_repo()
     change_staging_state(file_to_stage: str, stage: bool = True)
     remove_file(file_name: str, cached: bool = False)
-    show_history()
     show_run_log(run_id: str)
     add_remote(url: str, label: str = "origin")
     remove_remote(label: str)
@@ -73,8 +72,8 @@ class FAIR:
                 "mean the local registry has not been installed."
             )
 
-        if not os.path.exists(fdp_com.GLOBAL_CONFIG_DIR):
-            os.makedirs(fdp_com.GLOBAL_CONFIG_DIR)
+        if not os.path.exists(fdp_com.global_config_dir()):
+            os.makedirs(fdp_com.global_config_dir())
 
         # Initialise all configuration/staging status dictionaries
         self._stage_status: typing.Dict[str, typing.Any] = {}
@@ -184,9 +183,9 @@ class FAIR:
         """
         if os.path.exists(fdp_com.staging_cache()):
             self._stage_status = yaml.load(
-                open(fdp_com.staging_cache()), Loader=yaml.BaseLoader
+                open(fdp_com.staging_cache()), Loader=yaml.SafeLoader
             )
-        if os.path.exists(fdp_com.GLOBAL_FAIR_CONFIG):
+        if os.path.exists(fdp_com.global_fdpconfig()):
             self._global_config = fdp_conf.read_global_fdpconfig()
         if os.path.exists(fdp_com.local_fdpconfig()):
             self._local_config = fdp_conf.read_local_fdpconfig()
@@ -284,7 +283,7 @@ class FAIR:
             click.echo("No fair tracking has been initialised")
         else:
             os.remove(fdp_com.staging_cache())
-            os.remove(fdp_com.GLOBAL_FAIR_CONFIG)
+            os.remove(fdp_com.global_fdpconfig())
             os.remove(fdp_com.local_fdpconfig())
 
     def list_remotes(self, verbose: bool = False) -> None:
@@ -420,14 +419,22 @@ class FAIR:
                 data_dir=fdp_com.data_dir(),
                 local_repo=os.path.abspath(fdp_com.find_fair_root()),
             )
-            _yaml_dict = yaml.load(_yaml_str, Loader=yaml.BaseLoader)
+            _yaml_dict = yaml.load(_yaml_str, Loader=yaml.SafeLoader)
             _yaml_dict["fail_on_hash_mismatch"] = True
             _yaml_dict["run_metadata"]["script"] = None
             yaml.dump(_yaml_dict, f)
 
-    def initialise(self) -> None:
-        """Initialise an fair repository within the current location"""
-        _fair_dir = os.path.abspath(os.path.join(os.getcwd(), ".fair"))
+    def initialise(self, repo_loc: str = os.path.join(os.getcwd())) -> None:
+        """Initialise an fair repository within the current location
+
+        Parameters
+        ----------
+
+        repo_loc : str, optional
+            location in which to initialise FAIR repository
+
+        """
+        _fair_dir = os.path.abspath(os.path.join(repo_loc, ".fair"))
 
         if os.path.exists(_fair_dir):
             click.echo(f"fatal: fair repository is already initialised.")
@@ -439,7 +446,7 @@ class FAIR:
             "Initialising FAIR repository, setup will now ask for basic info:\n"
         )
 
-        if not os.path.exists(fdp_com.GLOBAL_FAIR_CONFIG):
+        if not os.path.exists(fdp_com.global_fdpconfig()):
             self._global_config_query()
             self._local_config_query(first_time_setup=True)
         else:
@@ -459,7 +466,7 @@ class FAIR:
         self._stop_server()
         with open(fdp_com.staging_cache(), "w") as f:
             yaml.dump(self._stage_status, f)
-        with open(fdp_com.GLOBAL_FAIR_CONFIG, "w") as f:
+        with open(fdp_com.global_fdpconfig(), "w") as f:
             yaml.dump(self._global_config, f)
         with open(fdp_com.local_fdpconfig(), "w") as f:
             yaml.dump(self._local_config, f)

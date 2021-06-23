@@ -34,7 +34,6 @@ import typing
 import fair.session as fdp_session
 import fair.common as fdp_com
 import fair.services as fdp_serv
-import fair.history as fdp_hist
 import fair.configuration as fdp_conf
 
 __author__ = "Scottish COVID Response Consortium"
@@ -225,19 +224,6 @@ def modify(options: typing.List[str]) -> None:
     _url = options[1] if len(options) > 1 else options[0]
     with fdp_session.FAIR() as fair_session:
         fair_session.modify_remote(_label, _url)
-
-
-@cli.command()
-def log() -> None:
-    """Show a full run history"""
-    fdp_hist.show_history()
-
-
-@cli.command()
-@click.argument("run_id")
-def view(run_id: str) -> None:
-    """View log for a given run"""
-    fdp_hist.show_run_log(run_id)
 
 
 @cli.command()
