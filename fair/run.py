@@ -23,7 +23,7 @@ import sys
 import glob
 import re
 from collections import Mapping
-from typing import Tuple
+from typing import Dict, Any
 from datetime import datetime
 
 import git
@@ -95,13 +95,14 @@ def run_bash_command(
         with open(_work_cfg_yml, "w") as f:
             yaml.dump(_work_cfg, f)
 
-    _cmd_list = setup_run_script(_work_cfg_yml, _run_dir)
+    _cmd_setup = setup_run_script(_work_cfg_yml, _run_dir)
+    _cmd_list = [_cmd_setup["shell"], _cmd_setup["script"]]
 
     _run_meta = _cfg["run_metadata"]
 
     if (
-        not "script" in _run_meta.keys()
-        and not "script_path" in _run_meta.keys()
+        "script" not in _run_meta.keys()
+        and "script_path" not in _run_meta.keys()
     ):
         click.echo("Nothing to run.")
         sys.exit(0)
@@ -132,6 +133,7 @@ def run_bash_command(
         bufsize=1,
         text=True,
         shell=False,
+        env=_cmd_setup["env"],
     )
 
     for line in iter(_process.stdout.readline, ""):
@@ -190,25 +192,81 @@ def create_working_config(
 
     _flat_conf = fdp_util.flatten_dict(_conf_yaml)
     _regex_star = re.compile(r":\s*(.+\*+)")
+    _regex_var_candidate = re.compile(r"\$\{\{\s*fair\..+\s*\}\}")
+    _regex_var = re.compile(r"\$\{\{\s*fair\.(.+)\s*\}\}")
+    _regex_env_candidate = re.compile(r"\$\{?[0-9\_A-Z]+\}?", re.IGNORECASE)
+    _regex_env = re.compile(r"\$\{?([0-9\_A-Z]+)\}?", re.IGNORECASE)
 
     for key, value in _flat_conf.items():
-        for subst, func in _substitutes.items():
-            if "${" + subst + "}" in value:
-                _flat_conf[key] = value.replace(
-                    "${" + subst + "}", func(value)
-                )
-            if _regex_star.findall(value):
-                _flat_conf[key] = glob.glob(value)
+        # Search for '${{ fair.variable }}' then also make an exclusive search
+        # to extract 'variable'
+        _var_search = _regex_var_candidate.findall(value)
+        _var_label = _regex_var.findall(value)
 
-    _conf_yaml = fdp_util.expand_dictionary(_flat_conf)
+        # The number of results for '${{fair.var}}' should match those
+        # for the exclusive search for 'var'
+        if not len(_var_search) == len(_var_label):
+            click.echo("Error: FAIR variable matching failed")
+            sys.exit(1)
+
+        # Search for '${ENV_VAR}' then also make an exclusive search to extract
+        # 'ENV_VAR' from that result
+        _env_search = _regex_env_candidate.findall(value)
+        _env_label = _regex_env.findall(value)
+
+        # The number of results for '${ENV_VAR}' should match those
+        # for the exclusive search for 'ENV_VAR'
+        if not len(_env_search) == len(_env_label):
+            click.echo("Error: environment variable matching failed")
+            sys.exit(1)
+
+        for entry, var in zip(_var_search, _var_label):
+            if var.upper().strip() in _substitutes:
+                _new_var = _substitutes[var.upper().strip()](key)
+                _flat_conf[key] = value.replace(entry, _new_var)
+            else:
+                click.echo(
+                    f"Error: Variable '{var}' is not a recognised FAIR config "
+                    "variable, config.yaml substitution failed."
+                )
+                sys.exit(1)
+
+        # Print warnings for environment variables which have been stated in
+        # the config.yaml but are not actually present in the shell
+        for entry, var in zip(_env_search, _env_label):
+            _env = os.environ[var]
+            if not _env:
+                click.echo(
+                    f"Warning: Environment variable '{var}' in config.yaml"
+                    " is not defined in current shell."
+                )
+                continue
+
+        # If '*' or '**' in value, expand into a list and
+        # save to the same key
+        if _regex_star.findall(value):
+            _flat_conf[key] = glob.glob(value)
+
+    _conf_yaml = fdp_util.expand_dict(_flat_conf)
 
     with open(output_name, "w") as out_f:
         yaml.dump(_conf_yaml, out_f)
 
 
-def setup_run_script(config_yaml: str, output_dir: str) -> Tuple[str, str]:
+def setup_run_script(config_yaml: str, output_dir: str) -> Dict[str, Any]:
     _conf_yaml = yaml.load(open(config_yaml), Loader=yaml.BaseLoader)
     _cmd = None
+    _run_env = os.environ.copy()
+
+    # Remove the local repository path as it may contain the user's
+    # file system in the address
+    if "local_repo" not in _conf_yaml["run_metadata"]:
+        click.echo("Error: No entry for key 'run_metadata:local_repo'")
+        sys.exit(1)
+
+    _run_env["FDP_LOCAL_REPO"] = _conf_yaml["run_metadata"]["local_repo"]
+
+    del _conf_yaml["run_metadata"]["local_repo"]
 
     # Check if a specific shell has been defined for the script
     _shell = None
@@ -220,7 +278,7 @@ def setup_run_script(config_yaml: str, output_dir: str) -> Tuple[str, str]:
         _shell = "bash"
 
     # TODO: Currently when "script" is specified the script is
-    # writtent to a file with no suffix as this cannot be determined
+    # written to a file with no suffix as this cannot be determined
     # by the shell choice or contents
     if "script" in _conf_yaml["run_metadata"]:
         _cmd = _conf_yaml["script"]
@@ -230,6 +288,12 @@ def setup_run_script(config_yaml: str, output_dir: str) -> Tuple[str, str]:
 
     elif "script_path" in _conf_yaml["run_metadata"]:
         _path = _conf_yaml["run_metadata"]["script_path"]
+        if not os.path.exists(_path):
+            click.echo(
+                f"Error: Failed to execute run, script '{_path}' was not found, or"
+                " failed to be created."
+            )
+            sys.exit(1)
         _cmd = open(_path).read()
         _out_file = os.path.join(output_dir, os.path.basename(_path))
         with open(_out_file, "w") as f:
@@ -242,4 +306,4 @@ def setup_run_script(config_yaml: str, output_dir: str) -> Tuple[str, str]:
         )
         sys.exit(1)
 
-    return [_shell, _out_file]
+    return {"shell": _shell, "script": _out_file, "env": _run_env}

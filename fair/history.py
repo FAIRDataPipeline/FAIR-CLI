@@ -14,8 +14,20 @@ def history_directory() -> str:
     return os.path.join(fdp_com.find_fair_root(), fdp_com.FAIR_FOLDER, "logs")
 
 
-def show_run_log(run_id: str) -> None:
-    """Show the log from a given run"""
+def show_run_log(run_id: str) -> str:
+    """Show the log from a given run
+
+    Parameters
+    ----------
+
+    run_id : str
+        SHA identifier for the code run
+
+    Returns
+    -------
+    str
+        log file location for the given run
+    """
     _time_sorted_logs = sorted(
         glob.glob(os.path.join(history_directory(), "*")),
         key=os.path.getmtime,
@@ -30,7 +42,7 @@ def show_run_log(run_id: str) -> None:
         if _run_id[: len(run_id)] == run_id:
             with open(log_file) as f:
                 click.echo(f.read())
-            return
+            return log_file
     click.echo(f"Could not find run matching id '{run_id}'")
     sys.exit(1)
 
