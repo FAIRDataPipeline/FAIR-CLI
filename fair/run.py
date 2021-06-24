@@ -34,9 +34,11 @@ import subprocess
 import fair.configuration as fdp_conf
 import fair.common as fdp_com
 import fair.utilities as fdp_util
+import fair.history as fdp_hist
 
 
 def run_bash_command(
+    run_dir: str,
     config_yaml: str = os.path.join(fdp_com.find_fair_root(), "config.yaml"),
     bash_cmd: str = "",
 ) -> None:
@@ -47,6 +49,8 @@ def run_bash_command(
 
     Parameters
     ----------
+    run_dir : str
+        directory of repository to run from
     config_yaml : str, optional
         run from a given config.yaml file
     bash_cmd : str, optional
@@ -56,6 +60,10 @@ def run_bash_command(
     # print output and write it to the log file
     _now = datetime.now()
     _timestamp = _now.strftime("%Y-%m-%d_%H_%M_%S")
+    _logs_dir = fdp_hist.history_directory()
+    if not os.path.exists(_logs_dir):
+        os.mkdir(_logs_dir)
+    _log_file = os.path.join(_logs_dir, f"run_{_timestamp}.log")
 
     if not os.path.exists(config_yaml):
         click.echo("error: expected file 'config.yaml' at head of repository")
@@ -82,7 +90,7 @@ def run_bash_command(
     if bash_cmd:
         _cfg["run_metadata"]["script"] = bash_cmd
 
-        _work_cfg = yaml.load(_work_cfg_yml, Loader=yaml.SafeLoader)
+        _work_cfg = yaml.load(open(_work_cfg_yml), Loader=yaml.SafeLoader)
         _work_cfg["run_metadata"]["script"] = bash_cmd
 
         with open(config_yaml, "w") as f:
@@ -103,7 +111,23 @@ def run_bash_command(
         sys.exit(0)
 
     _glob_conf = fdp_conf.read_global_fdpconfig()
-    _loc_conf = fdp_conf.read_local_fdpconfig()
+    _loc_conf = fdp_conf.read_local_fdpconfig(run_dir)
+    _user = _glob_conf["user"]["name"]
+    _email = _glob_conf["user"]["email"]
+    _namespace = _loc_conf["namespaces"]["output"]
+
+    with open(_log_file, "a") as f:
+        _out_str = _now.strftime("%a %b %d %H:%M:%S %Y %Z")
+        f.writelines(
+            [
+                "--------------------------------\n",
+                f" Commenced = {_out_str}\n",
+                f" Author    = {_user} <{_email}>\n",
+                f" Namespace = {_namespace}\n",
+                f" Command   = {' '.join(_cmd_list)}\n",
+                "--------------------------------\n",
+            ]
+        )
 
     _process = subprocess.Popen(
         _cmd_list,
@@ -115,6 +139,17 @@ def run_bash_command(
         shell=False,
         env=_cmd_setup["env"],
     )
+
+    for line in iter(_process.stdout.readline, ""):
+        with open(_log_file, "a") as f:
+            f.writelines([line])
+        click.echo(line, nl=False)
+        sys.stdout.flush()
+    _process.wait()
+    _end_time = datetime.now()
+    with open(_log_file, "a") as f:
+        _duration = _end_time - _now
+        f.writelines([f"------- time taken {_duration} -------\n"])
 
     _process.wait()
 
@@ -163,8 +198,10 @@ def create_working_config(
 
     _flat_conf = fdp_util.flatten_dict(_conf_yaml)
     _regex_star = re.compile(r":\s*(.+\*+)")
-    _regex_var_candidate = re.compile(r"\$\{\{\s*fair\..+\s*\}\}")
-    _regex_var = re.compile(r"\$\{\{\s*fair\.(.+)\s*\}\}")
+    _regex_var_candidate = re.compile(
+        r"\$\{\{\s*cli\..+\s*\}\}", re.IGNORECASE
+    )
+    _regex_var = re.compile(r"\$\{\{\s*cli\.(.+)\s*\}\}")
     _regex_env_candidate = re.compile(r"\$\{?[0-9\_A-Z]+\}?", re.IGNORECASE)
     _regex_env = re.compile(r"\$\{?([0-9\_A-Z]+)\}?", re.IGNORECASE)
 
@@ -232,15 +269,9 @@ def setup_run_script(config_yaml: str, output_dir: str) -> Dict[str, Any]:
     _cmd = None
     _run_env = os.environ.copy()
 
-    # Remove the local repository path as it may contain the user's
-    # file system in the address
-    if "local_repo" not in _conf_yaml["run_metadata"]:
-        click.echo("Error: No entry for key 'run_metadata:local_repo'")
-        sys.exit(1)
-
+    # Create environment variable which users can refer to in their
+    # submission scripts
     _run_env["FDP_LOCAL_REPO"] = _conf_yaml["run_metadata"]["local_repo"]
-
-    del _conf_yaml["run_metadata"]["local_repo"]
 
     # Check if a specific shell has been defined for the script
     _shell = None
@@ -257,8 +288,9 @@ def setup_run_script(config_yaml: str, output_dir: str) -> Dict[str, Any]:
     if "script" in _conf_yaml["run_metadata"]:
         _cmd = _conf_yaml["run_metadata"]["script"]
         _out_file = os.path.join(output_dir, "run_script")
-        with open(_out_file, "w") as f:
-            f.write(_cmd)
+        if _cmd:
+            with open(_out_file, "w") as f:
+                f.write(_cmd)
 
     elif "script_path" in _conf_yaml["run_metadata"]:
         _path = _conf_yaml["run_metadata"]["script_path"]
@@ -270,8 +302,9 @@ def setup_run_script(config_yaml: str, output_dir: str) -> Dict[str, Any]:
             sys.exit(1)
         _cmd = open(_path).read()
         _out_file = os.path.join(output_dir, os.path.basename(_path))
-        with open(_out_file, "w") as f:
-            f.write(_cmd)
+        if _cmd:
+            with open(_out_file, "w") as f:
+                f.write(_cmd)
 
     if not _cmd or not _out_file:
         click.echo(

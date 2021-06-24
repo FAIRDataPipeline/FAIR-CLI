@@ -30,10 +30,12 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 import click
 import typing
+import os
 
 import fair.session as fdp_session
 import fair.common as fdp_com
 import fair.services as fdp_serv
+import fair.history as fdp_hist
 import fair.configuration as fdp_conf
 
 __author__ = "Scottish COVID Response Consortium"
@@ -62,14 +64,19 @@ def cli():
 @cli.command()
 def status() -> None:
     """Get the status of files under staging"""
-    with fdp_session.FAIR() as s:
+    with fdp_session.FAIR(os.getcwd()) as s:
         s.status()
 
 
 @cli.command()
-def init() -> None:
+@click.option(
+    "--config",
+    help="Specify alternate location for generated config.yaml",
+    default=fdp_com.local_user_config(os.getcwd()),
+)
+def init(config: str) -> None:
     """Initialise repository in current location"""
-    with fdp_session.FAIR() as fair_session:
+    with fdp_session.FAIR(os.getcwd(), config) as fair_session:
         fair_session.initialise()
 
 
@@ -82,15 +89,28 @@ def purge() -> None:
         type=click.BOOL,
     )
     if _purge:
-        with fdp_session.FAIR() as fair_session:
+        with fdp_session.FAIR(os.getcwd()) as fair_session:
             fair_session.purge()
+
+
+@cli.command()
+def log() -> None:
+    """Show a full run history"""
+    fdp_hist.show_history()
+
+
+@cli.command()
+@click.argument("run_id")
+def view(run_id: str) -> None:
+    """View log for a given run"""
+    fdp_hist.show_run_log(run_id)
 
 
 @cli.command()
 @click.argument("file_paths", type=click.Path(exists=True), nargs=-1)
 def reset(file_paths: typing.List[str]) -> None:
     """Removes files/runs from staging"""
-    with fdp_session.FAIR() as fair_session:
+    with fdp_session.FAIR(os.getcwd()) as fair_session:
         for file_name in file_paths:
             fair_session.change_staging_state(file_name, False)
 
@@ -99,7 +119,7 @@ def reset(file_paths: typing.List[str]) -> None:
 @click.argument("file_paths", type=click.Path(exists=True), nargs=-1)
 def add(file_paths: typing.List[str]) -> None:
     """Add a file to staging"""
-    with fdp_session.FAIR() as fair_session:
+    with fdp_session.FAIR(os.getcwd()) as fair_session:
         for file_name in file_paths:
             fair_session.change_staging_state(file_name, True)
 
@@ -113,7 +133,7 @@ def add(file_paths: typing.List[str]) -> None:
 )
 def rm(file_paths: typing.List[str], cached: bool = False) -> None:
     """removes files from system or just tracking"""
-    with fdp_session.FAIR() as fair_session:
+    with fdp_session.FAIR(os.getcwd()) as fair_session:
         for file_name in file_paths:
             fair_session.remove_file(file_name, cached)
 
@@ -140,16 +160,16 @@ def pull(config: str):
 
 
 @cli.group(invoke_without_command=True)
+@click.pass_context
 @click.option(
     "--config",
-    help="Specify alternate config.yaml",
-    default=fdp_com.local_user_config(),
+    help="Specify alternate location for generated config.yaml",
+    default=fdp_com.local_user_config(os.getcwd()),
 )
-@click.pass_context
-def run(ctx, config):
+def run(ctx, config: str):
     """Initialises a run with the option to specify a bash command"""
     if not ctx.invoked_subcommand:
-        with fdp_session.FAIR() as fair_session:
+        with fdp_session.FAIR(os.getcwd(), config) as fair_session:
             fair_session.run(config)
 
 
@@ -157,13 +177,13 @@ def run(ctx, config):
 @click.argument("bash_command")
 @click.option(
     "--config",
-    help="Specify alternate config.yaml",
-    default=fdp_com.local_user_config(),
+    help="Specify alternate location for generated config.yaml",
+    default=fdp_com.local_user_config(os.getcwd()),
 )
-def bash(bash_command: str):
+def bash(bash_command: str, config: str):
     """Run a BASH command and set this to be the default run command"""
-    with fdp_session.FAIR() as fair_session:
-        fair_session.run(config, bash_command)
+    with fdp_session.FAIR(os.getcwd(), config) as fair_session:
+        fair_session.run(bash_command)
 
 
 @cli.group(invoke_without_command=True)
@@ -172,7 +192,7 @@ def bash(bash_command: str):
 def remote(ctx, verbose: bool = False):
     """List remotes if no additional command is provided"""
     if not ctx.invoked_subcommand:
-        with fdp_session.FAIR() as fair_session:
+        with fdp_session.FAIR(os.getcwd()) as fair_session:
             fair_session.list_remotes(verbose)
 
 
@@ -192,7 +212,7 @@ def add(options: typing.List[str]) -> None:
     _url = options[1] if len(options) > 1 else options[0]
     _label = options[0] if len(options) > 1 else "origin"
 
-    with fdp_session.FAIR() as fair_session:
+    with fdp_session.FAIR(os.getcwd()) as fair_session:
         fair_session.add_remote(_url, _label)
 
 
@@ -206,7 +226,7 @@ def remove(label: str) -> None:
     label : str
         label of remote to remove
     """
-    with fdp_session.FAIR() as fair_session:
+    with fdp_session.FAIR(os.getcwd()) as fair_session:
         fair_session.remove_remove(label)
 
 
@@ -222,7 +242,7 @@ def modify(options: typing.List[str]) -> None:
     """
     _label = options[0] if len(options) > 1 else "origin"
     _url = options[1] if len(options) > 1 else options[0]
-    with fdp_session.FAIR() as fair_session:
+    with fdp_session.FAIR(os.getcwd()) as fair_session:
         fair_session.modify_remote(_label, _url)
 
 
@@ -260,10 +280,10 @@ def config_user(user_name: str) -> None:
     (API token, associated namespace, local data
     store, login node, and so on).
     """
-    fdp_conf.set_user(user_name)
+    fdp_conf.set_user(os.getcwd(), user_name)
 
 
 @config.command(name="user.email")
 @click.argument("user_email")
 def config_email(user_email: str) -> None:
-    fdp_conf.set_email(user_email)
+    fdp_conf.set_email(os.getcwd(), user_email)

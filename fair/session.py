@@ -1,19 +1,4 @@
-import os
-import sys
-import typing
-import subprocess
-import requests
-
-import click
-import yaml
-import socket
-
-from fair.templates import config_template
-import fair.common as fdp_com
-import fair.run as fdp_run
-import fair.configuration as fdp_conf
-
-__doc__ = """
+"""
 Manage synchronisation of data and metadata relating to runs using the
 FAIR Data Pipeline system.
 
@@ -30,6 +15,20 @@ Misc Variables:
     __copyright__
 
 """
+import os
+import sys
+import typing
+import subprocess
+import requests
+
+import click
+import yaml
+import socket
+
+from fair.templates import config_template
+import fair.common as fdp_com
+import fair.run as fdp_run
+import fair.configuration as fdp_conf
 
 
 class FAIR:
@@ -37,12 +36,9 @@ class FAIR:
     A class which provides the main interface for managing runs and data
     transfer between FAIR Data Pipeline registries.
 
-    Attributes
-    ----------
-    LOCAL_FOLDER
-        the name of the directory created in each repository
-    GLOBAL_FOLDER
-        the address of the global SCRC folder used to store global configs
+    Methods are based around a user directory which is specified with locations
+    being determined relative to the closest FAIR repository root folder (i.e.
+    the closest location in the upper hierarchy containing a '.fair. folder).
 
     Methods
     ----------
@@ -56,14 +52,30 @@ class FAIR:
     purge()
     list_remotes(verbose: bool = False)
     status()
-    set_email(email: str)
-    set_user(user_name: str)
     initialise()
 
     """
 
-    def __init__(self) -> None:
-        """Initialise instance of FAIR sync tool"""
+    def __init__(self, repo_loc: str, user_config: str = None) -> None:
+        """Initialise instance of FAIR sync tool
+
+        All actions are performed relative to the specified folder after the
+        local '.fair' directory for the repository has been located.
+
+        Parameters
+        ----------
+        repo_loc : str
+            location of FAIR repository to update
+        user_config : str, optional
+            alternative config.yaml user configuration file
+        """
+
+        self._session_loc = repo_loc
+        self._session_config = (
+            user_config
+            if user_config
+            else fdp_com.local_user_config(self._session_loc)
+        )
 
         # Creates $HOME/.scrc if it does not exist
         if not os.path.exists(fdp_com.REGISTRY_HOME):
@@ -122,7 +134,6 @@ class FAIR:
 
     def run(
         self,
-        config_yaml: str = fdp_com.local_user_config(),
         bash_cmd: str = "",
     ) -> None:
         """Execute a run using the given user configuration file
@@ -133,7 +144,11 @@ class FAIR:
             user configuration file, defaults to FAIR repository config.yaml
         """
         self.check_is_repo()
-        fdp_run.run_bash_command(config_yaml, bash_cmd)
+        if not os.path.exists(self._session_config):
+            self._make_starter_config()
+        fdp_run.run_bash_command(
+            self._session_loc, self._session_config, bash_cmd
+        )
 
     def _stop_server(self) -> None:
         """Stops the FAIR Data Pipeline local server"""
@@ -181,14 +196,18 @@ class FAIR:
         start of every session.
 
         """
-        if os.path.exists(fdp_com.staging_cache()):
+
+        if os.path.exists(fdp_com.staging_cache(self._session_loc)):
             self._stage_status = yaml.load(
-                open(fdp_com.staging_cache()), Loader=yaml.SafeLoader
+                open(fdp_com.staging_cache(self._session_loc)),
+                Loader=yaml.SafeLoader,
             )
         if os.path.exists(fdp_com.global_fdpconfig()):
             self._global_config = fdp_conf.read_global_fdpconfig()
-        if os.path.exists(fdp_com.local_fdpconfig()):
-            self._local_config = fdp_conf.read_local_fdpconfig()
+        if os.path.exists(fdp_com.local_fdpconfig(self._session_loc)):
+            self._local_config = fdp_conf.read_local_fdpconfig(
+                self._session_loc
+            )
         self._launch_server()
         return self
 
@@ -269,16 +288,16 @@ class FAIR:
         self.check_is_repo()
         if (
             "remotes" not in self._local_config
-            or label not in self._local_config
+            or label not in self._local_config["remotes"]
         ):
             click.echo(f"No such entry '{label}' in available remotes")
             sys.exit(1)
-        self._local_config[label] = url
+        self._local_config["remotes"][label] = url
 
     def purge(self) -> None:
         """Remove all local FAIR tracking records and caches"""
         if not os.path.exists(self._staging_file) and not os.path.exists(
-            fdp_com.local_fdpconfig()
+            fdp_com.local_fdpconfig(self._session_loc)
         ):
             click.echo("No fair tracking has been initialised")
         else:
@@ -411,20 +430,19 @@ class FAIR:
                 " by running: \n\n\tfair remote add <url>\n"
             )
             sys.exit(1)
-        with open(
-            os.path.join(fdp_com.find_fair_root(), "config.yaml"), "w"
-        ) as f:
+        with open(self._session_config, "w") as f:
             _yaml_str = config_template.render(
                 instance=self,
                 data_dir=fdp_com.data_dir(),
                 local_repo=os.path.abspath(fdp_com.find_fair_root()),
             )
             _yaml_dict = yaml.load(_yaml_str, Loader=yaml.SafeLoader)
-            _yaml_dict["fail_on_hash_mismatch"] = True
+
+            # Null keys are not loaded by YAML so add manually
             _yaml_dict["run_metadata"]["script"] = None
             yaml.dump(_yaml_dict, f)
 
-    def initialise(self, repo_loc: str = os.path.join(os.getcwd())) -> None:
+    def initialise(self) -> None:
         """Initialise an fair repository within the current location
 
         Parameters
@@ -434,7 +452,9 @@ class FAIR:
             location in which to initialise FAIR repository
 
         """
-        _fair_dir = os.path.abspath(os.path.join(repo_loc, ".fair"))
+        _fair_dir = os.path.abspath(
+            os.path.join(self._session_loc, fdp_com.FAIR_FOLDER)
+        )
 
         if os.path.exists(_fair_dir):
             click.echo(f"fatal: fair repository is already initialised.")
@@ -454,19 +474,21 @@ class FAIR:
 
         os.mkdir(_fair_dir)
 
-        with open(fdp_com.local_fdpconfig(), "w") as f:
+        with open(fdp_com.local_fdpconfig(self._session_loc), "w") as f:
             yaml.dump(self._local_config, f)
         self._make_starter_config()
         click.echo(f"Initialised empty fair repository in {_fair_dir}")
 
     def __exit__(self, *args) -> None:
         """Upon exiting, dump all configurations to file"""
-        if not os.path.exists(fdp_com.FAIR_FOLDER):
+        if not os.path.exists(
+            os.path.join(self._session_loc, fdp_com.FAIR_FOLDER)
+        ):
             return
         self._stop_server()
-        with open(fdp_com.staging_cache(), "w") as f:
+        with open(fdp_com.staging_cache(self._session_loc), "w") as f:
             yaml.dump(self._stage_status, f)
         with open(fdp_com.global_fdpconfig(), "w") as f:
             yaml.dump(self._global_config, f)
-        with open(fdp_com.local_fdpconfig(), "w") as f:
+        with open(fdp_com.local_fdpconfig(self._session_loc), "w") as f:
             yaml.dump(self._local_config, f)

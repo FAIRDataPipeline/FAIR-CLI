@@ -8,9 +8,9 @@ import click
 import fair.common as fdp_com
 
 
-def read_local_fdpconfig() -> MutableMapping:
+def read_local_fdpconfig(repo_loc: str) -> MutableMapping:
     _local_config: MutableMapping = {}
-    _local_config_file_addr = fdp_com.local_fdpconfig()
+    _local_config_file_addr = fdp_com.local_fdpconfig(repo_loc)
 
     if os.path.exists(_local_config_file_addr):
         _local_config = yaml.load(
@@ -46,18 +46,18 @@ def _get_config_property(config_data: MutableMapping, *args) -> Any:
     return _object
 
 
-def set_email(email: str) -> None:
+def set_email(repo_loc: str, email: str) -> None:
     """Update the email address for the user"""
-    _loc_conf = read_local_fdpconfig()
+    _loc_conf = read_local_fdpconfig(repo_loc)
     _loc_conf["user"]["email"] = email
-    yaml.dump(_loc_conf, open(fdp_com.local_fdpconfig(), "w"))
+    yaml.dump(_loc_conf, open(fdp_com.local_fdpconfig(repo_loc), "w"))
 
 
-def set_user(name: str) -> None:
+def set_user(repo_loc: str, name: str) -> None:
     """Update the name of the user"""
-    _loc_conf = read_local_fdpconfig()
+    _loc_conf = read_local_fdpconfig(repo_loc)
     _loc_conf["user"]["name"] = name
-    yaml.dump(_loc_conf, open(fdp_com.local_fdpconfig(), "w"))
+    yaml.dump(_loc_conf, open(fdp_com.local_fdpconfig(repo_loc), "w"))
 
 
 def get_current_user() -> str:

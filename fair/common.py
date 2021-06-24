@@ -33,20 +33,20 @@ def find_fair_root(start_directory: str = os.getcwd()) -> str:
     return ""
 
 
-def staging_cache() -> str:
-    return os.path.join(find_fair_root(), FAIR_FOLDER, "staging")
+def staging_cache(user_loc: str) -> str:
+    return os.path.join(find_fair_root(user_loc), FAIR_FOLDER, "staging")
 
 
 def data_dir() -> str:
     return os.path.join(REGISTRY_HOME, "data")
 
 
-def local_fdpconfig() -> str:
-    return os.path.join(find_fair_root(), FAIR_FOLDER, FAIR_CLI_CONFIG)
+def local_fdpconfig(user_loc: str) -> str:
+    return os.path.join(find_fair_root(user_loc), FAIR_FOLDER, FAIR_CLI_CONFIG)
 
 
-def local_user_config() -> str:
-    return os.path.join(find_fair_root(), "config.yaml")
+def local_user_config(user_loc: str) -> str:
+    return os.path.join(find_fair_root(user_loc), "config.yaml")
 
 
 def coderun_dir() -> str:
