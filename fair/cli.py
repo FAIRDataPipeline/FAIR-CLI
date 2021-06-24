@@ -1,33 +1,15 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
-Command line interface to the FAIR Data Pipeline synchronisation tool.
+Command Line Interface
+======================
 
-BSD 2-Clause License
-
-Copyright (c) 2021, Scottish COVID Response Consortium
-All rights reserved.
-
-Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions are met:
-
-1. Redistributions of source code must retain the above copyright notice, this
-   list of conditions and the following disclaimer.
-
-2. Redistributions in binary form must reproduce the above copyright notice,
-   this list of conditions and the following disclaimer in the documentation
-   and/or other materials provided with the distribution.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
-FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+Main command line interface setup script for creation of commands used to
+interact with the synchronisation tool.
 """
+
+__date__ = "2021-06-24"
+
 import click
 import typing
 import os
@@ -64,8 +46,18 @@ def cli():
 @cli.command()
 def status() -> None:
     """Get the status of files under staging"""
-    with fdp_session.FAIR(os.getcwd()) as s:
-        s.status()
+    with fdp_session.FAIR(os.getcwd()) as fair_session:
+        fair_session.status()
+
+
+@cli.command()
+def yaml() -> None:
+    """Generate a new FAIR repository user YAML config file"""
+    click.echo(
+        f"Generating new 'config.yaml' in '{fdp_com.find_fair_root(os.getcwd())}'"
+    )
+    with fdp_session.FAIR(os.getcwd()) as fair_session:
+        fair_session.make_starter_config()
 
 
 @cli.command()
@@ -82,7 +74,7 @@ def init(config: str) -> None:
 
 @cli.command()
 def purge() -> None:
-    """resets the repository deleting all local caches"""
+    """Resets the repository deleting all local caches"""
     _purge = click.prompt(
         "Are you sure you want to reset fair tracking, "
         "this is not reversible [Y/N]? ",
@@ -132,7 +124,7 @@ def add(file_paths: typing.List[str]) -> None:
     help="remove from tracking but do not delete from file system",
 )
 def rm(file_paths: typing.List[str], cached: bool = False) -> None:
-    """removes files from system or just tracking"""
+    """Removes files from system or just tracking"""
     with fdp_session.FAIR(os.getcwd()) as fair_session:
         for file_name in file_paths:
             fair_session.remove_file(file_name, cached)
@@ -141,7 +133,7 @@ def rm(file_paths: typing.List[str], cached: bool = False) -> None:
 @cli.command()
 @click.argument("config", type=click.Path(exists=True))
 def pull(config: str):
-    """parate scripts to add their data/results to the local registry. However for static languages like C++ they will likel i
+    """Parate scripts to add their data/results to the local registry. However for static languages like C++ they will likel i
     download any data required by read: from the remote data store and record metadata in the data registry (whilst
     editing relevant entries, e.g. storage_root)
 
@@ -250,7 +242,7 @@ def modify(options: typing.List[str]) -> None:
 @click.argument("api-token")
 def push(api_token: str):
     """
-    push new files (generated from write: and register:) to the remote data store
+    Push new files (generated from write: and register:) to the remote data store
 
     record metadata in the data registry (whilst editing relevant entries, e.g. storage_root)
     """

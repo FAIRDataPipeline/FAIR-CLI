@@ -1,7 +1,12 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """
+FAIR Data Pipeline Command Line Interface Tool
+----------------------------------------------
 Contains definitions for the synchronisation tool for communication between
 remote and local FAIR Data Pipeline registries.
+
+License
+-------
 
 BSD 2-Clause License
 

@@ -21,7 +21,9 @@ def test_staging_cache(set_constant_paths, initialise_test_repo):
 @pytest.mark.common
 def test_data_dir(set_constant_paths, initialise_test_repo):
     with switch_dir(initialise_test_repo):
-        assert fdp_com.data_dir() == os.path.join(set_constant_paths, "data")
+        assert fdp_com.default_data_dir() == os.path.join(
+            set_constant_paths, "data"
+        )
 
 
 @pytest.mark.common
@@ -43,7 +45,7 @@ def test_local_user_config(set_constant_paths, initialise_test_repo):
 @pytest.mark.common
 def test_code_dir(set_constant_paths, initialise_test_repo):
     with switch_dir(initialise_test_repo):
-        assert fdp_com.coderun_dir() == os.path.join(
+        assert fdp_com.default_coderun_dir() == os.path.join(
             set_constant_paths, "data", "coderun"
         )
 

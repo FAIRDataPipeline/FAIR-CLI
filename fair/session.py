@@ -4,7 +4,7 @@ FAIR Data Pipeline system.
 
 Classes:
 
-    FAIR
+    FAIR - main class for performing synchronisations and model runs
 
 Misc Variables:
 
@@ -15,11 +15,17 @@ Misc Variables:
     __copyright__
 
 """
+
+__date__ = "2021-06-24"
+
 import os
+import glob
+import uuid
 import sys
 import typing
 import subprocess
 import requests
+import pathlib
 
 import click
 import yaml
@@ -71,6 +77,7 @@ class FAIR:
         """
 
         self._session_loc = repo_loc
+        self._session_id = uuid.uuid4()
         self._session_config = (
             user_config
             if user_config
@@ -106,7 +113,7 @@ class FAIR:
 
         if not os.path.exists(_server_start_script):
             click.echo(
-                "Error: failed to find local registry executable,"
+                "error: failed to find local registry executable,"
                 " is the FAIR data pipeline properly installed on this system?"
             )
             sys.exit(1)
@@ -127,7 +134,7 @@ class FAIR:
             == 200
         ):
             click.echo(
-                "Error: Failed to start local registry,"
+                "error: Failed to start local registry,"
                 " no response from server"
             )
             sys.exit(1)
@@ -145,10 +152,8 @@ class FAIR:
         """
         self.check_is_repo()
         if not os.path.exists(self._session_config):
-            self._make_starter_config()
-        fdp_run.run_bash_command(
-            self._session_loc, self._session_config, bash_cmd
-        )
+            self.make_starter_config()
+        fdp_run.run_command(self._session_loc, self._session_config, bash_cmd)
 
     def _stop_server(self) -> None:
         """Stops the FAIR Data Pipeline local server"""
@@ -160,7 +165,7 @@ class FAIR:
 
         if not os.path.exists(_server_stop_script):
             click.echo(
-                "Error: failed to find local registry executable,"
+                "error: failed to find local registry executable,"
                 " is the FAIR data pipeline properly installed on this system?"
             )
             sys.exit(1)
@@ -176,7 +181,7 @@ class FAIR:
 
         try:
             requests.get(self._local_config["remotes"]["local"])
-            click.echo("Error: Failed to stop local registry")
+            click.echo("error: Failed to stop local registry")
             sys.exit(1)
         except requests.exceptions.ConnectionError:
             pass
@@ -196,6 +201,12 @@ class FAIR:
         start of every session.
 
         """
+        _cache_addr = os.path.join(
+            fdp_com.session_cache_dir(), f"{self._session_id}.run"
+        )
+
+        if not os.path.exists(fdp_com.session_cache_dir()):
+            os.makedirs(fdp_com.session_cache_dir())
 
         if os.path.exists(fdp_com.staging_cache(self._session_loc)):
             self._stage_status = yaml.load(
@@ -208,7 +219,14 @@ class FAIR:
             self._local_config = fdp_conf.read_local_fdpconfig(
                 self._session_loc
             )
-        self._launch_server()
+
+        # If there are no session cache files start the server
+        if not glob.glob(os.path.join(fdp_com.session_cache_dir(), "*.run")):
+            self._launch_server()
+
+        # Create new session cache file
+        pathlib.Path(_cache_addr).touch()
+
         return self
 
     def change_staging_state(
@@ -279,7 +297,7 @@ class FAIR:
             "remotes" not in self._local_config
             or label not in self._local_config
         ):
-            self.fail(f"No such entry '{label}' in available remotes")
+            click.echo(f"error: No such entry '{label}' in available remotes")
             sys.exit(1)
         del self._local_config[label]
 
@@ -290,7 +308,7 @@ class FAIR:
             "remotes" not in self._local_config
             or label not in self._local_config["remotes"]
         ):
-            click.echo(f"No such entry '{label}' in available remotes")
+            click.echo(f"error: No such entry '{label}' in available remotes")
             sys.exit(1)
         self._local_config["remotes"][label] = url
 
@@ -299,7 +317,7 @@ class FAIR:
         if not os.path.exists(self._staging_file) and not os.path.exists(
             fdp_com.local_fdpconfig(self._session_loc)
         ):
-            click.echo("No fair tracking has been initialised")
+            click.echo("error: No FAIR tracking has been initialised")
         else:
             os.remove(fdp_com.staging_cache())
             os.remove(fdp_com.global_fdpconfig())
@@ -379,9 +397,9 @@ class FAIR:
             _def_remote = self._global_config["remotes"]["origin"]
             _def_local = self._global_config["remotes"]["local"]
             _def_ospace = self._global_config["namespaces"]["output"]
-        except KeyError:
+        except Keyerror:
             click.echo(
-                "Error: Failed to read global configuration,"
+                "error: Failed to read global configuration,"
                 " re-running global setup."
             )
             self._global_config_query()
@@ -422,7 +440,7 @@ class FAIR:
         }
         self._local_config["description"] = _desc
 
-    def _make_starter_config(self) -> None:
+    def make_starter_config(self) -> None:
         """Create a starter config.yaml"""
         if "remotes" not in self._local_config:
             click.echo(
@@ -433,7 +451,7 @@ class FAIR:
         with open(self._session_config, "w") as f:
             _yaml_str = config_template.render(
                 instance=self,
-                data_dir=fdp_com.data_dir(),
+                data_dir=fdp_com.default_data_dir(),
                 local_repo=os.path.abspath(fdp_com.find_fair_root()),
             )
             _yaml_dict = yaml.load(_yaml_str, Loader=yaml.SafeLoader)
@@ -457,7 +475,7 @@ class FAIR:
         )
 
         if os.path.exists(_fair_dir):
-            click.echo(f"fatal: fair repository is already initialised.")
+            click.echo(f"fatal: FAIR repository is already initialised.")
             sys.exit(1)
 
         self._staging_file = os.path.join(_fair_dir, "staging")
@@ -476,7 +494,7 @@ class FAIR:
 
         with open(fdp_com.local_fdpconfig(self._session_loc), "w") as f:
             yaml.dump(self._local_config, f)
-        self._make_starter_config()
+        self.make_starter_config()
         click.echo(f"Initialised empty fair repository in {_fair_dir}")
 
     def __exit__(self, *args) -> None:
@@ -485,7 +503,17 @@ class FAIR:
             os.path.join(self._session_loc, fdp_com.FAIR_FOLDER)
         ):
             return
-        self._stop_server()
+
+        # Remove the session cache file
+        _cache_addr = os.path.join(
+            fdp_com.session_cache_dir(), f"{self._session_id}.run"
+        )
+        os.remove(_cache_addr)
+
+        # If there are no session cache files shut down server
+        if not glob.glob(os.path.join(fdp_com.session_cache_dir(), "*.run")):
+            self._stop_server()
+
         with open(fdp_com.staging_cache(self._session_loc), "w") as f:
             yaml.dump(self._stage_status, f)
         with open(fdp_com.global_fdpconfig(), "w") as f:

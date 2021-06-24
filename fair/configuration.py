@@ -37,7 +37,7 @@ def _get_config_property(config_data: MutableMapping, *args) -> Any:
     for key in args:
         try:
             _object = _object[key]
-        except KeyError:
+        except Keyerror:
             click.echo(
                 "Failed to retrieve property "
                 f"'{'/'.join(args)}' from configuration"
