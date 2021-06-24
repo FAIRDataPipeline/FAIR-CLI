@@ -26,8 +26,10 @@ import typing
 import subprocess
 import requests
 import pathlib
+import logging
 
 import click
+import rich
 import yaml
 import socket
 
@@ -44,7 +46,7 @@ class FAIR:
 
     Methods are based around a user directory which is specified with locations
     being determined relative to the closest FAIR repository root folder (i.e.
-    the closest location in the upper hierarchy containing a '.fair. folder).
+    the closest location in the upper hierarchy containing a '.faircli. folder).
 
     Methods
     ----------
@@ -62,11 +64,21 @@ class FAIR:
 
     """
 
-    def __init__(self, repo_loc: str, user_config: str = None) -> None:
+    def __init__(
+        self,
+        repo_loc: str,
+        user_config: str = None,
+        debug: bool = False,
+        _mode: str = "cached",
+    ) -> None:
         """Initialise instance of FAIR sync tool
 
         All actions are performed relative to the specified folder after the
-        local '.fair' directory for the repository has been located.
+        local '.faircli' directory for the repository has been located.
+
+        A session is usually cached to ensure that the server is not shut down
+        when a process is taking place. The exception is where the user
+        explicitly requests for it to be started.
 
         Parameters
         ----------
@@ -74,10 +86,15 @@ class FAIR:
             location of FAIR repository to update
         user_config : str, optional
             alternative config.yaml user configuration file
+        debug : bool, optional
+            run in verbose mode
         """
-
+        self._logger = logging.getLogger("FAIRDataPipeline")
+        if debug:
+            self._logger.setLevel(logging.DEBUG)
+        self._logger.debug("Starting new session.")
         self._session_loc = repo_loc
-        self._session_id = uuid.uuid4()
+        self._session_id = uuid.uuid4() if _mode == "cached" else None
         self._session_config = (
             user_config
             if user_config
@@ -92,6 +109,9 @@ class FAIR:
             )
 
         if not os.path.exists(fdp_com.global_config_dir()):
+            self._logger.debug(
+                "Creating directory: %s", fdp_com.global_config_dir()
+            )
             os.makedirs(fdp_com.global_config_dir())
 
         # Initialise all configuration/staging status dictionaries
@@ -99,8 +119,44 @@ class FAIR:
         self._local_config: typing.Dict[str, typing.Any] = {}
         self._global_config: typing.Dict[str, typing.Any] = {}
 
-    def _launch_server(self) -> None:
+        self._load_configurations()
+
+        # If a session ID has been specified this means the server is auto
+        # started as opposed to being started explcitly by the user
+        # this means it will be shut down on completion
+        if self._session_id:
+            _cache_addr = os.path.join(
+                fdp_com.session_cache_dir(), f"{self._session_id}.run"
+            )
+
+            # If there are no session cache files start the server
+            if not glob.glob(
+                os.path.join(fdp_com.session_cache_dir(), "*.run")
+            ):
+                self._launch_server()
+
+            # Create new session cache file
+            pathlib.Path(_cache_addr).touch()
+        else:
+            if _mode == "server_stop":
+                if not self._check_server_running():
+                    click.echo("Server is not running.")
+                    sys.exit(1)
+                click.echo("Stopping local registry server.")
+                self._stop_server()
+            elif _mode == "server_start":
+                if self._check_server_running():
+                    click.echo("Server already running.")
+                    sys.exit(1)
+                click.echo("Starting local registry server")
+                self._launch_server(verbose=True)
+            else:
+                click.echo(f"Error: unrecognised call mode '{_mode}'")
+                sys.exit(1)
+
+    def _launch_server(self, verbose: bool = False) -> None:
         """Start the FAIR Data Pipeline local server"""
+        self._logger.debug("Launching local registry server")
 
         # If the registry server is already running ignore or no setup has
         # yet been performed
@@ -113,7 +169,7 @@ class FAIR:
 
         if not os.path.exists(_server_start_script):
             click.echo(
-                "error: failed to find local registry executable,"
+                "Error: failed to find local registry executable,"
                 " is the FAIR data pipeline properly installed on this system?"
             )
             sys.exit(1)
@@ -127,17 +183,21 @@ class FAIR:
 
         _start.wait()
 
-        if (
-            not requests.get(
-                self._local_config["remotes"]["local"]
-            ).status_code
-            == 200
-        ):
+        if not self._check_server_running():
             click.echo(
-                "error: Failed to start local registry,"
+                "Error: Failed to start local registry,"
                 " no response from server"
             )
             sys.exit(1)
+
+    def _check_server_running(self) -> bool:
+        try:
+            requests.get(
+                self._local_config["remotes"]["local"]
+            ).status_code == 200
+            return True
+        except (requests.exceptions.ConnectionError, AssertionError):
+            return False
 
     def run(
         self,
@@ -153,11 +213,26 @@ class FAIR:
         self.check_is_repo()
         if not os.path.exists(self._session_config):
             self.make_starter_config()
+        self._logger.debug("Setting up command execution")
         fdp_run.run_command(self._session_loc, self._session_config, bash_cmd)
 
     def _stop_server(self) -> None:
         """Stops the FAIR Data Pipeline local server"""
         # If the local registry server is not running ignore
+
+        if self._session_id:
+            # Remove the session cache file
+            _cache_addr = os.path.join(
+                fdp_com.session_cache_dir(), f"{self._session_id}.run"
+            )
+            os.remove(_cache_addr)
+
+        # If there are no session cache files shut down server
+        if glob.glob(os.path.join(fdp_com.session_cache_dir(), "*.run")):
+            click.echo(
+                "Error: Could not stop registry server, processes still running."
+            )
+            sys.exit(1)
 
         _server_stop_script = os.path.join(
             fdp_com.REGISTRY_HOME, "scripts", "stop_scrc_server"
@@ -165,7 +240,7 @@ class FAIR:
 
         if not os.path.exists(_server_stop_script):
             click.echo(
-                "error: failed to find local registry executable,"
+                "Error: failed to find local registry executable,"
                 " is the FAIR data pipeline properly installed on this system?"
             )
             sys.exit(1)
@@ -179,32 +254,26 @@ class FAIR:
 
         _stop.wait()
 
-        try:
-            requests.get(self._local_config["remotes"]["local"])
-            click.echo("error: Failed to stop local registry")
+        if self._check_server_running():
+            click.echo("Error: Failed to stop registry server.")
             sys.exit(1)
-        except requests.exceptions.ConnectionError:
-            pass
 
     def check_is_repo(self) -> None:
         """Check that the current location is a FAIR repository"""
         if not fdp_com.find_fair_root():
             click.echo(
-                "fatal: not a fair repository, run 'fair init' to initialise"
+                "Error:  not a fair repository, run 'fair init' to initialise"
             )
             sys.exit(1)
 
     def __enter__(self) -> None:
-        """Method called when using 'with' statement.
+        """Method called when using 'with' statement."""
+        return self
 
-        This ensures all configurations and staging statuses are read at the
+    def _load_configurations(self) -> None:
+        """This ensures all configurations and staging statuses are read at the
         start of every session.
-
         """
-        _cache_addr = os.path.join(
-            fdp_com.session_cache_dir(), f"{self._session_id}.run"
-        )
-
         if not os.path.exists(fdp_com.session_cache_dir()):
             os.makedirs(fdp_com.session_cache_dir())
 
@@ -219,15 +288,6 @@ class FAIR:
             self._local_config = fdp_conf.read_local_fdpconfig(
                 self._session_loc
             )
-
-        # If there are no session cache files start the server
-        if not glob.glob(os.path.join(fdp_com.session_cache_dir(), "*.run")):
-            self._launch_server()
-
-        # Create new session cache file
-        pathlib.Path(_cache_addr).touch()
-
-        return self
 
     def change_staging_state(
         self, file_to_stage: str, stage: bool = True
@@ -286,7 +346,7 @@ class FAIR:
         if "remotes" not in self._local_config:
             self._local_config["remotes"] = {}
         if label in self._local_config["remotes"]:
-            click.echo(f"error: registry remote '{label}' already exists.")
+            click.echo(f"Error: registry remote '{label}' already exists.")
             sys.exit(1)
         self._local_config["remotes"][label] = remote_url
 
@@ -297,7 +357,7 @@ class FAIR:
             "remotes" not in self._local_config
             or label not in self._local_config
         ):
-            click.echo(f"error: No such entry '{label}' in available remotes")
+            click.echo(f"Error: No such entry '{label}' in available remotes")
             sys.exit(1)
         del self._local_config[label]
 
@@ -308,7 +368,7 @@ class FAIR:
             "remotes" not in self._local_config
             or label not in self._local_config["remotes"]
         ):
-            click.echo(f"error: No such entry '{label}' in available remotes")
+            click.echo(f"Error: No such entry '{label}' in available remotes")
             sys.exit(1)
         self._local_config["remotes"][label] = url
 
@@ -317,7 +377,7 @@ class FAIR:
         if not os.path.exists(self._staging_file) and not os.path.exists(
             fdp_com.local_fdpconfig(self._session_loc)
         ):
-            click.echo("error: No FAIR tracking has been initialised")
+            click.echo("Error: No FAIR tracking has been initialised")
         else:
             os.remove(fdp_com.staging_cache())
             os.remove(fdp_com.global_fdpconfig())
@@ -331,11 +391,11 @@ class FAIR:
         else:
             _remote_print = []
             for remote, url in self._local_config["remotes"].items():
-                _out_str = remote
+                _out_str = f"[bold white]{remote}[/bold white]"
                 if verbose:
-                    _out_str += f" {url}"
+                    _out_str += f"\t[yellow]{url}[/yellow]"
                 _remote_print.append(_out_str)
-            click.echo("\n".join(_remote_print))
+            rich.print("\n".join(_remote_print))
 
     def status(self) -> None:
         """Get the status of staging"""
@@ -355,6 +415,9 @@ class FAIR:
 
             for file_name in _unstaged:
                 click.echo(click.style(f"\t\t{file_name}", fg="red"))
+
+        if not _staged and not _unstaged:
+            click.echo("Nothing marked for tracking.")
 
     def _global_config_query(self) -> None:
         """Ask user question set for creating global FAIR config"""
@@ -397,9 +460,9 @@ class FAIR:
             _def_remote = self._global_config["remotes"]["origin"]
             _def_local = self._global_config["remotes"]["local"]
             _def_ospace = self._global_config["namespaces"]["output"]
-        except Keyerror:
+        except KeyError:
             click.echo(
-                "error: Failed to read global configuration,"
+                "Error: Failed to read global configuration,"
                 " re-running global setup."
             )
             self._global_config_query()
@@ -475,7 +538,7 @@ class FAIR:
         )
 
         if os.path.exists(_fair_dir):
-            click.echo(f"fatal: FAIR repository is already initialised.")
+            click.echo(f"Error:  FAIR repository is already initialised.")
             sys.exit(1)
 
         self._staging_file = os.path.join(_fair_dir, "staging")
@@ -503,16 +566,6 @@ class FAIR:
             os.path.join(self._session_loc, fdp_com.FAIR_FOLDER)
         ):
             return
-
-        # Remove the session cache file
-        _cache_addr = os.path.join(
-            fdp_com.session_cache_dir(), f"{self._session_id}.run"
-        )
-        os.remove(_cache_addr)
-
-        # If there are no session cache files shut down server
-        if not glob.glob(os.path.join(fdp_com.session_cache_dir(), "*.run")):
-            self._stop_server()
 
         with open(fdp_com.staging_cache(self._session_loc), "w") as f:
             yaml.dump(self._stage_status, f)

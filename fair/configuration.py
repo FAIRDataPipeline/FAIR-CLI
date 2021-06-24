@@ -13,9 +13,7 @@ def read_local_fdpconfig(repo_loc: str) -> MutableMapping:
     _local_config_file_addr = fdp_com.local_fdpconfig(repo_loc)
 
     if os.path.exists(_local_config_file_addr):
-        _local_config = yaml.load(
-            open(_local_config_file_addr), Loader=yaml.SafeLoader
-        )
+        _local_config = yaml.safe_load(open(_local_config_file_addr))
 
     return _local_config
 
@@ -25,9 +23,7 @@ def read_global_fdpconfig() -> MutableMapping:
     _global_config_addr = fdp_com.global_fdpconfig()
 
     if os.path.exists(_global_config_addr):
-        _global_config = yaml.load(
-            open(_global_config_addr), Loader=yaml.SafeLoader
-        )
+        _global_config = yaml.safe_load(open(_global_config_addr))
 
     return _global_config
 
@@ -37,7 +33,7 @@ def _get_config_property(config_data: MutableMapping, *args) -> Any:
     for key in args:
         try:
             _object = _object[key]
-        except Keyerror:
+        except KeyError:
             click.echo(
                 "Failed to retrieve property "
                 f"'{'/'.join(args)}' from configuration"

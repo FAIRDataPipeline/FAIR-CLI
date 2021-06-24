@@ -25,29 +25,29 @@ Changes to be committed:
 ```
 this would not be possible if the location was `$HOME/.git`.
 
-- The user might want to keep tracking cases separate, e.g. they may have two models and only want to handle one at a time. In this case having a `.fair` folder in each repository with a candidate `config.yaml` would make sense.
+- The user might want to keep tracking cases separate, e.g. they may have two models and only want to handle one at a time. In this case having a `.faircli` folder in each repository with a candidate `config.yaml` would make sense.
 - I would strongly oppose creating hidden folders in the user's home area. Unless you have a clear uninstallation procedure that is not OS specific that removes this folder then you risk leaving orphaned directories. Whereas if the folder is created for a project then this is no longer an issue.
 
 ## Initialisation
-To ensure that the `config.yaml` location is always alongside a `.fair` folder, encourage users to use a command like:
+To ensure that the `config.yaml` location is always alongside a `.faircli` folder, encourage users to use a command like:
 ```
 $ fair init
 ```
-which would make both. Police this by raising an exception if the `config.yaml` is not partnered with a `.fair` directory. Maybe even make a copy of `config.yaml` that is "packed" into `.fair` in case the two become separated, which would fall under:
+which would make both. Police this by raising an exception if the `config.yaml` is not partnered with a `.faircli` directory. Maybe even make a copy of `config.yaml` that is "packed" into `.faircli` in case the two become separated, which would fall under:
 ```
 $ fair reset config.yaml
 ```
 use `config.yaml` to explicitly state you want to reset the config file, else by default this is ignored as it is not data.
 
 ## Repository wide addition
-Ideally `data_store` should work like `.git` in that it is a hidden container, I am aware the APIs will want to read from this location, could they perhaps read this hidden folder? If the user works with the original file and commits it then the hidden version would be updated anyway (again mirroring git). Could also even have the option to archive data in `.fair` to save space, retrieving when needed (again like git).
+Ideally `data_store` should work like `.git` in that it is a hidden container, I am aware the APIs will want to read from this location, could they perhaps read this hidden folder? If the user works with the original file and commits it then the hidden version would be updated anyway (again mirroring git). Could also even have the option to archive data in `.faircli` to save space, retrieving when needed (again like git).
 
 Assuming a data_store is constructed always relative to a `config.yaml`, allow the user to ultimately add anything in the repository for tracking:
 
 ```
 fair add ./my_data/a_data_file.txt
 ```
-this would copy the version into `.fair/data_store` and add it to tracking.
+this would copy the version into `.faircli/data_store` and add it to tracking.
 
 ## Configuration
 Configure the user in a manner again alike to `git`:

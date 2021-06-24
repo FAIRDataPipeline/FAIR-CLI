@@ -41,7 +41,7 @@ import fair.utilities as fdp_util
 import fair.history as fdp_hist
 
 
-SHELLS = {
+SHELLS: Dict[str, str] = {
     "pwsh": "pwsh -command \". '{0}'\"",
     "python": "python",
     "python3": "python3",
@@ -83,15 +83,15 @@ def run_command(
 
     # Check that the specified user config file for a run actually exists
     if not os.path.exists(config_yaml):
-        click.echo("error: expected file 'config.yaml' at head of repository")
+        click.echo("Error: expected file 'config.yaml' at head of repository")
         sys.exit(1)
 
     with open(config_yaml) as f:
-        _cfg = yaml.load(f, Loader=yaml.SafeLoader)
+        _cfg = yaml.load(f)
 
     if not _cfg:
         click.echo(
-            "error: Failed to load specified 'config.yaml' file, "
+            "Error: Failed to load specified 'config.yaml' file, "
             "contents empty."
         )
         sys.exit(1)
@@ -101,7 +101,7 @@ def run_command(
         and "script_path" not in _cfg["run_metadata"]
     ):
         click.echo(
-            "error: failed to find executable method in specified "
+            "Error: failed to find executable method in specified "
             "'config.yaml', expected either key 'script' or 'script_path'"
             " with valid values."
         )
@@ -129,7 +129,7 @@ def run_command(
     if bash_cmd:
         _cfg["run_metadata"]["script"] = bash_cmd
 
-        _work_cfg = yaml.load(open(_work_cfg_yml), Loader=yaml.SafeLoader)
+        _work_cfg = yaml.load(open(_work_cfg_yml))
         _work_cfg["run_metadata"]["script"] = bash_cmd
 
         with open(config_yaml, "w") as f:
@@ -143,7 +143,7 @@ def run_command(
     _shell = _cmd_setup["shell"]
 
     if _shell not in SHELLS:
-        click.echo(f"error: Unrecognised shell '{_shell}' specified.")
+        click.echo(f"Error: Unrecognised shell '{_shell}' specified.")
         sys.exit(1)
 
     _cmd_list = _shell.format(_cmd_setup["script"]).split()
@@ -206,7 +206,7 @@ def run_command(
 
     # Exit the session if the run failed
     if _process.returncode != 0:
-        click.echo(f"error: run failed with exit code '{_process.returncode}'")
+        click.echo(f"Error: run failed with exit code '{_process.returncode}'")
         sys.exit(_process.returncode)
 
 
@@ -252,7 +252,7 @@ def create_working_config(
         .name,
     }
 
-    _conf_yaml = yaml.load(open(config_yaml), Loader=yaml.SafeLoader)
+    _conf_yaml = yaml.load(open(config_yaml))
 
     # Remove 'register' from working configuration
     if "register" in _conf_yaml:
@@ -282,7 +282,7 @@ def create_working_config(
         # The number of results for '${{fair.var}}' should match those
         # for the exclusive search for 'var'
         if not len(_var_search) == len(_var_label):
-            click.echo("error: FAIR variable matching failed")
+            click.echo("Error: FAIR variable matching failed")
             sys.exit(1)
 
         # Search for '${ENV_VAR}' then also make an exclusive search to extract
@@ -293,7 +293,7 @@ def create_working_config(
         # The number of results for '${ENV_VAR}' should match those
         # for the exclusive search for 'ENV_VAR'
         if not len(_env_search) == len(_env_label):
-            click.echo("error: environment variable matching failed")
+            click.echo("Error: environment variable matching failed")
             sys.exit(1)
 
         for entry, var in zip(_var_search, _var_label):
@@ -302,7 +302,7 @@ def create_working_config(
                 _flat_conf[key] = value.replace(entry, _new_var)
             else:
                 click.echo(
-                    f"error: Variable '{var}' is not a recognised FAIR config "
+                    f"Error: Variable '{var}' is not a recognised FAIR config "
                     "variable, config.yaml substitution failed."
                 )
                 sys.exit(1)
@@ -349,7 +349,7 @@ def setup_run_script(config_yaml: str, output_dir: str) -> Dict[str, Any]:
         a dictionary containing information on the command to execute,
         which shell to run it in and the environment to use
     """
-    _conf_yaml = yaml.load(open(config_yaml), Loader=yaml.SafeLoader)
+    _conf_yaml = yaml.load(open(config_yaml))
     _cmd = None
     _run_env = os.environ.copy()
 
@@ -383,7 +383,7 @@ def setup_run_script(config_yaml: str, output_dir: str) -> Dict[str, Any]:
         _path = _conf_yaml["run_metadata"]["script_path"]
         if not os.path.exists(_path):
             click.echo(
-                f"error: Failed to execute run, script '{_path}' was not found, or"
+                f"Error: Failed to execute run, script '{_path}' was not found, or"
                 " failed to be created."
             )
             sys.exit(1)
@@ -395,7 +395,7 @@ def setup_run_script(config_yaml: str, output_dir: str) -> Dict[str, Any]:
 
     if not _cmd or not _out_file:
         click.echo(
-            "error: Configuration file must contain either a valid "
+            "Error: Configuration file must contain either a valid "
             "'script' or 'script_path' entry under 'run_metadata'"
         )
         sys.exit(1)

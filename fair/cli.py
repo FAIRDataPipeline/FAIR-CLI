@@ -10,6 +10,7 @@ interact with the synchronisation tool.
 
 __date__ = "2021-06-24"
 
+from logging import debug
 import click
 import typing
 import os
@@ -24,39 +25,32 @@ __author__ = "Scottish COVID Response Consortium"
 __credits__ = ["Nathan Cummings (UKAEA)", "Kristian Zarebski (UKAEA)"]
 __license__ = "BSD-2-Clause"
 __status__ = "Development"
-__copyright__ = "Copyright 2021, FAIR"
+__copyright__ = "Copyright 2021, FAIR Data Pipeline"
 
 
 @click.group()
 @click.version_option()
 def cli():
-    """Welcome to FAIR, the FAIR data pipeline command-line interface."""
-    # if registry_installed() and registry_running():
-    #     click.echo("Local registry installed and running")
-    # else:
-    #     click.echo(
-    #         "You do not have a local registry running. Please see "
-    #         "https://scottishcovidresponse.github.io/docs/data_pipeline/local_registry/"
-    #         "for information on how to install and run a local registry."
-    #     )
-    #     sys.exit(1)
+    """Welcome to FAIR-CLI, the FAIR data pipeline command-line interface."""
     pass
 
 
 @cli.command()
-def status() -> None:
+@click.option("--debug/--no-debug", help="Run in debug mode", default=False)
+def status(debug) -> None:
     """Get the status of files under staging"""
-    with fdp_session.FAIR(os.getcwd()) as fair_session:
+    with fdp_session.FAIR(os.getcwd(), debug=debug) as fair_session:
         fair_session.status()
 
 
 @cli.command()
-def yaml() -> None:
+@click.option("--debug/--no-debug", help="Run in debug mode", default=False)
+def yaml(debug) -> None:
     """Generate a new FAIR repository user YAML config file"""
     click.echo(
         f"Generating new 'config.yaml' in '{fdp_com.find_fair_root(os.getcwd())}'"
     )
-    with fdp_session.FAIR(os.getcwd()) as fair_session:
+    with fdp_session.FAIR(os.getcwd(), debug=debug) as fair_session:
         fair_session.make_starter_config()
 
 
@@ -66,9 +60,10 @@ def yaml() -> None:
     help="Specify alternate location for generated config.yaml",
     default=fdp_com.local_user_config(os.getcwd()),
 )
-def init(config: str) -> None:
+@click.option("--debug/--no-debug", help="Run in debug mode", default=False)
+def init(config: str, debug: bool) -> None:
     """Initialise repository in current location"""
-    with fdp_session.FAIR(os.getcwd(), config) as fair_session:
+    with fdp_session.FAIR(os.getcwd(), config, debug=debug) as fair_session:
         fair_session.initialise()
 
 
@@ -76,13 +71,31 @@ def init(config: str) -> None:
 def purge() -> None:
     """Resets the repository deleting all local caches"""
     _purge = click.prompt(
-        "Are you sure you want to reset fair tracking, "
+        "Are you sure you want to reset FAIR tracking, "
         "this is not reversible [Y/N]? ",
         type=click.BOOL,
     )
     if _purge:
         with fdp_session.FAIR(os.getcwd()) as fair_session:
             fair_session.purge()
+
+
+@cli.group()
+def server() -> None:
+    """Commands related to server"""
+    pass
+
+
+@server.command()
+def start() -> None:
+    """Start the local registry server"""
+    fdp_session.FAIR(os.getcwd(), _mode="server_start")
+
+
+@server.command()
+def stop() -> None:
+    """Stop the local registry server"""
+    fdp_session.FAIR(os.getcwd(), _mode="server_stop")
 
 
 @cli.command()
@@ -100,32 +113,37 @@ def view(run_id: str) -> None:
 
 @cli.command()
 @click.argument("file_paths", type=click.Path(exists=True), nargs=-1)
-def reset(file_paths: typing.List[str]) -> None:
+@click.option("--debug/--no-debug", help="Run in debug mode", default=False)
+def reset(file_paths: typing.List[str], debug: bool) -> None:
     """Removes files/runs from staging"""
-    with fdp_session.FAIR(os.getcwd()) as fair_session:
+    with fdp_session.FAIR(os.getcwd(), debug=debug) as fair_session:
         for file_name in file_paths:
             fair_session.change_staging_state(file_name, False)
 
 
 @cli.command()
 @click.argument("file_paths", type=click.Path(exists=True), nargs=-1)
-def add(file_paths: typing.List[str]) -> None:
+@click.option("--debug/--no-debug", help="Run in debug mode", default=False)
+def add(file_paths: typing.List[str], debug: bool) -> None:
     """Add a file to staging"""
-    with fdp_session.FAIR(os.getcwd()) as fair_session:
+    with fdp_session.FAIR(os.getcwd(), debug=debug) as fair_session:
         for file_name in file_paths:
             fair_session.change_staging_state(file_name, True)
 
 
 @cli.command()
 @click.argument("file_paths", type=click.Path(exists=True), nargs=-1)
+@click.option("--debug/--no-debug", help="Run in debug mode", default=False)
 @click.option(
     "--cached/--not-cached",
     default=False,
     help="remove from tracking but do not delete from file system",
 )
-def rm(file_paths: typing.List[str], cached: bool = False) -> None:
+def rm(
+    file_paths: typing.List[str], cached: bool = False, debug: bool = False
+) -> None:
     """Removes files from system or just tracking"""
-    with fdp_session.FAIR(os.getcwd()) as fair_session:
+    with fdp_session.FAIR(os.getcwd(), debug=debug) as fair_session:
         for file_name in file_paths:
             fair_session.remove_file(file_name, cached)
 
@@ -158,11 +176,14 @@ def pull(config: str):
     help="Specify alternate location for generated config.yaml",
     default=fdp_com.local_user_config(os.getcwd()),
 )
-def run(ctx, config: str):
+@click.option("--debug/--no-debug", help="Run in debug mode", default=False)
+def run(ctx, config: str, debug: bool):
     """Initialises a run with the option to specify a bash command"""
     if not ctx.invoked_subcommand:
-        with fdp_session.FAIR(os.getcwd(), config) as fair_session:
-            fair_session.run(config)
+        with fdp_session.FAIR(
+            os.getcwd(), config, debug=debug
+        ) as fair_session:
+            fair_session.run()
 
 
 @run.command()
@@ -172,25 +193,28 @@ def run(ctx, config: str):
     help="Specify alternate location for generated config.yaml",
     default=fdp_com.local_user_config(os.getcwd()),
 )
-def bash(bash_command: str, config: str):
+@click.option("--debug/--no-debug", help="Run in debug mode", default=False)
+def bash(bash_command: str, config: str, debug: bool):
     """Run a BASH command and set this to be the default run command"""
-    with fdp_session.FAIR(os.getcwd(), config) as fair_session:
+    with fdp_session.FAIR(os.getcwd(), config, debug=debug) as fair_session:
         fair_session.run(bash_command)
 
 
 @cli.group(invoke_without_command=True)
 @click.option("--verbose/--no-verbose", "-v/")
+@click.option("--debug/--no-debug", help="Run in debug mode", default=False)
 @click.pass_context
-def remote(ctx, verbose: bool = False):
+def remote(ctx, verbose: bool = False, debug: bool = False):
     """List remotes if no additional command is provided"""
     if not ctx.invoked_subcommand:
-        with fdp_session.FAIR(os.getcwd()) as fair_session:
+        with fdp_session.FAIR(os.getcwd(), debug=debug) as fair_session:
             fair_session.list_remotes(verbose)
 
 
 @remote.command()
 @click.argument("options", nargs=-1)
-def add(options: typing.List[str]) -> None:
+@click.option("--debug/--no-debug", help="Run in debug mode", default=False)
+def add(options: typing.List[str], debug: bool) -> None:
     """Add a remote registry URL with option to give it a label if multiple
     remotes may be used.
 
@@ -204,13 +228,14 @@ def add(options: typing.List[str]) -> None:
     _url = options[1] if len(options) > 1 else options[0]
     _label = options[0] if len(options) > 1 else "origin"
 
-    with fdp_session.FAIR(os.getcwd()) as fair_session:
+    with fdp_session.FAIR(os.getcwd(), debug=debug) as fair_session:
         fair_session.add_remote(_url, _label)
 
 
 @remote.command()
 @click.argument("label")
-def remove(label: str) -> None:
+@click.option("--debug/--no-debug", help="Run in debug mode", default=False)
+def remove(label: str, debug: bool) -> None:
     """Removes the specified remote from the remotes list
 
     Parameters
@@ -218,24 +243,19 @@ def remove(label: str) -> None:
     label : str
         label of remote to remove
     """
-    with fdp_session.FAIR(os.getcwd()) as fair_session:
+    with fdp_session.FAIR(os.getcwd(), debug=debug) as fair_session:
         fair_session.remove_remove(label)
 
 
 @remote.command()
-@click.argument("options", nargs=-1)
-def modify(options: typing.List[str]) -> None:
-    """Modify a remote address
-
-    Parameters
-    ----------
-    options : typing.List[str]
-        List of 1 or 2 containing name of remote to modify
-    """
-    _label = options[0] if len(options) > 1 else "origin"
-    _url = options[1] if len(options) > 1 else options[0]
-    with fdp_session.FAIR(os.getcwd()) as fair_session:
-        fair_session.modify_remote(_label, _url)
+@click.argument("label")
+@click.argument("url")
+@click.pass_context
+@click.option("--debug/--no-debug", help="Run in debug mode", default=False)
+def modify(ctx, label: str, url: str, debug: bool) -> None:
+    """Modify a remote address"""
+    with fdp_session.FAIR(os.getcwd(), debug=debug) as fair_session:
+        fair_session.modify_remote(label, url)
 
 
 @cli.command()

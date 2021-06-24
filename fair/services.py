@@ -14,7 +14,7 @@ def registry_installed():
 def registry_running():
     try:
         r = requests.get("http://localhost:8000/api?")
-    except requests.exceptions.Connectionerror:
+    except requests.exceptions.ConnectionError:
         return False
     else:
         if r.status_code == 200:
