@@ -111,7 +111,9 @@ def run_command(
     # use the key 'data_store' from the 'config.yaml' if
     # specified else revert to the
     if "data_store" in _cfg["run_metadata"]:
-        _run_dir = _cfg["run_metadata"]["data_store"]
+        _run_dir = os.path.join(
+            _cfg["run_metadata"]["data_store"], fdp_com.CODERUN_DIR
+        )
     else:
         _run_dir = fdp_com.default_coderun_dir()
 
@@ -123,6 +125,10 @@ def run_command(
 
     # Create working config
     create_working_config(_run_dir, config_yaml, _work_cfg_yml, _now)
+
+    if not os.path.exists(_work_cfg_yml):
+        click.echo("Error: Failed to create working config.yaml in run folder")
+        sys.exit(1)
 
     # If a bash command is specified, save it to the configuration
     # and use this during the run

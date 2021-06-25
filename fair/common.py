@@ -41,6 +41,7 @@ import pathlib
 REGISTRY_HOME = os.path.join(pathlib.Path.home(), ".scrc")
 FAIR_CLI_CONFIG = "cli-config.yaml"
 FAIR_FOLDER = ".faircli"
+CODERUN_DIR = "coderun"
 
 
 def find_fair_root(start_directory: str = os.getcwd()) -> str:
@@ -90,7 +91,7 @@ def local_user_config(user_loc: str) -> str:
 
 
 def default_coderun_dir() -> str:
-    return os.path.join(default_data_dir(), "coderun")
+    return os.path.join(default_data_dir(), CODERUN_DIR)
 
 
 def global_config_dir() -> str:
