@@ -87,7 +87,7 @@ def run_command(
         sys.exit(1)
 
     with open(config_yaml) as f:
-        _cfg = yaml.load(f)
+        _cfg = yaml.safe_load(f)
 
     if not _cfg:
         click.echo(
@@ -129,7 +129,7 @@ def run_command(
     if bash_cmd:
         _cfg["run_metadata"]["script"] = bash_cmd
 
-        _work_cfg = yaml.load(open(_work_cfg_yml))
+        _work_cfg = yaml.safe_load(open(_work_cfg_yml))
         _work_cfg["run_metadata"]["script"] = bash_cmd
 
         with open(config_yaml, "w") as f:
@@ -146,7 +146,7 @@ def run_command(
         click.echo(f"Error: Unrecognised shell '{_shell}' specified.")
         sys.exit(1)
 
-    _cmd_list = _shell.format(_cmd_setup["script"]).split()
+    _cmd_list = SHELLS[_shell].format(_cmd_setup["script"]).split()
 
     _run_meta = _cfg["run_metadata"]
 
@@ -184,7 +184,7 @@ def run_command(
     _process = subprocess.Popen(
         _cmd_list,
         stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
+        stderr=subprocess.PIPE,
         universal_newlines=True,
         bufsize=1,
         text=True,
@@ -252,7 +252,7 @@ def create_working_config(
         .name,
     }
 
-    _conf_yaml = yaml.load(open(config_yaml))
+    _conf_yaml = yaml.safe_load(open(config_yaml))
 
     # Remove 'register' from working configuration
     if "register" in _conf_yaml:
@@ -349,7 +349,7 @@ def setup_run_script(config_yaml: str, output_dir: str) -> Dict[str, Any]:
         a dictionary containing information on the command to execute,
         which shell to run it in and the environment to use
     """
-    _conf_yaml = yaml.load(open(config_yaml))
+    _conf_yaml = yaml.safe_load(open(config_yaml))
     _cmd = None
     _run_env = os.environ.copy()
 

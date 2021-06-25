@@ -10,7 +10,6 @@ interact with the synchronisation tool.
 
 __date__ = "2021-06-24"
 
-from logging import debug
 import click
 import typing
 import os

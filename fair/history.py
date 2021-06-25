@@ -60,6 +60,9 @@ def show_history(length: int = 10) -> None:
     for i, log in enumerate(_time_sorted_logs):
         if i == length:
             return
+
+        # TODO: This run ID is a dummy and if 'fair log' is kept should be
+        # replaced with an ID from the registry instead
         _run_id = hashlib.sha1(open(log).read().encode("utf-8")).hexdigest()
         with open(log) as f:
             _metadata = f.readlines()[:5]

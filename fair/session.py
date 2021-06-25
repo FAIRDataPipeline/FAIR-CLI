@@ -278,9 +278,8 @@ class FAIR:
             os.makedirs(fdp_com.session_cache_dir())
 
         if os.path.exists(fdp_com.staging_cache(self._session_loc)):
-            self._stage_status = yaml.load(
-                open(fdp_com.staging_cache(self._session_loc)),
-                Loader=yaml.SafeLoader,
+            self._stage_status = yaml.safe_load(
+                open(fdp_com.staging_cache(self._session_loc))
             )
         if os.path.exists(fdp_com.global_fdpconfig()):
             self._global_config = fdp_conf.read_global_fdpconfig()
@@ -310,7 +309,8 @@ class FAIR:
         # Create a label with which to store the staging status of the given
         # file using its path with respect to the staging status file
         _label = os.path.relpath(
-            file_to_stage, os.path.dirname(self._staging_file)
+            file_to_stage,
+            os.path.dirname(fdp_com.staging_cache(self._session_loc)),
         )
 
         self._stage_status[_label] = stage
@@ -327,7 +327,8 @@ class FAIR:
         """
         self.check_is_repo()
         _label = os.path.relpath(
-            file_name, os.path.dirname(self._staging_file)
+            file_name,
+            os.path.dirname(fdp_com.staging_cache(self._session_loc)),
         )
         if _label in self._stage_status:
             del self._stage_status[_label]
@@ -374,14 +375,23 @@ class FAIR:
 
     def purge(self) -> None:
         """Remove all local FAIR tracking records and caches"""
-        if not os.path.exists(self._staging_file) and not os.path.exists(
-            fdp_com.local_fdpconfig(self._session_loc)
-        ):
+        if not os.path.exists(
+            fdp_com.staging_cache(self._session_loc)
+        ) and not os.path.exists(fdp_com.local_fdpconfig(self._session_loc)):
             click.echo("Error: No FAIR tracking has been initialised")
         else:
-            os.remove(fdp_com.staging_cache())
-            os.remove(fdp_com.global_fdpconfig())
-            os.remove(fdp_com.local_fdpconfig())
+            try:
+                os.remove(fdp_com.staging_cache(self._session_loc))
+            except FileNotFoundError:
+                pass
+            try:
+                os.remove(fdp_com.global_fdpconfig())
+            except FileNotFoundError:
+                pass
+            try:
+                os.remove(fdp_com.local_fdpconfig(self._session_loc))
+            except FileNotFoundError:
+                pass
 
     def list_remotes(self, verbose: bool = False) -> None:
         """List the available RestAPI URLs"""
@@ -517,7 +527,7 @@ class FAIR:
                 data_dir=fdp_com.default_data_dir(),
                 local_repo=os.path.abspath(fdp_com.find_fair_root()),
             )
-            _yaml_dict = yaml.load(_yaml_str, Loader=yaml.SafeLoader)
+            _yaml_dict = yaml.safe_load(_yaml_str)
 
             # Null keys are not loaded by YAML so add manually
             _yaml_dict["run_metadata"]["script"] = None
