@@ -14,6 +14,7 @@ Contents
 
 Members
 -------
+    USER_FAIR_DIR   - user FAIR directory
     REGISTRY_HOME   - location of local registry
     FAIR_CLI_CONFIG - name of the FAIR-CLI configuration file
     FAIR_FOLDER     - name for FAIR local repository directory
@@ -37,8 +38,8 @@ __date__ = "2021-06-24"
 import os
 import pathlib
 
-
-REGISTRY_HOME = os.path.join(pathlib.Path.home(), ".scrc")
+USER_FAIR_DIR = os.path.join(pathlib.Path.home(), ".fair")
+REGISTRY_HOME = os.path.join(USER_FAIR_DIR, "registry")
 FAIR_CLI_CONFIG = "cli-config.yaml"
 FAIR_FOLDER = ".faircli"
 CODERUN_DIR = "coderun"
@@ -77,7 +78,7 @@ def staging_cache(user_loc: str) -> str:
 
 def default_data_dir() -> str:
     """Location of the default data store"""
-    return os.path.join(REGISTRY_HOME, "data")
+    return os.path.join(USER_FAIR_DIR, "data")
 
 
 def local_fdpconfig(user_loc: str) -> str:
@@ -95,7 +96,7 @@ def default_coderun_dir() -> str:
 
 
 def global_config_dir() -> str:
-    return os.path.join(REGISTRY_HOME, "cli")
+    return os.path.join(USER_FAIR_DIR, "cli")
 
 
 def session_cache_dir() -> str:

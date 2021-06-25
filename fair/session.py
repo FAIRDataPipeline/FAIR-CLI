@@ -138,17 +138,23 @@ class FAIR:
             # Create new session cache file
             pathlib.Path(_cache_addr).touch()
         else:
-            if _mode == "server_stop":
+            _cache_addr = os.path.join(
+                fdp_com.session_cache_dir(), f"user.run"
+            )
+            if _mode in ["server_stop", "server_stop_force"]:
                 if not self._check_server_running():
                     click.echo("Server is not running.")
                     sys.exit(1)
+                if os.path.exists(_cache_addr):
+                    os.remove(_cache_addr)
                 click.echo("Stopping local registry server.")
-                self._stop_server()
+                self._stop_server(force=_mode == "server_stop_force")
             elif _mode == "server_start":
                 if self._check_server_running():
                     click.echo("Server already running.")
                     sys.exit(1)
                 click.echo("Starting local registry server")
+                pathlib.Path(_cache_addr).touch()
                 self._launch_server(verbose=True)
             else:
                 click.echo(f"Error: unrecognised call mode '{_mode}'")
@@ -216,23 +222,17 @@ class FAIR:
         self._logger.debug("Setting up command execution")
         fdp_run.run_command(self._session_loc, self._session_config, bash_cmd)
 
-    def _stop_server(self) -> None:
+    def _stop_server(self, force: bool = False) -> None:
         """Stops the FAIR Data Pipeline local server"""
         # If the local registry server is not running ignore
 
-        if self._session_id:
-            # Remove the session cache file
-            _cache_addr = os.path.join(
-                fdp_com.session_cache_dir(), f"{self._session_id}.run"
-            )
-            os.remove(_cache_addr)
-
         # If there are no session cache files shut down server
         if glob.glob(os.path.join(fdp_com.session_cache_dir(), "*.run")):
-            click.echo(
-                "Error: Could not stop registry server, processes still running."
-            )
-            sys.exit(1)
+            if not force:
+                click.echo(
+                    "Error: Could not stop registry server, processes still running."
+                )
+                sys.exit(1)
 
         _server_stop_script = os.path.join(
             fdp_com.REGISTRY_HOME, "scripts", "stop_scrc_server"
@@ -475,6 +475,7 @@ class FAIR:
                 "Error: Failed to read global configuration,"
                 " re-running global setup."
             )
+            first_time_setup = True
             self._global_config_query()
             _def_remote = self._global_config["remotes"]["origin"]
             _def_local = self._global_config["remotes"]["local"]
@@ -576,6 +577,18 @@ class FAIR:
             os.path.join(self._session_loc, fdp_com.FAIR_FOLDER)
         ):
             return
+
+        if self._session_id:
+            # Remove the session cache file
+            _cache_addr = os.path.join(
+                fdp_com.session_cache_dir(), f"{self._session_id}.run"
+            )
+            os.remove(_cache_addr)
+
+        if not os.path.exists(
+            os.path.join(fdp_com.session_cache_dir(), "user.run")
+        ):
+            self._stop_server()
 
         with open(fdp_com.staging_cache(self._session_loc), "w") as f:
             yaml.dump(self._stage_status, f)

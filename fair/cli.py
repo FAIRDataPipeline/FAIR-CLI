@@ -92,9 +92,11 @@ def start() -> None:
 
 
 @server.command()
-def stop() -> None:
+@click.option("--force/--no-force", help="Force server stop", default=False)
+def stop(force) -> None:
     """Stop the local registry server"""
-    fdp_session.FAIR(os.getcwd(), _mode="server_stop")
+    _mode = "server_stop_force" if force else "server_stop"
+    fdp_session.FAIR(os.getcwd(), _mode=_mode)
 
 
 @cli.command()
