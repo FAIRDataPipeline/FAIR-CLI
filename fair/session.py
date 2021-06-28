@@ -34,12 +34,10 @@ import uuid
 import typing
 import pathlib
 import logging
-import shutil
 
 import click
 import rich
 import yaml
-import socket
 
 from fair.templates import config_template
 import fair.common as fdp_com
@@ -373,91 +371,6 @@ class FAIR:
         if not _staged and not _unstaged:
             click.echo("Nothing marked for tracking.")
 
-    def _global_config_query(self) -> None:
-        """Ask user question set for creating global FAIR config"""
-        _def_local = "http://localhost:8000/api/"
-
-        _remote_url = click.prompt(f"Remote API URL")
-        _local_url = click.prompt(f"Local API URL", default=_def_local)
-
-        _def_name = socket.gethostname()
-        _user_name = click.prompt("Full name", default=_def_name)
-        _user_email = click.prompt("Email")
-        _user_orcid = click.prompt("ORCID", default="None")
-        _user_orcid = _user_orcid if _user_orcid != "None" else None
-
-        if len(_user_name.strip().split()) == 2:
-            _def_ospace = _user_name.strip().lower().split()
-            _def_ospace = _def_ospace[0][0] + _def_ospace[1]
-        else:
-            _def_ospace = _user_name.lower().replace(" ", "")
-
-        _def_ispace = click.prompt("Default input namespace", default="None")
-        _def_ispace = _def_ispace if _def_ispace != "None" else None
-        _def_ospace = click.prompt(
-            "Default output namespace", default=_def_ospace
-        )
-
-        self._global_config = {
-            "user": {
-                "name": _user_name,
-                "email": _user_email,
-                "orcid": _user_orcid,
-            },
-            "remotes": {"local": _local_url, "origin": _remote_url},
-            "namespaces": {"input": _def_ispace, "output": _def_ospace},
-        }
-
-    def _local_config_query(self, first_time_setup: bool = False) -> None:
-        """Ask user questions to create local user config"""
-        try:
-            _def_remote = self._global_config["remotes"]["origin"]
-            _def_local = self._global_config["remotes"]["local"]
-            _def_ospace = self._global_config["namespaces"]["output"]
-        except KeyError:
-            click.echo(
-                "Error: Failed to read global configuration,"
-                " re-running global setup."
-            )
-            first_time_setup = True
-            self._global_config_query()
-            _def_remote = self._global_config["remotes"]["origin"]
-            _def_local = self._global_config["remotes"]["local"]
-            _def_ospace = self._global_config["namespaces"]["output"]
-
-        if "input" not in self._global_config["namespaces"]:
-            click.echo(
-                "Warning: No global input namespace declared,"
-                " in order to use the registry you will need to specify one"
-                " within this local configuration."
-            )
-            _def_ispace = None
-        else:
-            _def_ispace = self._global_config["namespaces"]["input"]
-
-        _desc = click.prompt("Project description")
-
-        if not first_time_setup:
-            _def_remote = click.prompt(f"Remote API URL", default=_def_remote)
-            _def_local = click.prompt(f"Local API URL", default=_def_local)
-            _def_ospace = click.prompt(
-                "Default output namespace", default=_def_ospace
-            )
-            _def_ispace = click.prompt(
-                "Default input namespace", default=_def_ispace
-            )
-
-        self._local_config["namespaces"] = {
-            "output": _def_ospace,
-            "input": _def_ispace,
-        }
-
-        self._local_config["remotes"] = {
-            "origin": _def_remote,
-            "local": _def_local,
-        }
-        self._local_config["description"] = _desc
-
     def make_starter_config(self) -> None:
         """Create a starter config.yaml"""
         if "remotes" not in self._local_config:
@@ -504,10 +417,14 @@ class FAIR:
         )
 
         if not os.path.exists(fdp_com.global_fdpconfig()):
-            self._global_config_query()
-            self._local_config_query(first_time_setup=True)
+            self._global_config = fdp_conf.global_config_query()
+            self._local_config = fdp_conf.local_config_query(
+                self._global_config, first_time_setup=True
+            )
         else:
-            self._local_config_query()
+            self._local_config = fdp_conf.local_config_query(
+                self._global_config
+            )
 
         os.mkdir(_fair_dir)
 
@@ -516,7 +433,7 @@ class FAIR:
         self.make_starter_config()
         click.echo(f"Initialised empty fair repository in {_fair_dir}")
 
-    def __exit__(self, *args) -> None:
+    def close_session(self) -> None:
         """Upon exiting, dump all configurations to file"""
         if not os.path.exists(
             os.path.join(self._session_loc, fdp_com.FAIR_FOLDER)
@@ -542,3 +459,6 @@ class FAIR:
             yaml.dump(self._global_config, f)
         with open(fdp_com.local_fdpconfig(self._session_loc), "w") as f:
             yaml.dump(self._local_config, f)
+
+    def __exit__(self, *args) -> None:
+        self.close_session()
