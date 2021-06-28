@@ -39,6 +39,7 @@ import fair.configuration as fdp_conf
 import fair.common as fdp_com
 import fair.utilities as fdp_util
 import fair.history as fdp_hist
+import fair.exceptions as fdp_exc
 
 
 SHELLS: Dict[str, str] = {
@@ -83,29 +84,28 @@ def run_command(
 
     # Check that the specified user config file for a run actually exists
     if not os.path.exists(config_yaml):
-        click.echo("Error: expected file 'config.yaml' at head of repository")
-        sys.exit(1)
+        raise fdp_exc.FileNotFoundError(
+            "Failed to read user configuration, "
+            f"file '{config_yaml}' does not exist."
+        )
 
     with open(config_yaml) as f:
         _cfg = yaml.safe_load(f)
 
     if not _cfg:
-        click.echo(
-            "Error: Failed to load specified 'config.yaml' file, "
-            "contents empty."
+        raise fdp_exc.UserConfigError(
+            f"Failed to load file '{config_yaml}', contents empty."
         )
-        sys.exit(1)
 
     if "run_metadata" not in _cfg or (
         "script" not in _cfg["run_metadata"]
         and "script_path" not in _cfg["run_metadata"]
     ):
-        click.echo(
-            "Error: failed to find executable method in specified "
+        raise fdp_exc.UserConfigError(
+            "Failed to find executable method in specified "
             "'config.yaml', expected either key 'script' or 'script_path'"
             " with valid values."
         )
-        sys.exit(1)
 
     # Create a new timestamped directory for the run
     # use the key 'data_store' from the 'config.yaml' if
@@ -127,8 +127,9 @@ def run_command(
     create_working_config(_run_dir, config_yaml, _work_cfg_yml, _now)
 
     if not os.path.exists(_work_cfg_yml):
-        click.echo("Error: Failed to create working config.yaml in run folder")
-        sys.exit(1)
+        raise fdp_exc.InternalError(
+            "Failed to create working config.yaml in run folder"
+        )
 
     # If a bash command is specified, save it to the configuration
     # and use this during the run
@@ -149,8 +150,9 @@ def run_command(
     _shell = _cmd_setup["shell"]
 
     if _shell not in SHELLS:
-        click.echo(f"Error: Unrecognised shell '{_shell}' specified.")
-        sys.exit(1)
+        raise fdp_exc.UserConfigError(
+            f"Unrecognised shell '{_shell}' specified."
+        )
 
     _cmd_list = SHELLS[_shell].format(_cmd_setup["script"]).split()
 
@@ -212,8 +214,9 @@ def run_command(
 
     # Exit the session if the run failed
     if _process.returncode != 0:
-        click.echo(f"Error: run failed with exit code '{_process.returncode}'")
-        sys.exit(_process.returncode)
+        raise fdp_exc.CommandExecutionError(
+            f"Run failed with exit code '{_process.returncode}'"
+        )
 
 
 def create_working_config(
@@ -288,8 +291,7 @@ def create_working_config(
         # The number of results for '${{fair.var}}' should match those
         # for the exclusive search for 'var'
         if not len(_var_search) == len(_var_label):
-            click.echo("Error: FAIR variable matching failed")
-            sys.exit(1)
+            raise fdp_exc.InternalError("FAIR variable matching failed")
 
         # Search for '${ENV_VAR}' then also make an exclusive search to extract
         # 'ENV_VAR' from that result
@@ -299,19 +301,17 @@ def create_working_config(
         # The number of results for '${ENV_VAR}' should match those
         # for the exclusive search for 'ENV_VAR'
         if not len(_env_search) == len(_env_label):
-            click.echo("Error: environment variable matching failed")
-            sys.exit(1)
+            raise fdp_exc.InternalError("Environment variable matching failed")
 
         for entry, var in zip(_var_search, _var_label):
             if var.upper().strip() in _substitutes:
                 _new_var = _substitutes[var.upper().strip()](key)
                 _flat_conf[key] = value.replace(entry, _new_var)
             else:
-                click.echo(
-                    f"Error: Variable '{var}' is not a recognised FAIR config "
+                fdp_exc.UserConfigError(
+                    f"Variable '{var}' is not a recognised FAIR config "
                     "variable, config.yaml substitution failed."
                 )
-                sys.exit(1)
 
         # Print warnings for environment variables which have been stated in
         # the config.yaml but are not actually present in the shell
@@ -388,11 +388,10 @@ def setup_run_script(config_yaml: str, output_dir: str) -> Dict[str, Any]:
     elif "script_path" in _conf_yaml["run_metadata"]:
         _path = _conf_yaml["run_metadata"]["script_path"]
         if not os.path.exists(_path):
-            click.echo(
-                f"Error: Failed to execute run, script '{_path}' was not found, or"
+            raise fdp_exc.CommandExecutionError(
+                f"Failed to execute run, script '{_path}' was not found, or"
                 " failed to be created."
             )
-            sys.exit(1)
         _cmd = open(_path).read()
         _out_file = os.path.join(output_dir, os.path.basename(_path))
         if _cmd:
@@ -400,10 +399,9 @@ def setup_run_script(config_yaml: str, output_dir: str) -> Dict[str, Any]:
                 f.write(_cmd)
 
     if not _cmd or not _out_file:
-        click.echo(
-            "Error: Configuration file must contain either a valid "
+        raise fdp_exc.UserConfigError(
+            "Configuration file must contain either a valid "
             "'script' or 'script_path' entry under 'run_metadata'"
         )
-        sys.exit(1)
 
     return {"shell": _shell, "script": _out_file, "env": _run_env}

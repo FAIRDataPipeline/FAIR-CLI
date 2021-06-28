@@ -33,7 +33,7 @@ Functions
     session_cache_dir   - returns location of session cache folder
 
 """
-__date__ = "2021-06-24"
+__date__ = "2021-06-28"
 
 import os
 import pathlib
@@ -92,16 +92,20 @@ def local_user_config(user_loc: str) -> str:
 
 
 def default_coderun_dir() -> str:
+    """Default location to place code run outputs"""
     return os.path.join(default_data_dir(), CODERUN_DIR)
 
 
 def global_config_dir() -> str:
+    """Directory of global CLI configuration"""
     return os.path.join(USER_FAIR_DIR, "cli")
 
 
 def session_cache_dir() -> str:
+    """Location of run files used to determine if server is being used"""
     return os.path.join(global_config_dir(), "sessions")
 
 
 def global_fdpconfig() -> str:
+    """Location of global CLI configuration"""
     return os.path.join(global_config_dir(), FAIR_CLI_CONFIG)

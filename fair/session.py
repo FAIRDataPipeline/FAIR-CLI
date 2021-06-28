@@ -1,12 +1,22 @@
+#!/usr/bin/python3
+# -*- coding: utf-8 -*-
 """
+Session
+=======
+
 Manage synchronisation of data and metadata relating to runs using the
 FAIR Data Pipeline system.
 
-Classes:
+Contents
+========
+
+Classes
+-------
 
     FAIR - main class for performing synchronisations and model runs
 
-Misc Variables:
+Misc Variables
+--------------
 
     __author__
     __license__
@@ -16,17 +26,15 @@ Misc Variables:
 
 """
 
-__date__ = "2021-06-24"
+__date__ = "2021-06-28"
 
 import os
 import glob
 import uuid
-import sys
 import typing
-import subprocess
-import requests
 import pathlib
 import logging
+import shutil
 
 import click
 import rich
@@ -36,7 +44,10 @@ import socket
 from fair.templates import config_template
 import fair.common as fdp_com
 import fair.run as fdp_run
+import fair.server as fdp_serv
 import fair.configuration as fdp_conf
+import fair.exceptions as fdp_exc
+import fair.history as fdp_hist
 
 
 class FAIR:
@@ -61,7 +72,7 @@ class FAIR:
     list_remotes(verbose: bool = False)
     status()
     initialise()
-
+    run()
     """
 
     def __init__(
@@ -69,7 +80,7 @@ class FAIR:
         repo_loc: str,
         user_config: str = None,
         debug: bool = False,
-        _mode: str = "cached",
+        mode: fdp_serv.SwitchMode = fdp_serv.SwitchMode.NO_SERVER,
     ) -> None:
         """Initialise instance of FAIR sync tool
 
@@ -88,13 +99,18 @@ class FAIR:
             alternative config.yaml user configuration file
         debug : bool, optional
             run in verbose mode
+        mode : fair.server.SwitchMode, optional
+            stop/start server mode during session
         """
         self._logger = logging.getLogger("FAIRDataPipeline")
         if debug:
             self._logger.setLevel(logging.DEBUG)
         self._logger.debug("Starting new session.")
         self._session_loc = repo_loc
-        self._session_id = uuid.uuid4() if _mode == "cached" else None
+        self._run_mode = mode
+        self._session_id = (
+            uuid.uuid4() if mode == fdp_serv.SwitchMode.CLI else None
+        )
         self._session_config = (
             user_config
             if user_config
@@ -121,10 +137,15 @@ class FAIR:
 
         self._load_configurations()
 
+        self._setup_server()
+
+    def _setup_server(self) -> None:
+        """Start or stop the server if required"""
         # If a session ID has been specified this means the server is auto
         # started as opposed to being started explcitly by the user
         # this means it will be shut down on completion
-        if self._session_id:
+        if self._run_mode == fdp_serv.SwitchMode.CLI:
+            self.check_is_repo()
             _cache_addr = os.path.join(
                 fdp_com.session_cache_dir(), f"{self._session_id}.run"
             )
@@ -133,77 +154,45 @@ class FAIR:
             if not glob.glob(
                 os.path.join(fdp_com.session_cache_dir(), "*.run")
             ):
-                self._launch_server()
+                fdp_serv.launch_server(self._local_config["remotes"]["local"])
 
             # Create new session cache file
             pathlib.Path(_cache_addr).touch()
-        else:
+        elif self._run_mode == fdp_serv.SwitchMode.USER_START:
             _cache_addr = os.path.join(
                 fdp_com.session_cache_dir(), f"user.run"
             )
-            if _mode in ["server_stop", "server_stop_force"]:
-                if not self._check_server_running():
-                    click.echo("Server is not running.")
-                    sys.exit(1)
-                if os.path.exists(_cache_addr):
-                    os.remove(_cache_addr)
-                click.echo("Stopping local registry server.")
-                self._stop_server(force=_mode == "server_stop_force")
-            elif _mode == "server_start":
-                if self._check_server_running():
-                    click.echo("Server already running.")
-                    sys.exit(1)
-                click.echo("Starting local registry server")
-                pathlib.Path(_cache_addr).touch()
-                self._launch_server(verbose=True)
-            else:
-                click.echo(f"Error: unrecognised call mode '{_mode}'")
-                sys.exit(1)
-
-    def _launch_server(self, verbose: bool = False) -> None:
-        """Start the FAIR Data Pipeline local server"""
-        self._logger.debug("Launching local registry server")
-
-        # If the registry server is already running ignore or no setup has
-        # yet been performed
-        if not self._local_config:
-            return
-
-        _server_start_script = os.path.join(
-            fdp_com.REGISTRY_HOME, "scripts", "run_scrc_server"
-        )
-
-        if not os.path.exists(_server_start_script):
-            click.echo(
-                "Error: failed to find local registry executable,"
-                " is the FAIR data pipeline properly installed on this system?"
-            )
-            sys.exit(1)
-
-        _start = subprocess.Popen(
-            [_server_start_script],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            shell=False,
-        )
-
-        _start.wait()
-
-        if not self._check_server_running():
-            click.echo(
-                "Error: Failed to start local registry,"
-                " no response from server"
-            )
-            sys.exit(1)
-
-    def _check_server_running(self) -> bool:
-        try:
-            requests.get(
+            if fdp_serv.check_server_running(
                 self._local_config["remotes"]["local"]
-            ).status_code == 200
-            return True
-        except (requests.exceptions.ConnectionError, AssertionError):
-            return False
+            ):
+                raise fdp_exc.UnexpectedRegistryServerState(
+                    "Server already running."
+                )
+            click.echo("Starting local registry server")
+            pathlib.Path(_cache_addr).touch()
+            fdp_serv.launch_server(
+                self._local_config["remotes"]["local"], verbose=True
+            )
+        elif self._run_mode in [
+            fdp_serv.SwitchMode.USER_STOP,
+            fdp_serv.SwitchMode.FORCE_STOP,
+        ]:
+            _cache_addr = os.path.join(
+                fdp_com.session_cache_dir(), f"user.run"
+            )
+            if not fdp_serv.check_server_running(
+                self._local_config["remotes"]["local"]
+            ):
+                raise fdp_exc.UnexpectedRegistryServerState(
+                    "Server is not running."
+                )
+            if os.path.exists(_cache_addr):
+                os.remove(_cache_addr)
+            click.echo("Stopping local registry server.")
+            fdp_serv.stop_server(
+                self._local_config["remotes"]["local"],
+                force=self._run_mode == fdp_serv.SwitchMode.FORCE_STOP,
+            )
 
     def run(
         self,
@@ -222,49 +211,12 @@ class FAIR:
         self._logger.debug("Setting up command execution")
         fdp_run.run_command(self._session_loc, self._session_config, bash_cmd)
 
-    def _stop_server(self, force: bool = False) -> None:
-        """Stops the FAIR Data Pipeline local server"""
-        # If the local registry server is not running ignore
-
-        # If there are no session cache files shut down server
-        if glob.glob(os.path.join(fdp_com.session_cache_dir(), "*.run")):
-            if not force:
-                click.echo(
-                    "Error: Could not stop registry server, processes still running."
-                )
-                sys.exit(1)
-
-        _server_stop_script = os.path.join(
-            fdp_com.REGISTRY_HOME, "scripts", "stop_scrc_server"
-        )
-
-        if not os.path.exists(_server_stop_script):
-            click.echo(
-                "Error: failed to find local registry executable,"
-                " is the FAIR data pipeline properly installed on this system?"
-            )
-            sys.exit(1)
-
-        _stop = subprocess.Popen(
-            _server_stop_script,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            shell=False,
-        )
-
-        _stop.wait()
-
-        if self._check_server_running():
-            click.echo("Error: Failed to stop registry server.")
-            sys.exit(1)
-
     def check_is_repo(self) -> None:
         """Check that the current location is a FAIR repository"""
         if not fdp_com.find_fair_root():
-            click.echo(
-                "Error:  not a fair repository, run 'fair init' to initialise"
+            raise fdp_exc.FDPRepositoryError(
+                "Not a FAIR repository", hint="Run 'fair init' to initialise."
             )
-            sys.exit(1)
 
     def __enter__(self) -> None:
         """Method called when using 'with' statement."""
@@ -303,8 +255,7 @@ class FAIR:
         self.check_is_repo()
 
         if not os.path.exists(file_to_stage):
-            click.echo(f"No such file '{file_to_stage}.")
-            sys.exit(1)
+            raise fdp_exc.FileNotFoundError(f"No such file '{file_to_stage}.")
 
         # Create a label with which to store the staging status of the given
         # file using its path with respect to the staging status file
@@ -347,8 +298,9 @@ class FAIR:
         if "remotes" not in self._local_config:
             self._local_config["remotes"] = {}
         if label in self._local_config["remotes"]:
-            click.echo(f"Error: registry remote '{label}' already exists.")
-            sys.exit(1)
+            raise fdp_exc.CLIConfigurationError(
+                f"Registry remote '{label}' already exists."
+            )
         self._local_config["remotes"][label] = remote_url
 
     def remove_remote(self, label: str) -> None:
@@ -358,8 +310,9 @@ class FAIR:
             "remotes" not in self._local_config
             or label not in self._local_config
         ):
-            click.echo(f"Error: No such entry '{label}' in available remotes")
-            sys.exit(1)
+            raise fdp_exc.CLIConfigurationError(
+                f"No such entry '{label}' in available remotes"
+            )
         del self._local_config[label]
 
     def modify_remote(self, label: str, url: str) -> None:
@@ -369,29 +322,20 @@ class FAIR:
             "remotes" not in self._local_config
             or label not in self._local_config["remotes"]
         ):
-            click.echo(f"Error: No such entry '{label}' in available remotes")
-            sys.exit(1)
+            raise fdp_exc.CLIConfigurationError(
+                f"No such entry '{label}' in available remotes"
+            )
         self._local_config["remotes"][label] = url
 
-    def purge(self) -> None:
-        """Remove all local FAIR tracking records and caches"""
-        if not os.path.exists(
-            fdp_com.staging_cache(self._session_loc)
-        ) and not os.path.exists(fdp_com.local_fdpconfig(self._session_loc)):
-            click.echo("Error: No FAIR tracking has been initialised")
-        else:
-            try:
-                os.remove(fdp_com.staging_cache(self._session_loc))
-            except FileNotFoundError:
-                pass
-            try:
-                os.remove(fdp_com.global_fdpconfig())
-            except FileNotFoundError:
-                pass
-            try:
-                os.remove(fdp_com.local_fdpconfig(self._session_loc))
-            except FileNotFoundError:
-                pass
+    def clear_logs(self) -> None:
+        """Delete all local run stdout logs
+
+        This does NOT delete any information from the registry
+        """
+        _log_files = glob.glob(fdp_hist.history_directory(), "*.log")
+        if _log_files:
+            for log in _log_files:
+                os.remove(log)
 
     def list_remotes(self, verbose: bool = False) -> None:
         """List the available RestAPI URLs"""
@@ -517,11 +461,11 @@ class FAIR:
     def make_starter_config(self) -> None:
         """Create a starter config.yaml"""
         if "remotes" not in self._local_config:
-            click.echo(
-                "Cannot generate config.yaml, you need to set the remote URL"
-                " by running: \n\n\tfair remote add <url>\n"
+            raise fdp_exc.CLIConfigurationError(
+                "Cannot generate user 'config.yaml'",
+                hint="You need to set the remote URL"
+                " by running: \n\n\tfair remote add <url>\n",
             )
-            sys.exit(1)
         with open(self._session_config, "w") as f:
             _yaml_str = config_template.render(
                 instance=self,
@@ -549,8 +493,9 @@ class FAIR:
         )
 
         if os.path.exists(_fair_dir):
-            click.echo(f"Error:  FAIR repository is already initialised.")
-            sys.exit(1)
+            fdp_exc.FDPRepositoryError(
+                f"FAIR repository is already initialised."
+            )
 
         self._staging_file = os.path.join(_fair_dir, "staging")
 
@@ -587,8 +532,9 @@ class FAIR:
 
         if not os.path.exists(
             os.path.join(fdp_com.session_cache_dir(), "user.run")
+            and self._run_mode != fdp_serv.SwitchMode.NO_SERVER
         ):
-            self._stop_server()
+            fdp_serv.stop_server(self._local_config["remotes"]["local"])
 
         with open(fdp_com.staging_cache(self._session_loc), "w") as f:
             yaml.dump(self._stage_status, f)

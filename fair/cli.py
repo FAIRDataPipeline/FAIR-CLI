@@ -13,12 +13,15 @@ __date__ = "2021-06-24"
 import click
 import typing
 import os
+import sys
 
 import fair.session as fdp_session
 import fair.common as fdp_com
 import fair.services as fdp_serv
 import fair.history as fdp_hist
 import fair.configuration as fdp_conf
+import fair.exceptions as fdp_exc
+import fair.server as fdp_svr
 
 __author__ = "Scottish COVID Response Consortium"
 __credits__ = ["Nathan Cummings (UKAEA)", "Kristian Zarebski (UKAEA)"]
@@ -88,15 +91,27 @@ def server() -> None:
 @server.command()
 def start() -> None:
     """Start the local registry server"""
-    fdp_session.FAIR(os.getcwd(), _mode="server_start")
+    try:
+        fdp_session.FAIR(os.getcwd(), _mode=fdp_svr.SwitchMode.USER_START)
+    except fdp_exc.FAIRCLIException as e:
+        e.err_print()
+        sys.exit(e.exit_code)
 
 
 @server.command()
 @click.option("--force/--no-force", help="Force server stop", default=False)
 def stop(force) -> None:
     """Stop the local registry server"""
-    _mode = "server_stop_force" if force else "server_stop"
-    fdp_session.FAIR(os.getcwd(), _mode=_mode)
+    _mode = (
+        fdp_svr.SwitchMode.FORCE_STOP
+        if force
+        else fdp_svr.SwitchMode.USER_STOP
+    )
+    try:
+        fdp_session.FAIR(os.getcwd(), _mode=_mode)
+    except fdp_exc.FAIRCLIException as e:
+        e.err_print()
+        sys.exit(e.exit_code)
 
 
 @cli.command()
@@ -117,9 +132,13 @@ def view(run_id: str) -> None:
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
 def reset(file_paths: typing.List[str], debug: bool) -> None:
     """Removes files/runs from staging"""
-    with fdp_session.FAIR(os.getcwd(), debug=debug) as fair_session:
-        for file_name in file_paths:
-            fair_session.change_staging_state(file_name, False)
+    try:
+        with fdp_session.FAIR(os.getcwd(), debug=debug) as fair_session:
+            for file_name in file_paths:
+                fair_session.change_staging_state(file_name, False)
+    except fdp_exc.FAIRCLIException as e:
+        e.err_print()
+        sys.exit(e.exit_code)
 
 
 @cli.command()
@@ -127,9 +146,13 @@ def reset(file_paths: typing.List[str], debug: bool) -> None:
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
 def add(file_paths: typing.List[str], debug: bool) -> None:
     """Add a file to staging"""
-    with fdp_session.FAIR(os.getcwd(), debug=debug) as fair_session:
-        for file_name in file_paths:
-            fair_session.change_staging_state(file_name, True)
+    try:
+        with fdp_session.FAIR(os.getcwd(), debug=debug) as fair_session:
+            for file_name in file_paths:
+                fair_session.change_staging_state(file_name, True)
+    except fdp_exc.FAIRCLIException as e:
+        e.err_print()
+        sys.exit(e.exit_code)
 
 
 @cli.command()
@@ -144,9 +167,13 @@ def rm(
     file_paths: typing.List[str], cached: bool = False, debug: bool = False
 ) -> None:
     """Removes files from system or just tracking"""
-    with fdp_session.FAIR(os.getcwd(), debug=debug) as fair_session:
-        for file_name in file_paths:
-            fair_session.remove_file(file_name, cached)
+    try:
+        with fdp_session.FAIR(os.getcwd(), debug=debug) as fair_session:
+            for file_name in file_paths:
+                fair_session.remove_file(file_name, cached)
+    except fdp_exc.FAIRCLIException as e:
+        e.err_print()
+        sys.exit(e.exit_code)
 
 
 @cli.command()
@@ -181,10 +208,14 @@ def pull(config: str):
 def run(ctx, config: str, debug: bool):
     """Initialises a run with the option to specify a bash command"""
     if not ctx.invoked_subcommand:
-        with fdp_session.FAIR(
-            os.getcwd(), config, debug=debug
-        ) as fair_session:
-            fair_session.run()
+        try:
+            with fdp_session.FAIR(
+                os.getcwd(), config, debug=debug
+            ) as fair_session:
+                fair_session.run()
+        except fdp_exc.FAIRCLIException as e:
+            e.err_print()
+            sys.exit(e.exit_code)
 
 
 @run.command()
@@ -197,8 +228,14 @@ def run(ctx, config: str, debug: bool):
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
 def bash(bash_command: str, config: str, debug: bool):
     """Run a BASH command and set this to be the default run command"""
-    with fdp_session.FAIR(os.getcwd(), config, debug=debug) as fair_session:
-        fair_session.run(bash_command)
+    try:
+        with fdp_session.FAIR(
+            os.getcwd(), config, debug=debug
+        ) as fair_session:
+            fair_session.run(bash_command)
+    except fdp_exc.FAIRCLIException as e:
+        e.err_print()
+        sys.exit(e.exit_code)
 
 
 @cli.group(invoke_without_command=True)
@@ -208,8 +245,12 @@ def bash(bash_command: str, config: str, debug: bool):
 def remote(ctx, verbose: bool = False, debug: bool = False):
     """List remotes if no additional command is provided"""
     if not ctx.invoked_subcommand:
-        with fdp_session.FAIR(os.getcwd(), debug=debug) as fair_session:
-            fair_session.list_remotes(verbose)
+        try:
+            with fdp_session.FAIR(os.getcwd(), debug=debug) as fair_session:
+                fair_session.list_remotes(verbose)
+        except fdp_exc.FAIRCLIException as e:
+            e.err_print()
+            sys.exit(e.exit_code)
 
 
 @remote.command()
@@ -229,8 +270,12 @@ def add(options: typing.List[str], debug: bool) -> None:
     _url = options[1] if len(options) > 1 else options[0]
     _label = options[0] if len(options) > 1 else "origin"
 
-    with fdp_session.FAIR(os.getcwd(), debug=debug) as fair_session:
-        fair_session.add_remote(_url, _label)
+    try:
+        with fdp_session.FAIR(os.getcwd(), debug=debug) as fair_session:
+            fair_session.add_remote(_url, _label)
+    except fdp_exc.FAIRCLIException as e:
+        e.err_print()
+        sys.exit(e.exit_code)
 
 
 @remote.command()
@@ -244,8 +289,12 @@ def remove(label: str, debug: bool) -> None:
     label : str
         label of remote to remove
     """
-    with fdp_session.FAIR(os.getcwd(), debug=debug) as fair_session:
-        fair_session.remove_remove(label)
+    try:
+        with fdp_session.FAIR(os.getcwd(), debug=debug) as fair_session:
+            fair_session.remove_remove(label)
+    except fdp_exc.FAIRCLIException as e:
+        e.err_print()
+        sys.exit(e.exit_code)
 
 
 @remote.command()
@@ -255,8 +304,12 @@ def remove(label: str, debug: bool) -> None:
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
 def modify(ctx, label: str, url: str, debug: bool) -> None:
     """Modify a remote address"""
-    with fdp_session.FAIR(os.getcwd(), debug=debug) as fair_session:
-        fair_session.modify_remote(label, url)
+    try:
+        with fdp_session.FAIR(os.getcwd(), debug=debug) as fair_session:
+            fair_session.modify_remote(label, url)
+    except fdp_exc.FAIRCLIException as e:
+        e.err_print()
+        sys.exit(e.exit_code)
 
 
 @cli.command()
