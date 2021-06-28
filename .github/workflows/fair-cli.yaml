@@ -2,7 +2,7 @@ name: FAIR Data Pipeline CLI
 on: [push]
 jobs:
   test:
-    name: Test ${{ matrix.os }}
+    name: Test ${{ matrix.os }} (Python ${{ matrix.python }})
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
