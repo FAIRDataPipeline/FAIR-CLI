@@ -1,125 +1,185 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
-Command line interface to the FAIR Data Pipeline synchronisation tool.
+Command Line Interface
+======================
 
-BSD 2-Clause License
-
-Copyright (c) 2021, Scottish COVID Response Consortium
-All rights reserved.
-
-Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions are met:
-
-1. Redistributions of source code must retain the above copyright notice, this
-   list of conditions and the following disclaimer.
-
-2. Redistributions in binary form must reproduce the above copyright notice,
-   this list of conditions and the following disclaimer in the documentation
-   and/or other materials provided with the distribution.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
-FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+Main command line interface setup script for creation of commands used to
+interact with the synchronisation tool.
 """
+
+__date__ = "2021-06-24"
+
 import click
 import typing
+import os
+import sys
 
-from fair.services import download_data
-from fair.fair import FAIR
+import fair.session as fdp_session
+import fair.common as fdp_com
+import fair.services as fdp_serv
+import fair.history as fdp_hist
+import fair.configuration as fdp_conf
+import fair.exceptions as fdp_exc
+import fair.server as fdp_svr
 
 __author__ = "Scottish COVID Response Consortium"
 __credits__ = ["Nathan Cummings (UKAEA)", "Kristian Zarebski (UKAEA)"]
 __license__ = "BSD-2-Clause"
 __status__ = "Development"
-__copyright__ = "Copyright 2021, FAIR"
+__copyright__ = "Copyright 2021, FAIR Data Pipeline"
 
 
 @click.group()
 @click.version_option()
 def cli():
-    """Welcome to FAIR, the FAIR data pipeline command-line interface."""
-    # if registry_installed() and registry_running():
-    #     click.echo("Local registry installed and running")
-    # else:
-    #     click.echo(
-    #         "You do not have a local registry running. Please see "
-    #         "https://scottishcovidresponse.github.io/docs/data_pipeline/local_registry/"
-    #         "for information on how to install and run a local registry."
-    #     )
-    #     sys.exit(1)
+    """Welcome to FAIR-CLI, the FAIR data pipeline command-line interface."""
     pass
 
 
 @cli.command()
-def status() -> None:
+@click.option("--debug/--no-debug", help="Run in debug mode", default=False)
+def status(debug) -> None:
     """Get the status of files under staging"""
-    with FAIR() as s:
-        s.status()
+    with fdp_session.FAIR(os.getcwd(), debug=debug) as fair_session:
+        fair_session.status()
 
 
 @cli.command()
-def init() -> None:
+@click.option("--debug/--no-debug", help="Run in debug mode", default=False)
+def yaml(debug) -> None:
+    """Generate a new FAIR repository user YAML config file"""
+    click.echo(
+        f"Generating new 'config.yaml' in '{fdp_com.find_fair_root(os.getcwd())}'"
+    )
+    with fdp_session.FAIR(os.getcwd(), debug=debug) as fair_session:
+        fair_session.make_starter_config()
+
+
+@cli.command()
+@click.option(
+    "--config",
+    help="Specify alternate location for generated config.yaml",
+    default=fdp_com.local_user_config(os.getcwd()),
+)
+@click.option("--debug/--no-debug", help="Run in debug mode", default=False)
+def init(config: str, debug: bool) -> None:
     """Initialise repository in current location"""
-    with FAIR() as fair:
-        fair.initialise()
+    with fdp_session.FAIR(os.getcwd(), config, debug=debug) as fair_session:
+        fair_session.initialise()
 
 
 @cli.command()
 def purge() -> None:
-    """resets the repository deleting all local caches"""
+    """Resets the repository deleting all local caches"""
     _purge = click.prompt(
-        "Are you sure you want to reset fair tracking, "
+        "Are you sure you want to reset FAIR tracking, "
         "this is not reversible [Y/N]? ",
         type=click.BOOL,
     )
     if _purge:
-        with FAIR() as fair:
-            fair.purge()
+        with fdp_session.FAIR(os.getcwd()) as fair_session:
+            fair_session.purge()
+
+
+@cli.group()
+def server() -> None:
+    """Commands related to server"""
+    pass
+
+
+@server.command()
+def start() -> None:
+    """Start the local registry server"""
+    try:
+        fdp_session.FAIR(os.getcwd(), _mode=fdp_svr.SwitchMode.USER_START)
+    except fdp_exc.FAIRCLIException as e:
+        e.err_print()
+        sys.exit(e.exit_code)
+
+
+@server.command()
+@click.option("--force/--no-force", help="Force server stop", default=False)
+def stop(force) -> None:
+    """Stop the local registry server"""
+    _mode = (
+        fdp_svr.SwitchMode.FORCE_STOP
+        if force
+        else fdp_svr.SwitchMode.USER_STOP
+    )
+    try:
+        fdp_session.FAIR(os.getcwd(), _mode=_mode)
+    except fdp_exc.FAIRCLIException as e:
+        e.err_print()
+        sys.exit(e.exit_code)
+
+
+@cli.command()
+def log() -> None:
+    """Show a full run history"""
+    fdp_hist.show_history()
+
+
+@cli.command()
+@click.argument("run_id")
+def view(run_id: str) -> None:
+    """View log for a given run"""
+    fdp_hist.show_run_log(run_id)
 
 
 @cli.command()
 @click.argument("file_paths", type=click.Path(exists=True), nargs=-1)
-def reset(file_paths: typing.List[str]) -> None:
+@click.option("--debug/--no-debug", help="Run in debug mode", default=False)
+def reset(file_paths: typing.List[str], debug: bool) -> None:
     """Removes files/runs from staging"""
-    with FAIR() as fair:
-        for file_name in file_paths:
-            fair.change_staging_state(file_name, False)
+    try:
+        with fdp_session.FAIR(os.getcwd(), debug=debug) as fair_session:
+            for file_name in file_paths:
+                fair_session.change_staging_state(file_name, False)
+    except fdp_exc.FAIRCLIException as e:
+        e.err_print()
+        sys.exit(e.exit_code)
 
 
 @cli.command()
 @click.argument("file_paths", type=click.Path(exists=True), nargs=-1)
-def add(file_paths: typing.List[str]) -> None:
+@click.option("--debug/--no-debug", help="Run in debug mode", default=False)
+def add(file_paths: typing.List[str], debug: bool) -> None:
     """Add a file to staging"""
-    with FAIR() as fair:
-        for file_name in file_paths:
-            fair.change_staging_state(file_name, True)
+    try:
+        with fdp_session.FAIR(os.getcwd(), debug=debug) as fair_session:
+            for file_name in file_paths:
+                fair_session.change_staging_state(file_name, True)
+    except fdp_exc.FAIRCLIException as e:
+        e.err_print()
+        sys.exit(e.exit_code)
 
 
 @cli.command()
 @click.argument("file_paths", type=click.Path(exists=True), nargs=-1)
+@click.option("--debug/--no-debug", help="Run in debug mode", default=False)
 @click.option(
     "--cached/--not-cached",
     default=False,
     help="remove from tracking but do not delete from file system",
 )
-def rm(file_paths: typing.List[str], cached: bool = False) -> None:
-    """removes files from system or just tracking"""
-    with FAIR() as fair:
-        for file_name in file_paths:
-            fair.remove_file(file_name, cached)
+def rm(
+    file_paths: typing.List[str], cached: bool = False, debug: bool = False
+) -> None:
+    """Removes files from system or just tracking"""
+    try:
+        with fdp_session.FAIR(os.getcwd(), debug=debug) as fair_session:
+            for file_name in file_paths:
+                fair_session.remove_file(file_name, cached)
+    except fdp_exc.FAIRCLIException as e:
+        e.err_print()
+        sys.exit(e.exit_code)
 
 
 @cli.command()
 @click.argument("config", type=click.Path(exists=True))
 def pull(config: str):
-    """parate scripts to add their data/results to the local registry. However for static languages like C++ they will likel i
+    """Parate scripts to add their data/results to the local registry. However for static languages like C++ they will likel i
     download any data required by read: from the remote data store and record metadata in the data registry (whilst
     editing relevant entries, e.g. storage_root)
 
@@ -134,39 +194,69 @@ def pull(config: str):
         - note that there are exceptions and the user may reference a script located outside of a repository
     """
     click.echo(f"pull command called with config: {config}")
-    download_data(config)
+    fdp_serv.download_data(config)
 
 
 @cli.group(invoke_without_command=True)
 @click.pass_context
-def run(ctx):
+@click.option(
+    "--config",
+    help="Specify alternate location for generated config.yaml",
+    default=fdp_com.local_user_config(os.getcwd()),
+)
+@click.option("--debug/--no-debug", help="Run in debug mode", default=False)
+def run(ctx, config: str, debug: bool):
     """Initialises a run with the option to specify a bash command"""
     if not ctx.invoked_subcommand:
-        with FAIR() as fair:
-            fair.run_bash_command()
+        try:
+            with fdp_session.FAIR(
+                os.getcwd(), config, debug=debug
+            ) as fair_session:
+                fair_session.run()
+        except fdp_exc.FAIRCLIException as e:
+            e.err_print()
+            sys.exit(e.exit_code)
 
 
 @run.command()
 @click.argument("bash_command")
-def bash(bash_command: str):
+@click.option(
+    "--config",
+    help="Specify alternate location for generated config.yaml",
+    default=fdp_com.local_user_config(os.getcwd()),
+)
+@click.option("--debug/--no-debug", help="Run in debug mode", default=False)
+def bash(bash_command: str, config: str, debug: bool):
     """Run a BASH command and set this to be the default run command"""
-    with FAIR() as fair:
-        fair.run_bash_command(bash_command)
+    try:
+        with fdp_session.FAIR(
+            os.getcwd(), config, debug=debug
+        ) as fair_session:
+            fair_session.run(bash_command)
+    except fdp_exc.FAIRCLIException as e:
+        e.err_print()
+        sys.exit(e.exit_code)
 
 
 @cli.group(invoke_without_command=True)
 @click.option("--verbose/--no-verbose", "-v/")
+@click.option("--debug/--no-debug", help="Run in debug mode", default=False)
 @click.pass_context
-def remote(ctx, verbose: bool = False):
-    """typing.List remotes if no additional command is provided"""
+def remote(ctx, verbose: bool = False, debug: bool = False):
+    """List remotes if no additional command is provided"""
     if not ctx.invoked_subcommand:
-        with FAIR() as fair:
-            fair.list_remotes(verbose)
+        try:
+            with fdp_session.FAIR(os.getcwd(), debug=debug) as fair_session:
+                fair_session.list_remotes(verbose)
+        except fdp_exc.FAIRCLIException as e:
+            e.err_print()
+            sys.exit(e.exit_code)
 
 
 @remote.command()
 @click.argument("options", nargs=-1)
-def add(options: typing.List[str]) -> None:
+@click.option("--debug/--no-debug", help="Run in debug mode", default=False)
+def add(options: typing.List[str], debug: bool) -> None:
     """Add a remote registry URL with option to give it a label if multiple
     remotes may be used.
 
@@ -180,13 +270,18 @@ def add(options: typing.List[str]) -> None:
     _url = options[1] if len(options) > 1 else options[0]
     _label = options[0] if len(options) > 1 else "origin"
 
-    with FAIR() as fair:
-        fair.add_remote(_url, _label)
+    try:
+        with fdp_session.FAIR(os.getcwd(), debug=debug) as fair_session:
+            fair_session.add_remote(_url, _label)
+    except fdp_exc.FAIRCLIException as e:
+        e.err_print()
+        sys.exit(e.exit_code)
 
 
 @remote.command()
 @click.argument("label")
-def remove(label: str) -> None:
+@click.option("--debug/--no-debug", help="Run in debug mode", default=False)
+def remove(label: str, debug: bool) -> None:
     """Removes the specified remote from the remotes list
 
     Parameters
@@ -194,46 +289,34 @@ def remove(label: str) -> None:
     label : str
         label of remote to remove
     """
-    with FAIR() as fair:
-        fair.remove_remove(label)
+    try:
+        with fdp_session.FAIR(os.getcwd(), debug=debug) as fair_session:
+            fair_session.remove_remove(label)
+    except fdp_exc.FAIRCLIException as e:
+        e.err_print()
+        sys.exit(e.exit_code)
 
 
 @remote.command()
-@click.argument("options", nargs=-1)
-def modify(options: typing.List[str]) -> None:
-    """Modify a remote address
-
-    Parameters
-    ----------
-    options : typing.List[str]
-        typing.List of 1 or 2 containing name of remote to modify
-    """
-    _label = options[0] if len(options) > 1 else "origin"
-    _url = options[1] if len(options) > 1 else options[0]
-    with FAIR() as fair:
-        fair.modify_remote(_label, _url)
-
-
-@cli.command()
-def log() -> None:
-    """Show a full run history"""
-    with FAIR() as fair:
-        fair.show_history()
-
-
-@cli.command()
-@click.argument("run_id")
-def view(run_id: str) -> None:
-    """View log for a given run"""
-    with FAIR() as fair:
-        fair.show_run_log(run_id)
+@click.argument("label")
+@click.argument("url")
+@click.pass_context
+@click.option("--debug/--no-debug", help="Run in debug mode", default=False)
+def modify(ctx, label: str, url: str, debug: bool) -> None:
+    """Modify a remote address"""
+    try:
+        with fdp_session.FAIR(os.getcwd(), debug=debug) as fair_session:
+            fair_session.modify_remote(label, url)
+    except fdp_exc.FAIRCLIException as e:
+        e.err_print()
+        sys.exit(e.exit_code)
 
 
 @cli.command()
 @click.argument("api-token")
 def push(api_token: str):
     """
-    push new files (generated from write: and register:) to the remote data store
+    Push new files (generated from write: and register:) to the remote data store
 
     record metadata in the data registry (whilst editing relevant entries, e.g. storage_root)
     """
@@ -263,12 +346,10 @@ def config_user(user_name: str) -> None:
     (API token, associated namespace, local data
     store, login node, and so on).
     """
-    with FAIR() as fair:
-        fair.set_user(user_name)
+    fdp_conf.set_user(os.getcwd(), user_name)
 
 
 @config.command(name="user.email")
 @click.argument("user_email")
 def config_email(user_email: str) -> None:
-    with FAIR() as fair:
-        fair.set_email(user_email)
+    fdp_conf.set_email(os.getcwd(), user_email)
