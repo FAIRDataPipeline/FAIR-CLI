@@ -4,15 +4,13 @@ import os
 import pathlib
 import yaml
 
-import fair.session as fdp_s
-import fair.configuration as fdp_conf
-import fair.server as fdp_svr
 import fair.common as fdp_com
 
 
 @pytest.mark.session
 @pytest.mark.dependency()
 def test_initialise(no_init_session):
+
     no_init_session.initialise()
     assert os.path.exists(
         os.path.join(no_init_session._session_loc, fdp_com.FAIR_FOLDER)

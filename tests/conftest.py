@@ -11,12 +11,12 @@ import fair.server as fdp_svr
 import fair.configuration as fdp_conf
 
 
-@pytest.fixture(scope="session")
-def global_test(session_mocker):
+@pytest.fixture(scope="module")
+def global_test(module_mocker):
     _tempdir = tempfile.mkdtemp()
-    session_mocker.patch.object(fdp_com, "USER_FAIR_DIR", _tempdir)
+    module_mocker.patch.object(fdp_com, "USER_FAIR_DIR", _tempdir)
 
-    session_mocker.patch.object(
+    module_mocker.patch.object(
         fdp_com,
         "global_fdpconfig",
         lambda: os.path.join(_tempdir, "cli-config.yaml"),
@@ -25,16 +25,16 @@ def global_test(session_mocker):
     return _tempdir
 
 
-@pytest.fixture(scope="session")
-def repo_root(session_mocker):
+@pytest.fixture(scope="module")
+def repo_root(module_mocker):
     _tempdir = tempfile.mkdtemp()
-    session_mocker.patch("fair.common.find_fair_root", lambda *args: _tempdir)
+    module_mocker.patch("fair.common.find_fair_root", lambda *args: _tempdir)
     return _tempdir
 
 
 @pytest.mark.session
-@pytest.fixture(scope="session")
-def no_init_session(global_test, repo_root, session_mocker):
+@pytest.fixture(scope="module")
+def no_init_session(global_test, repo_root, module_mocker):
     """Creates a session without any calls to setup
 
     This requires mocking a few features of the FAIR class:
@@ -57,8 +57,8 @@ def no_init_session(global_test, repo_root, session_mocker):
     _loc_conf = _glob_conf
     del _loc_conf["user"]
     _loc_conf["description"] = "Test"
-    session_mocker.patch.object(fdp_s.FAIR, "__init__", lambda *args: None)
-    session_mocker.patch.object(
+    module_mocker.patch.object(fdp_s.FAIR, "__init__", lambda *args: None)
+    module_mocker.patch.object(
         fdp_conf, "local_config_query", lambda *args: _loc_conf
     )
     _fdp_session = fdp_s.FAIR(repo_root)
