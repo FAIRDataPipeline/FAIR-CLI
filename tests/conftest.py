@@ -4,6 +4,7 @@ import pytest
 import logging
 import os
 import yaml
+import click
 
 import fair.common as fdp_com
 import fair.session as fdp_s
@@ -32,9 +33,22 @@ def repo_root(module_mocker):
     return _tempdir
 
 
+@pytest.fixture
+def no_prompt(mocker):
+    def _func(*args, **kwargs):
+        if "default" in kwargs:
+            return kwargs["default"]
+        else:
+            return "TEST"
+
+    mocker.patch.object(
+        click, "prompt", lambda *args, **kwargs: _func(*args, **kwargs)
+    )
+
+
 @pytest.mark.session
-@pytest.fixture(scope="module")
-def no_init_session(global_test, repo_root, module_mocker):
+@pytest.fixture
+def no_init_session(global_test, repo_root, mocker):
     """Creates a session without any calls to setup
 
     This requires mocking a few features of the FAIR class:
@@ -56,8 +70,8 @@ def no_init_session(global_test, repo_root, module_mocker):
         yaml.dump(_glob_conf, f)
     _loc_conf = _glob_conf
     _loc_conf["description"] = "Test"
-    module_mocker.patch.object(fdp_s.FAIR, "__init__", lambda *args: None)
-    module_mocker.patch.object(
+    mocker.patch.object(fdp_s.FAIR, "__init__", lambda *args: None)
+    mocker.patch.object(
         fdp_conf, "local_config_query", lambda *args: _loc_conf
     )
     _fdp_session = fdp_s.FAIR(repo_root)

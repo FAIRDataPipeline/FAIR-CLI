@@ -55,7 +55,7 @@ class FAIR:
 
     Methods are based around a user directory which is specified with locations
     being determined relative to the closest FAIR repository root folder (i.e.
-    the closest location in the upper hierarchy containing a '.faircli. folder).
+    the closest location in the upper hierarchy containing a '.fair. folder).
 
     Methods
     ----------
@@ -83,7 +83,7 @@ class FAIR:
         """Initialise instance of FAIR sync tool
 
         All actions are performed relative to the specified folder after the
-        local '.faircli' directory for the repository has been located.
+        local '.fair' directory for the repository has been located.
 
         A session is usually cached to ensure that the server is not shut down
         when a process is taking place. The exception is where the user

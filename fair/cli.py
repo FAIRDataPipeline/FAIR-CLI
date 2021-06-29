@@ -83,12 +83,12 @@ def purge() -> None:
 
 
 @cli.group()
-def server() -> None:
-    """Commands related to server"""
+def registry() -> None:
+    """Commands relating to control of the local registry server"""
     pass
 
 
-@server.command()
+@registry.command()
 def start() -> None:
     """Start the local registry server"""
     try:
@@ -98,7 +98,7 @@ def start() -> None:
         sys.exit(e.exit_code)
 
 
-@server.command()
+@registry.command()
 @click.option("--force/--no-force", help="Force server stop", default=False)
 def stop(force) -> None:
     """Stop the local registry server"""
