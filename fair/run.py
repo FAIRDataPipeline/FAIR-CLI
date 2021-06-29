@@ -76,7 +76,7 @@ def run_command(
     # Record the time the run was executed, create a log and both
     # print output and write it to the log file
     _now = datetime.now()
-    _timestamp = _now.strftime("%Y-%m-%d_%H_%M_%S")
+    _timestamp = _now.strftime("%Y-%m-%d_%H_%M_%S_%f")
     _logs_dir = fdp_hist.history_directory()
     if not os.path.exists(_logs_dir):
         os.mkdir(_logs_dir)

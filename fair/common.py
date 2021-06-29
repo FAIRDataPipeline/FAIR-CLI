@@ -22,7 +22,7 @@ Members
 Functions
 -------
 
-    find_fair_root      - returns the closest '.faircli' directory in the upper hierarchy
+    find_fair_root      - returns the closest '.fair' directory in the upper hierarchy
     staging_cache       - returns the current repository staging cache directory
     default_data_dir    - returns the default data store
     local_fdpconfig     - returns path of FAIR-CLI local repository config
@@ -41,12 +41,12 @@ import pathlib
 USER_FAIR_DIR = os.path.join(pathlib.Path.home(), ".fair")
 REGISTRY_HOME = os.path.join(USER_FAIR_DIR, "registry")
 FAIR_CLI_CONFIG = "cli-config.yaml"
-FAIR_FOLDER = ".faircli"
+FAIR_FOLDER = ".fair"
 CODERUN_DIR = "coderun"
 
 
 def find_fair_root(start_directory: str = os.getcwd()) -> str:
-    """Locate the .faircli folder within the current hierarchy
+    """Locate the .fair folder within the current hierarchy
 
     Parameters
     ----------
@@ -57,11 +57,11 @@ def find_fair_root(start_directory: str = os.getcwd()) -> str:
     Returns
     -------
     str
-        absolute path of the .faircli folder
+        absolute path of the .fair folder
     """
     _current_dir = start_directory
 
-    # Keep upward searching until you find '.faircli', stop at the level of
+    # Keep upward searching until you find '.fair', stop at the level of
     # the user's home directory
     while _current_dir != pathlib.Path.home():
         _fair_dir = os.path.join(_current_dir, FAIR_FOLDER)

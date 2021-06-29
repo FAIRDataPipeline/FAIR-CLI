@@ -59,7 +59,7 @@ def check_server_running(local_remote: str) -> bool:
         whether server is running
     """
     try:
-        requests.get(local_remote).status_code == 200
+        assert requests.get(local_remote).status_code == 200
         return True
     except (requests.exceptions.ConnectionError, AssertionError):
         return False
@@ -94,6 +94,8 @@ def launch_server(local_remote: str, verbose: bool = False) -> None:
     )
 
     _start.wait()
+
+    print(check_server_running(local_remote))
 
     if not check_server_running(local_remote):
         raise fdp_exc.RegistryError(
@@ -139,4 +141,4 @@ def stop_server(local_remote: str, force: bool = False) -> None:
     _stop.wait()
 
     if check_server_running(local_remote):
-        fdp_exc.RegistryError("Failed to stop registry server.")
+        raise fdp_exc.RegistryError("Failed to stop registry server.")

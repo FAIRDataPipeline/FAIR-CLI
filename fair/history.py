@@ -58,8 +58,6 @@ def show_history(length: int = 10) -> None:
 
     # Iterate through the logs printing out the run author
     for i, log in enumerate(_time_sorted_logs):
-        if i == length:
-            return
 
         # TODO: This run ID is a dummy and if 'fair log' is kept should be
         # replaced with an ID from the registry instead
@@ -68,6 +66,7 @@ def show_history(length: int = 10) -> None:
             _metadata = f.readlines()[:5]
         if not _metadata:
             continue
+        _metadata = [i for i in _metadata if i.strip()]
         _user = _metadata[2].split("=")[1]
         _name = _user.split("<")[0].strip()
         _email = _user.replace(_name, "").strip()
@@ -78,3 +77,6 @@ def show_history(length: int = 10) -> None:
             "datetime": _metadata[1].split("=")[1].strip(),
         }
         rich.print(hist_template.render(**_meta))
+
+        if i == length:
+            return
