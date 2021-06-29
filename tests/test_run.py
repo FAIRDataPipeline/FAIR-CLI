@@ -4,7 +4,6 @@ import os
 import glob
 import tempfile
 import platform
-import time
 import yaml
 
 import fair.run as fdp_run
@@ -98,8 +97,6 @@ def test_run_setup_with_script(setup_with_opts):
 @pytest.mark.run
 def test_run_config_cmd(mocker, no_init_session):
     os.makedirs(fdp_hist.history_directory(), exist_ok=True)
-    # FIXME: Have to sleep as concurrent runs break (as same date and time)
-    time.sleep(1)
     no_init_session.make_starter_config()
     mocker.patch.object(
         fdp_conf,
@@ -126,8 +123,6 @@ def test_run_config_cmd(mocker, no_init_session):
 
 def test_run_bash_cmd(mocker, no_init_session):
     os.makedirs(fdp_hist.history_directory(), exist_ok=True)
-    # FIXME: Have to sleep as concurrent runs break (as same date and time)
-    time.sleep(1)
     no_init_session.make_starter_config()
     mocker.patch.object(
         fdp_conf,
