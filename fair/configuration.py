@@ -1,5 +1,4 @@
 import os
-import sys
 import socket
 from typing import MutableMapping, Any, Dict
 
@@ -7,6 +6,7 @@ import yaml
 import click
 
 import fair.common as fdp_com
+import fair.exceptions as fdp_exc
 
 
 def read_local_fdpconfig(repo_loc: str) -> MutableMapping:
@@ -35,26 +35,33 @@ def _get_config_property(config_data: MutableMapping, *args) -> Any:
         try:
             _object = _object[key]
         except KeyError:
-            click.echo(
+            raise fdp_exc.CLIConfigurationError(
                 "Failed to retrieve property "
                 f"'{'/'.join(args)}' from configuration"
             )
-            sys.exit(1)
     return _object
 
 
-def set_email(repo_loc: str, email: str) -> None:
+def set_email(repo_loc: str, email: str, Global: bool = False) -> None:
     """Update the email address for the user"""
     _loc_conf = read_local_fdpconfig(repo_loc)
     _loc_conf["user"]["email"] = email
     yaml.dump(_loc_conf, open(fdp_com.local_fdpconfig(repo_loc), "w"))
+    if Global:
+        _glob_conf = read_global_fdpconfig()
+        _glob_conf["user"]["email"] = email
+        yaml.dump(_glob_conf, open(fdp_com.global_fdpconfig(), "w"))
 
 
-def set_user(repo_loc: str, name: str) -> None:
+def set_user(repo_loc: str, name: str, Global: bool = False) -> None:
     """Update the name of the user"""
     _loc_conf = read_local_fdpconfig(repo_loc)
     _loc_conf["user"]["name"] = name
     yaml.dump(_loc_conf, open(fdp_com.local_fdpconfig(repo_loc), "w"))
+    if Global:
+        _glob_conf = read_global_fdpconfig()
+        _glob_conf["user"]["name"] = name
+        yaml.dump(_glob_conf, open(fdp_com.global_fdpconfig(), "w"))
 
 
 def get_current_user() -> str:
@@ -107,10 +114,12 @@ def local_config_query(
     first_time_setup: bool = False,
 ) -> Dict[str, Any]:
     """Ask user questions to create local user config"""
+    print("NOOOOO")
     try:
         _def_remote = global_config["remotes"]["origin"]
         _def_local = global_config["remotes"]["local"]
         _def_ospace = global_config["namespaces"]["output"]
+        _def_user = global_config["user"]
     except KeyError:
         click.echo(
             "Error: Failed to read global configuration,"
@@ -121,6 +130,7 @@ def local_config_query(
         _def_remote = global_config["remotes"]["origin"]
         _def_local = global_config["remotes"]["local"]
         _def_ospace = global_config["namespaces"]["output"]
+        _def_user = global_config["user"]
 
     if "input" not in global_config["namespaces"]:
         click.echo(
@@ -156,5 +166,6 @@ def local_config_query(
         "local": _def_local,
     }
     _local_config["description"] = _desc
+    _local_config["user"] = _def_user
 
     return _local_config

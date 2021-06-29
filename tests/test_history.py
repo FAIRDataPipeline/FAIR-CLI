@@ -45,5 +45,4 @@ Date:   Mon Jun 28 10:14:25 2021
     """
     fdp_hist.show_history(1)
     out, _ = capfd.readouterr()
-    print(out)
     assert out.strip() == _expt.strip()

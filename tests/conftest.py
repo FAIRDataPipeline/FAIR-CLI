@@ -55,7 +55,6 @@ def no_init_session(global_test, repo_root, module_mocker):
     with open(fdp_com.global_fdpconfig(), "w") as f:
         yaml.dump(_glob_conf, f)
     _loc_conf = _glob_conf
-    del _loc_conf["user"]
     _loc_conf["description"] = "Test"
     module_mocker.patch.object(fdp_s.FAIR, "__init__", lambda *args: None)
     module_mocker.patch.object(
