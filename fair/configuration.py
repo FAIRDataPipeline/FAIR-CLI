@@ -1,3 +1,24 @@
+#!/usr/bin/python3
+# -*- coding: utf-8 -*-
+"""
+
+Configuration
+=============
+
+Module contains methods relating to configuration of the CLI itself.
+
+Contents
+========
+
+Functions
+---------
+
+    read_local_fdpconfig - read the contents of the local CLI config file
+
+"""
+
+__date__ = "2021-06-30"
+
 import os
 import socket
 from typing import MutableMapping, Any, Dict
@@ -10,7 +31,21 @@ import fair.exceptions as fdp_exc
 
 
 def read_local_fdpconfig(repo_loc: str) -> MutableMapping:
+    """Read contents of repository level FAIR-CLI configurations.
+
+    Parameters
+    ----------
+    repo_loc : str
+        FAIR-CLI repository directory
+
+    Returns
+    -------
+    MutableMapping
+        configurations as a mapping
+    """
     _local_config: MutableMapping = {}
+
+    # Retrieve the location of this repositories CLI config file
     _local_config_file_addr = fdp_com.local_fdpconfig(repo_loc)
 
     if os.path.exists(_local_config_file_addr):
@@ -20,7 +55,16 @@ def read_local_fdpconfig(repo_loc: str) -> MutableMapping:
 
 
 def read_global_fdpconfig() -> MutableMapping:
+    """Read contents of the global FAIR-CLI configurations.
+
+    Returns
+    -------
+    MutableMapping
+        configurations as a mapping
+    """
     _global_config: MutableMapping = {}
+
+    # Retrieve the location of the global CLI config file
     _global_config_addr = fdp_com.global_fdpconfig()
 
     if os.path.exists(_global_config_addr):
@@ -43,7 +87,17 @@ def _get_config_property(config_data: MutableMapping, *args) -> Any:
 
 
 def set_email(repo_loc: str, email: str, Global: bool = False) -> None:
-    """Update the email address for the user"""
+    """Update the email address for the user
+
+    Parameters
+    ----------
+    repo_loc : str
+        repository directory path
+    email : str
+        new email address to set
+    Global : bool, optional
+        whether to also override the global settings, by default False
+    """
     _loc_conf = read_local_fdpconfig(repo_loc)
     _loc_conf["user"]["email"] = email
     yaml.dump(_loc_conf, open(fdp_com.local_fdpconfig(repo_loc), "w"))
@@ -54,7 +108,17 @@ def set_email(repo_loc: str, email: str, Global: bool = False) -> None:
 
 
 def set_user(repo_loc: str, name: str, Global: bool = False) -> None:
-    """Update the name of the user"""
+    """Update the name for the user
+
+    Parameters
+    ----------
+    repo_loc : str
+        repository directory path
+    name : str
+        new user full name
+    Global : bool, optional
+        whether to also override the global settings, by default False
+    """
     _loc_conf = read_local_fdpconfig(repo_loc)
     _loc_conf["user"]["name"] = name
     yaml.dump(_loc_conf, open(fdp_com.local_fdpconfig(repo_loc), "w"))
@@ -110,10 +174,25 @@ def global_config_query() -> Dict[str, Any]:
 
 
 def local_config_query(
-    global_config: Dict[str, Any] = {},
+    global_config: Dict[str, Any] = read_global_fdpconfig(),
     first_time_setup: bool = False,
 ) -> Dict[str, Any]:
-    """Ask user questions to create local user config"""
+    """Ask user questions to create local user config
+
+    Parameters
+    ----------
+    global_config : Dict[str, Any], optional
+        global configuration dictionary
+    first_time_setup : bool, optional
+        if first time need to setup globals as well, by default False
+
+    Returns
+    -------
+    Dict[str, Any]
+        dictionary of local configurations
+    """
+    # Try extracting global configurations. If any keys do not exist re-run
+    # setup for creation of these, then try again.
     try:
         _def_remote = global_config["remotes"]["origin"]
         _def_local = global_config["remotes"]["local"]
@@ -131,6 +210,8 @@ def local_config_query(
         _def_ospace = global_config["namespaces"]["output"]
         _def_user = global_config["user"]
 
+    # Allow the user to continue without an input namespace as some
+    # functionality does not require this.
     if "input" not in global_config["namespaces"]:
         click.echo(
             "Warning: No global input namespace declared,"
@@ -143,6 +224,8 @@ def local_config_query(
 
     _desc = click.prompt("Project description")
 
+    # If this is not the first setup it means globals are available so these
+    # can be suggested as defaults during local setup
     if not first_time_setup:
         _def_remote = click.prompt(f"Remote API URL", default=_def_remote)
         _def_local = click.prompt(f"Local API URL", default=_def_local)

@@ -31,7 +31,9 @@ def dummy_log(mocker):
 
 @pytest.mark.history
 def test_show_hist_log(capfd, dummy_log):
-    fdp_hist.show_run_log(hashlib.sha1(TEST_LOG.encode("utf-8")).hexdigest())
+    fdp_hist.show_run_log(
+        dummy_log, hashlib.sha1(TEST_LOG.encode("utf-8")).hexdigest()
+    )
     out, _ = capfd.readouterr()
     assert out.strip() == TEST_LOG.strip()
 
@@ -43,6 +45,6 @@ run 876e9247944b6487dbf6b5a2777cbf1c5249e22b
 Author: Joe Bloggs <jbloggs@nowhere>
 Date:   Mon Jun 28 10:14:25 2021
     """
-    fdp_hist.show_history(1)
+    fdp_hist.show_history(dummy_log, 1)
     out, _ = capfd.readouterr()
     assert out.strip() == _expt.strip()

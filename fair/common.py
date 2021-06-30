@@ -38,6 +38,8 @@ __date__ = "2021-06-28"
 import os
 import pathlib
 
+import fair.exceptions as fdp_exc
+
 USER_FAIR_DIR = os.path.join(pathlib.Path.home(), ".fair")
 REGISTRY_HOME = os.path.join(USER_FAIR_DIR, "registry")
 FAIR_CLI_CONFIG = "cli-config.yaml"
@@ -62,8 +64,17 @@ def find_fair_root(start_directory: str = os.getcwd()) -> str:
     _current_dir = start_directory
 
     # Keep upward searching until you find '.fair', stop at the level of
-    # the user's home directory
+    # the user's home directory.
+    _top_level = os.path.abspath(".").split(os.path.sep)[0] + os.path.sep
     while _current_dir != pathlib.Path.home():
+        # If the current directory is '/' or 'C:\' it means the given path
+        # was not in the user area, and no repository was found. This is not
+        # allowed except in test cases where a temporary directory in '/tmp'
+        # is used.
+        if _current_dir == _top_level:
+            raise fdp_exc.FDPRepositoryError(
+                "The specified path must be in a user home area"
+            )
         _fair_dir = os.path.join(_current_dir, FAIR_FOLDER)
         if os.path.exists(_fair_dir):
             return os.path.dirname(_fair_dir)

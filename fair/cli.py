@@ -117,14 +117,14 @@ def stop(force) -> None:
 @cli.command()
 def log() -> None:
     """Show a full run history"""
-    fdp_hist.show_history()
+    fdp_hist.show_history(os.getcwd())
 
 
 @cli.command()
 @click.argument("run_id")
 def view(run_id: str) -> None:
     """View log for a given run"""
-    fdp_hist.show_run_log(run_id)
+    fdp_hist.show_run_log(os.getcwd(), run_id)
 
 
 @cli.command()

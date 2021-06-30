@@ -19,7 +19,7 @@ Functions
 
 """
 
-__date__ = "2021-06-24"
+__date__ = "2021-06-30"
 
 import os
 import sys
@@ -80,7 +80,7 @@ def run_command(
     # print output and write it to the log file
     _now = datetime.now()
     _timestamp = _now.strftime("%Y-%m-%d_%H_%M_%S_%f")
-    _logs_dir = fdp_hist.history_directory()
+    _logs_dir = fdp_hist.history_directory(run_dir)
     if not os.path.exists(_logs_dir):
         os.mkdir(_logs_dir)
     _log_file = os.path.join(_logs_dir, f"run_{_timestamp}.log")

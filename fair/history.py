@@ -1,3 +1,21 @@
+#!/usr/bin/python3
+# -*- coding: utf-8 -*-
+"""
+
+Run History
+===========
+
+Methods relating to the summary of runs called within the given FAIR-CLI
+repository. Allowing user to view any stdout from these.
+
+Contents
+========
+
+Functions
+---------
+
+    history_directory - returns the current repository logs directory
+"""
 import os
 import glob
 import sys
@@ -10,16 +28,31 @@ import fair.common as fdp_com
 from fair.templates import hist_template
 
 
-def history_directory() -> str:
-    return os.path.join(fdp_com.find_fair_root(), fdp_com.FAIR_FOLDER, "logs")
+def history_directory(repo_loc: str) -> str:
+    """Retrieve the directory containing run logs for the specified repository
+
+    Parameters
+    ----------
+    repo_loc : str
+        FAIR-CLI repository path
+
+    Returns
+    -------
+    str
+        location of the run logs directory
+    """
+    return os.path.join(
+        fdp_com.find_fair_root(repo_loc), fdp_com.FAIR_FOLDER, "logs"
+    )
 
 
-def show_run_log(run_id: str) -> str:
+def show_run_log(repo_loc: str, run_id: str) -> str:
     """Show the log from a given run
 
     Parameters
     ----------
-
+    repo_loc : str
+        FAIR-CLI repository path
     run_id : str
         SHA identifier for the code run
 
@@ -29,7 +62,7 @@ def show_run_log(run_id: str) -> str:
         log file location for the given run
     """
     _time_sorted_logs = sorted(
-        glob.glob(os.path.join(history_directory(), "*")),
+        glob.glob(os.path.join(history_directory(repo_loc), "*")),
         key=os.path.getmtime,
         reverse=True,
     )
@@ -47,8 +80,16 @@ def show_run_log(run_id: str) -> str:
     sys.exit(1)
 
 
-def show_history(length: int = 10) -> None:
-    """Show run history by time sorting log outputs, display metadata"""
+def show_history(repo_loc: str, length: int = 10) -> None:
+    """Show run history by time sorting log outputs, display metadata
+
+    Parameters
+    ----------
+    repo_loc : str
+        FAIR-CLI repository path
+    length : int, optional
+        max number of entries to display, by default 10
+    """
 
     # Read in all log files from the log storage by reverse sorting them
     # by datetime created

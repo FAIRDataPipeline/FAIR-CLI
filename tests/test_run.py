@@ -67,7 +67,7 @@ def test_run_setup_default_unix(mocker, setup_with_opts):
     mocker.patch.object(platform, "system", lambda *args: "Linux")
     _cmd = 'echo "Test Run"'
     _out, _cfg = setup_with_opts({"script": _cmd})
-    assert _out["shell"] == "bash"
+    assert _out["shell"] == "sh"
     assert open(_out["script"]).read() == _cmd
     assert _out["env"]["FDP_LOCAL_REPO"] == _cfg["run_metadata"]["local_repo"]
 
@@ -96,7 +96,9 @@ def test_run_setup_with_script(setup_with_opts):
 
 @pytest.mark.run
 def test_run_config_cmd(mocker, no_init_session):
-    os.makedirs(fdp_hist.history_directory(), exist_ok=True)
+    os.makedirs(
+        fdp_hist.history_directory(no_init_session._session_loc), exist_ok=True
+    )
     no_init_session.make_starter_config()
     mocker.patch.object(
         fdp_conf,
@@ -122,7 +124,9 @@ def test_run_config_cmd(mocker, no_init_session):
 
 
 def test_run_bash_cmd(mocker, no_init_session):
-    os.makedirs(fdp_hist.history_directory(), exist_ok=True)
+    os.makedirs(
+        fdp_hist.history_directory(no_init_session._session_loc), exist_ok=True
+    )
     no_init_session.make_starter_config()
     mocker.patch.object(
         fdp_conf,
