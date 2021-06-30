@@ -29,19 +29,19 @@ The project is still under development with many features still pending review. 
 
 The project makes use of [Poetry](https://python-poetry.org/) for development which allows quick and easy mangement of dependencies, and provides a virtual environment exclusive to the project. Ultimately the project will be built into a pip installable module (using `poetry build`) meaning users will not need Poetry. You can access this environment by installing poetry:
 ```bash
-$ pip install poetry
+pip install poetry
 ```
 and, ensuring you are in the project repository, running:
 ```
-$ poetry install
+poetry install
 ```
 which will setup the virtual environment and install requirements. You can then either launch the environment as a shell using:
 ```bash
-$ poetry shell
+poetry shell
 ```
 or run commands within it externally using:
 ```bash
-$ poetry run <command>
+poetry run <command>
 ```
 
 ## Structure
@@ -128,7 +128,7 @@ A repository directory matching the structure above will be placed in the curren
 
 This example shows the process of setting up for the first time. Note the default suggestions for each prompt, in the case of `Full name` and `Default output namespace` this is the hostname of the system and an abbreviated version of this name.
 ```
-$ fair init
+fair init
 Initialising FAIR repository, setup will now ask for basic info:
 
 Remote API URL: https://data.scrc.uk/api/
@@ -145,7 +145,7 @@ Initialised empty fair repository in /home/kristian/Documents/UKAEA/SCRC/fair/.f
 
 In subsequent runs the first time setup will provide further defaults.
 ```
-$ fair init
+fair init
 Initialising FAIR repository, setup will now ask for basic info:
 
 Project description: A new project
@@ -177,11 +177,11 @@ the user then only needs to update `script` for this to be a valid `config.yaml`
 
 The purpose of `run` is to execute a model/submission run to the local registry. The command fills any specified template variables of the form `${{ fair.VAR }}` to match those outlined [below](#template-variables). Outputs of a run will be stored within the `coderun` folder in the directory specified under the `data_store` tag in the `config.yaml`, by default this is `$HOME/.fair/data/coderun`.
 ```
-$ fair run
+fair run
 ```
 You can also launch a bash command directly which will then be automatically written into the `config.yaml` for you:
 ```
-$ fair run bash "echo \"Hello World\""
+fair run bash "echo \"Hello World\""
 ```
 note the command itself must be quoted as it is a single argument.
 
@@ -193,11 +193,11 @@ However the user may also specify a manual launch that will override this behavi
 
 The commands:
 ```
-$ fair registry start
+fair registry start
 ```
 and
 ```
-$ fair registry stop
+fair registry stop
 ```
 will launch and halt the server respectively.
 
@@ -205,7 +205,7 @@ will launch and halt the server respectively.
 
 Runs are logged locally within the local FAIR repository. A full list of runs is shown by running:
 ```
-$ fair log
+fair log
 ```
 This will present a list of runs in a summary analogous to a `git log` call:
 ```
@@ -221,7 +221,7 @@ Date:   Wed Jun 30 09:09:30 2021
 ### `view`
 To view the `stdout` of a run given its SHA as shown by running `fair log` use the command:
 ```
-$ fair view <sha>
+fair view <sha>
 ```
 you do not need to specify the full SHA but rather the first few characters:
 ```
