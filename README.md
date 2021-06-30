@@ -12,6 +12,7 @@
       * [Sessions Directory](#sessions-directory)
       * [Logs Directory](#logs-directory)
       * [Staging File](#staging-file)
+      * [config.yaml](#configyaml)
    * [Command Line Usage](#command-line-usage)
       * [init](#init)
       * [run](#run)
@@ -58,10 +59,11 @@ $HOME
 │
 └─ Documents
    └─ my_project
-      └─ .fair
-         ├── cli-config.yaml
-         ├── logs
-         └── staging
+      ├── config.yaml
+      └── .fair
+          ├── cli-config.yaml
+          ├── logs
+          └── staging
 ```
 ### Global and Local Directories
 FAIR-CLI stores information for projects in two locations. The first is a *global* directory stored in the user's home folder in the same location as the registry itself `$HOME/.fair/cli`, and the second is a *local* directory which exists within the model project itself `$PROJECT_HOME/.fair`.
@@ -82,7 +84,31 @@ Not yet fully implemented, the file `$PROJECT/.fair/staging` keeps track of whic
 Simply contains a dictionary of booleans where items for sync (staged) are marked true `True` and those to be held only locally `False`.
 The file uses paths relative to the *local* `.fair` folder as keys, to behave in a manner identical to `git` staging.
 
-### 
+### `config.yaml`
+
+This is the main file the user will interact with to customise their run. FAIR-CLI automatically generates a starter version of this file with everything in place. The only addition required is setting of either `script` or `script_path` (with the exception of running using `fair run bash` - see [below](#run)) under `run_metadata`.
+|                                                                                                                                                      |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`script`**                                                                                                                                         |
+| This should be a command callable by a shell for running a model/submitting data to the registry. This script is saved to a file prior to execution. |
+|                                                                                                                                                      |
+| **`script_path`**                                                                                                                                    |
+| This is a direct path to an existing script to use for submission.                                                                                   |
+
+By default the shell used will be `sh` or `pwsh` for UNIX and Windows systems respectively, however this can be overwritten with the optional `shell` key which recognises the following values (where `{0}` is the script file):
+
+| **Shell**    | **Command**                     |
+| ------------ | ------------------------------- |
+| `bash`       | `bash -eo pipefail {0}`         |
+| `java`       | `java {0}`                      |
+| `julia`      | `julia {0}`                     |
+| `powershell` | `powershell -command ". '{0}'"` |
+| `pwsh`       | `pwsh -command ". '{0}'"`       |
+| `python2`    | `python2 {0}`                   |
+| `python3`    | `python3 {0}`                   |
+| `python`     | `python {0}`                    |
+| `R`          | `R -f {0}`                      |
+| `sh`         | `sh -e {0}`                     |
 
 | **NOTE**                                                                                                                                                                                                                                            |
 | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

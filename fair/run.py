@@ -42,13 +42,16 @@ import fair.history as fdp_hist
 import fair.exceptions as fdp_exc
 
 
+# Dictionary of recognised shell labels.
 SHELLS: Dict[str, str] = {
     "pwsh": "pwsh -command \". '{0}'\"",
-    "python": "python",
-    "python3": "python3",
-    "R": "R -f",
-    "julia": "julia",
+    "python2": "python2 {0}",
+    "python3": "python3 {0}",
+    "python": "python {0}",
+    "R": "R -f {0}",
+    "julia": "julia {0}",
     "bash": "bash -eo pipefail {0}",
+    "java": "java {0}",
     "sh": "sh -e {0}",
     "powershell": "powershell -command \". '{0}'\".",
 }
@@ -236,10 +239,12 @@ def create_working_config(
         time stamp of run initiation time
     """
     # TODO: 'VERSION' variable when registry connection available
+    # [FAIRDataPipeline/FAIR-CLI/issues/6]
 
     # Substitutes are defined as functions for which particular cases
     # can be given as arguments, e.g. for DATE the format depends on if
-    # the key is a version key or not
+    # the key is a version key or not.
+    # Tags in config.yaml are specified as ${{ fair.VAR }}
     _substitutes: Mapping = {
         "DATE": lambda x: time.strftime(
             "%Y{0}%m{0}%d".format("" if "version" in x else "-"),
@@ -323,9 +328,13 @@ def create_working_config(
                 continue
 
         # If '*' or '**' in value, expand into a list and
-        # save to the same key
+        # save to the same key. Typically this will be a registry
+        # query, however if it refers to the local file system
+        # then glob there instead
+        # TODO: Implement registry globbing [FAIRDataPipeline/FAIR-CLI/issues/5]
         if _regex_star.findall(value):
-            _flat_conf[key] = glob.glob(value)
+            if os.path.exists(value):
+                _flat_conf[key] = glob.glob(value)
 
     _conf_yaml = fdp_util.expand_dict(_flat_conf)
 
@@ -371,7 +380,7 @@ def setup_run_script(config_yaml: str, output_dir: str) -> Dict[str, Any]:
         if platform.system() == "Windows":
             _shell = "pwsh"
         else:
-            _shell = "bash"
+            _shell = "sh"
 
     # TODO: Currently when "script" is specified the script is
     # written to a file with no suffix as this cannot be determined
