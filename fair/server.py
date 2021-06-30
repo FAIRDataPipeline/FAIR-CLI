@@ -113,7 +113,6 @@ def stop_server(local_remote: str, force: bool = False) -> None:
     force : bool, optional
         whether to force server shutdown if it is being used
     """
-
     # If there are no session cache files shut down server
     if glob.glob(os.path.join(fdp_com.session_cache_dir(), "*.run")):
         if not force:

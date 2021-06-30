@@ -60,12 +60,10 @@ class FAIRCLIException(Exception):
         super().__init__(msg)
 
     def err_print(self) -> None:
-        click.echo(
-            f"{self.level+': ' if self.level else ''}"
-            f"{self.msg}" + "\n" + self.hint
-            if self.hint
-            else ""
-        )
+        _out_msg = f"{self.level+': ' if self.level else ''}{self.msg}"
+        if self.hint:
+            _out_msg += f"\n{self.hint}"
+        click.echo(_out_msg)
 
 
 class RegistryError(FAIRCLIException):
