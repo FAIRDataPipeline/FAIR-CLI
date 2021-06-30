@@ -149,6 +149,30 @@ the user then only needs to update `script` for this to be a valid `config.yaml`
 ### `run`
 
 The purpose of `run` is to execute a model/submission run to the local registry. The command fills any specified template variables of the form `${{ fair.VAR }}` to match those outlined [below](#template-variables). Outputs of a run will be stored within the `coderun` folder in the directory specified under the `data_store` tag in the `config.yaml`, by default this is `$HOME/.fair/data/coderun`.
+```
+$ fair run
+```
+You can also launch a bash command directly which will then be automatically written into the `config.yaml` for you:
+```
+$ fair run bash "echo \"Hello World\""
+```
+note the command itself must be quoted as it is a single argument.
+
+### `registry`
+
+By default the CLI will launch the registry whenever a synchronisation or run is called. The server will only be halted once all ongoing CLI processes (in the case of multiple parallel calls) have been completed.
+
+However the user may also specify a manual launch that will override this behaviour, instead leaving the server running constantly allowing them to view the registry in the browser.
+
+The commands:
+```
+$ fair registry start
+```
+and
+```
+$ fair registry stop
+```
+will launch and halt the server respectively.
 
 ### `log`
 
