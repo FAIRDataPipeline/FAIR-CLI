@@ -91,7 +91,7 @@ def registry() -> None:
 def start() -> None:
     """Start the local registry server"""
     try:
-        fdp_session.FAIR(os.getcwd(), _mode=fdp_svr.SwitchMode.USER_START)
+        fdp_session.FAIR(os.getcwd(), mode=fdp_svr.SwitchMode.USER_START)
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
         sys.exit(e.exit_code)
