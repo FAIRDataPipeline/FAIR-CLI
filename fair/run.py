@@ -245,6 +245,7 @@ def create_working_config(
     # can be given as arguments, e.g. for DATE the format depends on if
     # the key is a version key or not.
     # Tags in config.yaml are specified as ${{ fair.VAR }}
+
     _substitutes: Mapping = {
         "DATE": lambda x: time.strftime(
             "%Y{0}%m{0}%d".format("" if "version" in x else "-"),
@@ -279,9 +280,9 @@ def create_working_config(
     # Construct Regex objects to find variables in the config
     _regex_star = re.compile(r":\s*(.+\*+)")
     _regex_var_candidate = re.compile(
-        r"\$\{\{\s*fair\..+\s*\}\}", re.IGNORECASE
+        r"\$\{\{\s*CLI\..+\s*\}\}", re.IGNORECASE
     )
-    _regex_var = re.compile(r"\$\{\{\s*fair\.(.+)\s*\}\}")
+    _regex_var = re.compile(r"\$\{\{\s*CLI\.(.+)\s*\}\}")
     _regex_env_candidate = re.compile(r"\$\{?[0-9\_A-Z]+\}?", re.IGNORECASE)
     _regex_env = re.compile(r"\$\{?([0-9\_A-Z]+)\}?", re.IGNORECASE)
 

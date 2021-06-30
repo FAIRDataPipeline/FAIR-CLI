@@ -94,7 +94,8 @@ def show_history(repo_loc: str, length: int = 10) -> None:
     # Read in all log files from the log storage by reverse sorting them
     # by datetime created
     _time_sorted_logs = sorted(
-        glob.glob(os.path.join(history_directory(), "*")), key=os.path.getmtime
+        glob.glob(os.path.join(history_directory(repo_loc), "*")),
+        key=os.path.getmtime,
     )
 
     # Iterate through the logs printing out the run author

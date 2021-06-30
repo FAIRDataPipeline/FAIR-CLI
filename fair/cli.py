@@ -17,7 +17,6 @@ import sys
 
 import fair.session as fdp_session
 import fair.common as fdp_com
-import fair.services as fdp_serv
 import fair.history as fdp_hist
 import fair.configuration as fdp_conf
 import fair.exceptions as fdp_exc
@@ -108,7 +107,7 @@ def stop(force) -> None:
         else fdp_svr.SwitchMode.USER_STOP
     )
     try:
-        fdp_session.FAIR(os.getcwd(), _mode=_mode)
+        fdp_session.FAIR(os.getcwd(), mode=_mode)
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
         sys.exit(e.exit_code)
@@ -174,27 +173,6 @@ def rm(
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
         sys.exit(e.exit_code)
-
-
-@cli.command()
-@click.argument("config", type=click.Path(exists=True))
-def pull(config: str):
-    """Parate scripts to add their data/results to the local registry. However for static languages like C++ they will likel i
-    download any data required by read: from the remote data store and record metadata in the data registry (whilst
-    editing relevant entries, e.g. storage_root)
-
-    pull data associated with all previous versions of these objects from the remote data registry
-
-    download any data listed in register: from the original source and record metadata in the data registry
-
-    local_repo: must always be given in the config.yaml file
-        - get the remote repo url from the local repo
-        - get the hash of the latest commit on GitHub and store this in the data registry, associated with the submission
-          script storage_location (this is where the script should be stored)
-        - note that there are exceptions and the user may reference a script located outside of a repository
-    """
-    click.echo(f"pull command called with config: {config}")
-    fdp_serv.download_data(config)
 
 
 @cli.group(invoke_without_command=True)

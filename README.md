@@ -175,7 +175,7 @@ the user then only needs to update `script` for this to be a valid `config.yaml`
 
 ### `run`
 
-The purpose of `run` is to execute a model/submission run to the local registry. The command fills any specified template variables of the form `${{ fair.VAR }}` to match those outlined [below](#template-variables). Outputs of a run will be stored within the `coderun` folder in the directory specified under the `data_store` tag in the `config.yaml`, by default this is `$HOME/.fair/data/coderun`.
+The purpose of `run` is to execute a model/submission run to the local registry. The command fills any specified template variables of the form `${{ CLI.VAR }}` to match those outlined [below](#template-variables). Outputs of a run will be stored within the `coderun` folder in the directory specified under the `data_store` tag in the `config.yaml`, by default this is `$HOME/.fair/data/coderun`.
 ```
 fair run
 ```
@@ -246,7 +246,7 @@ you do not need to specify the full SHA but rather the first few characters:
 ```
 
 ## Template Variables
-Within the `config.yaml` file, template variables can be specified by using the notation `${{ fair.VAR }}`, the following variables are currently recognised:
+Within the `config.yaml` file, template variables can be specified by using the notation `${{ CLI.VAR }}`, the following variables are currently recognised:
 
 | **Variable**        | **Description**                                                                  |
 | ------------------- | -------------------------------------------------------------------------------- |
