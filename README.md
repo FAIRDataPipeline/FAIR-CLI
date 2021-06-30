@@ -15,6 +15,7 @@
    * [Command Line Usage](#command-line-usage)
       * [init](#init)
       * [run](#run)
+      * [registry](#registry)
       * [log](#log)
       * [view](#view)
    * [Template Variables](#template-variables)
