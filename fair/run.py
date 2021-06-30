@@ -235,6 +235,7 @@ def create_working_config(
     time : datetime.datetime
         time stamp of run initiation time
     """
+    # TODO: 'VERSION' variable when registry connection available
 
     # Substitutes are defined as functions for which particular cases
     # can be given as arguments, e.g. for DATE the format depends on if
@@ -273,9 +274,9 @@ def create_working_config(
     # Construct Regex objects to find variables in the config
     _regex_star = re.compile(r":\s*(.+\*+)")
     _regex_var_candidate = re.compile(
-        r"\$\{\{\s*cli\..+\s*\}\}", re.IGNORECASE
+        r"\$\{\{\s*fair\..+\s*\}\}", re.IGNORECASE
     )
-    _regex_var = re.compile(r"\$\{\{\s*cli\.(.+)\s*\}\}")
+    _regex_var = re.compile(r"\$\{\{\s*fair\.(.+)\s*\}\}")
     _regex_env_candidate = re.compile(r"\$\{?[0-9\_A-Z]+\}?", re.IGNORECASE)
     _regex_env = re.compile(r"\$\{?([0-9\_A-Z]+)\}?", re.IGNORECASE)
 
@@ -316,12 +317,9 @@ def create_working_config(
         # Print warnings for environment variables which have been stated in
         # the config.yaml but are not actually present in the shell
         for entry, var in zip(_env_search, _env_label):
-            _env = os.environ[var]
-            if not _env:
-                click.echo(
-                    f"Warning: Environment variable '{var}' in config.yaml"
-                    " is not defined in current shell."
-                )
+            try:
+                _env = os.environ[var]
+            except KeyError:
                 continue
 
         # If '*' or '**' in value, expand into a list and

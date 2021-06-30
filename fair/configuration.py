@@ -114,7 +114,6 @@ def local_config_query(
     first_time_setup: bool = False,
 ) -> Dict[str, Any]:
     """Ask user questions to create local user config"""
-    print("NOOOOO")
     try:
         _def_remote = global_config["remotes"]["origin"]
         _def_local = global_config["remotes"]["local"]
