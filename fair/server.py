@@ -23,6 +23,7 @@ import os
 import subprocess
 import requests
 import glob
+import sys
 import enum
 
 import fair.common as fdp_com
@@ -77,25 +78,27 @@ def launch_server(local_remote: str, verbose: bool = False) -> None:
     """
 
     _server_start_script = os.path.join(
-        fdp_com.REGISTRY_HOME, "scripts", "run_scrc_server"
+        fdp_com.REGISTRY_HOME, "scripts", "start_fair_registry"
     )
 
     if not os.path.exists(_server_start_script):
         raise fdp_exc.RegistryError(
-            "Failed to find local registry executable,"
+            f"Failed to find local registry executable '{_server_start_script}',"
             " is the FAIR data pipeline properly installed on this system?"
         )
 
     _start = subprocess.Popen(
-        [_server_start_script],
-        stdout=subprocess.PIPE if not verbose else subprocess.STDOUT,
+        _server_start_script,
+        stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         shell=False,
     )
 
-    _start.wait()
+    if verbose:
+        for c in iter(lambda: _start.stdout.read(1), b""):
+            sys.stdout.buffer.write(c)
 
-    print(check_server_running(local_remote))
+    _start.wait()
 
     if not check_server_running(local_remote):
         raise fdp_exc.RegistryError(
@@ -103,7 +106,9 @@ def launch_server(local_remote: str, verbose: bool = False) -> None:
         )
 
 
-def stop_server(local_remote: str, force: bool = False) -> None:
+def stop_server(
+    local_remote: str, force: bool = False, verbose: bool = False
+) -> None:
     """Stops the FAIR Data Pipeline local server
 
     Parameters
@@ -121,12 +126,12 @@ def stop_server(local_remote: str, force: bool = False) -> None:
             )
 
     _server_stop_script = os.path.join(
-        fdp_com.REGISTRY_HOME, "scripts", "stop_scrc_server"
+        fdp_com.REGISTRY_HOME, "scripts", "stop_fair_registry"
     )
 
     if not os.path.exists(_server_stop_script):
         raise fdp_exc.RegistryError(
-            "Failed to find local registry executable,"
+            f"Failed to find local registry executable '{_server_stop_script}',"
             " is the FAIR data pipeline properly installed on this system?"
         )
 
@@ -136,6 +141,10 @@ def stop_server(local_remote: str, force: bool = False) -> None:
         stderr=subprocess.PIPE,
         shell=False,
     )
+
+    if verbose:
+        for c in iter(lambda: _stop.stdout.read(1), b""):
+            sys.stdout.buffer.write(c)
 
     _stop.wait()
 
