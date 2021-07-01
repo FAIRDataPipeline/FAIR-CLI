@@ -4,6 +4,10 @@
 | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | The following document is largely conceptual and therefore does *not* represent a manual for the final interface. Statements within the following are likely to change, further details of possible changes are given throughout. |
 
+| **WARNING:**                                                                                                                            |
+| --------------------------------------------------------------------------------------------------------------------------------------- |
+| You will need a valid ORCID to use this software, name information and author registry entry creation rely on the user having an ORCID. |
+
 **Table of Contents**
    * [Installation](#installation)
    * [Structure](#structure)
@@ -116,7 +120,7 @@ By default the shell used will be `sh` or `pwsh` for UNIX and Windows systems re
 | This layout is subject to possible change depending on whether or not multiple aliases for the same user will be allowed in the registry itself. The main reason for having a *local* version is to support separate handling of multiple projects. |
 
 ## Registry Interaction
-Currently `FAIR-CLI` sets up the write data storage location on the local registry if it does not exist, and creates an object for the working config.
+Currently `FAIR-CLI` sets up the write data storage location on the local registry if it does not exist. Entries are created for the YAML file type, current user as an author, and object for a given run.
 
 ## Command Line Usage
 As mentioned, all of the subcommands within FAIR-CLI are still under review with many still serving as placeholders for future features. Running `fair` without arguments or `fair --help` will show all of these.
