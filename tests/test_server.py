@@ -34,6 +34,14 @@ def server_emulator(mocker):
             return True
 
         def __init__(self, cmd_list):
+            class stdout:
+                def __init__(self):
+                    pass
+
+                def read(self, i):
+                    return b""
+
+            self.stdout = stdout()
             assert os.path.exists(cmd_list[0])
             if "run" in cmd_list[0]:
                 server_up(mocker)

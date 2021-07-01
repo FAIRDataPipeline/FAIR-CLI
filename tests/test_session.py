@@ -130,7 +130,8 @@ def test_make_config(no_init_session):
         "local_data_registry",
         "local_repo",
     ]
-    assert all(i in _config["run_metadata"] for i in _expected_meta_start)
+    for i in _expected_meta_start:
+        assert i in _config["run_metadata"]
 
 
 @pytest.mark.session

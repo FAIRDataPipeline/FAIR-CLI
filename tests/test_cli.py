@@ -32,6 +32,7 @@ def test_run_bash(no_init_session):
     assert datetime.datetime.now().strftime("%Y-%m-%d_%H_%M_%S") in _log_file
 
 
+@pytest.mark.cli
 def test_run_norm(no_init_session):
     no_init_session.make_starter_config()
     os.makedirs(

@@ -10,6 +10,7 @@ import fair.common as fdp_com
 import fair.session as fdp_s
 import fair.server as fdp_svr
 import fair.configuration as fdp_conf
+import fair.registry as fdp_reg
 
 
 @pytest.fixture(scope="module")
@@ -46,9 +47,21 @@ def no_prompt(mocker):
     )
 
 
+@pytest.fixture
+def no_registry_edits(mocker):
+    class DummyReq:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def get_write_storage(self):
+            pass
+
+    mocker.patch.object(fdp_reg, "Requester", DummyReq)
+
+
 @pytest.mark.session
 @pytest.fixture
-def no_init_session(global_test, repo_root, mocker):
+def no_init_session(global_test, repo_root, mocker, no_registry_edits):
     """Creates a session without any calls to setup
 
     This requires mocking a few features of the FAIR class:
