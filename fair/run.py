@@ -152,8 +152,6 @@ def run_command(
     _cmd_setup = setup_run_script(_work_cfg_yml, _run_dir)
     _shell = _cmd_setup["shell"]
 
-    _cmd_setup["env"]["FDP_CONFIG_DIR"] = _work_cfg_yml
-
     if _shell not in SHELLS:
         raise fdp_exc.UserConfigError(
             f"Unrecognised shell '{_shell}' specified."
@@ -372,6 +370,7 @@ def setup_run_script(config_yaml: str, output_dir: str) -> Dict[str, Any]:
     # Create environment variable which users can refer to in their
     # submission scripts
     _run_env["FDP_LOCAL_REPO"] = _conf_yaml["run_metadata"]["local_repo"]
+    _run_env["FDP_CONFIG_DIR"] = os.path.dirname(_conf_yaml)
 
     # Check if a specific shell has been defined for the script
     _shell = None
