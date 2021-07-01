@@ -13,6 +13,7 @@
       * [Logs Directory](#logs-directory)
       * [Staging File](#staging-file)
       * [config.yaml](#configyaml)
+   * [Registry Interaction](#registry-interaction) 
    * [Command Line Usage](#command-line-usage)
       * [init](#init)
       * [run](#run)
