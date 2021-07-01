@@ -21,6 +21,7 @@ __date__ = "2021-06-30"
 
 import os
 import socket
+import requests
 from typing import MutableMapping, Any, Dict
 
 import yaml
@@ -28,6 +29,7 @@ import click
 
 import fair.common as fdp_com
 import fair.exceptions as fdp_exc
+import fair.identifiers as fdp_id
 
 
 def read_local_fdpconfig(repo_loc: str) -> MutableMapping:
@@ -128,7 +130,7 @@ def set_user(repo_loc: str, name: str, Global: bool = False) -> None:
         yaml.dump(_glob_conf, open(fdp_com.global_fdpconfig(), "w"))
 
 
-def get_current_user() -> str:
+def get_current_user_name(repo_loc: str) -> str:
     """Retrieves the name of the current session user as defined in the config
 
     Returns
@@ -136,7 +138,26 @@ def get_current_user() -> str:
     str
         user name
     """
-    return _get_config_property(read_global_fdpconfig(), "user", "name")
+    _given = _get_config_property(
+        read_local_fdpconfig(repo_loc), "user", "given_name"
+    )
+    _family = _get_config_property(
+        read_local_fdpconfig(repo_loc), "user", "family_name"
+    )
+    return f"{_given} {_family}"
+
+
+def get_current_user_id(repo_loc: str) -> str:
+    """Retrieves the ORCID of the current session user as defined in the config
+
+    Returns
+    -------
+    str
+        user ORCID
+    """
+    return _get_config_property(
+        read_local_fdpconfig(repo_loc), "user", "orcid"
+    )
 
 
 def global_config_query() -> Dict[str, Any]:
@@ -146,28 +167,32 @@ def global_config_query() -> Dict[str, Any]:
     _remote_url = click.prompt(f"Remote API URL")
     _local_url = click.prompt(f"Local API URL", default=_def_local)
 
-    _def_name = socket.gethostname()
-    _user_name = click.prompt("Full name", default=_def_name)
     _user_email = click.prompt("Email")
-    _user_orcid = click.prompt("ORCID", default="None")
-    _user_orcid = _user_orcid if _user_orcid != "None" else None
+    _user_orcid = click.prompt("ORCID")
+    _orcid_info = fdp_id.check_orcid(_user_orcid)
 
-    if len(_user_name.strip().split()) == 2:
-        _def_ospace = _user_name.strip().lower().split()
-        _def_ospace = _def_ospace[0][0] + _def_ospace[1]
+    while not _orcid_info:
+        click.echo("Invalid ORCID given.")
+        _user_orcid = click.prompt("ORCID")
+        _orcid_info = fdp_id.check_orcid(_user_orcid)
+
+    _def_ospace = _orcid_info["given_name"][0]
+
+    if len(_orcid_info["family_name"].split()) > 1:
+        _def_ospace += _orcid_info["family_name"].split()[-1]
     else:
-        _def_ospace = _user_name.lower().replace(" ", "")
+        _def_ospace += _orcid_info["family_name"]
+
+    _def_ospace = _def_ospace.lower().replace(" ", "").strip()
 
     _def_ispace = click.prompt("Default input namespace", default="None")
     _def_ispace = _def_ispace if _def_ispace != "None" else None
     _def_ospace = click.prompt("Default output namespace", default=_def_ospace)
 
+    _orcid_info["email"] = _user_email
+
     return {
-        "user": {
-            "name": _user_name,
-            "email": _user_email,
-            "orcid": _user_orcid,
-        },
+        "user": _orcid_info,
         "remotes": {"local": _local_url, "origin": _remote_url},
         "namespaces": {"input": _def_ispace, "output": _def_ospace},
     }

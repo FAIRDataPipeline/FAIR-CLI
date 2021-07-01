@@ -40,7 +40,7 @@ import fair.common as fdp_com
 import fair.utilities as fdp_util
 import fair.history as fdp_hist
 import fair.exceptions as fdp_exc
-import fair.registry as fdp_reg
+import fair.registry.storage as fdp_reg_store
 
 
 # Dictionary of recognised shell labels.
@@ -136,11 +136,11 @@ def run_command(
         )
 
     # Setup the registry storage location root
-    _restapi_req = fdp_reg.Requester(
+    fdp_reg_store.store_working_config(
+        _run_dir,
         fdp_conf.read_local_fdpconfig(_run_dir)["remotes"]["local"],
         _work_cfg_yml,
     )
-    _restapi_req.get_write_storage()
 
     # If a bash command is specified, save it to the configuration
     # and use this during the run
@@ -179,7 +179,7 @@ def run_command(
     # Fetch the CLI configurations for logging information
     _glob_conf = fdp_conf.read_global_fdpconfig()
     _loc_conf = fdp_conf.read_local_fdpconfig(run_dir)
-    _user = _glob_conf["user"]["name"]
+    _user = fdp_conf.get_current_user_name(run_dir)
     _email = _glob_conf["user"]["email"]
     _namespace = _loc_conf["namespaces"]["output"]
 
@@ -259,7 +259,8 @@ def create_working_config(
             "%Y{0}%m{0}%d".format("" if "version" in x else "-"),
         ),
         "DATETIME": lambda x: time.strftime("%Y-%m-%s %H:%M:S"),
-        "USER": fdp_conf.get_current_user,
+        "USER": fdp_conf.get_current_user_name,
+        "ORCID": fdp_conf.get_current_user_id,
         "REPO_DIR": lambda x: fdp_com.find_fair_root(
             os.path.dirname(config_yaml)
         ),

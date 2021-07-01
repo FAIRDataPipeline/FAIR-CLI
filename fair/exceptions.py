@@ -120,3 +120,11 @@ class CommandExecutionError(FAIRCLIException):
 
     def __init__(self, msg, exit_code):
         super().__init__(msg, exit_code=exit_code)
+
+
+class RegistryAPICallError(FAIRCLIException):
+    """Errors relating to invalid queries to the registry RestAPI"""
+
+    def __init__(self, msg, error_code):
+        self.error_code = error_code
+        super().__init__(msg, exit_code=error_code)

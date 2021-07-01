@@ -20,8 +20,11 @@ def test_local_config_read(mocker):
 
 
 @pytest.mark.configuration
-def test_get_current_user(no_init_session):
-    assert fdp_conf.get_current_user() == "Joe Bloggs"
+def test_get_current_user_name(no_init_session):
+    assert (
+        fdp_conf.get_current_user_name(no_init_session._session_loc)
+        == "Joe Bloggs"
+    )
 
 
 @pytest.mark.configuration

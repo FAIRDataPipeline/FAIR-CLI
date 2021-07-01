@@ -116,7 +116,7 @@ By default the shell used will be `sh` or `pwsh` for UNIX and Windows systems re
 | This layout is subject to possible change depending on whether or not multiple aliases for the same user will be allowed in the registry itself. The main reason for having a *local* version is to support separate handling of multiple projects. |
 
 ## Registry Interaction
-Currently `FAIR-CLI` only sets up the write data storage location on the local registry if it does not exist. This is handled by the `fair.registry.Requester` class, which will ultimately also handle interactions during the sync with the remote registry.
+Currently `FAIR-CLI` sets up the write data storage location on the local registry if it does not exist, and creates an object for the working config.
 
 ## Command Line Usage
 As mentioned, all of the subcommands within FAIR-CLI are still under review with many still serving as placeholders for future features. Running `fair` without arguments or `fair --help` will show all of these.
@@ -139,7 +139,7 @@ Remote API URL: https://data.scrc.uk/api/
 Local API URL [http://localhost:8000/api/]: 
 Full name [jbloggs-pc]: Joe Bloggs
 Email: jbloggs@noreply.uk
-ORCID [None]: 
+ORCID: 
 Default input namespace [None]: SCRC
 Default output namespace [jbloggs]: 
 Project description: A test project

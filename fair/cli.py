@@ -64,8 +64,14 @@ def yaml(debug) -> None:
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
 def init(config: str, debug: bool) -> None:
     """Initialise repository in current location"""
-    with fdp_session.FAIR(os.getcwd(), config, debug=debug) as fair_session:
-        fair_session.initialise()
+    try:
+        with fdp_session.FAIR(
+            os.getcwd(), config, debug=debug
+        ) as fair_session:
+            fair_session.initialise()
+    except fdp_exc.FAIRCLIException as e:
+        e.err_print()
+        sys.exit(e.exit_code)
 
 
 @cli.command()
@@ -77,8 +83,12 @@ def purge() -> None:
         type=click.BOOL,
     )
     if _purge:
-        with fdp_session.FAIR(os.getcwd()) as fair_session:
-            fair_session.purge()
+        try:
+            with fdp_session.FAIR(os.getcwd()) as fair_session:
+                fair_session.purge()
+        except fdp_exc.FAIRCLIException as e:
+            e.err_print()
+            sys.exit(e.exit_code)
 
 
 @cli.group()
