@@ -41,7 +41,6 @@ import fair.utilities as fdp_util
 import fair.history as fdp_hist
 import fair.exceptions as fdp_exc
 
-
 # Dictionary of recognised shell labels.
 SHELLS: Dict[str, str] = {
     "pwsh": "pwsh -command \". '{0}'\"",
@@ -370,7 +369,7 @@ def setup_run_script(config_yaml: str, output_dir: str) -> Dict[str, Any]:
     # Create environment variable which users can refer to in their
     # submission scripts
     _run_env["FDP_LOCAL_REPO"] = _conf_yaml["run_metadata"]["local_repo"]
-    _run_env["FDP_CONFIG_DIR"] = os.path.dirname(_conf_yaml)
+    _run_env["FDP_CONFIG_DIR"] = os.path.dirname(config_yaml)
 
     # Check if a specific shell has been defined for the script
     _shell = None
