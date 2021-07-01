@@ -389,6 +389,7 @@ class FAIR:
 
             # Null keys are not loaded by YAML so add manually
             _yaml_dict["run_metadata"]["script"] = None
+            _yaml_dict["run_metadata"]["description"] = ""
             yaml.dump(_yaml_dict, f)
 
     def initialise(self) -> None:

@@ -111,11 +111,11 @@ def run_command(
         )
 
     # Create a new timestamped directory for the run
-    # use the key 'data_store' from the 'config.yaml' if
+    # use the key 'write_data_store' from the 'config.yaml' if
     # specified else revert to the
-    if "data_store" in _cfg["run_metadata"]:
+    if "write_data_store" in _cfg["run_metadata"]:
         _run_dir = os.path.join(
-            _cfg["run_metadata"]["data_store"], fdp_com.CODERUN_DIR
+            _cfg["run_metadata"]["write_data_store"], fdp_com.CODERUN_DIR
         )
     else:
         _run_dir = fdp_com.default_coderun_dir()
@@ -370,6 +370,7 @@ def setup_run_script(config_yaml: str, output_dir: str) -> Dict[str, Any]:
     # Create environment variable which users can refer to in their
     # submission scripts
     _run_env["FDP_LOCAL_REPO"] = _conf_yaml["run_metadata"]["local_repo"]
+    _run_env["FDP_CONFIG_DIR"] = os.path.dirname(config_yaml)
 
     # Check if a specific shell has been defined for the script
     _shell = None

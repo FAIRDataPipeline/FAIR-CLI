@@ -123,7 +123,7 @@ def test_make_config(no_init_session):
     _config = yaml.safe_load(open(_cfg_yaml))
     assert _config["fail_on_hash_mismatch"]
     _expected_meta_start = [
-        "data_store",
+        "write_data_store",
         "default_input_namespace",
         "default_output_namespace",
         "description",
