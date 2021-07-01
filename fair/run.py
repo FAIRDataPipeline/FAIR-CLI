@@ -40,6 +40,8 @@ import fair.common as fdp_com
 import fair.utilities as fdp_util
 import fair.history as fdp_hist
 import fair.exceptions as fdp_exc
+import fair.registry as fdp_reg
+
 
 # Dictionary of recognised shell labels.
 SHELLS: Dict[str, str] = {
@@ -132,6 +134,13 @@ def run_command(
         raise fdp_exc.InternalError(
             "Failed to create working config.yaml in run folder"
         )
+
+    # Setup the registry storage location root
+    _restapi_req = fdp_reg.Requester(
+        fdp_conf.read_local_fdpconfig(_run_dir)["remotes"]["local"],
+        _work_cfg_yml,
+    )
+    _restapi_req.get_write_storage()
 
     # If a bash command is specified, save it to the configuration
     # and use this during the run
