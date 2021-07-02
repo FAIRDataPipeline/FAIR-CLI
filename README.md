@@ -4,10 +4,6 @@
 | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | The following document is largely conceptual and therefore does *not* represent a manual for the final interface. Statements within the following are likely to change, further details of possible changes are given throughout. |
 
-| **WARNING:**                                                                                                                            |
-| --------------------------------------------------------------------------------------------------------------------------------------- |
-| You will need a valid ORCID to use this software, name information and author registry entry creation rely on the user having an ORCID. |
-
 **Table of Contents**
    * [Installation](#installation)
    * [Structure](#structure)

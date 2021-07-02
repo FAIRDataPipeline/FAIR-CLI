@@ -2,7 +2,6 @@ import pytest
 import tempfile
 import yaml
 import os
-import click
 
 import fair.configuration as fdp_conf
 import fair.common as fdp_com
