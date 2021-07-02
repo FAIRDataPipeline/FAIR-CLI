@@ -5,12 +5,13 @@ import logging
 import os
 import yaml
 import click
+import uuid
 
 import fair.common as fdp_com
 import fair.session as fdp_s
 import fair.server as fdp_svr
 import fair.configuration as fdp_conf
-import fair.registry as fdp_reg
+import fair.registry.storage as fdp_store
 
 
 @pytest.fixture(scope="module")
@@ -36,32 +37,40 @@ def repo_root(module_mocker):
 
 @pytest.fixture
 def no_prompt(mocker):
-    def _func(*args, **kwargs):
-        if "default" in kwargs:
-            return kwargs["default"]
+    def _func(msg, **kwargs):
+        if msg == "Full Name":
+            return "Joe Bloggs"
+        elif msg == "Remote API URL":
+            return "http://noserver/api/"
+        elif msg == "Local API URL":
+            return "http://localhost:8000/api/"
+        elif msg == "Email":
+            return "jbloggs@nowhere"
+        elif msg == "ORCID":
+            return "None"
+        elif msg == "Default input namespace":
+            return "SCRC"
         else:
-            return "TEST"
+            return kwargs["default"]
 
     mocker.patch.object(
-        click, "prompt", lambda *args, **kwargs: _func(*args, **kwargs)
+        click, "prompt", lambda msg, **kwargs: _func(msg, **kwargs)
     )
 
 
 @pytest.fixture
 def no_registry_edits(mocker):
-    class DummyReq:
-        def __init__(self, *args, **kwargs):
-            pass
-
-        def get_write_storage(self):
-            pass
-
-    mocker.patch.object(fdp_reg, "Requester", DummyReq)
+    mocker.patch.object(fdp_store, "store_working_config", lambda *args: "")
 
 
-@pytest.mark.session
 @pytest.fixture
-def no_init_session(global_test, repo_root, mocker, no_registry_edits):
+def no_init_session(
+    global_test,
+    repo_root,
+    mocker,
+    no_prompt,
+    no_registry_edits,
+):
     """Creates a session without any calls to setup
 
     This requires mocking a few features of the FAIR class:
@@ -77,7 +86,12 @@ def no_init_session(global_test, repo_root, mocker, no_registry_edits):
             "local": "http://localhost:8000/api/",
             "origin": "http://noserver/api",
         },
-        "user": {"email": "jbloggs@nowhere", "name": "Joe Bloggs"},
+        "user": {
+            "email": "jbloggs@nowhere",
+            "given_name": "Joe",
+            "family_name": "Bloggs",
+            "uuid": str(uuid.uuid4()),
+        },
     }
     with open(fdp_com.global_fdpconfig(), "w") as f:
         yaml.dump(_glob_conf, f)

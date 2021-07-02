@@ -1,3 +1,26 @@
+#!/usr/bin/python3
+# -*- coding: utf-8 -*-
+"""
+Registry Storage
+================
+
+Methods that add objects to the data registry.
+
+Contents
+========
+
+Functions
+---------
+
+    get_write_storage - retrieve/create root data store
+    store_user - create author entry for the current user
+    create_file_type - create a file type entry
+    store_working_config - create locations/objects for a working config
+
+"""
+
+__date__ = "2021-07-02"
+
 import yaml
 import os
 import hashlib
@@ -57,7 +80,7 @@ def get_write_storage(uri: str, work_cfg_yml: str) -> str:
         return _search_root[0]["url"]
 
 
-def store_user(run_dir: str, uri: str) -> str:
+def store_user(repo_dir: str, uri: str) -> str:
     """Creates an Author entry for the user if one does not exist
 
     Parameters
@@ -70,7 +93,7 @@ def store_user(run_dir: str, uri: str) -> str:
     str
         URI for created author
     """
-    _user = fdp_conf.get_current_user_name(run_dir)
+    _user = fdp_conf.get_current_user_name(repo_dir)
     _data = {}
     if len(_user) > 1:
         _data["family_name"] = _user[0]
@@ -79,14 +102,14 @@ def store_user(run_dir: str, uri: str) -> str:
         _data["given_name"] = _user[0]
 
     try:
-        _orcid = fdp_conf.get_current_user_orcid(run_dir)
+        _orcid = fdp_conf.get_current_user_orcid(repo_dir)
         _orcid = urllib.parse.urljoin(fdp_id.ORCID_URL, _orcid)
         _data["identifier"] = _orcid
         return fdp_req.post_else_get(
             uri, ("author",), data=_data, params={"identifier": _orcid}
         )
     except fdp_exc.CLIConfigurationError:
-        _uuid = fdp_conf.get_current_user_uuid(run_dir)
+        _uuid = fdp_conf.get_current_user_uuid(repo_dir)
         _data["uuid"] = _uuid
         return fdp_req.post_else_get(
             uri, ("author",), data=_data, params={"uuid": _uuid}
@@ -113,7 +136,7 @@ def create_file_type(uri: str, name: str, extension: str) -> str:
     )
 
 
-def store_working_config(run_dir: str, uri: str, work_cfg_yml: str) -> str:
+def store_working_config(repo_dir: str, uri: str, work_cfg_yml: str) -> str:
     """Construct a storage location and object for the working config
 
     Parameters
@@ -155,7 +178,7 @@ def store_working_config(run_dir: str, uri: str, work_cfg_yml: str) -> str:
         params={"hash": _hash},
     )
 
-    _user = store_user(run_dir, uri)
+    _user = store_user(repo_dir, uri)
 
     _yaml_type = create_file_type(
         uri, "YAML human readable data storage file", "yaml"

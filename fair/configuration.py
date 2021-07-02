@@ -17,7 +17,7 @@ Functions
 
 """
 
-__date__ = "2021-06-30"
+__date__ = "2021-07-02"
 
 import os
 import uuid
@@ -48,7 +48,6 @@ def read_local_fdpconfig(repo_loc: str) -> MutableMapping:
 
     # Retrieve the location of this repositories CLI config file
     _local_config_file_addr = fdp_com.local_fdpconfig(repo_loc)
-
     if os.path.exists(_local_config_file_addr):
         _local_config = yaml.safe_load(open(_local_config_file_addr))
 
@@ -72,19 +71,6 @@ def read_global_fdpconfig() -> MutableMapping:
         _global_config = yaml.safe_load(open(_global_config_addr))
 
     return _global_config
-
-
-def _get_config_property(config_data: MutableMapping, *args) -> Any:
-    _object: Any = config_data
-    for key in args:
-        try:
-            _object = _object[key]
-        except KeyError:
-            raise fdp_exc.CLIConfigurationError(
-                "Failed to retrieve property "
-                f"'{'/'.join(args)}' from configuration"
-            )
-    return _object
 
 
 def set_email(repo_loc: str, email: str, Global: bool = False) -> None:
@@ -137,12 +123,12 @@ def get_current_user_name(repo_loc: str) -> Tuple[str]:
     str
         user name
     """
-    _given = _get_config_property(
-        read_local_fdpconfig(repo_loc), "user", "given_name"
-    )
-    _family = _get_config_property(
-        read_local_fdpconfig(repo_loc), "user", "family_name"
-    )
+    _local_conf = read_local_fdpconfig(repo_loc)
+    _given = _local_conf["user"]["given_name"]
+    if "family_name" in _local_conf["user"]:
+        _family = _local_conf["user"]["family_name"]
+    else:
+        _family = ""
     return (_given, _family)
 
 
@@ -154,9 +140,8 @@ def get_current_user_orcid(repo_loc: str) -> str:
     str
         user ORCID
     """
-    return _get_config_property(
-        read_local_fdpconfig(repo_loc), "user", "orcid"
-    )
+    _local_conf = read_local_fdpconfig(repo_loc)
+    return _local_conf["user"]["orcid"]
 
 
 def get_current_user_uuid(repo_loc: str) -> str:
@@ -167,7 +152,8 @@ def get_current_user_uuid(repo_loc: str) -> str:
     str
         user ORCID
     """
-    return _get_config_property(read_local_fdpconfig(repo_loc), "user", "uuid")
+    _local_conf = read_local_fdpconfig(repo_loc)
+    return _local_conf["user"]["uuid"]
 
 
 def global_config_query() -> Dict[str, Any]:
@@ -191,6 +177,10 @@ def global_config_query() -> Dict[str, Any]:
             _user_orcid = click.prompt("ORCID")
             _user_info = fdp_id.check_orcid(_user_orcid)
 
+        click.echo(
+            f"Found entry: {_user_info['given_name']} {_user_info['family_name']}"
+        )
+
         _def_ospace = _user_info["given_name"][0]
 
         if len(_user_info["family_name"].split()) > 1:
@@ -202,17 +192,19 @@ def global_config_query() -> Dict[str, Any]:
         _uuid = str(uuid.uuid4())
         _full_name = click.prompt("Full Name")
         _def_ospace = ""
+        _user_info = {}
         if len(_full_name.split()) > 1:
             _given_name, _family_name = _full_name.split(" ", 1)
             _def_ospace = _full_name.lower().strip()[0]
             _def_ospace += _full_name.lower().split()[-1]
+            _user_info["given_name"] = _given_name.strip()
+            _user_info["family_name"] = _family_name.strip()
         else:
             _def_ospace += _full_name
-        _user_info = {
-            "family_name": _family_name.strip(),
-            "given_name": _given_name.strip(),
-            "uuid": _uuid,
-        }
+            _user_info["given_name"] = _full_name
+            _user_info["family_name"] = None
+
+        _user_info["uuid"] = _uuid
 
     _def_ospace = _def_ospace.lower().replace(" ", "").strip()
 

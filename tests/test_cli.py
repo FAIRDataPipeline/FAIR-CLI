@@ -53,7 +53,6 @@ def test_run_norm(no_init_session):
 
     _cwd = os.getcwd()
     os.chdir(no_init_session._session_loc)
-    print(no_init_session._session_loc)
     subprocess.check_call(_fair_run_bash_cmd, shell=True)
     os.chdir(_cwd)
     _log_file = sorted(

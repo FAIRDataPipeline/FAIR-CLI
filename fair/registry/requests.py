@@ -10,14 +10,15 @@ of synchronisation and push/pull.
 Contents
 ========
 """
+
+__date__ = "2021-07-02"
+
 import os
 import json
 import posixpath
 import urllib.parse
 import requests
 from typing import Tuple, Any, Dict
-
-__date__ = "2021-07-01"
 
 
 import fair.common as fdp_com

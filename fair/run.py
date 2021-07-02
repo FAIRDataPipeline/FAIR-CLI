@@ -59,7 +59,7 @@ SHELLS: Dict[str, str] = {
 
 
 def run_command(
-    run_dir: str,
+    repo_dir: str,
     config_yaml: str = os.path.join(fdp_com.find_fair_root(), "config.yaml"),
     bash_cmd: str = "",
 ) -> None:
@@ -81,7 +81,7 @@ def run_command(
     # print output and write it to the log file
     _now = datetime.now()
     _timestamp = _now.strftime("%Y-%m-%d_%H_%M_%S_%f")
-    _logs_dir = fdp_hist.history_directory(run_dir)
+    _logs_dir = fdp_hist.history_directory(repo_dir)
     if not os.path.exists(_logs_dir):
         os.mkdir(_logs_dir)
     _log_file = os.path.join(_logs_dir, f"run_{_timestamp}.log")
@@ -137,8 +137,8 @@ def run_command(
 
     # Setup the registry storage location root
     fdp_reg_store.store_working_config(
-        _run_dir,
-        fdp_conf.read_local_fdpconfig(_run_dir)["remotes"]["local"],
+        repo_dir,
+        fdp_conf.read_local_fdpconfig(repo_dir)["remotes"]["local"],
         _work_cfg_yml,
     )
 
@@ -178,8 +178,8 @@ def run_command(
 
     # Fetch the CLI configurations for logging information
     _glob_conf = fdp_conf.read_global_fdpconfig()
-    _loc_conf = fdp_conf.read_local_fdpconfig(run_dir)
-    _user = fdp_conf.get_current_user_name(run_dir)
+    _loc_conf = fdp_conf.read_local_fdpconfig(repo_dir)
+    _user = fdp_conf.get_current_user_name(repo_dir)
     _email = _glob_conf["user"]["email"]
     _namespace = _loc_conf["namespaces"]["output"]
 
