@@ -20,9 +20,8 @@ Functions
 __date__ = "2021-06-30"
 
 import os
-import socket
-import requests
-from typing import MutableMapping, Any, Dict
+import uuid
+from typing import MutableMapping, Any, Dict, Tuple
 
 import yaml
 import click
@@ -130,7 +129,7 @@ def set_user(repo_loc: str, name: str, Global: bool = False) -> None:
         yaml.dump(_glob_conf, open(fdp_com.global_fdpconfig(), "w"))
 
 
-def get_current_user_name(repo_loc: str) -> str:
+def get_current_user_name(repo_loc: str) -> Tuple[str]:
     """Retrieves the name of the current session user as defined in the config
 
     Returns
@@ -144,10 +143,10 @@ def get_current_user_name(repo_loc: str) -> str:
     _family = _get_config_property(
         read_local_fdpconfig(repo_loc), "user", "family_name"
     )
-    return f"{_given} {_family}"
+    return (_given, _family)
 
 
-def get_current_user_id(repo_loc: str) -> str:
+def get_current_user_orcid(repo_loc: str) -> str:
     """Retrieves the ORCID of the current session user as defined in the config
 
     Returns
@@ -160,6 +159,17 @@ def get_current_user_id(repo_loc: str) -> str:
     )
 
 
+def get_current_user_uuid(repo_loc: str) -> str:
+    """Retrieves the UUID of the current session user as defined in the config
+
+    Returns
+    -------
+    str
+        user ORCID
+    """
+    return _get_config_property(read_local_fdpconfig(repo_loc), "user", "uuid")
+
+
 def global_config_query() -> Dict[str, Any]:
     """Ask user question set for creating global FAIR config"""
     _def_local = "http://localhost:8000/api/"
@@ -168,20 +178,41 @@ def global_config_query() -> Dict[str, Any]:
     _local_url = click.prompt(f"Local API URL", default=_def_local)
 
     _user_email = click.prompt("Email")
-    _user_orcid = click.prompt("ORCID")
-    _orcid_info = fdp_id.check_orcid(_user_orcid)
+    _user_orcid = click.prompt("ORCID", default="None")
 
-    while not _orcid_info:
-        click.echo("Invalid ORCID given.")
-        _user_orcid = click.prompt("ORCID")
+    _orcid_info = None
+    _uuid = None
+
+    if _user_orcid != "None":
         _orcid_info = fdp_id.check_orcid(_user_orcid)
 
-    _def_ospace = _orcid_info["given_name"][0]
+        while not _orcid_info:
+            click.echo("Invalid ORCID given.")
+            _user_orcid = click.prompt("ORCID")
+            _user_info = fdp_id.check_orcid(_user_orcid)
 
-    if len(_orcid_info["family_name"].split()) > 1:
-        _def_ospace += _orcid_info["family_name"].split()[-1]
+        _def_ospace = _user_info["given_name"][0]
+
+        if len(_user_info["family_name"].split()) > 1:
+            _def_ospace += _user_info["family_name"].split()[-1]
+        else:
+            _def_ospace += _user_info["family_name"]
+
     else:
-        _def_ospace += _orcid_info["family_name"]
+        _uuid = str(uuid.uuid4())
+        _full_name = click.prompt("Full Name")
+        _def_ospace = ""
+        if len(_full_name.split()) > 1:
+            _given_name, _family_name = _full_name.split(" ", 1)
+            _def_ospace = _full_name.lower().strip()[0]
+            _def_ospace += _full_name.lower().split()[-1]
+        else:
+            _def_ospace += _full_name
+        _user_info = {
+            "family_name": _family_name.strip(),
+            "given_name": _given_name.strip(),
+            "uuid": _uuid,
+        }
 
     _def_ospace = _def_ospace.lower().replace(" ", "").strip()
 
@@ -189,10 +220,10 @@ def global_config_query() -> Dict[str, Any]:
     _def_ispace = _def_ispace if _def_ispace != "None" else None
     _def_ospace = click.prompt("Default output namespace", default=_def_ospace)
 
-    _orcid_info["email"] = _user_email
+    _user_info["email"] = _user_email
 
     return {
-        "user": _orcid_info,
+        "user": _user_info,
         "remotes": {"local": _local_url, "origin": _remote_url},
         "namespaces": {"input": _def_ispace, "output": _def_ospace},
     }

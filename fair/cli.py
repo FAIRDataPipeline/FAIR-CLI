@@ -75,7 +75,12 @@ def init(config: str, debug: bool) -> None:
 
 
 @cli.command()
-def purge() -> None:
+@click.option(
+    "--glob/--loc",
+    help="Delete global FAIR-CLI directories",
+    default=False,
+)
+def purge(glob) -> None:
     """Resets the repository deleting all local caches"""
     _purge = click.prompt(
         "Are you sure you want to reset FAIR tracking, "
@@ -85,7 +90,7 @@ def purge() -> None:
     if _purge:
         try:
             with fdp_session.FAIR(os.getcwd()) as fair_session:
-                fair_session.purge()
+                fair_session.purge(glob)
         except fdp_exc.FAIRCLIException as e:
             e.err_print()
             sys.exit(e.exit_code)

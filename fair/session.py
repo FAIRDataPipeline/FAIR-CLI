@@ -34,6 +34,7 @@ import uuid
 import typing
 import pathlib
 import logging
+import shutil
 
 import click
 import rich
@@ -136,6 +137,35 @@ class FAIR:
         self._load_configurations()
 
         self._setup_server()
+
+    def purge(self, Global: bool = False) -> None:
+        """Remove FAIR-CLI tracking from the given directory
+
+        Parameters
+        ==========
+        global : bool, optional
+            remove global directories
+        """
+        _root_dir = os.path.join(fdp_com.find_fair_root(), fdp_com.FAIR_FOLDER)
+        if os.path.exists(_root_dir):
+            click.echo(f"Removing directory '{_root_dir}'")
+            shutil.rmtree(_root_dir)
+        if Global:
+            _global_dirs = fdp_com.global_config_dir()
+            if os.path.exists(_global_dirs):
+                shutil.rmtree(_global_dirs)
+            _rm_dat = click.prompt(
+                "Remove default data directory [Y/N]?\n"
+                "Warning: Removing data directories may cause issues "
+                "with the local registry.",
+                type=click.BOOL,
+            )
+            if _rm_dat:
+                click.echo(
+                    f"Removing directory '{fdp_com.default_data_dir()}'"
+                )
+                if os.path.exists(fdp_com.default_data_dir()):
+                    shutil.rmtree(fdp_com.default_data_dir())
 
     def _setup_server(self) -> None:
         """Start or stop the server if required"""
@@ -389,7 +419,6 @@ class FAIR:
 
             # Null keys are not loaded by YAML so add manually
             _yaml_dict["run_metadata"]["script"] = None
-            _yaml_dict["run_metadata"]["description"] = ""
             yaml.dump(_yaml_dict, f)
 
     def initialise(self) -> None:

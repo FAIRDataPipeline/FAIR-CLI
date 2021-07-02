@@ -71,18 +71,26 @@ def store_user(run_dir: str, uri: str) -> str:
         URI for created author
     """
     _user = fdp_conf.get_current_user_name(run_dir)
-    _orcid = fdp_conf.get_current_user_id(run_dir)
     _data = {}
-    if len(_user.split()) > 1:
-        _data["family_name"] = _user.split()[0]
-        _data["given_name"] = _user.split()[-1]
+    if len(_user) > 1:
+        _data["family_name"] = _user[0]
+        _data["given_name"] = _user[1]
     else:
-        _data["given_name"] = _user
-    _orcid = urllib.parse.urljoin(fdp_id.ORCID_URL, _orcid)
-    _data["identifier"] = _orcid
-    return fdp_req.post_else_get(
-        uri, ("author",), data=_data, params={"identifier": _orcid}
-    )
+        _data["given_name"] = _user[0]
+
+    try:
+        _orcid = fdp_conf.get_current_user_orcid(run_dir)
+        _orcid = urllib.parse.urljoin(fdp_id.ORCID_URL, _orcid)
+        _data["identifier"] = _orcid
+        return fdp_req.post_else_get(
+            uri, ("author",), data=_data, params={"identifier": _orcid}
+        )
+    except fdp_exc.CLIConfigurationError:
+        _uuid = fdp_conf.get_current_user_uuid(run_dir)
+        _data["uuid"] = _uuid
+        return fdp_req.post_else_get(
+            uri, ("author",), data=_data, params={"uuid": _uuid}
+        )
 
 
 def create_file_type(uri: str, name: str, extension: str) -> str:

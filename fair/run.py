@@ -254,13 +254,19 @@ def create_working_config(
     # the key is a version key or not.
     # Tags in config.yaml are specified as ${{ fair.VAR }}
 
+    def _get_id(run_dir):
+        try:
+            return fdp_conf.get_current_user_orcid(run_dir)
+        except fdp_exc.CLIConfigurationError:
+            return fdp_conf.get_current_user_uuid(run_dir)
+
     _substitutes: Mapping = {
         "DATE": lambda x: time.strftime(
             "%Y{0}%m{0}%d".format("" if "version" in x else "-"),
         ),
         "DATETIME": lambda x: time.strftime("%Y-%m-%s %H:%M:S"),
         "USER": fdp_conf.get_current_user_name,
-        "ORCID": fdp_conf.get_current_user_id,
+        "USER_ID": _get_id,
         "REPO_DIR": lambda x: fdp_com.find_fair_root(
             os.path.dirname(config_yaml)
         ),
