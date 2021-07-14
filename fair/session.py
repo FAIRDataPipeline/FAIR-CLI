@@ -461,7 +461,7 @@ class FAIR:
         with open(fdp_com.local_fdpconfig(self._session_loc), "w") as f:
             yaml.dump(self._local_config, f)
         self.make_starter_config()
-        os.environ['FDP_CONFIG_DIR'] = f"{_fair_dir}"
+        os.environ["FDP_CONFIG_DIR"] = f"{_fair_dir}"
         click.echo(f"Initialised empty fair repository in {_fair_dir} and set environment variable FDP_CONFIG_DIR")
 
     def close_session(self) -> None:
