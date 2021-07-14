@@ -171,9 +171,7 @@ def global_config_query() -> Dict[str, Any]:
 
     if _user_orcid != "None":
         _user_info = fdp_id.check_orcid(_user_orcid)
-        click.echo(
-            f"Found entry: {_user_info['given_name']} {_user_info['family_name']}"
-        )
+        
         while not _user_info:
             click.echo("Invalid ORCID given.")
             _user_orcid = click.prompt("ORCID")
