@@ -213,6 +213,7 @@ def global_config_query() -> Dict[str, Any]:
     _def_ospace = click.prompt("Default output namespace", default=_def_ospace)
 
     _user_info["email"] = _user_email
+    _user_info["orcid"] = _user_orcid
 
     return {
         "user": _user_info,
