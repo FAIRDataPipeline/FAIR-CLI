@@ -462,8 +462,7 @@ class FAIR:
             yaml.dump(self._local_config, f)
         self.make_starter_config()
         os.environ['FDP_CONFIG_DIR'] = _fair_dir
-        click.echo(f"""Initialised empty fair repository in {_fair_dir} and set
-        environment variable FDP_CONFIG_DIR""")
+        click.echo(f"Initialised empty fair repository in {_fair_dir} and set environment variable FDP_CONFIG_DIR")
 
     def close_session(self) -> None:
         """Upon exiting, dump all configurations to file"""
