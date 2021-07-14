@@ -20,9 +20,7 @@ import urllib.parse
 import requests
 from typing import Dict
 
-import bs4
-
-ORCID_URL = "https://orcid.org/"
+ORCID_URL = "https://pub.orcid.org/v2.0/"
 
 
 def check_orcid(orcid: str) -> Dict:
@@ -38,18 +36,12 @@ def check_orcid(orcid: str) -> Dict:
     bool
         whether ID is valid
     """
-    # FIXME: Rather hackish method of getting name from ORCID site
-    # Relies on the ORCID appearing in the resultant webpage to confirm it
-    # exists (usually returns sign in for invalid results)
+
+    _header = {'Accept': 'application/json'}
     _url = urllib.parse.urljoin(ORCID_URL, orcid)
-    _response = requests.get(_url)
-    _soup = bs4.BeautifulSoup(_response.text, "html.parser")
+    _response = requests.get(_url, headers=_header)
+    _names = _response.json()['person']['name']
+    _given = _names['given-names']['value']
+    _family = _names['family-name']['value']
 
-    try:
-        _data = _soup.head.find_all(property="og:title")[0]["content"]
-    except IndexError:
-        return {}
-
-    _name = _data.split("(")[0].strip()
-    _given, _family = _name.split(" ", 1)
     return {"orcid": orcid, "given_name": _given, "family_name": _family}
