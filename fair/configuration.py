@@ -170,15 +170,15 @@ def global_config_query() -> Dict[str, Any]:
     _uuid = None
 
     if _user_orcid != "None":
-        _orcid_info = fdp_id.check_orcid(_user_orcid)
+        _user_info = fdp_id.check_orcid(_user_orcid)
 
         while not _orcid_info:
             click.echo("Invalid ORCID given.")
             _user_orcid = click.prompt("ORCID")
-            _orcid_info = fdp_id.check_orcid(_user_orcid)
+            _user_info = fdp_id.check_orcid(_user_orcid)
 
         click.echo(
-            f"Found entry: {_orcid_info['given_name']} {_orcid_info['family_name']}"
+            f"Found entry: {_user_info['given_name']} {_user_info['family_name']}"
         )
 
         _def_ospace = _user_info["given_name"][0]
