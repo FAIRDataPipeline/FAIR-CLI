@@ -27,7 +27,7 @@ import yaml
 import click
 
 import fair.common as fdp_com
-import fair.exceptions as fdp_exc
+#import fair.exceptions as fdp_exc
 import fair.identifiers as fdp_id
 
 
@@ -160,18 +160,17 @@ def global_config_query() -> Dict[str, Any]:
     """Ask user question set for creating global FAIR config"""
     _def_local = "http://localhost:8000/api/"
 
-    _remote_url = click.prompt(f"Remote API URL")
-    _local_url = click.prompt(f"Local API URL", default=_def_local)
+    _remote_url = click.prompt("Remote API URL")
+    _local_url = click.prompt("Local API URL", default=_def_local)
 
     _user_email = click.prompt("Email")
     _user_orcid = click.prompt("ORCID", default="None")
 
-    _orcid_info = None
     _uuid = None
 
     if _user_orcid != "None":
         _user_info = fdp_id.check_orcid(_user_orcid)
-        
+
         while not _user_info:
             click.echo("Invalid ORCID given.")
             _user_orcid = click.prompt("ORCID")
@@ -276,8 +275,8 @@ def local_config_query(
     # If this is not the first setup it means globals are available so these
     # can be suggested as defaults during local setup
     if not first_time_setup:
-        _def_remote = click.prompt(f"Remote API URL", default=_def_remote)
-        _def_local = click.prompt(f"Local API URL", default=_def_local)
+        _def_remote = click.prompt("Remote API URL", default=_def_remote)
+        _def_local = click.prompt("Local API URL", default=_def_local)
         _def_ospace = click.prompt(
             "Default output namespace", default=_def_ospace
         )

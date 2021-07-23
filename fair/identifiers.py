@@ -24,7 +24,7 @@ ORCID_URL = "https://pub.orcid.org/v2.0/"
 
 
 def check_orcid(orcid: str) -> Dict:
-    """Checks if valid ORCID
+    """Checks if valid ORCID using ORCID public api
 
     Parameters
     ----------
