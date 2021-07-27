@@ -150,3 +150,8 @@ def stop_server(
 
     if check_server_running(local_remote):
         raise fdp_exc.RegistryError("Failed to stop registry server.")
+
+def install_registry() -> None:
+    os.system(
+    "/bin/bash -c \"$(curl -fsSL https://data.scrc.uk/static/localregistry.sh)\""
+        )

@@ -20,7 +20,9 @@ Functions
 __date__ = "2021-07-02"
 
 import os
+import pathlib
 import uuid
+import requests
 from typing import MutableMapping, Any, Dict, Tuple
 
 import yaml
@@ -29,6 +31,7 @@ import click
 import fair.common as fdp_com
 #import fair.exceptions as fdp_exc
 import fair.identifiers as fdp_id
+import fair.server as fdp_serv
 
 
 def read_local_fdpconfig(repo_loc: str) -> MutableMapping:
@@ -155,13 +158,37 @@ def get_current_user_uuid(repo_loc: str) -> str:
     _local_conf = read_local_fdpconfig(repo_loc)
     return _local_conf["user"]["uuid"]
 
+def check_registry_exists() -> bool:
+    """Checks if fair registry is set up on users machine"""
+
+    directory = os.path.join(pathlib.Path.home(), '.fair/registry')
+    return os.path.isdir(directory)
 
 def global_config_query() -> Dict[str, Any]:
     """Ask user question set for creating global FAIR config"""
+
+    click.echo("Checking for local registry")
+    if check_registry_exists():
+        click.echo("Local registry found")
+    else:
+        click.confirm(
+            "Local registry not found, would you like to install now?",
+            abort = True
+        )
+        fdp_serv.install_registry()
+
+
     _def_local = "http://localhost:8000/api/"
 
     _remote_url = click.prompt("Remote API URL")
     _local_url = click.prompt("Local API URL", default=_def_local)
+
+    _server_status = requests.get(_local_url).status_code
+    if _server_status:
+        click.echo("Successfully connected to local API")
+    elif click.confirm("Local API currently offline, would you like to start the server now?"):
+        fdp_serv.launch_server(_local_url)
+
 
     _user_email = click.prompt("Email")
     _user_orcid = click.prompt("ORCID", default="None")

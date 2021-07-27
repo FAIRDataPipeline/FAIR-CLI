@@ -143,6 +143,9 @@ cython_debug/
 # VSCode stuff
 .vscode/
 
+# Notebooks
+*.ipynb
+
 # Misc
 *.yaml
 *.yml
