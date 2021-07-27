@@ -183,12 +183,12 @@ def global_config_query() -> Dict[str, Any]:
     _remote_url = click.prompt("Remote API URL")
     _local_url = click.prompt("Local API URL", default=_def_local)
 
-    _server_status = requests.get(_local_url).status_code
-    if _server_status:
+    try:
+        _server_status = requests.get(_local_url).status_code
         click.echo("Successfully connected to local API")
-    elif click.confirm("Local API currently offline, would you like to start the server now?"):
-        fdp_serv.launch_server(_local_url)
-
+    except:
+        if click.confirm("Local API currently offline, would you like to start the server now?"):
+            fdp_serv.launch_server(_local_url)
 
     _user_email = click.prompt("Email")
     _user_orcid = click.prompt("ORCID", default="None")
