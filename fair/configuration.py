@@ -205,7 +205,7 @@ def global_config_query() -> Dict[str, Any]:
     _remote_url = click.prompt("Remote API URL")
     _local_url = click.prompt("Local API URL", default=_def_local)
 
-
+    check_local_api(_local_url)
 
     _user_email = click.prompt("Email")
     _user_orcid = click.prompt("ORCID", default="None")
