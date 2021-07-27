@@ -159,7 +159,13 @@ def get_current_user_uuid(repo_loc: str) -> str:
     return _local_conf["user"]["uuid"]
 
 def check_registry_exists() -> bool:
-    """Checks if fair registry is set up on users machine"""
+    """Checks if fair registry is set up on users machine
+
+    Returns
+    -------
+    bool
+        True if registry exists, else False
+    """
 
     directory = os.path.join(pathlib.Path.home(), '.fair/registry')
     return os.path.isdir(directory)
@@ -204,7 +210,6 @@ def global_config_query() -> Dict[str, Any]:
             abort = True
         )
         fdp_serv.install_registry()
-
 
     _def_local = "http://localhost:8000/api/"
 
