@@ -164,6 +164,28 @@ def check_registry_exists() -> bool:
     directory = os.path.join(pathlib.Path.home(), '.fair/registry')
     return os.path.isdir(directory)
 
+def check_local_api(_local_url) -> None:
+    # TODO should be in while loop, to check server is successfully launched
+    while True:
+        try:
+            _server_status = requests.get(_local_url).status_code
+            if _server_status == 200:
+                click.echo("Successfully connected to local API")
+                break
+            else:
+                raise Exception(f"Server returned code {_server_status}")
+
+        except:
+            if click.confirm("Local API currently offline, would you like to start the server now?"):
+                try:
+                    fdp_serv.launch_server(_local_url)
+                except:
+                    click.confirm(
+                        "Failed to launch server, continue with setup?",
+                        abort = True
+                    )
+                    break
+
 def global_config_query() -> Dict[str, Any]:
     """Ask user question set for creating global FAIR config"""
 
@@ -183,12 +205,7 @@ def global_config_query() -> Dict[str, Any]:
     _remote_url = click.prompt("Remote API URL")
     _local_url = click.prompt("Local API URL", default=_def_local)
 
-    try:
-        _server_status = requests.get(_local_url).status_code
-        click.echo("Successfully connected to local API")
-    except:
-        if click.confirm("Local API currently offline, would you like to start the server now?"):
-            fdp_serv.launch_server(_local_url)
+
 
     _user_email = click.prompt("Email")
     _user_orcid = click.prompt("ORCID", default="None")
