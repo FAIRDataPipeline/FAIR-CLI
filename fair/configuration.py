@@ -165,8 +165,10 @@ def check_registry_exists() -> bool:
     return os.path.isdir(directory)
 
 def check_local_api(_local_url) -> None:
-    # TODO should be in while loop, to check server is successfully launched
+    """Checks if local API is online and if not tries to start it"""
+
     while True:
+        # Ping server, if code 200 returned then continue with setup
         try:
             _server_status = requests.get(_local_url).status_code
             if _server_status == 200:
@@ -174,9 +176,10 @@ def check_local_api(_local_url) -> None:
                 break
             else:
                 raise Exception(f"Server returned code {_server_status}")
-
+        # Starts server if code is not 200 or server can't be reached
         except:
-            if click.confirm("Local API currently offline, would you like to start the server now?"):
+            if click.confirm("Local API currently offline, would you like to \
+            start the server now?"):
                 try:
                     fdp_serv.launch_server(_local_url)
                 except:
@@ -185,6 +188,9 @@ def check_local_api(_local_url) -> None:
                         abort = True
                     )
                     break
+            else:
+                click.echo("Local API offline, continuing with setup")
+                break
 
 def global_config_query() -> Dict[str, Any]:
     """Ask user question set for creating global FAIR config"""
