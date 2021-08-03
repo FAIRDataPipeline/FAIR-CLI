@@ -29,7 +29,7 @@ import yaml
 import click
 
 import fair.common as fdp_com
-#import fair.exceptions as fdp_exc
+import fair.exceptions as fdp_exc
 import fair.identifiers as fdp_id
 import fair.server as fdp_serv
 
@@ -144,7 +144,10 @@ def get_current_user_orcid(repo_loc: str) -> str:
         user ORCID
     """
     _local_conf = read_local_fdpconfig(repo_loc)
-    return _local_conf["user"]["orcid"]
+    _orcid =_local_conf["user"]["orcid"]
+    if not _orcid:
+        raise fdp_exc.CLIConfigurationError("No ORCID defined.")
+    return _orcid
 
 
 def get_current_user_uuid(repo_loc: str) -> str:

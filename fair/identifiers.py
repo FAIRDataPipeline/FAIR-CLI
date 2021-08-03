@@ -40,6 +40,7 @@ def check_orcid(orcid: str) -> Dict:
     _header = {'Accept': 'application/json'}
     _url = urllib.parse.urljoin(ORCID_URL, orcid)
     _response = requests.get(_url, headers = _header)
+    
     _names = _response.json()['person']['name']
     _given = _names['given-names']['value']
     _family = _names['family-name']['value']
