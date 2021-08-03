@@ -184,8 +184,8 @@ def check_local_api(_local_url) -> None:
                 raise Exception(f"Server returned code {_server_status}")
         # Starts server if code is not 200 or server can't be reached
         except:
-            if click.confirm("Local API currently offline, would you like to \
-            start the server now?"):
+            if click.confirm("Local API currently offline, would you like to"
+            " start the server now?"):
                 try:
                     fdp_serv.launch_server(_local_url)
                 except:

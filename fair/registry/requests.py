@@ -1,14 +1,20 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
 """
-Registry
-========
+Registry Requests
+=================
 
 Methods relating to connection with local and remote registries for the purpose
 of synchronisation and push/pull.
 
 Contents
 ========
+
+    local_token   - retrieves the local API token
+    post          - post to the registry RestAPI
+    get           - retrieve from the registry RestAPI
+    post_else_get - if an item already exists retrieve it, else create it
+
 """
 
 __date__ = "2021-07-02"

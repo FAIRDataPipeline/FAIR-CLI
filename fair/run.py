@@ -192,7 +192,7 @@ def run_command(
             [
                 "--------------------------------\n",
                 f" Commenced = {_out_str}\n",
-                f" Author    = {_user} <{_email}>\n",
+                f" Author    = {' '.join(_user)} <{_email}>\n",
                 f" Namespace = {_namespace}\n",
                 f" Command   = {' '.join(_cmd_list)}\n",
                 "--------------------------------\n",
@@ -252,7 +252,7 @@ def create_working_config(
     # Substitutes are defined as functions for which particular cases
     # can be given as arguments, e.g. for DATE the format depends on if
     # the key is a version key or not.
-    # Tags in config.yaml are specified as ${{ fair.VAR }}
+    # Tags in config.yaml are specified as ${{ CLI.VAR }}
 
     def _get_id(run_dir):
         try:
@@ -336,21 +336,26 @@ def create_working_config(
                 )
 
         # Print warnings for environment variables which have been stated in
-        # the config.yaml but are not actually present in the shell
+        # the config.yaml but are not actually present in the shell.
+        # These might be defined during model runs themselves so do not throw error.
         for entry, var in zip(_env_search, _env_label):
             try:
-                _env = os.environ[var]
+                os.environ[var]
             except KeyError:
+                click.echo(f"Warning: Environment variable '{var}' is not yet defined.")
                 continue
 
         # If '*' or '**' in value, expand into a list and
         # save to the same key. Typically this will be a registry
         # query, however if it refers to the local file system
-        # then glob there instead
+        # and is an absolute path then glob there instead
         # TODO: Implement registry globbing [FAIRDataPipeline/FAIR-CLI/issues/5]
         if _regex_star.findall(value):
-            if os.path.exists(value):
+            if os.path.exists(value) and os.path.isabs(value):
                 _flat_conf[key] = glob.glob(value)
+            else:
+                # Do registry globular search
+                pass
 
     _conf_yaml = fdp_util.expand_dict(_flat_conf)
 
