@@ -145,7 +145,7 @@ def get_current_user_orcid(repo_loc: str) -> str:
     """
     _local_conf = read_local_fdpconfig(repo_loc)
     _orcid =_local_conf["user"]["orcid"]
-    if not _orcid:
+    if not _orcid or _orcid == "None":
         raise fdp_exc.CLIConfigurationError("No ORCID defined.")
     return _orcid
 
@@ -227,9 +227,8 @@ def global_config_query() -> Dict[str, Any]:
     _uuid = None
 
     if _user_orcid != "None":
-        _user_info = fdp_id.check_orcid(_user_orcid)
 
-        while not _user_info:
+        while not fdp_id.check_orcid(_user_orcid):
             click.echo("Invalid ORCID given.")
             _user_orcid = click.prompt("ORCID")
             _user_info = fdp_id.check_orcid(_user_orcid)

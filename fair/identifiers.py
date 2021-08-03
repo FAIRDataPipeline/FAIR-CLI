@@ -18,7 +18,8 @@ __date__ = "2021-07-01"
 
 import urllib.parse
 import requests
-from typing import Dict
+from typing import Dict, Any
+
 
 ORCID_URL = "https://pub.orcid.org/v2.0/"
 
@@ -40,9 +41,18 @@ def check_orcid(orcid: str) -> Dict:
     _header = {'Accept': 'application/json'}
     _url = urllib.parse.urljoin(ORCID_URL, orcid)
     _response = requests.get(_url, headers = _header)
+
+    _result_dict: Dict[str, Any] = {}
+
+    if _response.status_code != 200:
+        return _result_dict
     
     _names = _response.json()['person']['name']
     _given = _names['given-names']['value']
     _family = _names['family-name']['value']
 
-    return {"orcid": orcid, "given_name": _given, "family_name": _family}
+    _result_dict['family_name'] = _family
+    _result_dict['given_names'] = _given
+    _result_dict['orcid'] = orcid
+
+    return _result_dict
