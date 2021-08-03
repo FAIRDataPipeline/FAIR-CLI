@@ -113,3 +113,4 @@ def no_init_session(
     _fdp_session._run_mode = fdp_svr.SwitchMode.NO_SERVER
     yield _fdp_session
     _fdp_session.close_session()
+

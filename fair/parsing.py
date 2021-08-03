@@ -14,7 +14,6 @@ def glob_read_write(local_repo: str, config_dict_sub: typing.List, search_key: s
     """
     _parsed: typing.List[typing.Dict] = []
     for entry in config_dict_sub:
-        _entry_dict = entry.copy()
         _glob_vals = [(k, v) for k, v in entry.items() if '*' in v]
         if len(_glob_vals) > 1:
             raise fdp_exc.NotImplementedError(
@@ -34,6 +33,7 @@ def glob_read_write(local_repo: str, config_dict_sub: typing.List, search_key: s
         )
 
         for result in _results:
+            _entry_dict = entry.copy()
             _entry_dict[_key_glob] = result[search_key]
             _parsed.append(_entry_dict)
     return remove_dict_dupes(_parsed)        

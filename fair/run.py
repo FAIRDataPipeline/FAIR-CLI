@@ -296,8 +296,6 @@ def create_working_config(
     if 'write' in _conf_yaml:
         _conf_yaml['write'] = fdp_parse.glob_read_write(run_dir, _conf_yaml['write'])
     
-    print(output_file)
-
     with open(output_file, "w") as out_f:
         yaml.dump(_conf_yaml, out_f)
 
