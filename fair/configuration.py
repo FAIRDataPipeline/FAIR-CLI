@@ -135,6 +135,18 @@ def get_current_user_name(repo_loc: str) -> Tuple[str]:
     return (_given, _family)
 
 
+def get_local_uri(repo_loc: str) -> str:
+    """Retrieves the URI of the local registry
+    
+    Returns
+    -------
+    str
+        local URI path
+    """
+    _local_conf = read_local_fdpconfig(repo_loc)
+    return _local_conf["remotes"]["local"]
+
+
 def get_current_user_orcid(repo_loc: str) -> str:
     """Retrieves the ORCID of the current session user as defined in the config
 

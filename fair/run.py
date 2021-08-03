@@ -41,6 +41,7 @@ import fair.utilities as fdp_util
 import fair.history as fdp_hist
 import fair.exceptions as fdp_exc
 import fair.registry.storage as fdp_reg_store
+import fair.parsing as fdp_parse
 
 
 # Dictionary of recognised shell labels.
@@ -287,77 +288,15 @@ def create_working_config(
 
     # Remove 'register' from working configuration
     if "register" in _conf_yaml:
-        del _conf_yaml["register"]
+        del _conf_yaml["register"]    
 
-    # Flatten the nested YAML dictionary so it is easier to iterate
-    _flat_conf = fdp_util.flatten_dict(_conf_yaml)
+    if 'read' in _conf_yaml:
+        _conf_yaml['read'] = fdp_parse.glob_read_write(run_dir, _conf_yaml['read'])
 
-    # Construct Regex objects to find variables in the config
-    _regex_star = re.compile(r":\s*(.+\*+)")
-    _regex_var_candidate = re.compile(
-        r"\$\{\{\s*CLI\..+\s*\}\}", re.IGNORECASE
-    )
-    _regex_var = re.compile(r"\$\{\{\s*CLI\.(.+)\s*\}\}")
-    _regex_env_candidate = re.compile(r"\$\{?[0-9\_A-Z]+\}?", re.IGNORECASE)
-    _regex_env = re.compile(r"\$\{?([0-9\_A-Z]+)\}?", re.IGNORECASE)
-
-    for key, value in _flat_conf.items():
-        if not isinstance(value, str):
-            continue
-
-        # Search for '${{ fair.variable }}' then also make an exclusive search
-        # to extract 'variable'
-        _var_search = _regex_var_candidate.findall(value)
-        _var_label = _regex_var.findall(value)
-
-        # The number of results for '${{fair.var}}' should match those
-        # for the exclusive search for 'var'
-        if not len(_var_search) == len(_var_label):
-            raise fdp_exc.InternalError("FAIR variable matching failed")
-
-        # Search for '${ENV_VAR}' then also make an exclusive search to extract
-        # 'ENV_VAR' from that result
-        _env_search = _regex_env_candidate.findall(value)
-        _env_label = _regex_env.findall(value)
-
-        # The number of results for '${ENV_VAR}' should match those
-        # for the exclusive search for 'ENV_VAR'
-        if not len(_env_search) == len(_env_label):
-            raise fdp_exc.InternalError("Environment variable matching failed")
-
-        for entry, var in zip(_var_search, _var_label):
-            if var.upper().strip() in _substitutes:
-                _new_var = _substitutes[var.upper().strip()](key)
-                _flat_conf[key] = value.replace(entry, _new_var)
-            else:
-                fdp_exc.UserConfigError(
-                    f"Variable '{var}' is not a recognised FAIR config "
-                    "variable, config.yaml substitution failed."
-                )
-
-        # Print warnings for environment variables which have been stated in
-        # the config.yaml but are not actually present in the shell.
-        # These might be defined during model runs themselves so do not throw error.
-        for entry, var in zip(_env_search, _env_label):
-            try:
-                os.environ[var]
-            except KeyError:
-                click.echo(f"Warning: Environment variable '{var}' is not yet defined.")
-                continue
-
-        # If '*' or '**' in value, expand into a list and
-        # save to the same key. Typically this will be a registry
-        # query, however if it refers to the local file system
-        # and is an absolute path then glob there instead
-        # TODO: Implement registry globbing [FAIRDataPipeline/FAIR-CLI/issues/5]
-        if _regex_star.findall(value):
-            if os.path.exists(value) and os.path.isabs(value):
-                _flat_conf[key] = glob.glob(value)
-            else:
-                # Do registry globular search
-                pass
-
-    _conf_yaml = fdp_util.expand_dict(_flat_conf)
+    if 'write' in _conf_yaml:
+        _conf_yaml['write'] = fdp_parse.glob_read_write(run_dir, _conf_yaml['write'])
+    
+    print(output_file)
 
     with open(output_file, "w") as out_f:
         yaml.dump(_conf_yaml, out_f)
