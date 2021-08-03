@@ -144,7 +144,10 @@ def get_current_user_orcid(repo_loc: str) -> str:
         user ORCID
     """
     _local_conf = read_local_fdpconfig(repo_loc)
-    _orcid =_local_conf["user"]["orcid"]
+    try:
+        _orcid =_local_conf["user"]["orcid"]
+    except KeyError:
+        _orcid = None
     if not _orcid or _orcid == "None":
         raise fdp_exc.CLIConfigurationError("No ORCID defined.")
     return _orcid

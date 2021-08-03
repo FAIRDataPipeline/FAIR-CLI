@@ -121,7 +121,6 @@ def test_make_config(no_init_session):
     no_init_session.make_starter_config()
     assert os.path.exists(_cfg_yaml)
     _config = yaml.safe_load(open(_cfg_yaml))
-    assert _config["fail_on_hash_mismatch"]
     _expected_meta_start = [
         "write_data_store",
         "default_input_namespace",

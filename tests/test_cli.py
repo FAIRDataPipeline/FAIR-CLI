@@ -62,4 +62,11 @@ def test_run_norm(no_init_session):
             )
         )
     )[0]
-    assert datetime.datetime.now().strftime("%Y-%m-%d_%H_%M") in _log_file
+
+    # If test is run over a minute boundary then it may fail
+    try:
+        _now = datetime.datetime.now()
+        assert _now.strftime("%Y-%m-%d_%H_%M") in _log_file
+    except AssertionError:
+        _now += datetime.timedelta(minutes=-1)
+        assert _now.strftime("%Y-%m-%d_%H_%M") in _log_file
