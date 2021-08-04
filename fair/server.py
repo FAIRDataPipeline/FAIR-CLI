@@ -60,7 +60,8 @@ def check_server_running(local_remote: str) -> bool:
         whether server is running
     """
     try:
-        assert requests.get(local_remote).status_code == 200
+        _status_code = requests.get(local_remote).status_code
+        assert _status_code == 200
         return True
     except (requests.exceptions.ConnectionError, AssertionError):
         return False

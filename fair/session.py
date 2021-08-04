@@ -169,6 +169,7 @@ class FAIR:
 
     def _setup_server(self) -> None:
         """Start or stop the server if required"""
+
         # If a session ID has been specified this means the server is auto
         # started as opposed to being started explcitly by the user
         # this means it will be shut down on completion
@@ -190,6 +191,13 @@ class FAIR:
             _cache_addr = os.path.join(
                 fdp_com.session_cache_dir(), f"user.run"
             )
+
+            if "remotes" not in self._local_config:
+                raise fdp_exc.CLIConfigurationError(
+                    "Cannot find server address in current configuration",
+                    hint="Is the current location a FAIR repository?"
+                )
+
             if fdp_serv.check_server_running(
                 self._local_config["remotes"]["local"]
             ):

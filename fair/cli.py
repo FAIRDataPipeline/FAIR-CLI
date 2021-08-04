@@ -346,3 +346,7 @@ def config_user(user_name: str) -> None:
 @click.argument("user_email")
 def config_email(user_email: str) -> None:
     fdp_conf.set_email(os.getcwd(), user_email)
+
+
+if __name__ in "__main__":
+    cli(ob={})

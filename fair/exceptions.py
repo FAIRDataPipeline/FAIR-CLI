@@ -90,8 +90,8 @@ class UserConfigError(FAIRCLIException):
 class UnexpectedRegistryServerState(FAIRCLIException):
     """Errors relating to server start/stop when already up/down)"""
 
-    def __init__(self, msg):
-        super().__init__(msg, "")
+    def __init__(self, msg, hint=""):
+        super().__init__(msg, hint)
 
 
 class FDPRepositoryError(FAIRCLIException):
@@ -128,3 +128,8 @@ class RegistryAPICallError(FAIRCLIException):
     def __init__(self, msg, error_code):
         self.error_code = error_code
         super().__init__(msg, exit_code=error_code)
+
+class NotImplementedError(FAIRCLIException):
+    """Errors relating to features that have not yet been implemented"""
+    def __init__(self, msg, hint=""):
+        super().__init__(msg, hint)

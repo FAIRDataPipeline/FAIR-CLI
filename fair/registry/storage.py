@@ -96,10 +96,9 @@ def store_user(repo_dir: str, uri: str) -> str:
     _user = fdp_conf.get_current_user_name(repo_dir)
     _data = {}
     if len(_user) > 1:
-        _data["family_name"] = _user[0]
-        _data["given_name"] = _user[1]
+        _data["name"] = ' '.join(_user)
     else:
-        _data["given_name"] = _user[0]
+        _data["name"] = _user[0]
 
     try:
         _orcid = fdp_conf.get_current_user_orcid(repo_dir)

@@ -1,14 +1,20 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
 """
-Registry
-========
+Registry Requests
+=================
 
 Methods relating to connection with local and remote registries for the purpose
 of synchronisation and push/pull.
 
 Contents
 ========
+
+    local_token   - retrieves the local API token
+    post          - post to the registry RestAPI
+    get           - retrieve from the registry RestAPI
+    post_else_get - if an item already exists retrieve it, else create it
+
 """
 
 __date__ = "2021-07-02"
@@ -56,9 +62,15 @@ def _access(
         _url += "&".join(_param_strs)
     _headers = headers.copy()
     _headers["Authorization"] = f"token {local_token()}"
-    _request = getattr(requests, method)(
-        _url, headers=_headers, *args, **kwargs
-    )
+    try:
+        _request = getattr(requests, method)(
+            _url, headers=_headers, *args, **kwargs
+        )
+    except requests.exceptions.ConnectionError:
+        raise fdp_exc.UnexpectedRegistryServerState(
+            f"Failed to make registry API request '{_url}'",
+            hint="Is this the remote correct and the server running?"
+        )
     _json_req = _request.json()
     _result = _json_req["results"] if "results" in _json_req else _json_req
     if _request.status_code != response_code:

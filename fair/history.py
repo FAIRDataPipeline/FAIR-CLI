@@ -76,6 +76,7 @@ def show_run_log(repo_loc: str, run_id: str) -> str:
             with open(log_file) as f:
                 click.echo(f.read())
             return log_file
+
     click.echo(f"Could not find run matching id '{run_id}'")
     sys.exit(1)
 

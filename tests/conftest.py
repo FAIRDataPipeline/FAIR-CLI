@@ -6,6 +6,7 @@ import os
 import yaml
 import click
 import uuid
+import git
 
 import fair.common as fdp_com
 import fair.session as fdp_s
@@ -56,18 +57,39 @@ def no_prompt(mocker):
     mocker.patch.object(
         click, "prompt", lambda msg, **kwargs: _func(msg, **kwargs)
     )
+    mocker.patch.object(
+        click, "confirm", lambda *arg, **kwargs: False
+    )
+
+@pytest.fixture
+def git_mock(mocker):
+    class mock_remote:
+        url = 'git@nowhere.com'
+    class mock_branch:
+        name = 'test-branch'
+    class mock_repo:
+        tags = ['test-tag']
+        remotes = {'origin': mock_remote()}
+        active_branch = mock_branch()
+        branches = [mock_branch()]
+    mocker.patch.object(git, 'Repo', lambda x: mock_repo())
 
 
 @pytest.fixture
 def no_registry_edits(mocker):
     mocker.patch.object(fdp_store, "store_working_config", lambda *args: "")
 
+@pytest.fixture
+def no_registry_autoinstall(mocker):
+    mocker.patch.object(fdp_svr, 'install_registry', lambda: None)
 
 @pytest.fixture
 def no_init_session(
     global_test,
     repo_root,
+    git_mock,
     mocker,
+    no_registry_autoinstall,
     no_prompt,
     no_registry_edits,
 ):
@@ -97,12 +119,13 @@ def no_init_session(
         yaml.dump(_glob_conf, f)
     _loc_conf = _glob_conf
     _loc_conf["description"] = "Test"
-    mocker.patch.object(fdp_s.FAIR, "__init__", lambda *args: None)
     mocker.patch.object(
         fdp_conf, "local_config_query", lambda *args: _loc_conf
     )
+    mocker.patch.object(
+        fdp_conf, "read_local_fdpconfig", lambda *args: _loc_conf
+    )
     _fdp_session = fdp_s.FAIR(repo_root)
-    _fdp_session._session_config = os.path.join(repo_root, "config.yaml")
     _fdp_session._session_loc = repo_root
     _fdp_session._global_config = _glob_conf
     _fdp_session._local_config = _loc_conf
@@ -111,5 +134,10 @@ def no_init_session(
     _fdp_session._logger.setLevel(logging.DEBUG)
     _fdp_session._session_id = None
     _fdp_session._run_mode = fdp_svr.SwitchMode.NO_SERVER
+    _fdp_session._session_config = os.path.join(repo_root, "config.yaml")
+
+    mocker.patch.object(fdp_s, "FAIR", lambda *args, **kwargs: _fdp_session)
+
     yield _fdp_session
     _fdp_session.close_session()
+

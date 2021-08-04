@@ -23,24 +23,20 @@ __date__ = "2021-06-30"
 
 import os
 import sys
-import glob
 import platform
-import re
-from collections.abc import Mapping
 from typing import Dict, Any
 from datetime import datetime
 
-import git
 import yaml
 import click
 import subprocess
 
 import fair.configuration as fdp_conf
 import fair.common as fdp_com
-import fair.utilities as fdp_util
 import fair.history as fdp_hist
 import fair.exceptions as fdp_exc
 import fair.registry.storage as fdp_reg_store
+import fair.parsing as fdp_parse
 
 
 # Dictionary of recognised shell labels.
@@ -192,7 +188,7 @@ def run_command(
             [
                 "--------------------------------\n",
                 f" Commenced = {_out_str}\n",
-                f" Author    = {_user} <{_email}>\n",
+                f" Author    = {' '.join(_user)} <{_email}>\n",
                 f" Namespace = {_namespace}\n",
                 f" Command   = {' '.join(_cmd_list)}\n",
                 "--------------------------------\n",
@@ -248,112 +244,19 @@ def create_working_config(
     """
     # TODO: 'VERSION' variable when registry connection available
     # [FAIRDataPipeline/FAIR-CLI/issues/6]
-
-    # Substitutes are defined as functions for which particular cases
-    # can be given as arguments, e.g. for DATE the format depends on if
-    # the key is a version key or not.
-    # Tags in config.yaml are specified as ${{ fair.VAR }}
-
-    def _get_id(run_dir):
-        try:
-            return fdp_conf.get_current_user_orcid(run_dir)
-        except fdp_exc.CLIConfigurationError:
-            return fdp_conf.get_current_user_uuid(run_dir)
-
-    _substitutes: Mapping = {
-        "DATE": lambda x: time.strftime(
-            "%Y{0}%m{0}%d".format("" if "version" in x else "-"),
-        ),
-        "DATETIME": lambda x: time.strftime("%Y-%m-%s %H:%M:S"),
-        "USER": fdp_conf.get_current_user_name,
-        "USER_ID": _get_id,
-        "REPO_DIR": lambda x: fdp_com.find_fair_root(
-            os.path.dirname(config_yaml)
-        ),
-        "CONFIG_DIR": lambda x: run_dir,
-        "SOURCE_CONFIG": lambda x: config_yaml,
-        "GIT_BRANCH": lambda x: git.Repo(
-            os.path.dirname(config_yaml)
-        ).active_branch.name,
-        "GIT_REMOTE_ORIGIN": lambda x: git.Repo(os.path.dirname(config_yaml))
-        .remotes["origin"]
-        .url,
-        "GIT_TAG": lambda x: git.Repo(os.path.dirname(config_yaml))
-        .tags[-1]
-        .name,
-    }
-
-    _conf_yaml = yaml.safe_load(open(config_yaml))
+    
+    _conf_yaml = fdp_parse.subst_cli_vars(run_dir, time, config_yaml)
 
     # Remove 'register' from working configuration
     if "register" in _conf_yaml:
-        del _conf_yaml["register"]
+        del _conf_yaml["register"]    
 
-    # Flatten the nested YAML dictionary so it is easier to iterate
-    _flat_conf = fdp_util.flatten_dict(_conf_yaml)
+    if 'read' in _conf_yaml:
+        _conf_yaml['read'] = fdp_parse.glob_read_write(run_dir, _conf_yaml['read'])
 
-    # Construct Regex objects to find variables in the config
-    _regex_star = re.compile(r":\s*(.+\*+)")
-    _regex_var_candidate = re.compile(
-        r"\$\{\{\s*CLI\..+\s*\}\}", re.IGNORECASE
-    )
-    _regex_var = re.compile(r"\$\{\{\s*CLI\.(.+)\s*\}\}")
-    _regex_env_candidate = re.compile(r"\$\{?[0-9\_A-Z]+\}?", re.IGNORECASE)
-    _regex_env = re.compile(r"\$\{?([0-9\_A-Z]+)\}?", re.IGNORECASE)
-
-    for key, value in _flat_conf.items():
-        if not isinstance(value, str):
-            continue
-
-        # Search for '${{ fair.variable }}' then also make an exclusive search
-        # to extract 'variable'
-        _var_search = _regex_var_candidate.findall(value)
-        _var_label = _regex_var.findall(value)
-
-        # The number of results for '${{fair.var}}' should match those
-        # for the exclusive search for 'var'
-        if not len(_var_search) == len(_var_label):
-            raise fdp_exc.InternalError("FAIR variable matching failed")
-
-        # Search for '${ENV_VAR}' then also make an exclusive search to extract
-        # 'ENV_VAR' from that result
-        _env_search = _regex_env_candidate.findall(value)
-        _env_label = _regex_env.findall(value)
-
-        # The number of results for '${ENV_VAR}' should match those
-        # for the exclusive search for 'ENV_VAR'
-        if not len(_env_search) == len(_env_label):
-            raise fdp_exc.InternalError("Environment variable matching failed")
-
-        for entry, var in zip(_var_search, _var_label):
-            if var.upper().strip() in _substitutes:
-                _new_var = _substitutes[var.upper().strip()](key)
-                _flat_conf[key] = value.replace(entry, _new_var)
-            else:
-                fdp_exc.UserConfigError(
-                    f"Variable '{var}' is not a recognised FAIR config "
-                    "variable, config.yaml substitution failed."
-                )
-
-        # Print warnings for environment variables which have been stated in
-        # the config.yaml but are not actually present in the shell
-        for entry, var in zip(_env_search, _env_label):
-            try:
-                _env = os.environ[var]
-            except KeyError:
-                continue
-
-        # If '*' or '**' in value, expand into a list and
-        # save to the same key. Typically this will be a registry
-        # query, however if it refers to the local file system
-        # then glob there instead
-        # TODO: Implement registry globbing [FAIRDataPipeline/FAIR-CLI/issues/5]
-        if _regex_star.findall(value):
-            if os.path.exists(value):
-                _flat_conf[key] = glob.glob(value)
-
-    _conf_yaml = fdp_util.expand_dict(_flat_conf)
-
+    if 'write' in _conf_yaml:
+        _conf_yaml['write'] = fdp_parse.glob_read_write(run_dir, _conf_yaml['write'])
+    
     with open(output_file, "w") as out_f:
         yaml.dump(_conf_yaml, out_f)
 

@@ -29,7 +29,7 @@ import yaml
 import click
 
 import fair.common as fdp_com
-#import fair.exceptions as fdp_exc
+import fair.exceptions as fdp_exc
 import fair.identifiers as fdp_id
 import fair.server as fdp_serv
 
@@ -127,12 +127,47 @@ def get_current_user_name(repo_loc: str) -> Tuple[str]:
         user name
     """
     _local_conf = read_local_fdpconfig(repo_loc)
+
+    if not _local_conf:
+        raise fdp_exc.CLIConfigurationError("Cannot retrieve current user from empty CLI config")
+
     _given = _local_conf["user"]["given_name"]
     if "family_name" in _local_conf["user"]:
         _family = _local_conf["user"]["family_name"]
     else:
         _family = ""
     return (_given, _family)
+
+
+def get_local_uri(repo_loc: str) -> str:
+    """Retrieves the URI of the local registry
+    
+    Returns
+    -------
+    str
+        local URI path
+    """
+    _local_conf = read_local_fdpconfig(repo_loc)
+    return _local_conf["remotes"]["local"]
+
+
+def get_remote_uri(repo_loc: str, remote_label: str = 'origin') -> str:
+    """Retrieves the URI of the remote registry
+
+    Parameters
+    ----------
+    repo_loc : str
+        local FAIR repository directory
+    remote_label : str, optional
+        label of remote to retrieve, default is 'origin' 
+    
+    Returns
+    -------
+    str
+        remote URI path
+    """
+    _local_conf = read_local_fdpconfig(repo_loc)
+    return _local_conf["remotes"][remote_label]
 
 
 def get_current_user_orcid(repo_loc: str) -> str:
@@ -144,7 +179,13 @@ def get_current_user_orcid(repo_loc: str) -> str:
         user ORCID
     """
     _local_conf = read_local_fdpconfig(repo_loc)
-    return _local_conf["user"]["orcid"]
+    try:
+        _orcid =_local_conf["user"]["orcid"]
+    except KeyError:
+        _orcid = None
+    if not _orcid or _orcid == "None":
+        raise fdp_exc.CLIConfigurationError("No ORCID defined.")
+    return _orcid
 
 
 def get_current_user_uuid(repo_loc: str) -> str:
@@ -184,8 +225,8 @@ def check_local_api(_local_url) -> None:
                 raise Exception(f"Server returned code {_server_status}")
         # Starts server if code is not 200 or server can't be reached
         except:
-            if click.confirm("Local API currently offline, would you like to \
-            start the server now?"):
+            if click.confirm("Local API currently offline, would you like to"
+            " start the server now?"):
                 try:
                     fdp_serv.launch_server(_local_url)
                 except:
@@ -224,9 +265,8 @@ def global_config_query() -> Dict[str, Any]:
     _uuid = None
 
     if _user_orcid != "None":
-        _user_info = fdp_id.check_orcid(_user_orcid)
 
-        while not _user_info:
+        while not fdp_id.check_orcid(_user_orcid):
             click.echo("Invalid ORCID given.")
             _user_orcid = click.prompt("ORCID")
             _user_info = fdp_id.check_orcid(_user_orcid)
