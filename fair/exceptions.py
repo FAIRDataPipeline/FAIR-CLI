@@ -90,8 +90,8 @@ class UserConfigError(FAIRCLIException):
 class UnexpectedRegistryServerState(FAIRCLIException):
     """Errors relating to server start/stop when already up/down)"""
 
-    def __init__(self, msg):
-        super().__init__(msg, "")
+    def __init__(self, msg, hint=""):
+        super().__init__(msg, hint)
 
 
 class FDPRepositoryError(FAIRCLIException):

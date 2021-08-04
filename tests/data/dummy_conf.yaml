@@ -1,10 +1,11 @@
 read:
-- Datetime - ${{ CLI.DATETIME }}
-- Repo/${{ CLI.SOURCE_CONFIG }}
-- user: ${{CLI.USER}}
+- Datetime - ${{ DATETIME }}
+- Repo/${{ SOURCE_CONFIG }}
+- user: ${{USER}}
 write:
-- RandomText@?${{ CLI.GIT_BRANCH }}
-- origin21231${{ CLI.GIT_REMOTE_ORIGIN }}
+- RandomText@?${{ GIT_BRANCH }}
+- origin21231${{ GIT_REMOTE_ORIGIN }}
 run_metadata:
-  author_id: ${{CLI.USER_ID}}
-  conf_dir: ${{ CLI.CONFIG_DIR }}
+  author_id: ${{USER_ID}}
+  conf_dir: ${{ CONFIG_DIR }}
+  datetime_fmt: ${{ DATETIME-%Y%m%d.%H%M }}

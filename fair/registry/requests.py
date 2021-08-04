@@ -62,9 +62,15 @@ def _access(
         _url += "&".join(_param_strs)
     _headers = headers.copy()
     _headers["Authorization"] = f"token {local_token()}"
-    _request = getattr(requests, method)(
-        _url, headers=_headers, *args, **kwargs
-    )
+    try:
+        _request = getattr(requests, method)(
+            _url, headers=_headers, *args, **kwargs
+        )
+    except requests.exceptions.ConnectionError:
+        raise fdp_exc.UnexpectedRegistryServerState(
+            f"Failed to make registry API request '{_url}'",
+            hint="Is this the remote correct and the server running?"
+        )
     _json_req = _request.json()
     _result = _json_req["results"] if "results" in _json_req else _json_req
     if _request.status_code != response_code:

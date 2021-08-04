@@ -148,21 +148,19 @@ def subst_cli_vars(run_dir: str, run_time: datetime.datetime, config_yaml: str) 
         return _repo.tags[-1].name
 
     _substitutes: collections.abc.Mapping = {
-        "DATE": lambda x: run_time.strftime(
-            "%Y{0}%m{0}%d".format("" if "version" in x else "-"),
-        ),
-        "DATETIME": lambda x: run_time.strftime("%Y-%m-%s %H:%M:%S"),
-        "USER": fdp_conf.get_current_user_name,
-        "USER_ID": _get_id,
-        "REPO_DIR": lambda x: fdp_com.find_fair_root(
+        "DATE": run_time.strftime("%Y%m%d"),
+        "DATETIME": run_time.strftime("%Y-%m-%s %H:%M:%S"),
+        "USER": fdp_conf.get_current_user_name(os.path.dirname(config_yaml)),
+        "USER_ID": _get_id(run_dir),
+        "REPO_DIR": fdp_com.find_fair_root(
             os.path.dirname(config_yaml)
         ),
-        "CONFIG_DIR": lambda x: run_dir,
-        "SOURCE_CONFIG": lambda x: config_yaml,
-        "GIT_BRANCH": lambda x: git.Repo(
+        "CONFIG_DIR": run_dir,
+        "SOURCE_CONFIG": config_yaml,
+        "GIT_BRANCH": git.Repo(
             fdp_com.find_fair_root(os.path.dirname(config_yaml))
         ).active_branch.name,
-        "GIT_REMOTE_ORIGIN": lambda x: git.Repo(
+        "GIT_REMOTE_ORIGIN": git.Repo(
             fdp_com.find_fair_root(os.path.dirname(config_yaml))
         )
         .remotes["origin"]
@@ -170,18 +168,34 @@ def subst_cli_vars(run_dir: str, run_time: datetime.datetime, config_yaml: str) 
         "GIT_TAG": _tag_check,
     }
 
-    _regex_dict = {
-        var: re.compile(r'\$\{\{\s*CLI\.'+var+r'\s*\}\}', re.IGNORECASE)
-        for var in _substitutes
-    }
-
     # Quickest to substitute all in one go by opening config as a string
     with open(config_yaml) as f:
         _conf_str = f.read()
+
+    # Additional parser for formatted datetime
+    _regex_dt_fmt = re.compile(r'\$\{\{\s*DATETIME\-.+\s*\}\}')
+    _regex_fmt = re.compile(r'\$\{\{\s*DATETIME\-(.+)\s*\}\}')
+
+    _dt_fmt_res = _regex_dt_fmt.findall(_conf_str)
+    _fmt_res = _regex_fmt.findall(_conf_str)
+
+    # The two regex searches should match lengths
+    if len(_dt_fmt_res) != len(_fmt_res):
+        raise fdp_exc.UserConfigError("Failed to parse formatted datetime variable")
+
+    if _dt_fmt_res:
+        for i, _ in enumerate(_dt_fmt_res):
+            _time_str = run_time.strftime(_fmt_res[i].strip())
+            _conf_str = _conf_str.replace(_dt_fmt_res[i], _time_str)
+
+    _regex_dict = {
+        var: r'\$\{\{\s*'+f'{var}'+r'\s*\}\}'
+        for var in _substitutes
+    }
     
     # Perform string substitutions
     for var, subst in _regex_dict.items():
-        _conf_str = re.sub(subst, _substitutes[var], _conf_str)
+        _conf_str = re.sub(subst, str(_substitutes[var]), _conf_str)
 
     # Load the YAML (this also verifies the write was successful)
     _user_conf = yaml.safe_load(_conf_str)

@@ -46,4 +46,5 @@ def test_parse_vars(mocker):
     assert _remote == _u_config['write'][1].replace(_junk, '')
     assert _u_config['run_metadata']['author_id'] == _fake_id
     assert _u_config['run_metadata']['conf_dir'] == os.getcwd()
-    assert _u_config['read'][2]['user'] == _fake_name 
+    assert _u_config['read'][2]['user'] == _fake_name
+    assert str(_u_config['run_metadata']['datetime_fmt']) == _now.strftime("%Y%m%d.%H%M")
