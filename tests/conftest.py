@@ -58,7 +58,7 @@ def no_prompt(mocker):
         click, "prompt", lambda msg, **kwargs: _func(msg, **kwargs)
     )
     mocker.patch.object(
-        click, "confirm", lambda x: False
+        click, "confirm", lambda *arg, **kwargs: False
     )
 
 @pytest.fixture
