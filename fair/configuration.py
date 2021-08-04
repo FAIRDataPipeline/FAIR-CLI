@@ -147,6 +147,25 @@ def get_local_uri(repo_loc: str) -> str:
     return _local_conf["remotes"]["local"]
 
 
+def get_remote_uri(repo_loc: str, remote_label: str = 'origin') -> str:
+    """Retrieves the URI of the remote registry
+
+    Parameters
+    ----------
+    repo_loc : str
+        local FAIR repository directory
+    remote_label : str, optional
+        label of remote to retrieve, default is 'origin' 
+    
+    Returns
+    -------
+    str
+        remote URI path
+    """
+    _local_conf = read_local_fdpconfig(repo_loc)
+    return _local_conf["remotes"][remote_label]
+
+
 def get_current_user_orcid(repo_loc: str) -> str:
     """Retrieves the ORCID of the current session user as defined in the config
 

@@ -4,15 +4,31 @@ import fair.registry.requests as fdp_reg_req
 import fair.configuration as fdp_conf
 import fair.exceptions as fdp_exc
 
-def glob_read_write(local_repo: str, config_dict_sub: typing.List, search_key: str = 'name') -> typing.List:
+def glob_read_write(
+    local_repo: str,
+    config_dict_sub: typing.List,
+    search_key: str = 'name',
+    local_glob: bool = False) -> typing.List:
     """Substitute the 'read' or 'write' part of a user config with glob expressions
     
     Parameters
     ----------
+    local_repo : str
+        local FAIR repository directory
     config_dict_sub : List[Dict]
         entries to read/write from registry
+    search_key : str, optional
+        key to search under, default is 'name'
+    local_glob : bool, optional
+        whether to search the local or remote registry,
+        default is False.
     """
     _parsed: typing.List[typing.Dict] = []
+    
+    if local_glob:
+        _uri = fdp_conf.get_local_uri(local_repo) 
+    else:
+        _uri = fdp_conf.get_remote_uri(local_repo)
     for entry in config_dict_sub:
         _glob_vals = [(k, v) for k, v in entry.items() if '*' in v]
         if len(_glob_vals) > 1:
@@ -27,7 +43,7 @@ def glob_read_write(local_repo: str, config_dict_sub: typing.List, search_key: s
         _key_glob, _globbable = _glob_vals[0]
 
         _results = fdp_reg_req.get(
-            fdp_conf.get_local_uri(local_repo),
+            _uri,
             (_key_glob,),
             params = {search_key: _globbable}
         )

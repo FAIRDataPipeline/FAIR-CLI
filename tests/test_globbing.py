@@ -42,7 +42,7 @@ def test_globbing_author(mocker):
     mocker.patch.object(fdp_req, 'get', _dummy_get)
     mocker.patch.object(fdp_conf, 'get_local_uri', _do_nowt)
 
-    _out_list = fdp_parse.glob_read_write('.', [{'author': '*'}])
+    _out_list = fdp_parse.glob_read_write('.', [{'author': '*'}], local_glob=True)
 
     assert len(_out_list) == 2
 
