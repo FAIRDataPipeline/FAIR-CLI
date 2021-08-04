@@ -1,8 +1,41 @@
+#!/usr/bin/python3
+# -*- coding: utf-8 -*-
+"""
+
+Parse User Config
+=================
+
+Perform parsing of the user updated `config.yaml` file.
+
+
+Contents
+========
+
+Functions
+-------
+
+    glob_read_write - swap glob expressions for registry entries
+    subst_cli_vars  - substitute recognised FAIR CLI variables 
+
+"""
+
+__date__ = "2021-08-04"
+
+import datetime
 import typing
+import collections.abc
+import os
+import re
+
+import git
+import yaml
 
 import fair.registry.requests as fdp_reg_req
 import fair.configuration as fdp_conf
 import fair.exceptions as fdp_exc
+import fair.utilities as fdp_util
+import fair.common as fdp_com
+
 
 def glob_read_write(
     local_repo: str,
@@ -66,38 +99,91 @@ def glob_read_write(
             _parsed.append(_entry_dict)
 
     # Before returning the list of dictionaries remove any duplicates    
-    return remove_dict_dupes(_parsed)        
+    return fdp_util.remove_dictlist_dupes(_parsed)
+  
 
-
-def remove_dict_dupes(dicts: typing.List[typing.Dict]) -> typing.List[typing.Dict]:
-    """Remove duplicate dictionaries from a list of dictionaries
-    
-    Note: this will only work with single layer dictionaries!
+def subst_cli_vars(run_dir: str, run_time: datetime.datetime, config_yaml: str) -> typing.Dict:
+    """Load configuration and substitute recognised FAIR CLI variables for their values
 
     Parameters
     ----------
-    dicts : List[Dict]
-        a list of dictionaries
-    
+    run_dir : str
+        location of code run directory (not to be confused with
+        local FAIR project repository)
+
+    run_time : datetime.datetime
+        time of run execution
+
+    config_yaml : str
+        location of `config.yaml` file
+
     Returns
     -------
-    List[Dict]
-        new list without duplicates
+    Dict
+        new user configuration dictionary with substitutions    
     """
-    # Convert single layer dictionary to a list of key-value tuples
-    _tupleify = [
-        [(k, v) for k, v in d.items()]
-        for d in dicts
-    ]
-    
-    # Only append unique tuple lists
-    _set_tupleify = []
-    for t in _tupleify:
-        if t not in _set_tupleify:
-            _set_tupleify.append(t)
+    if not os.path.exists(config_yaml):
+        raise fdp_exc.FileNotFoundError(
+            f"Cannot open user configuration file '{config_yaml}', "
+            "file does not exist"
+        )
 
-    # Convert the tuple list back to a list of dictionaries
-    return [
-        {i[0]: i[1] for i in kv}
-        for kv in _set_tupleify
-    ]
+    def _get_id(run_dir):
+        try:
+            return fdp_conf.get_current_user_orcid(run_dir)
+        except fdp_exc.CLIConfigurationError:
+            return fdp_conf.get_current_user_uuid(run_dir)
+
+    # Substitutes are defined as functions for which particular cases
+    # can be given as arguments, e.g. for DATE the format depends on if
+    # the key is a version key or not.
+    # Tags in config.yaml are specified as ${{ CLI.VAR }}
+
+    def _tag_check(*args, **kwargs):
+        _repo = git.Repo(
+            fdp_com.find_fair_root(os.path.dirname(config_yaml))
+        )
+        if len(_repo.tags) < 1:
+            fdp_exc.UserConfigError("Cannot use GIT_TAG variable, no git tags found.")
+        return _repo.tags[-1].name
+
+    _substitutes: collections.abc.Mapping = {
+        "DATE": lambda x: run_time.strftime(
+            "%Y{0}%m{0}%d".format("" if "version" in x else "-"),
+        ),
+        "DATETIME": lambda x: run_time.strftime("%Y-%m-%s %H:%M:%S"),
+        "USER": fdp_conf.get_current_user_name,
+        "USER_ID": _get_id,
+        "REPO_DIR": lambda x: fdp_com.find_fair_root(
+            os.path.dirname(config_yaml)
+        ),
+        "CONFIG_DIR": lambda x: run_dir,
+        "SOURCE_CONFIG": lambda x: config_yaml,
+        "GIT_BRANCH": lambda x: git.Repo(
+            fdp_com.find_fair_root(os.path.dirname(config_yaml))
+        ).active_branch.name,
+        "GIT_REMOTE_ORIGIN": lambda x: git.Repo(
+            fdp_com.find_fair_root(os.path.dirname(config_yaml))
+        )
+        .remotes["origin"]
+        .url,
+        "GIT_TAG": _tag_check,
+    }
+
+    _regex_dict = {
+        var: re.compile(r'\$\{\{\s*CLI\.'+var+r'\s*\}\}', re.IGNORECASE)
+        for var in _substitutes
+    }
+
+    # Quickest to substitute all in one go by opening config as a string
+    with open(config_yaml) as f:
+        _conf_str = f.read()
+    
+    # Perform string substitutions
+    for var, subst in _regex_dict.items():
+        _conf_str = re.sub(subst, _substitutes[var], _conf_str)
+
+    # Load the YAML (this also verifies the write was successful)
+    _user_conf = yaml.safe_load(_conf_str)
+
+    return _user_conf

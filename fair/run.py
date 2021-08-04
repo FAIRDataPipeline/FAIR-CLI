@@ -23,9 +23,7 @@ __date__ = "2021-06-30"
 
 import os
 import sys
-import glob
 import platform
-import re
 from collections.abc import Mapping
 from typing import Dict, Any
 from datetime import datetime
@@ -37,7 +35,6 @@ import subprocess
 
 import fair.configuration as fdp_conf
 import fair.common as fdp_com
-import fair.utilities as fdp_util
 import fair.history as fdp_hist
 import fair.exceptions as fdp_exc
 import fair.registry.storage as fdp_reg_store
@@ -249,42 +246,8 @@ def create_working_config(
     """
     # TODO: 'VERSION' variable when registry connection available
     # [FAIRDataPipeline/FAIR-CLI/issues/6]
-
-    # Substitutes are defined as functions for which particular cases
-    # can be given as arguments, e.g. for DATE the format depends on if
-    # the key is a version key or not.
-    # Tags in config.yaml are specified as ${{ CLI.VAR }}
-
-    def _get_id(run_dir):
-        try:
-            return fdp_conf.get_current_user_orcid(run_dir)
-        except fdp_exc.CLIConfigurationError:
-            return fdp_conf.get_current_user_uuid(run_dir)
-
-    _substitutes: Mapping = {
-        "DATE": lambda x: time.strftime(
-            "%Y{0}%m{0}%d".format("" if "version" in x else "-"),
-        ),
-        "DATETIME": lambda x: time.strftime("%Y-%m-%s %H:%M:S"),
-        "USER": fdp_conf.get_current_user_name,
-        "USER_ID": _get_id,
-        "REPO_DIR": lambda x: fdp_com.find_fair_root(
-            os.path.dirname(config_yaml)
-        ),
-        "CONFIG_DIR": lambda x: run_dir,
-        "SOURCE_CONFIG": lambda x: config_yaml,
-        "GIT_BRANCH": lambda x: git.Repo(
-            os.path.dirname(config_yaml)
-        ).active_branch.name,
-        "GIT_REMOTE_ORIGIN": lambda x: git.Repo(os.path.dirname(config_yaml))
-        .remotes["origin"]
-        .url,
-        "GIT_TAG": lambda x: git.Repo(os.path.dirname(config_yaml))
-        .tags[-1]
-        .name,
-    }
-
-    _conf_yaml = yaml.safe_load(open(config_yaml))
+    
+    _conf_yaml = fdp_parse.subst_cli_vars(run_dir, time, config_yaml)
 
     # Remove 'register' from working configuration
     if "register" in _conf_yaml:

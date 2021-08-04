@@ -17,18 +17,21 @@ Functions
 
     flatten_dict - convert a nested dictionary into a single level version.
     expand_dict  - expands a single level dictionary to a nested version.
+    remove_dictlist_dupes - removes duplicates from list of depth 1 dictionaries
 
 """
 
-from typing import Dict
+__date__ = "2021-08-04"
+
+import typing
 
 
 def flatten_dict(
-    in_dict: Dict,
+    in_dict: typing.Dict,
     separator: str = ".",
-    _out_dict: Dict = None,
+    _out_dict: typing.Dict = None,
     _parent_key: str = None,
-) -> Dict:
+) -> typing.Dict:
     """Flatten a nested dictionary into a single level variant
 
     Constructs a new dictionary from a nested dictionary of just one level
@@ -65,8 +68,8 @@ def flatten_dict(
 
 
 def expand_dict(
-    in_dict: Dict, separator: str = ".", _out_dict: Dict = None
-) -> Dict:
+    in_dict: typing.Dict, separator: str = ".", _out_dict: typing.Dict = {}
+) -> typing.Dict:
     """Expand a flattened dictionary into a nested dictionary
 
     Expands a dictionary with a separator in the keys to be a nested
@@ -84,9 +87,6 @@ def expand_dict(
     Dict
         nested dictionary representation of the input
     """
-    if _out_dict is None:
-        _out_dict = {}
-
     for label, value in in_dict.items():
         if separator not in label:
             _out_dict.update({label: value})
@@ -97,3 +97,37 @@ def expand_dict(
         expand_dict({_components: value}, separator, _out_dict[key])
 
     return _out_dict
+
+
+def remove_dictlist_dupes(dicts: typing.List[typing.Dict]) -> typing.List[typing.Dict]:
+    """Remove duplicate dictionaries from a list of dictionaries
+    
+    Note: this will only work with single layer dictionaries!
+
+    Parameters
+    ----------
+    dicts : List[Dict]
+        a list of dictionaries
+    
+    Returns
+    -------
+    List[Dict]
+        new list without duplicates
+    """
+    # Convert single layer dictionary to a list of key-value tuples
+    _tupleify = [
+        [(k, v) for k, v in d.items()]
+        for d in dicts
+    ]
+    
+    # Only append unique tuple lists
+    _set_tupleify = []
+    for t in _tupleify:
+        if t not in _set_tupleify:
+            _set_tupleify.append(t)
+
+    # Convert the tuple list back to a list of dictionaries
+    return [
+        {i[0]: i[1] for i in kv}
+        for kv in _set_tupleify
+    ]
