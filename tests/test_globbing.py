@@ -45,36 +45,3 @@ def test_globbing_author(mocker):
     _out_list = fdp_parse.glob_read_write('.', [{'author': '*'}], local_glob=True)
 
     assert len(_out_list) == 2
-
-
-@pytest.mark.globbing
-def test_unique_dict_diff_keys():
-    _dict_in = [
-        {'a': 1, 'b': 2},
-        {'a': 1, 'b': 2},
-        {'c': 3, 'b': 2},
-        {'a': 1, 'b': 2, 'c': 3}
-    ]
-    _dict_out = [
-        {'a': 1, 'b': 2},
-        {'c': 3, 'b': 2},
-        {'a': 1, 'b': 2, 'c': 3}
-    ]
-    assert fdp_parse.remove_dict_dupes(_dict_in) == _dict_out
-
-
-@pytest.mark.globbing
-def test_unique_dict_same_keys():
-    _dict_in = [
-        {'name': 'Steve'},
-        {'name': 'Tim'},
-        {'name': 'Steve'},
-        {'name': 'Tim'},
-        {'name': 'Jack'}
-    ]
-    _dict_out = [
-        {'name': 'Steve'},
-        {'name': 'Tim'},
-        {'name': 'Jack'},
-    ]
-    assert fdp_parse.remove_dict_dupes(_dict_in) == _dict_out

@@ -127,6 +127,10 @@ def get_current_user_name(repo_loc: str) -> Tuple[str]:
         user name
     """
     _local_conf = read_local_fdpconfig(repo_loc)
+
+    if not _local_conf:
+        raise fdp_exc.CLIConfigurationError("Cannot retrieve current user from empty CLI config")
+
     _given = _local_conf["user"]["given_name"]
     if "family_name" in _local_conf["user"]:
         _family = _local_conf["user"]["family_name"]

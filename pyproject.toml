@@ -33,6 +33,7 @@ poetry = "^1.1.6"
 pytest-mock = "^3.6.1"
 pytest-dependency = "^0.5.1"
 pytest-cov = "^2.12.1"
+requests-mock = "^1.9.3"
 
 [tool.poetry.scripts]
 fair = 'fair.cli:cli'

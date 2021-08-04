@@ -6,6 +6,7 @@ import os
 import yaml
 import click
 import uuid
+import git
 
 import fair.common as fdp_com
 import fair.session as fdp_s
@@ -57,6 +58,19 @@ def no_prompt(mocker):
         click, "prompt", lambda msg, **kwargs: _func(msg, **kwargs)
     )
 
+@pytest.fixture
+def git_mock(mocker):
+    class mock_remote:
+        url = 'git@nowhere.com'
+    class mock_branch:
+        name = 'test-branch'
+    class mock_repo:
+        tags = ['test-tag']
+        remotes = {'origin': mock_remote()}
+        active_branch = mock_branch()
+        branches = [mock_branch()]
+    mocker.patch.object(git, 'Repo', lambda x: mock_repo())
+
 
 @pytest.fixture
 def no_registry_edits(mocker):
@@ -67,6 +81,7 @@ def no_registry_edits(mocker):
 def no_init_session(
     global_test,
     repo_root,
+    git_mock,
     mocker,
     no_prompt,
     no_registry_edits,
@@ -100,6 +115,9 @@ def no_init_session(
     mocker.patch.object(fdp_s.FAIR, "__init__", lambda *args: None)
     mocker.patch.object(
         fdp_conf, "local_config_query", lambda *args: _loc_conf
+    )
+    mocker.patch.object(
+        fdp_conf, "read_local_fdpconfig", lambda *args: _loc_conf
     )
     _fdp_session = fdp_s.FAIR(repo_root)
     _fdp_session._session_config = os.path.join(repo_root, "config.yaml")
