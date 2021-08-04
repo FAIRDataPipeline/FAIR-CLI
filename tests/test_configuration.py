@@ -8,7 +8,7 @@ import fair.common as fdp_com
 
 
 @pytest.mark.configuration
-def test_local_config_read(mocker):
+def test_local_config_read(mocker, no_registry_autoinstall):
     _dummy_cfg = {"tag": "value"}
     _temp_cfg = tempfile.mktemp()
     mocker.patch.object(fdp_com, "local_fdpconfig", lambda *args: _temp_cfg)
@@ -106,7 +106,7 @@ def test_email_name_set(mocker, no_init_session):
 
 
 @pytest.mark.configuration
-def test_glob_cfg_query(mocker, no_prompt):
+def test_glob_cfg_query(mocker, no_prompt, no_registry_autoinstall):
     _out_dict = fdp_conf.global_config_query()
 
     assert all(i in _out_dict for i in ["user", "remotes", "namespaces"])

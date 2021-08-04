@@ -26,14 +26,14 @@ def subprocess_do_nothing(mocker):
 
 @pytest.mark.server
 @requests_mock.Mocker(kw='rmock')
-def test_server_not_running(**kwargs):
+def test_server_not_running(no_registry_autoinstall, **kwargs):
     kwargs['rmock'].get(LOCALHOST, status_code=400)
     assert not fdp_serv.check_server_running(LOCALHOST)
 
 
 @pytest.mark.server
 @requests_mock.Mocker(kw='rmock')
-def test_start_server_success(mocker, subprocess_do_nothing, **kwargs):
+def test_start_server_success(mocker, subprocess_do_nothing, no_registry_autoinstall, **kwargs):
     mocker.patch.object(os.path, 'exists', lambda x : True)
     kwargs['rmock'].get(LOCALHOST, status_code=200)
     fdp_serv.launch_server(LOCALHOST)
@@ -41,7 +41,7 @@ def test_start_server_success(mocker, subprocess_do_nothing, **kwargs):
 
 @pytest.mark.server
 @requests_mock.Mocker(kw='rmock')
-def test_start_server_fail(mocker, **kwargs):
+def test_start_server_fail(no_registry_autoinstall, mocker, **kwargs):
     mocker.patch.object(os.path, 'exists', lambda x : True)
     kwargs['rmock'].get("http://badhost", status_code=400)
     with pytest.raises(fdp_exc.RegistryError):
@@ -50,7 +50,7 @@ def test_start_server_fail(mocker, **kwargs):
 
 @pytest.mark.server
 @requests_mock.Mocker(kw='rmock')
-def test_stop_server_success(mocker, **kwargs):
+def test_stop_server_success(no_registry_autoinstall, mocker, **kwargs):
     mocker.patch.object(os.path, 'exists', lambda x : True)
     kwargs['rmock'].get(LOCALHOST, status_code=400)
     fdp_serv.stop_server(LOCALHOST)
@@ -58,7 +58,7 @@ def test_stop_server_success(mocker, **kwargs):
 
 @pytest.mark.server
 @requests_mock.Mocker(kw='rmock')
-def test_stop_server_fail(mocker, **kwargs):
+def test_stop_server_fail(no_registry_autoinstall, mocker, **kwargs):
     mocker.patch.object(os.path, 'exists', lambda x : True)
     kwargs['rmock'].get("http://badhost")
     with pytest.raises(fdp_exc.RegistryError):

@@ -53,7 +53,7 @@ def setup_with_opts(no_init_session):
 
 
 @pytest.mark.run
-def test_run_setup_custom(setup_with_opts):
+def test_run_setup_custom(setup_with_opts, no_registry_autoinstall):
     _out, _cfg = setup_with_opts(
         {"shell": "python", "script": "print('Test Run')"}
     )
@@ -63,7 +63,7 @@ def test_run_setup_custom(setup_with_opts):
 
 
 @pytest.mark.run
-def test_run_setup_default_unix(mocker, setup_with_opts):
+def test_run_setup_default_unix(mocker, setup_with_opts, no_registry_autoinstall):
     mocker.patch.object(platform, "system", lambda *args: "Linux")
     _cmd = 'echo "Test Run"'
     _out, _cfg = setup_with_opts({"script": _cmd})
@@ -73,7 +73,7 @@ def test_run_setup_default_unix(mocker, setup_with_opts):
 
 
 @pytest.mark.run
-def test_run_setup_default_windows(mocker, setup_with_opts):
+def test_run_setup_default_windows(mocker, setup_with_opts, no_registry_autoinstall):
     mocker.patch.object(platform, "system", lambda *args: "Windows")
     _cmd = 'Write-Host "Test Run"'
     _out, _cfg = setup_with_opts({"script": _cmd})
@@ -83,7 +83,7 @@ def test_run_setup_default_windows(mocker, setup_with_opts):
 
 
 @pytest.mark.run
-def test_run_setup_with_script(setup_with_opts):
+def test_run_setup_with_script(setup_with_opts, no_registry_autoinstall):
     _script = "print('Test Run')"
     _temp = tempfile.mktemp()
     with open(_temp, "w") as f:

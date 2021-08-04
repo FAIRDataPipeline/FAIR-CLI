@@ -79,6 +79,9 @@ def git_mock(mocker):
 def no_registry_edits(mocker):
     mocker.patch.object(fdp_store, "store_working_config", lambda *args: "")
 
+@pytest.fixture
+def no_registry_autoinstall(mocker):
+    mocker.patch.object(fdp_svr, 'install_registry', lambda: None)
 
 @pytest.fixture
 def no_init_session(
@@ -86,6 +89,7 @@ def no_init_session(
     repo_root,
     git_mock,
     mocker,
+    no_registry_autoinstall,
     no_prompt,
     no_registry_edits,
 ):
