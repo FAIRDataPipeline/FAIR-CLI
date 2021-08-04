@@ -139,32 +139,36 @@ def subst_cli_vars(run_dir: str, run_time: datetime.datetime, config_yaml: str) 
     # the key is a version key or not.
     # Tags in config.yaml are specified as ${{ CLI.VAR }}
 
+    _fair_head = fdp_com.find_fair_root(os.path.dirname(config_yaml))
+
+    def _repo_check(directory: str):
+        # Currently only supports FAIR repository setup matching that of git
+        if not os.path.exists(os.path.join(directory, '.git')):
+            raise fdp_exc.NotImplementedError(
+                "Expected FAIR repository working tree head to match that of git when using GIT_* CLI variables",
+                hint="Did you run 'fair init' in the same location as 'git init'?"
+            )
+        return git.Repo(directory)
+
     def _tag_check(*args, **kwargs):
-        _repo = git.Repo(
-            fdp_com.find_fair_root(os.path.dirname(config_yaml))
-        )
+        _repo = _repo_check(_fair_head)
         if len(_repo.tags) < 1:
             fdp_exc.UserConfigError("Cannot use GIT_TAG variable, no git tags found.")
         return _repo.tags[-1].name
 
+
     _substitutes: collections.abc.Mapping = {
-        "DATE": run_time.strftime("%Y%m%d"),
-        "DATETIME": run_time.strftime("%Y-%m-%s %H:%M:%S"),
-        "USER": fdp_conf.get_current_user_name(os.path.dirname(config_yaml)),
-        "USER_ID": _get_id(run_dir),
-        "REPO_DIR": fdp_com.find_fair_root(
+        "DATE": lambda : run_time.strftime("%Y%m%d"),
+        "DATETIME": lambda : run_time.strftime("%Y-%m-%s %H:%M:%S"),
+        "USER": lambda : fdp_conf.get_current_user_name(os.path.dirname(config_yaml)),
+        "USER_ID": lambda : _get_id(run_dir),
+        "REPO_DIR": lambda : fdp_com.find_fair_root(
             os.path.dirname(config_yaml)
         ),
-        "CONFIG_DIR": run_dir,
-        "SOURCE_CONFIG": config_yaml,
-        "GIT_BRANCH": git.Repo(
-            fdp_com.find_fair_root(os.path.dirname(config_yaml))
-        ).active_branch.name,
-        "GIT_REMOTE_ORIGIN": git.Repo(
-            fdp_com.find_fair_root(os.path.dirname(config_yaml))
-        )
-        .remotes["origin"]
-        .url,
+        "CONFIG_DIR": lambda : run_dir,
+        "SOURCE_CONFIG": lambda : config_yaml,
+        "GIT_BRANCH": lambda : _repo_check(_fair_head).active_branch.name,
+        "GIT_REMOTE_ORIGIN": lambda : _repo_check(_fair_head).remotes["origin"].url,
         "GIT_TAG": _tag_check,
     }
 
@@ -195,7 +199,9 @@ def subst_cli_vars(run_dir: str, run_time: datetime.datetime, config_yaml: str) 
     
     # Perform string substitutions
     for var, subst in _regex_dict.items():
-        _conf_str = re.sub(subst, str(_substitutes[var]), _conf_str)
+        # Only execute functions in var substitutions that are required
+        if re.findall(subst, _conf_str):
+            _conf_str = re.sub(subst, str(_substitutes[var]()), _conf_str)
 
     # Load the YAML (this also verifies the write was successful)
     _user_conf = yaml.safe_load(_conf_str)

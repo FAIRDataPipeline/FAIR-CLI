@@ -24,11 +24,9 @@ __date__ = "2021-06-30"
 import os
 import sys
 import platform
-from collections.abc import Mapping
 from typing import Dict, Any
 from datetime import datetime
 
-import git
 import yaml
 import click
 import subprocess

@@ -8,38 +8,13 @@ import fair.exceptions as fdp_exc
 
 LOCALHOST = "http://localhost:8000/api/"
 
-SERVER_RUN = False
-
-_mock_json_response = {
-    'users': 'http://localhost:8000/api/users/',
-    'groups': 'http://localhost:8000/api/groups/',
-    'file_type': 'http://localhost:8000/api/file_type/',
-    'issue': 'http://localhost:8000/api/issue/',
-    'author': 'http://localhost:8000/api/author/',
-    'object': 'http://localhost:8000/api/object/',
-    'user_author': 'http://localhost:8000/api/user_author/',
-    'object_component': 'http://localhost:8000/api/object_component/',
-    'code_run': 'http://localhost:8000/api/code_run/',
-    'storage_root': 'http://localhost:8000/api/storage_root/',
-    'storage_location': 'http://localhost:8000/api/storage_location/',
-    'namespace': 'http://localhost:8000/api/namespace/',
-    'data_product': 'http://localhost:8000/api/data_product/',
-    'external_object': 'http://localhost:8000/api/external_object/',
-    'quality_controlled': 'http://localhost:8000/api/quality_controlled/',
-    'keyword': 'http://localhost:8000/api/keyword/',
-    'licence': 'http://localhost:8000/api/licence/',
-    'code_repo_release': 'http://localhost:8000/api/code_repo_release/',
-    'key_value': 'http://localhost:8000/api/key_value/'
-}
-
 
 @pytest.fixture
 def subprocess_do_nothing(mocker):
     class _stdout:
         def __init__(self):
             pass
-        def read(self, int):
-            return b'blah blah blah'
+
     class dummy_popen:
         def __init__(self, *args, **kwargs):
             self.stdout = _stdout()

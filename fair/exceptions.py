@@ -131,5 +131,5 @@ class RegistryAPICallError(FAIRCLIException):
 
 class NotImplementedError(FAIRCLIException):
     """Errors relating to features that have not yet been implemented"""
-    def __init__(self, msg):
-        super().__init__(msg)
+    def __init__(self, msg, hint=""):
+        super().__init__(msg, hint)

@@ -57,6 +57,9 @@ def no_prompt(mocker):
     mocker.patch.object(
         click, "prompt", lambda msg, **kwargs: _func(msg, **kwargs)
     )
+    mocker.patch.object(
+        click, "confirm", lambda x: False
+    )
 
 @pytest.fixture
 def git_mock(mocker):
@@ -112,7 +115,6 @@ def no_init_session(
         yaml.dump(_glob_conf, f)
     _loc_conf = _glob_conf
     _loc_conf["description"] = "Test"
-    mocker.patch.object(fdp_s.FAIR, "__init__", lambda *args: None)
     mocker.patch.object(
         fdp_conf, "local_config_query", lambda *args: _loc_conf
     )
@@ -120,7 +122,6 @@ def no_init_session(
         fdp_conf, "read_local_fdpconfig", lambda *args: _loc_conf
     )
     _fdp_session = fdp_s.FAIR(repo_root)
-    _fdp_session._session_config = os.path.join(repo_root, "config.yaml")
     _fdp_session._session_loc = repo_root
     _fdp_session._global_config = _glob_conf
     _fdp_session._local_config = _loc_conf
@@ -129,6 +130,10 @@ def no_init_session(
     _fdp_session._logger.setLevel(logging.DEBUG)
     _fdp_session._session_id = None
     _fdp_session._run_mode = fdp_svr.SwitchMode.NO_SERVER
+    _fdp_session._session_config = os.path.join(repo_root, "config.yaml")
+
+    mocker.patch.object(fdp_s, "FAIR", lambda *args, **kwargs: _fdp_session)
+
     yield _fdp_session
     _fdp_session.close_session()
 
