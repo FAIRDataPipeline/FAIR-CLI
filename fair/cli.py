@@ -71,7 +71,8 @@ def init(config: str, debug: bool) -> None:
             fair_session.initialise()
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
-        sys.exit(e.exit_code)
+        if e.level.lower() == "error":
+            sys.exit(e.exit_code)
 
 
 @cli.command()
@@ -93,7 +94,8 @@ def purge(glob) -> None:
                 fair_session.purge(glob)
         except fdp_exc.FAIRCLIException as e:
             e.err_print()
-            sys.exit(e.exit_code)
+            if e.level.lower() == "error":
+                sys.exit(e.exit_code)
 
 
 @cli.group()
@@ -109,7 +111,8 @@ def start() -> None:
         fdp_session.FAIR(os.getcwd(), mode=fdp_svr.SwitchMode.USER_START)
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
-        sys.exit(e.exit_code)
+        if e.level.lower() == "error":
+            sys.exit(e.exit_code)
 
 
 @registry.command()
@@ -125,7 +128,8 @@ def stop(force) -> None:
         fdp_session.FAIR(os.getcwd(), mode=_mode)
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
-        sys.exit(e.exit_code)
+        if e.level.lower() == "error":
+            sys.exit(e.exit_code)
 
 
 @cli.command()
@@ -152,7 +156,8 @@ def reset(file_paths: typing.List[str], debug: bool) -> None:
                 fair_session.change_staging_state(file_name, False)
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
-        sys.exit(e.exit_code)
+        if e.level.lower() == "error":
+            sys.exit(e.exit_code)
 
 
 @cli.command()
@@ -166,7 +171,8 @@ def add(file_paths: typing.List[str], debug: bool) -> None:
                 fair_session.change_staging_state(file_name, True)
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
-        sys.exit(e.exit_code)
+        if e.level.lower() == "error":
+            sys.exit(e.exit_code)
 
 
 @cli.command()
@@ -187,7 +193,8 @@ def rm(
                 fair_session.remove_file(file_name, cached)
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
-        sys.exit(e.exit_code)
+        if e.level.lower() == "error":
+            sys.exit(e.exit_code)
 
 
 @cli.group(invoke_without_command=True)
@@ -208,7 +215,8 @@ def run(ctx, config: str, debug: bool):
                 fair_session.run()
         except fdp_exc.FAIRCLIException as e:
             e.err_print()
-            sys.exit(e.exit_code)
+            if e.level.lower() == "error":
+                sys.exit(e.exit_code)
 
 
 @run.command()
@@ -228,7 +236,8 @@ def bash(bash_command: str, config: str, debug: bool):
             fair_session.run(bash_command)
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
-        sys.exit(e.exit_code)
+        if e.level.lower() == "error":
+            sys.exit(e.exit_code)
 
 
 @cli.group(invoke_without_command=True)
@@ -243,7 +252,8 @@ def remote(ctx, verbose: bool = False, debug: bool = False):
                 fair_session.list_remotes(verbose)
         except fdp_exc.FAIRCLIException as e:
             e.err_print()
-            sys.exit(e.exit_code)
+            if e.level.lower() == "error":
+                sys.exit(e.exit_code)
 
 
 @remote.command()
@@ -268,7 +278,8 @@ def add(options: typing.List[str], debug: bool) -> None:
             fair_session.add_remote(_url, _label)
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
-        sys.exit(e.exit_code)
+        if e.level.lower() == "error":
+            sys.exit(e.exit_code)
 
 
 @remote.command()
@@ -287,7 +298,8 @@ def remove(label: str, debug: bool) -> None:
             fair_session.remove_remove(label)
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
-        sys.exit(e.exit_code)
+        if e.level.lower() == "error":
+            sys.exit(e.exit_code)
 
 
 @remote.command()
@@ -302,7 +314,8 @@ def modify(ctx, label: str, url: str, debug: bool) -> None:
             fair_session.modify_remote(label, url)
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
-        sys.exit(e.exit_code)
+        if e.level.lower() == "error":
+            sys.exit(e.exit_code)
 
 
 @cli.command()

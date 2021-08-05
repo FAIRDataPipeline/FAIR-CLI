@@ -23,6 +23,7 @@ import os
 import json
 import posixpath
 import urllib.parse
+from _pytest.mark import param
 import requests
 from typing import Tuple, Any, Dict
 
@@ -73,6 +74,12 @@ def _access(
         )
     _json_req = _request.json()
     _result = _json_req["results"] if "results" in _json_req else _json_req
+
+    # Case of unrecognised object
+    if _request.status_code == 403:
+        raise fdp_exc.RegistryAPICallError(
+            f"Failed to retrieve object of type '{' '.join(obj_path)}' with parameters '{params}'", 403
+        )
     if _request.status_code != response_code:
         _info = ""
         if isinstance(_result, dict):
