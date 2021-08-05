@@ -4,8 +4,8 @@ jobs:
   test:
     name: Test ${{ matrix.os }} (Python ${{ matrix.python }})
     runs-on: ${{ matrix.os }}
-    env:
-      HOME: ./temp_registry
+    # env:
+    #   HOME: ./temp_registry
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest] #, windows-latest]
