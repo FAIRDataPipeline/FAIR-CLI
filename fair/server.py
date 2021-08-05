@@ -67,13 +67,13 @@ def check_server_running(local_remote: str) -> bool:
         return False
 
 
-def launch_server(local_remote: str, verbose: bool = False) -> None:
+def launch_server(local_remote: str = "", verbose: bool = False) -> None:
     """Start the registry server.
 
     Parameters
     ----------
-    local_remote : str
-        URL of local remote registry server
+    local_remote : str, optional
+        URL of local remote registry server, if specified checks that server is running
     verbose : bool, optional
         show registry start output, by default False
     """
@@ -101,21 +101,21 @@ def launch_server(local_remote: str, verbose: bool = False) -> None:
 
     _start.wait()
 
-    if not check_server_running(local_remote):
+    if local_remote and not check_server_running(local_remote):
         raise fdp_exc.RegistryError(
             "Failed to start local registry, no response from server"
         )
 
 
 def stop_server(
-    local_remote: str, force: bool = False, verbose: bool = False
+    local_remote: str = "", force: bool = False, verbose: bool = False
 ) -> None:
     """Stops the FAIR Data Pipeline local server
 
     Parameters
     ----------
-    local_remote : str
-        URL of local remote registry server
+    local_remote : str, optional
+        URL of local remote registry server, if specified checks server stopped
     force : bool, optional
         whether to force server shutdown if it is being used
     """
@@ -149,7 +149,7 @@ def stop_server(
 
     _stop.wait()
 
-    if check_server_running(local_remote):
+    if local_remote and check_server_running(local_remote):
         raise fdp_exc.RegistryError("Failed to stop registry server.")
 
 def install_registry() -> None:

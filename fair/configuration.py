@@ -22,7 +22,6 @@ __date__ = "2021-07-02"
 import os
 import pathlib
 import uuid
-import requests
 from typing import MutableMapping, Any, Dict, Tuple
 
 import yaml
@@ -32,6 +31,7 @@ import fair.common as fdp_com
 import fair.exceptions as fdp_exc
 import fair.identifiers as fdp_id
 import fair.server as fdp_serv
+import fair.registry.requests as fdp_req
 
 
 def read_local_fdpconfig(repo_loc: str) -> MutableMapping:
@@ -211,33 +211,6 @@ def check_registry_exists() -> bool:
     directory = os.path.join(pathlib.Path.home(), '.fair/registry')
     return os.path.isdir(directory)
 
-def check_local_api(_local_url) -> None:
-    """Checks if local API is online and if not tries to start it"""
-
-    while True:
-        # Ping server, if code 200 returned then continue with setup
-        try:
-            _server_status = requests.get(_local_url).status_code
-            if _server_status == 200:
-                click.echo("Successfully connected to local API")
-                break
-            else:
-                raise Exception(f"Server returned code {_server_status}")
-        # Starts server if code is not 200 or server can't be reached
-        except:
-            if click.confirm("Local API currently offline, would you like to"
-            " start the server now?"):
-                try:
-                    fdp_serv.launch_server(_local_url)
-                except:
-                    click.confirm(
-                        "Failed to launch server, continue with setup?",
-                        abort = True
-                    )
-                    break
-            else:
-                click.echo("Local API offline, continuing with setup")
-                break
 
 def global_config_query() -> Dict[str, Any]:
     """Ask user question set for creating global FAIR config"""
@@ -257,10 +230,23 @@ def global_config_query() -> Dict[str, Any]:
     _remote_url = click.prompt("Remote API URL")
     _local_url = click.prompt("Local API URL", default=_def_local)
 
-    check_local_api(_local_url)
+    if not fdp_serv.check_server_running(_local_url):
+        _run_server = click.confirm("Local registry is offline, would you like to start it?", default=False)
+        if _run_server:
+            fdp_serv.launch_server(_local_url)
+        else:
+            click.echo("Temporarily launching server to retrieve API token.")
+            fdp_serv.launch_server(_local_url)
+            fdp_serv.stop_server(_local_url)
+            try:
+                fdp_req.local_token()
+            except fdp_exc.FileNotFoundError:
+                raise fdp_exc.RegistryError("Failed to retrieve local API token from registry.")
 
     _user_email = click.prompt("Email")
     _user_orcid = click.prompt("ORCID", default="None")
+
+    _def_data_store = click.prompt("Default Data Store: ", default=os.path.join(fdp_com.USER_FAIR_DIR, 'data'))
 
     _uuid = None
 
@@ -310,6 +296,7 @@ def global_config_query() -> Dict[str, Any]:
     _user_info["orcid"] = _user_orcid
 
     return {
+        "data_store": _def_data_store,
         "user": _user_info,
         "remotes": {"local": _local_url, "origin": _remote_url},
         "namespaces": {"input": _def_ispace, "output": _def_ospace},
