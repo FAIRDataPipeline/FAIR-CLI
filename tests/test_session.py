@@ -5,6 +5,7 @@ import yaml
 
 import fair.common as fdp_com
 import fair.session as fdp_s
+import fair.server as fdp_serv
 
 
 @pytest.mark.session
@@ -135,4 +136,4 @@ def test_make_config(no_init_session):
 
 @pytest.mark.session
 def test_init_cli(repo_root, no_prompt):
-    fdp_s.FAIR(repo_root)
+    fdp_s.FAIR(repo_root, mode=fdp_serv.SwitchMode.CLI)

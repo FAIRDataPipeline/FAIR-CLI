@@ -145,6 +145,7 @@ def no_init_session(
     mocker.patch.object(
         fdp_conf, "read_local_fdpconfig", lambda *args: _loc_conf
     )
+
     _fdp_session = fdp_s.FAIR(repo_root)
     _fdp_session._session_loc = repo_root
     _fdp_session._global_config = _glob_conf
@@ -159,5 +160,6 @@ def no_init_session(
     mocker.patch.object(fdp_s, "FAIR", lambda *args, **kwargs: _fdp_session)
 
     yield _fdp_session
+
     _fdp_session.close_session()
 

@@ -1,9 +1,11 @@
 import pytest
 import os
 import requests_mock
+import glob
 
 import fair.server as fdp_serv
 import fair.exceptions as fdp_exc
+import fair.common as fdp_com
 
 LOCALHOST = "http://localhost:8000/api/"
 
@@ -37,6 +39,8 @@ def test_start_server_fail(no_registry_autoinstall, file_always_exists, subproce
 def test_stop_server_success(no_registry_autoinstall, file_always_exists, subprocess_do_nothing, mocker, **kwargs):
     mocker.patch.object(os.path, 'exists', lambda x : True)
     kwargs['rmock'].get(LOCALHOST, status_code=400)
+    for run in glob.glob(os.path.join(fdp_com.session_cache_dir(), '*.run')):
+        os.remove(run)
     fdp_serv.stop_server(LOCALHOST)
 
 
