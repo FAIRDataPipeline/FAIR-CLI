@@ -64,14 +64,16 @@ def no_prompt(mocker):
 @pytest.fixture
 def git_mock(mocker):
     class mock_remote:
-        url = 'git@nowhere.com'
+        def __init__(self, url):
+            self.url = url
     class mock_branch:
-        name = 'test-branch'
+        def __init__(self, name):
+            self.name = name
     class mock_repo:
         tags = ['test-tag']
-        remotes = {'origin': mock_remote()}
-        active_branch = mock_branch()
-        branches = [mock_branch()]
+        remotes = {'origin': mock_remote('git@nowhere.com'), 'other': mock_remote('git@undefined.com')}
+        active_branch = mock_branch('test-branch')
+        branches = [mock_branch('test-branch')]
     mocker.patch.object(git, 'Repo', lambda x: mock_repo())
 
 

@@ -9,3 +9,4 @@ run_metadata:
   author_id: ${{USER_ID}}
   conf_dir: ${{ CONFIG_DIR }}
   datetime_fmt: ${{ DATETIME-%Y%m%d.%H%M }}
+  git_url: ${{ GIT_REMOTE_OTHER }}

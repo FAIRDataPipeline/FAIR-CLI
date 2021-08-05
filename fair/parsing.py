@@ -168,7 +168,6 @@ def subst_cli_vars(run_dir: str, run_time: datetime.datetime, config_yaml: str) 
         "CONFIG_DIR": lambda : run_dir,
         "SOURCE_CONFIG": lambda : config_yaml,
         "GIT_BRANCH": lambda : _repo_check(_fair_head).active_branch.name,
-        "GIT_REMOTE_ORIGIN": lambda : _repo_check(_fair_head).remotes["origin"].url,
         "GIT_TAG": _tag_check,
     }
 
@@ -180,8 +179,19 @@ def subst_cli_vars(run_dir: str, run_time: datetime.datetime, config_yaml: str) 
     _regex_dt_fmt = re.compile(r'\$\{\{\s*DATETIME\-.+\s*\}\}')
     _regex_fmt = re.compile(r'\$\{\{\s*DATETIME\-(.+)\s*\}\}')
 
+    # Additional parse for branch choice
+    _regex_git_remote = re.compile(r'\$\{\{\s*GIT_REMOTE_[A-Z]+\s*\}\}')
+    _regex_git_remote_name = re.compile(r'\$\{\{\s*GIT_REMOTE_([A-Z]+)\s*\}\}')
+
     _dt_fmt_res = _regex_dt_fmt.findall(_conf_str)
     _fmt_res = _regex_fmt.findall(_conf_str)
+
+    _git_remote_res = _regex_git_remote.findall(_conf_str)
+    _git_rem_name_res = _regex_git_remote_name.findall(_conf_str)
+
+    # The two regex searches should match lengths
+    if len(_git_remote_res) != len(_git_rem_name_res):
+        raise fdp_exc.UserConfigError("Failed to parse git remote variable")
 
     # The two regex searches should match lengths
     if len(_dt_fmt_res) != len(_fmt_res):
@@ -191,6 +201,18 @@ def subst_cli_vars(run_dir: str, run_time: datetime.datetime, config_yaml: str) 
         for i, _ in enumerate(_dt_fmt_res):
             _time_str = run_time.strftime(_fmt_res[i].strip())
             _conf_str = _conf_str.replace(_dt_fmt_res[i], _time_str)
+
+    if _git_remote_res:
+        for i, _ in enumerate(_git_remote_res):
+            _name_str = _git_rem_name_res[i]
+
+            try:
+                _rem_str = _repo_check(_fair_head).remotes[_name_str.lower()]
+                _rem_str = _rem_str.url
+            except KeyError:
+                raise fdp_exc.UserConfigError(f"Failed to find URL for git remote '{_name_str.lower()}'")
+            
+            _conf_str = _conf_str.replace(_git_remote_res[i], _rem_str)
 
     _regex_dict = {
         var: r'\$\{\{\s*'+f'{var}'+r'\s*\}\}'

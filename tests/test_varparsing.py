@@ -10,7 +10,7 @@ import fair.configuration as fdp_conf
 import fair.exceptions as fdp_exc
 
 @pytest.mark.varparse
-def test_parse_vars(mocker):
+def test_parse_vars(mocker, git_mock):
     _dummy_file = os.path.join(os.path.dirname(__file__), 'data', 'dummy_conf.yaml')
     _now = datetime.datetime.now()
     mocker.patch.object(
@@ -29,6 +29,10 @@ def test_parse_vars(mocker):
         pathlib.Path(os.path.dirname(_dummy_file)).parent.parent
     ).remotes['origin'].url
 
+    _other = git.Repo(
+        pathlib.Path(os.path.dirname(_dummy_file)).parent.parent
+    ).remotes['other'].url
+
     _u_config = fdp_parse.subst_cli_vars(
         os.getcwd(),
         _now,
@@ -46,6 +50,7 @@ def test_parse_vars(mocker):
     assert _remote == _u_config['write'][1].replace(_junk, '')
     assert _u_config['run_metadata']['author_id'] == _fake_id
     assert _u_config['run_metadata']['conf_dir'] == os.getcwd()
+    assert _u_config['run_metadata']['git_url'] == _other
     assert _u_config['read'][2]['user'] == _fake_name
 
     # If test is run over a minute boundary then it may fail
