@@ -133,7 +133,3 @@ def test_make_config(no_init_session):
     for i in _expected_meta_start:
         assert i in _config["run_metadata"]
 
-
-@pytest.mark.session
-def test_init_cli(repo_root, no_prompt):
-    fdp_s.FAIR(repo_root, mode=fdp_serv.SwitchMode.CLI)
