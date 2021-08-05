@@ -69,7 +69,7 @@ def _access(
     except requests.exceptions.ConnectionError:
         raise fdp_exc.UnexpectedRegistryServerState(
             f"Failed to make registry API request '{_url}'",
-            hint="Is this the remote correct and the server running?"
+            hint="Is this remote correct and the server running?"
         )
     _json_req = _request.json()
     _result = _json_req["results"] if "results" in _json_req else _json_req

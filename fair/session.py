@@ -485,10 +485,7 @@ class FAIR:
             )
             os.remove(_cache_addr)
 
-        if not os.path.exists(
-            os.path.join(fdp_com.session_cache_dir(), "user.run")
-            and self._run_mode != fdp_serv.SwitchMode.NO_SERVER
-        ):
+        if not os.path.exists(os.path.join(fdp_com.session_cache_dir(), "user.run")) and self._run_mode != fdp_serv.SwitchMode.NO_SERVER:
             fdp_serv.stop_server(self._local_config["remotes"]["local"])
 
         with open(fdp_com.staging_cache(self._session_loc), "w") as f:

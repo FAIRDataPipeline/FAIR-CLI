@@ -6,6 +6,7 @@ import os
 import yaml
 import click
 import uuid
+import subprocess
 import git
 
 import fair.common as fdp_com
@@ -35,6 +36,23 @@ def repo_root(module_mocker):
     module_mocker.patch("fair.common.find_fair_root", lambda *args: _tempdir)
     return _tempdir
 
+@pytest.fixture
+def subprocess_do_nothing(mocker):
+    class _stdout:
+        def __init__(self):
+            pass
+
+    class dummy_popen:
+        def __init__(self, *args, **kwargs):
+            self.stdout = _stdout()
+        def wait(self):
+            pass
+
+    mocker.patch.object(subprocess, 'Popen', dummy_popen)
+
+@pytest.fixture
+def file_always_exists(mocker):
+    mocker.patch.object(os.path, 'exists', lambda *args, **kwargs: True)
 
 @pytest.fixture
 def no_prompt(mocker):

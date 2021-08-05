@@ -203,7 +203,7 @@ def run(ctx, config: str, debug: bool):
     if not ctx.invoked_subcommand:
         try:
             with fdp_session.FAIR(
-                os.getcwd(), config, debug=debug
+                os.getcwd(), config, debug=debug, mode=fdp_svr.SwitchMode.CLI
             ) as fair_session:
                 fair_session.run()
         except fdp_exc.FAIRCLIException as e:
