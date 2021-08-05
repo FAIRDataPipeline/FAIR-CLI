@@ -47,4 +47,10 @@ def test_parse_vars(mocker):
     assert _u_config['run_metadata']['author_id'] == _fake_id
     assert _u_config['run_metadata']['conf_dir'] == os.getcwd()
     assert _u_config['read'][2]['user'] == _fake_name
-    assert str(_u_config['run_metadata']['datetime_fmt']) == _now.strftime("%Y%m%d.%H%M")
+
+    # If test is run over a minute boundary then it may fail
+    try:
+        assert str(_u_config['run_metadata']['datetime_fmt']) == _now.strftime("%Y%m%d.%H%M")
+    except AssertionError:
+        _now += datetime.timedelta(minutes=-1)
+        assert str(_u_config['run_metadata']['datetime_fmt']) == _now.strftime("%Y%m%d.%H%M")
