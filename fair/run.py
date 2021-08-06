@@ -125,7 +125,7 @@ def run_command(
         _run_dir = fdp_com.default_coderun_dir()
 
     _run_dir = os.path.join(_run_dir, _timestamp)
-    os.makedirs(_run_dir)
+    os.makedirs(_run_dir, exist_ok=True)
 
     # Set location of working config.yaml to the run directory
     _work_cfg_yml = os.path.join(_run_dir, "config.yaml")

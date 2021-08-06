@@ -152,7 +152,7 @@ def no_init_session(
         fdp_conf, "read_local_fdpconfig", lambda *args: _loc_conf
     )
 
-    os.makedirs(os.path.join(repo_root, '.fair'))
+    os.makedirs(os.path.join(repo_root, '.fair'), exist_ok=True)
 
     _fdp_session = fdp_s.FAIR(repo_root)
     _fdp_session._session_loc = repo_root

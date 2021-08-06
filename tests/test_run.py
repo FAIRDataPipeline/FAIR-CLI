@@ -18,7 +18,7 @@ def test_create_work_cfg(no_init_session):
     _now = datetime.datetime.now()
     _ts = _now.strftime("%Y-%m-%d_%H_%M_%S")
     _out = os.path.join(fdp_com.default_coderun_dir(), _ts, "config.yaml")
-    os.makedirs(os.path.dirname(_out))
+    os.makedirs(os.path.dirname(_out), exist_ok=True)
     fdp_run.create_working_config(
         no_init_session._session_loc,
         no_init_session._session_config,

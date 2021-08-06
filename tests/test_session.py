@@ -90,7 +90,7 @@ def test_file_remove(no_init_session):
 @pytest.mark.session
 def test_get_status(no_init_session, capfd):
     _tempdir = os.path.join(no_init_session._session_loc, "tempdir")
-    os.makedirs(_tempdir)
+    os.makedirs(_tempdir, exist_ok=True)
     _staged_files = [os.path.join(_tempdir, f"temp_{i}") for i in range(5)]
     no_init_session.status()
     out, _ = capfd.readouterr()
