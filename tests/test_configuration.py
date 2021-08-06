@@ -27,7 +27,7 @@ def test_get_current_user_name(no_init_session):
     no_init_session.close_session()
     assert (
         " ".join(fdp_conf.get_current_user_name(no_init_session._session_loc))
-        == "Joe Bloggs"
+        == "Joe Emmanuel Bloggs"
     )
 
 
@@ -135,7 +135,7 @@ def test_local_cfg_query(mocker, no_init_session, no_prompt, no_registry_autoins
     _out_dict = fdp_conf.local_config_query(no_init_session._global_config)
     
     assert all(i in _out_dict for i in ["user", "remotes", "namespaces"])
-    assert _out_dict["user"]["given_names"] == "Joe"
+    assert _out_dict["user"]["given_names"] == "Joe Emmanuel"
     assert _out_dict["user"]["family_name"] == "Bloggs"
     assert "local" in _out_dict["remotes"] and "origin" in _out_dict["remotes"]
     assert _out_dict["remotes"]["local"] == "http://localhost:8000/api/"

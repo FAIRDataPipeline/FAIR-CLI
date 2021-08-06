@@ -135,7 +135,7 @@ def no_init_session(
         },
         "user": {
             "email": "jbloggs@nowhere",
-            "given_name": "Joe",
+            "given_names": "Joe Emmanuel",
             "family_name": "Bloggs",
             "uuid": str(uuid.uuid4()),
             "orcid": "000"
@@ -151,6 +151,8 @@ def no_init_session(
     mocker.patch.object(
         fdp_conf, "read_local_fdpconfig", lambda *args: _loc_conf
     )
+
+    os.makedirs(os.path.join(repo_root, '.fair'))
 
     _fdp_session = fdp_s.FAIR(repo_root)
     _fdp_session._session_loc = repo_root
