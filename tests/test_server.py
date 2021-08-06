@@ -36,8 +36,8 @@ def test_start_server_fail(no_registry_autoinstall, file_always_exists, subproce
 
 @pytest.mark.server
 @requests_mock.Mocker(kw='rmock')
-def test_stop_server_success(no_registry_autoinstall, file_always_exists, mocker, **kwargs):
-    mocker.patch.object(os.path, 'exists', lambda x : True)
+def test_stop_server_success(no_registry_autoinstall, file_always_exists, subprocess_do_nothing, mocker, **kwargs):
+    print(os.path.exists('asdad'))
     kwargs['rmock'].get(LOCALHOST, status_code=400)
     for run in glob.glob(os.path.join(fdp_com.session_cache_dir(), '*.run')):
         os.remove(run)

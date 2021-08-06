@@ -14,6 +14,7 @@ import fair.session as fdp_s
 import fair.server as fdp_svr
 import fair.configuration as fdp_conf
 import fair.registry.storage as fdp_store
+import fair.registry.requests as fdp_req
 
 
 @pytest.fixture(scope="module")
@@ -49,6 +50,10 @@ def subprocess_do_nothing(mocker):
             pass
 
     mocker.patch.object(subprocess, 'Popen', dummy_popen)
+
+@pytest.fixture
+def fake_token(mocker):
+    mocker.patch.object(fdp_req, 'local_token', lambda: '000000')
 
 @pytest.fixture
 def file_always_exists(mocker):

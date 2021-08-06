@@ -1,10 +1,7 @@
 import pytest
 import os
-import subprocess
 import datetime
 import yaml
-import shutil
-import pathlib
 import glob
 
 from click.testing import CliRunner
