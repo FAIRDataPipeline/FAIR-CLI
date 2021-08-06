@@ -469,7 +469,8 @@ class FAIR:
                 self._global_config
             )
 
-        os.mkdir(_fair_dir)
+        if not os.path.exists(_fair_dir):
+            os.mkdir(_fair_dir)
 
         with open(fdp_com.local_fdpconfig(self._session_loc), "w") as f:
             yaml.dump(self._local_config, f)
