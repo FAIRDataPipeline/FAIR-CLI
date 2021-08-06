@@ -107,6 +107,11 @@ def test_email_name_set(mocker, no_init_session):
 
 
 @pytest.mark.configuration
+def test_orcid_retrieval(mocker, no_init_session):
+    assert fdp_conf.get_current_user_orcid(no_init_session._session_loc) == "000"
+
+
+@pytest.mark.configuration
 def test_glob_cfg_query(mocker, no_prompt, no_registry_autoinstall, subprocess_do_nothing, fake_token):
     mocker.patch.object(fdp_serv, 'launch_server', lambda *args, **kwargs: None)
     mocker.patch.object(os.path, 'exists', lambda x : True)
@@ -119,4 +124,20 @@ def test_glob_cfg_query(mocker, no_prompt, no_registry_autoinstall, subprocess_d
     assert _out_dict["remotes"]["local"] == "http://localhost:8000/api/"
     assert _out_dict["remotes"]["origin"] == "http://noserver/api/"
     assert _out_dict["namespaces"]["output"] == "jbloggs"
+    assert _out_dict["namespaces"]["input"] == "SCRC"
+
+
+@pytest.mark.configuration
+def test_local_cfg_query(mocker, no_init_session, no_prompt, no_registry_autoinstall, subprocess_do_nothing, fake_token):
+    mocker.patch.object(fdp_serv, 'launch_server', lambda *args, **kwargs: None)
+    mocker.patch.object(os.path, 'exists', lambda x : True)
+    
+    _out_dict = fdp_conf.local_config_query(no_init_session._global_config)
+    
+    assert all(i in _out_dict for i in ["user", "remotes", "namespaces"])
+    assert _out_dict["user"]["given_name"] == "Joe"
+    assert _out_dict["user"]["family_name"] == "Bloggs"
+    assert "local" in _out_dict["remotes"] and "origin" in _out_dict["remotes"]
+    assert _out_dict["remotes"]["local"] == "http://localhost:8000/api/"
+    assert _out_dict["remotes"]["origin"] == "http://noserver/api"
     assert _out_dict["namespaces"]["input"] == "SCRC"
