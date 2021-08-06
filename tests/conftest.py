@@ -138,6 +138,7 @@ def no_init_session(
             "given_name": "Joe",
             "family_name": "Bloggs",
             "uuid": str(uuid.uuid4()),
+            "orcid": "000"
         },
     }
     with open(fdp_com.global_fdpconfig(), "w") as f:
