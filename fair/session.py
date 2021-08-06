@@ -390,6 +390,7 @@ class FAIR:
                     _out_str += f"\t[yellow]{url}[/yellow]"
                 _remote_print.append(_out_str)
             rich.print("\n".join(_remote_print))
+        return _remote_print
 
     def status(self) -> None:
         """Get the status of staging"""

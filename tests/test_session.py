@@ -2,10 +2,9 @@ import pytest
 import os
 import pathlib
 import yaml
+import re
 
 import fair.common as fdp_com
-import fair.session as fdp_s
-import fair.server as fdp_serv
 
 
 @pytest.mark.session
@@ -33,6 +32,17 @@ def test_file_add(no_init_session):
     assert yaml.safe_load(
         open(fdp_com.staging_cache(no_init_session._session_loc))
     )["../temp"]
+
+
+@pytest.mark.session
+def test_remote_list(no_init_session):
+    no_init_session.make_starter_config()
+    with open(fdp_com.local_fdpconfig(no_init_session._session_loc)) as f:
+        _conf = yaml.safe_load(f)
+    _res = no_init_session.list_remotes()
+    _res = [re.findall(r'\](.+)\[', i)[0] for i in _res]
+    assert sorted(['local', 'origin']) == sorted(_res)
+
 
 
 @pytest.mark.session

@@ -53,5 +53,3 @@ def test_parse_vars(mocker, git_mock):
     assert _u_config['run_metadata']['git_url'] == _other
     assert _u_config['read'][2]['user'] == _fake_name
 
-    # If test is run over a minute boundary then it may fail
-    assert _now.strftime("%Y%m%d.%H") in str(_u_config['run_metadata']['datetime_fmt'])
