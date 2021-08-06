@@ -131,7 +131,7 @@ def get_current_user_name(repo_loc: str) -> Tuple[str]:
     if not _local_conf:
         raise fdp_exc.CLIConfigurationError("Cannot retrieve current user from empty CLI config")
 
-    _given = _local_conf["user"]["given_name"]
+    _given = _local_conf["user"]["given_names"]
     if "family_name" in _local_conf["user"]:
         _family = _local_conf["user"]["family_name"]
     else:
@@ -252,16 +252,18 @@ def global_config_query() -> Dict[str, Any]:
 
     if _user_orcid != "None":
 
-        while not fdp_id.check_orcid(_user_orcid):
+        _user_info = fdp_id.check_orcid(_user_orcid)
+
+        while not _user_info:
             click.echo("Invalid ORCID given.")
             _user_orcid = click.prompt("ORCID")
             _user_info = fdp_id.check_orcid(_user_orcid)
 
         click.echo(
-            f"Found entry: {_user_info['given_name']} {_user_info['family_name']}"
+            f"Found entry: {_user_info['given_names']} {_user_info['family_name']}"
         )
 
-        _def_ospace = _user_info["given_name"][0]
+        _def_ospace = _user_info["given_names"][0]
 
         if len(_user_info["family_name"].split()) > 1:
             _def_ospace += _user_info["family_name"].split()[-1]
@@ -277,11 +279,11 @@ def global_config_query() -> Dict[str, Any]:
             _given_name, _family_name = _full_name.split(" ", 1)
             _def_ospace = _full_name.lower().strip()[0]
             _def_ospace += _full_name.lower().split()[-1]
-            _user_info["given_name"] = _given_name.strip()
+            _user_info["given_names"] = _given_name.strip()
             _user_info["family_name"] = _family_name.strip()
         else:
             _def_ospace += _full_name
-            _user_info["given_name"] = _full_name
+            _user_info["given_names"] = _full_name
             _user_info["family_name"] = None
 
         _user_info["uuid"] = _uuid

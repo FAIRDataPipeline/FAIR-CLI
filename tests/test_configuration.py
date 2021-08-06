@@ -118,7 +118,7 @@ def test_glob_cfg_query(mocker, no_prompt, no_registry_autoinstall, subprocess_d
     _out_dict = fdp_conf.global_config_query()
 
     assert all(i in _out_dict for i in ["user", "remotes", "namespaces"])
-    assert _out_dict["user"]["given_name"] == "Joe"
+    assert _out_dict["user"]["given_names"] == "Joe"
     assert _out_dict["user"]["family_name"] == "Bloggs"
     assert "local" in _out_dict["remotes"] and "origin" in _out_dict["remotes"]
     assert _out_dict["remotes"]["local"] == "http://localhost:8000/api/"
@@ -135,7 +135,7 @@ def test_local_cfg_query(mocker, no_init_session, no_prompt, no_registry_autoins
     _out_dict = fdp_conf.local_config_query(no_init_session._global_config)
     
     assert all(i in _out_dict for i in ["user", "remotes", "namespaces"])
-    assert _out_dict["user"]["given_name"] == "Joe"
+    assert _out_dict["user"]["given_names"] == "Joe"
     assert _out_dict["user"]["family_name"] == "Bloggs"
     assert "local" in _out_dict["remotes"] and "origin" in _out_dict["remotes"]
     assert _out_dict["remotes"]["local"] == "http://localhost:8000/api/"
