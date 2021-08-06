@@ -38,6 +38,8 @@ __date__ = "2021-06-28"
 import os
 import pathlib
 
+import yaml
+
 import fair.exceptions as fdp_exc
 
 USER_FAIR_DIR = os.path.join(pathlib.Path.home(), ".fair")
@@ -89,6 +91,9 @@ def staging_cache(user_loc: str) -> str:
 
 def default_data_dir() -> str:
     """Location of the default data store"""
+    _glob_conf = yaml.safe_load(global_fdpconfig())
+    if 'data_store' in _glob_conf:
+        return _glob_conf['data_store']
     return os.path.join(USER_FAIR_DIR, "data")
 
 

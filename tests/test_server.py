@@ -1,31 +1,13 @@
 import pytest
 import os
-import subprocess
 import requests_mock
+import glob
 
 import fair.server as fdp_serv
 import fair.exceptions as fdp_exc
+import fair.common as fdp_com
 
 LOCALHOST = "http://localhost:8000/api/"
-
-
-@pytest.fixture
-def subprocess_do_nothing(mocker):
-    class _stdout:
-        def __init__(self):
-            pass
-
-    class dummy_popen:
-        def __init__(self, *args, **kwargs):
-            self.stdout = _stdout()
-        def wait(self):
-            pass
-
-    mocker.patch.object(subprocess, 'Popen', dummy_popen)
-
-@pytest.fixture
-def file_always_exists(mocker):
-    mocker.patch.object(os.path, 'exists', lambda *args, **kwargs: True)
 
 
 @pytest.mark.server
@@ -55,8 +37,10 @@ def test_start_server_fail(no_registry_autoinstall, file_always_exists, subproce
 @pytest.mark.server
 @requests_mock.Mocker(kw='rmock')
 def test_stop_server_success(no_registry_autoinstall, file_always_exists, subprocess_do_nothing, mocker, **kwargs):
-    mocker.patch.object(os.path, 'exists', lambda x : True)
+    print(os.path.exists('asdad'))
     kwargs['rmock'].get(LOCALHOST, status_code=400)
+    for run in glob.glob(os.path.join(fdp_com.session_cache_dir(), '*.run')):
+        os.remove(run)
     fdp_serv.stop_server(LOCALHOST)
 
 

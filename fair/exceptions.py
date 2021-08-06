@@ -127,7 +127,7 @@ class RegistryAPICallError(FAIRCLIException):
 
     def __init__(self, msg, error_code):
         self.error_code = error_code
-        super().__init__(msg, exit_code=error_code)
+        super().__init__(msg, exit_code=error_code, level="Warning" if error_code == 403 else "Error")
 
 class NotImplementedError(FAIRCLIException):
     """Errors relating to features that have not yet been implemented"""

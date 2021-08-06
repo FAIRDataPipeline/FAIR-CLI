@@ -71,7 +71,8 @@ def init(config: str, debug: bool) -> None:
             fair_session.initialise()
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
-        sys.exit(e.exit_code)
+        if e.level.lower() == "error":
+            sys.exit(e.exit_code)
 
 
 @cli.command()
@@ -93,7 +94,8 @@ def purge(glob) -> None:
                 fair_session.purge(glob)
         except fdp_exc.FAIRCLIException as e:
             e.err_print()
-            sys.exit(e.exit_code)
+            if e.level.lower() == "error":
+                sys.exit(e.exit_code)
 
 
 @cli.group()
@@ -109,7 +111,8 @@ def start() -> None:
         fdp_session.FAIR(os.getcwd(), mode=fdp_svr.SwitchMode.USER_START)
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
-        sys.exit(e.exit_code)
+        if e.level.lower() == "error":
+            sys.exit(e.exit_code)
 
 
 @registry.command()
@@ -125,7 +128,8 @@ def stop(force) -> None:
         fdp_session.FAIR(os.getcwd(), mode=_mode)
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
-        sys.exit(e.exit_code)
+        if e.level.lower() == "error":
+            sys.exit(e.exit_code)
 
 
 @cli.command()
@@ -152,7 +156,8 @@ def reset(file_paths: typing.List[str], debug: bool) -> None:
                 fair_session.change_staging_state(file_name, False)
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
-        sys.exit(e.exit_code)
+        if e.level.lower() == "error":
+            sys.exit(e.exit_code)
 
 
 @cli.command()
@@ -166,7 +171,8 @@ def add(file_paths: typing.List[str], debug: bool) -> None:
                 fair_session.change_staging_state(file_name, True)
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
-        sys.exit(e.exit_code)
+        if e.level.lower() == "error":
+            sys.exit(e.exit_code)
 
 
 @cli.command()
@@ -187,49 +193,37 @@ def rm(
                 fair_session.remove_file(file_name, cached)
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
-        sys.exit(e.exit_code)
-
-
-@cli.group(invoke_without_command=True)
-@click.pass_context
-@click.option(
-    "--config",
-    help="Specify alternate location for generated config.yaml",
-    default=fdp_com.local_user_config(os.getcwd()),
-)
-@click.option("--debug/--no-debug", help="Run in debug mode", default=False)
-def run(ctx, config: str, debug: bool):
-    """Initialises a run with the option to specify a bash command"""
-    if not ctx.invoked_subcommand:
-        try:
-            with fdp_session.FAIR(
-                os.getcwd(), config, debug=debug
-            ) as fair_session:
-                fair_session.run()
-        except fdp_exc.FAIRCLIException as e:
-            e.err_print()
+        if e.level.lower() == "error":
             sys.exit(e.exit_code)
 
 
-@run.command()
-@click.argument("bash_command")
+@cli.command()
+@click.argument(
+    "config",
+    nargs=-1
+)
 @click.option(
-    "--config",
-    help="Specify alternate location for generated config.yaml",
-    default=fdp_com.local_user_config(os.getcwd()),
+    "--script",
+    help="Specify a shell command to execute, this will be inserted into the working config",
+    default=""
 )
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
-def bash(bash_command: str, config: str, debug: bool):
-    """Run a BASH command and set this to be the default run command"""
+def run(config: str, script: str, debug: bool):
+    """Initialises a run with the option to specify a bash command"""
+    # Allow no config to be specified, if that is the case use default local
+    if len(config) > 0:
+        config = config[0]
+    else:
+        config = fdp_com.local_user_config(os.getcwd())
     try:
         with fdp_session.FAIR(
-            os.getcwd(), config, debug=debug
+            os.getcwd(), config, debug=debug, mode=fdp_svr.SwitchMode.CLI
         ) as fair_session:
-            fair_session.run(bash_command)
+            fair_session.run(script)
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
-        sys.exit(e.exit_code)
-
+        if e.level.lower() == "error":
+            sys.exit(e.exit_code)
 
 @cli.group(invoke_without_command=True)
 @click.option("--verbose/--no-verbose", "-v/")
@@ -243,7 +237,8 @@ def remote(ctx, verbose: bool = False, debug: bool = False):
                 fair_session.list_remotes(verbose)
         except fdp_exc.FAIRCLIException as e:
             e.err_print()
-            sys.exit(e.exit_code)
+            if e.level.lower() == "error":
+                sys.exit(e.exit_code)
 
 
 @remote.command()
@@ -268,7 +263,8 @@ def add(options: typing.List[str], debug: bool) -> None:
             fair_session.add_remote(_url, _label)
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
-        sys.exit(e.exit_code)
+        if e.level.lower() == "error":
+            sys.exit(e.exit_code)
 
 
 @remote.command()
@@ -287,7 +283,8 @@ def remove(label: str, debug: bool) -> None:
             fair_session.remove_remove(label)
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
-        sys.exit(e.exit_code)
+        if e.level.lower() == "error":
+            sys.exit(e.exit_code)
 
 
 @remote.command()
@@ -302,7 +299,8 @@ def modify(ctx, label: str, url: str, debug: bool) -> None:
             fair_session.modify_remote(label, url)
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
-        sys.exit(e.exit_code)
+        if e.level.lower() == "error":
+            sys.exit(e.exit_code)
 
 
 @cli.command()

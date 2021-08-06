@@ -97,10 +97,17 @@ def run_command(
             f"Failed to load file '{config_yaml}', contents empty."
         )
 
-    if "run_metadata" not in _cfg or (
-        "script" not in _cfg["run_metadata"]
-        and "script_path" not in _cfg["run_metadata"]
-    ):
+    if 'run_metadata' not in _cfg:
+        raise fdp_exc.UserConfigError(
+            f"Failed to find 'run_metadata' in config '{config_yaml}'"
+        )
+
+    # If a bash command is specified, override the config.yaml with it
+    if bash_cmd:
+        _cfg['run_metadata']['script'] = bash_cmd
+        yaml.dump(_cfg, open(config_yaml, 'w'))
+
+    if "script" not in _cfg["run_metadata"] and "script_path" not in _cfg["run_metadata"]:
         raise fdp_exc.UserConfigError(
             "Failed to find executable method in specified "
             "'config.yaml', expected either key 'script' or 'script_path'"
@@ -138,19 +145,6 @@ def run_command(
         _work_cfg_yml,
     )
 
-    # If a bash command is specified, save it to the configuration
-    # and use this during the run
-    if bash_cmd:
-        _cfg["run_metadata"]["script"] = bash_cmd
-
-        _work_cfg = yaml.safe_load(open(_work_cfg_yml))
-        _work_cfg["run_metadata"]["script"] = bash_cmd
-
-        with open(config_yaml, "w") as f:
-            yaml.dump(_cfg, f)
-        with open(_work_cfg_yml, "w") as f:
-            yaml.dump(_work_cfg, f)
-
     # Create a run script if 'script' is specified instead of 'script_path'
     # else use the script
     _cmd_setup = setup_run_script(_work_cfg_yml, _run_dir)
@@ -174,6 +168,13 @@ def run_command(
 
     # Fetch the CLI configurations for logging information
     _glob_conf = fdp_conf.read_global_fdpconfig()
+
+    if not _glob_conf:
+        raise fdp_exc.CLIConfigurationError(
+            "Global configuration is empty",
+            hint="You may need to resetup FAIR-CLI on this system"
+        )
+
     _loc_conf = fdp_conf.read_local_fdpconfig(repo_dir)
     _user = fdp_conf.get_current_user_name(repo_dir)
     _email = _glob_conf["user"]["email"]
@@ -222,7 +223,8 @@ def run_command(
     # Exit the session if the run failed
     if _process.returncode != 0:
         raise fdp_exc.CommandExecutionError(
-            f"Run failed with exit code '{_process.returncode}'"
+            f"Run failed with exit code '{_process.returncode}'",
+            exit_code=_process.returncode
         )
 
 
@@ -317,14 +319,15 @@ def setup_run_script(config_yaml: str, output_dir: str) -> Dict[str, Any]:
         if not os.path.exists(_path):
             raise fdp_exc.CommandExecutionError(
                 f"Failed to execute run, script '{_path}' was not found, or"
-                " failed to be created."
+                " failed to be created.",
+                exit_code=1
             )
         _cmd = open(_path).read()
         _out_file = os.path.join(output_dir, os.path.basename(_path))
         if _cmd:
             with open(_out_file, "w") as f:
                 f.write(_cmd)
-
+    
     if not _cmd or not _out_file:
         raise fdp_exc.UserConfigError(
             "Configuration file must contain either a valid "

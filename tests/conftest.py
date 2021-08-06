@@ -6,6 +6,7 @@ import os
 import yaml
 import click
 import uuid
+import subprocess
 import git
 
 import fair.common as fdp_com
@@ -13,6 +14,7 @@ import fair.session as fdp_s
 import fair.server as fdp_svr
 import fair.configuration as fdp_conf
 import fair.registry.storage as fdp_store
+import fair.registry.requests as fdp_req
 
 
 @pytest.fixture(scope="module")
@@ -35,6 +37,27 @@ def repo_root(module_mocker):
     module_mocker.patch("fair.common.find_fair_root", lambda *args: _tempdir)
     return _tempdir
 
+@pytest.fixture
+def subprocess_do_nothing(mocker):
+    class _stdout:
+        def __init__(self):
+            pass
+
+    class dummy_popen:
+        def __init__(self, *args, **kwargs):
+            self.stdout = _stdout()
+        def wait(self):
+            pass
+
+    mocker.patch.object(subprocess, 'Popen', dummy_popen)
+
+@pytest.fixture
+def fake_token(mocker):
+    mocker.patch.object(fdp_req, 'local_token', lambda: '000000')
+
+@pytest.fixture
+def file_always_exists(mocker):
+    mocker.patch.object(os.path, 'exists', lambda *args, **kwargs: True)
 
 @pytest.fixture
 def no_prompt(mocker):
@@ -127,6 +150,7 @@ def no_init_session(
     mocker.patch.object(
         fdp_conf, "read_local_fdpconfig", lambda *args: _loc_conf
     )
+
     _fdp_session = fdp_s.FAIR(repo_root)
     _fdp_session._session_loc = repo_root
     _fdp_session._global_config = _glob_conf
@@ -141,5 +165,6 @@ def no_init_session(
     mocker.patch.object(fdp_s, "FAIR", lambda *args, **kwargs: _fdp_session)
 
     yield _fdp_session
+
     _fdp_session.close_session()
 

@@ -23,6 +23,7 @@ import os
 import json
 import posixpath
 import urllib.parse
+from _pytest.mark import param
 import requests
 from typing import Tuple, Any, Dict
 
@@ -69,10 +70,16 @@ def _access(
     except requests.exceptions.ConnectionError:
         raise fdp_exc.UnexpectedRegistryServerState(
             f"Failed to make registry API request '{_url}'",
-            hint="Is this the remote correct and the server running?"
+            hint="Is this remote correct and the server running?"
         )
     _json_req = _request.json()
     _result = _json_req["results"] if "results" in _json_req else _json_req
+
+    # Case of unrecognised object
+    if _request.status_code == 403:
+        raise fdp_exc.RegistryAPICallError(
+            f"Failed to retrieve object of type '{' '.join(obj_path)}' with parameters '{params}'", error_code=403
+        )
     if _request.status_code != response_code:
         _info = ""
         if isinstance(_result, dict):
@@ -83,7 +90,7 @@ def _access(
         raise fdp_exc.RegistryAPICallError(
             f"Request failed with status code {_request.status_code}:"
             f" {_info}",
-            _request.status_code,
+            error_code=_request.status_code,
         )
     return _result
 

@@ -245,7 +245,11 @@ class FAIR:
         if not os.path.exists(self._session_config):
             self.make_starter_config()
         self._logger.debug("Setting up command execution")
-        fdp_run.run_command(self._session_loc, self._session_config, bash_cmd)
+        fdp_run.run_command(
+            repo_dir=self._session_loc,
+            config_yaml=self._session_config,
+            bash_cmd=bash_cmd
+        )
 
     def check_is_repo(self) -> None:
         """Check that the current location is a FAIR repository"""
@@ -485,10 +489,7 @@ class FAIR:
             )
             os.remove(_cache_addr)
 
-        if not os.path.exists(
-            os.path.join(fdp_com.session_cache_dir(), "user.run")
-            and self._run_mode != fdp_serv.SwitchMode.NO_SERVER
-        ):
+        if not os.path.exists(os.path.join(fdp_com.session_cache_dir(), "user.run")) and self._run_mode != fdp_serv.SwitchMode.NO_SERVER:
             fdp_serv.stop_server(self._local_config["remotes"]["local"])
 
         with open(fdp_com.staging_cache(self._session_loc), "w") as f:
