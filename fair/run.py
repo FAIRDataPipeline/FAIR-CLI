@@ -313,6 +313,7 @@ def setup_run_script(config_yaml: str, output_dir: str) -> Dict[str, Any]:
         if _cmd:
             with open(_out_file, "w") as f:
                 f.write(_cmd)
+        del _conf_yaml["run_metadata"]["script"]
 
     elif "script_path" in _conf_yaml["run_metadata"]:
         _path = _conf_yaml["run_metadata"]["script_path"]
@@ -333,5 +334,10 @@ def setup_run_script(config_yaml: str, output_dir: str) -> Dict[str, Any]:
             "Configuration file must contain either a valid "
             "'script' or 'script_path' entry under 'run_metadata'"
         )
+
+    _conf_yaml["run_metadata"]["script_path"] = _out_file
+
+    with open(config_yaml, 'w') as f:
+        yaml.dump(_conf_yaml, f)
 
     return {"shell": _shell, "script": _out_file, "env": _run_env}
