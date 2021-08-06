@@ -87,7 +87,7 @@ The file uses paths relative to the *local* `.fair` folder as keys, to behave in
 
 ### `config.yaml`
 
-This is the main file the user will interact with to customise their run. FAIR-CLI automatically generates a starter version of this file with everything in place. The only addition required is setting of either `script` or `script_path` (with the exception of running using `fair run bash` - see [below](#run)) under `run_metadata`.
+This is the main file the user will interact with to customise their run. FAIR-CLI automatically generates a starter version of this file with everything in place. The only addition required is setting of either `script` or `script_path` (with the exception of running using `fair run --script` - see [below](#run)) under `run_metadata`.
 |                                                                                                                                                      |
 | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **`script`**                                                                                                                                         |
@@ -185,9 +185,12 @@ fair run
 ```
 You can also launch a bash command directly which will then be automatically written into the `config.yaml` for you:
 ```
-fair run bash "echo \"Hello World\""
+fair run --script "echo \"Hello World\""
 ```
-note the command itself must be quoted as it is a single argument.
+note the command itself must be quoted as it is a single argument. Finally if you wish to use an alternative `config.yaml` in another location:
+```
+fair run /path/to/config.yaml
+```
 
 ### `registry`
 

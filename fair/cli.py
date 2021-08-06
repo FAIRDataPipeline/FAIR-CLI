@@ -197,48 +197,33 @@ def rm(
             sys.exit(e.exit_code)
 
 
-@cli.group(invoke_without_command=True)
-@click.pass_context
+@cli.command()
+@click.argument(
+    "config",
+    nargs=-1
+)
 @click.option(
-    "--config",
-    help="Specify alternate location for generated config.yaml",
-    default=fdp_com.local_user_config(os.getcwd()),
+    "--script",
+    help="Specify a shell command to execute, this will be inserted into the working config",
+    default=""
 )
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
-def run(ctx, config: str, debug: bool):
+def run(config: str, script: str, debug: bool):
     """Initialises a run with the option to specify a bash command"""
-    if not ctx.invoked_subcommand:
-        try:
-            with fdp_session.FAIR(
-                os.getcwd(), config, debug=debug, mode=fdp_svr.SwitchMode.CLI
-            ) as fair_session:
-                fair_session.run()
-        except fdp_exc.FAIRCLIException as e:
-            e.err_print()
-            if e.level.lower() == "error":
-                sys.exit(e.exit_code)
-
-
-@run.command()
-@click.argument("bash_command")
-@click.option(
-    "--config",
-    help="Specify alternate location for generated config.yaml",
-    default=fdp_com.local_user_config(os.getcwd()),
-)
-@click.option("--debug/--no-debug", help="Run in debug mode", default=False)
-def bash(bash_command: str, config: str, debug: bool):
-    """Run a BASH command and set this to be the default run command"""
+    # Allow no config to be specified, if that is the case use default local
+    if len(config) > 0:
+        config = config[0]
+    else:
+        config = fdp_com.local_user_config(os.getcwd())
     try:
         with fdp_session.FAIR(
-            os.getcwd(), config, debug=debug
+            os.getcwd(), config, debug=debug, mode=fdp_svr.SwitchMode.CLI
         ) as fair_session:
-            fair_session.run(bash_command)
+            fair_session.run(script)
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
         if e.level.lower() == "error":
             sys.exit(e.exit_code)
-
 
 @cli.group(invoke_without_command=True)
 @click.option("--verbose/--no-verbose", "-v/")

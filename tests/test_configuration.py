@@ -108,7 +108,7 @@ def test_email_name_set(mocker, no_init_session):
 
 @pytest.mark.configuration
 def test_glob_cfg_query(mocker, no_prompt, no_registry_autoinstall, subprocess_do_nothing):
-    mocker.patch.object(fdp_serv, 'launch_server', lambda: None)
+    mocker.patch.object(fdp_serv, 'launch_server', lambda *args, **kwargs: None)
     mocker.patch.object(os.path, 'exists', lambda x : True)
     _out_dict = fdp_conf.global_config_query()
 

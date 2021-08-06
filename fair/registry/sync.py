@@ -27,7 +27,7 @@ def get_new_version(uri: str, obj_path: str, version_fmt: str = "", **kwargs) ->
 
     if _existing:
         if 'version' not in _existing[0]:
-            raise fdp_exc.RegistryAPICallError("Expected 'version' in RestAPI call object.")
+            raise fdp_exc.RegistryError("Expected 'version' in RestAPI call object.")
 
         _versions = [semver.VersionInfo.parse(i['version']) for i in _existing]
         _versions = sorted(_versions)

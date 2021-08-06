@@ -21,13 +21,18 @@ def test_run_bash(no_init_session):
         os.path.join(no_init_session._session_loc, fdp_com.FAIR_FOLDER),
         exist_ok=True,
     )
+
     no_init_session.close_session()
     
     _runner = CliRunner()
-    _result = _runner.invoke(fdp_cli.cli, ['run', 'bash', 'echo "Hello World!"'])
+    _result = _runner.invoke(fdp_cli.cli, ['run', '--script', "echo 'Hello World!'"])
 
-    assert _result.exit_code == 0
-    assert _result.output == "Hello World!\n"
+    try:
+        assert _result.exit_code == 0
+        assert _result.output == "Hello World!\n"
+    except AssertionError as e:
+        print(_result.output)
+        raise e
 
     _hist_dir = fdp_hist.history_directory(no_init_session._session_loc)
 
@@ -37,7 +42,7 @@ def test_run_bash(no_init_session):
         reverse=True,
     )
 
-    assert datetime.datetime.now().strftime("%Y-%m-%d_%H_%M_%S") in open(_time_sorted_logs[-1]).read()
+    assert datetime.datetime.now().strftime("%Y-%m-%d_%H_%M") in open(_time_sorted_logs[-1]).read()
 
 
 @pytest.mark.cli
@@ -57,7 +62,6 @@ def test_run_norm(no_init_session):
         _cfg,
         open(fdp_com.local_user_config(no_init_session._session_loc), "w"),
     )
-    _fair_run_bash_cmd = "fair run"
 
     _cwd = os.getcwd()
     os.chdir(no_init_session._session_loc)

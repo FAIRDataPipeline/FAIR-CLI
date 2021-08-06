@@ -78,7 +78,7 @@ def _access(
     # Case of unrecognised object
     if _request.status_code == 403:
         raise fdp_exc.RegistryAPICallError(
-            f"Failed to retrieve object of type '{' '.join(obj_path)}' with parameters '{params}'", 403
+            f"Failed to retrieve object of type '{' '.join(obj_path)}' with parameters '{params}'", error_code=403
         )
     if _request.status_code != response_code:
         _info = ""
@@ -90,7 +90,7 @@ def _access(
         raise fdp_exc.RegistryAPICallError(
             f"Request failed with status code {_request.status_code}:"
             f" {_info}",
-            _request.status_code,
+            error_code=_request.status_code,
         )
     return _result
 
