@@ -85,10 +85,11 @@ def test_run_setup_default_windows(mocker, setup_with_opts, no_registry_autoinst
 @pytest.mark.run
 def test_run_setup_with_script(setup_with_opts, no_registry_autoinstall):
     _script = "print('Test Run')"
-    _temp = tempfile.mktemp()
-    with open(_temp, "w") as f:
+    _temp, _name = tempfile.mkstemp()
+    with os.fdopen(_temp, "w") as f:
         f.write(_script)
-    _out, _cfg = setup_with_opts({"shell": "python", "script_path": _temp})
+    assert os.path.exists(_name)
+    _out, _cfg = setup_with_opts({"shell": "python", "script_path": _name})
     assert _out["shell"] == "python"
     assert open(_out["script"]).read() == "print('Test Run')"
     assert _out["env"]["FDP_LOCAL_REPO"] == _cfg["run_metadata"]["local_repo"]

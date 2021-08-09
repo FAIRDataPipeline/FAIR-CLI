@@ -14,7 +14,6 @@ import fair.staging as fdp_stage
 def mock_uuid_return(mocker, no_init_session):
     def run_return(*args, **kwargs):
         return {"uuid": "312312312"}
-    _temp = tempfile.mktemp()
     with open(fdp_com.staging_cache(no_init_session._session_loc), 'w') as f:
         yaml.dump({"run": {"312312312": False}, "file": {}}, f)
     _stager = fdp_stage.Stager(no_init_session._session_loc)
