@@ -68,7 +68,7 @@ def flatten_dict(
 
 
 def expand_dict(
-    in_dict: typing.Dict, separator: str = ".", _out_dict: typing.Dict = {}
+    in_dict: typing.Dict, separator: str = ".", _out_dict: typing.Dict = None
 ) -> typing.Dict:
     """Expand a flattened dictionary into a nested dictionary
 
@@ -87,6 +87,9 @@ def expand_dict(
     Dict
         nested dictionary representation of the input
     """
+    if _out_dict is None:
+        _out_dict = {}
+
     for label, value in in_dict.items():
         if separator not in label:
             _out_dict.update({label: value})
@@ -99,7 +102,8 @@ def expand_dict(
     return _out_dict
 
 
-def remove_dictlist_dupes(dicts: typing.List[typing.Dict]) -> typing.List[typing.Dict]:
+def remove_dictlist_dupes(
+    dicts: typing.List[typing.Dict]) -> typing.List[typing.Dict]:
     """Remove duplicate dictionaries from a list of dictionaries
     
     Note: this will only work with single layer dictionaries!

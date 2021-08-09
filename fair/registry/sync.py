@@ -95,13 +95,13 @@ def push_item(
     _writable_fields = fdp_req.get_writable_fields(source_uri, object_path)
 
     _data = {
-        {k: v} for k, v in _response.items()
+        k: v for k, v in _response.items()
         if k in _writable_fields
     }
     
     try:
         _response = fdp_req.post(
-            dest_uri, object_path, _data, token=remote_token
+            dest_uri, object_path, data=_data, token=remote_token
         )
     except fdp_exc.RegistryAPICallError as e:
         raise fdp_exc.SynchronisationError(
@@ -110,6 +110,3 @@ def push_item(
             f" server returned code {e.error_code}",
             error_code=e.error_code
         )
-
-def pull_item():
-    pass

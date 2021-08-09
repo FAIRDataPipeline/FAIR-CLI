@@ -97,9 +97,8 @@ def _access(
         )
     if _request.status_code != response_code:
         _info = ""
-        if isinstance(_result, dict):
-            if "detail" in _result:
-                _info = _result["detail"]
+        if isinstance(_result, dict) and "detail" in _result:
+            _info = _result["detail"]
         if not _info:
             _info = _result
         raise fdp_exc.RegistryAPICallError(

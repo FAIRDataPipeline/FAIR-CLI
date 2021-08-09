@@ -120,11 +120,11 @@ def stop_server(
         whether to force server shutdown if it is being used
     """
     # If there are no session cache files shut down server
-    if glob.glob(os.path.join(fdp_com.session_cache_dir(), "*.run")):
-        if not force:
-            raise fdp_exc.RegistryError(
-                "Could not stop registry server, processes still running."
-            )
+    _run_files = glob.glob(os.path.join(fdp_com.session_cache_dir(), "*.run"))
+    if not force and _run_files:
+        raise fdp_exc.RegistryError(
+            "Could not stop registry server, processes still running."
+        )
 
     _server_stop_script = os.path.join(
         fdp_com.REGISTRY_HOME, "scripts", "stop_fair_registry"

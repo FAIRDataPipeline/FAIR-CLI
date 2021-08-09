@@ -212,6 +212,64 @@ def check_registry_exists() -> bool:
     return os.path.isdir(directory)
 
 
+def _get_user_info_and_namespaces() -> Dict[str, Dict]:
+    _user_email = click.prompt("Email")
+    _user_orcid = click.prompt("ORCID", default="None")
+
+    if _user_orcid != "None":
+        _user_info = fdp_id.check_orcid(_user_orcid)
+
+        while not _user_info:
+            click.echo("Invalid ORCID given.")
+            _user_orcid = click.prompt("ORCID")
+            _user_info = fdp_id.check_orcid(_user_orcid)
+
+        click.echo(
+            f"Found entry: {_user_info['given_names']} "
+            f"{_user_info['family_name']}"
+        )
+
+        _def_ospace = _user_info["given_names"][0]
+
+        if len(_user_info["family_name"].split()) > 1:
+            _def_ospace += _user_info["family_name"].split()[-1]
+        else:
+            _def_ospace += _user_info["family_name"]
+
+    else:
+        _uuid = str(uuid.uuid4())
+        _full_name = click.prompt("Full Name")
+        _def_ospace = ""
+        _user_info = {}
+        if len(_full_name.split()) > 1:
+            _given_name, _family_name = _full_name.split(" ", 1)
+            _def_ospace = _full_name.lower().strip()[0]
+            _def_ospace += _full_name.lower().split()[-1]
+            _user_info["given_names"] = _given_name.strip()
+            _user_info["family_name"] = _family_name.strip()
+        else:
+            _def_ospace += _full_name
+            _user_info["given_names"] = _full_name
+            _user_info["family_name"] = None
+
+        _user_info["uuid"] = _uuid
+
+        _def_ospace = _def_ospace.lower().replace(" ", "").strip()
+
+        _def_ispace = click.prompt("Default input namespace", default="None")
+        _def_ispace = _def_ispace if _def_ispace != "None" else None
+        _def_ospace = click.prompt(
+            "Default output namespace", default=_def_ospace
+        )
+
+        _namespaces = {"input": _def_ispace, "output": _def_ospace}
+
+        _user_info["email"] = _user_email
+        _user_info["orcid"] = _user_orcid
+
+    return {"user": _user_info, "namespaces": _namespaces}
+
+
 def global_config_query() -> Dict[str, Any]:
     """Ask user question set for creating global FAIR config"""
 
@@ -248,66 +306,16 @@ def global_config_query() -> Dict[str, Any]:
                     "Failed to retrieve local API token from registry."
                 )
 
-    _user_email = click.prompt("Email")
-    _user_orcid = click.prompt("ORCID", default="None")
+    _def_data_store = click.prompt(
+        "Default Data Store: ", 
+        default=os.path.join(fdp_com.USER_FAIR_DIR, 'data')
+    )
 
-    _def_data_store = click.prompt("Default Data Store: ", default=os.path.join(fdp_com.USER_FAIR_DIR, 'data'))
+    _glob_conf_dict = _get_user_info_and_namespaces()
+    _glob_conf_dict["remotes"] = {"local": _local_url, "origin": _remote_url}
+    _glob_conf_dict["data_store"] = _def_data_store
 
-    _uuid = None
-
-    if _user_orcid != "None":
-
-        _user_info = fdp_id.check_orcid(_user_orcid)
-
-        while not _user_info:
-            click.echo("Invalid ORCID given.")
-            _user_orcid = click.prompt("ORCID")
-            _user_info = fdp_id.check_orcid(_user_orcid)
-
-        click.echo(
-            f"Found entry: {_user_info['given_names']} {_user_info['family_name']}"
-        )
-
-        _def_ospace = _user_info["given_names"][0]
-
-        if len(_user_info["family_name"].split()) > 1:
-            _def_ospace += _user_info["family_name"].split()[-1]
-        else:
-            _def_ospace += _user_info["family_name"]
-
-    else:
-        _uuid = str(uuid.uuid4())
-        _full_name = click.prompt("Full Name")
-        _def_ospace = ""
-        _user_info = {}
-        if len(_full_name.split()) > 1:
-            _given_name, _family_name = _full_name.split(" ", 1)
-            _def_ospace = _full_name.lower().strip()[0]
-            _def_ospace += _full_name.lower().split()[-1]
-            _user_info["given_names"] = _given_name.strip()
-            _user_info["family_name"] = _family_name.strip()
-        else:
-            _def_ospace += _full_name
-            _user_info["given_names"] = _full_name
-            _user_info["family_name"] = None
-
-        _user_info["uuid"] = _uuid
-
-    _def_ospace = _def_ospace.lower().replace(" ", "").strip()
-
-    _def_ispace = click.prompt("Default input namespace", default="None")
-    _def_ispace = _def_ispace if _def_ispace != "None" else None
-    _def_ospace = click.prompt("Default output namespace", default=_def_ospace)
-
-    _user_info["email"] = _user_email
-    _user_info["orcid"] = _user_orcid
-
-    return {
-        "data_store": _def_data_store,
-        "user": _user_info,
-        "remotes": {"local": _local_url, "origin": _remote_url},
-        "namespaces": {"input": _def_ispace, "output": _def_ospace},
-    }
+    return _glob_conf_dict
 
 
 def local_config_query(

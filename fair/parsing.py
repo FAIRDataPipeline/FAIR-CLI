@@ -102,8 +102,12 @@ def glob_read_write(
     return fdp_util.remove_dictlist_dupes(_parsed)
   
 
-def subst_cli_vars(run_dir: str, run_time: datetime.datetime, config_yaml: str) -> typing.Dict:
-    """Load configuration and substitute recognised FAIR CLI variables for their values
+def subst_cli_vars(
+    run_dir: str,
+    run_time: datetime.datetime,
+    config_yaml: str
+    ) -> typing.Dict:
+    """Load configuration and substitute recognised FAIR CLI variables
 
     Parameters
     ----------

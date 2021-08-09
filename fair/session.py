@@ -351,11 +351,11 @@ class FAIR:
             for log in _log_files:
                 os.remove(log)
 
-    def list_remotes(self, verbose: bool = False) -> None:
+    def list_remotes(self, verbose: bool = False) -> typing.List[str]:
         """List the available RestAPI URLs"""
         self.check_is_repo()
         if "remotes" not in self._local_config:
-            return
+            return []
         else:
             _remote_print = []
             for remote, url in self._local_config["remotes"].items():
