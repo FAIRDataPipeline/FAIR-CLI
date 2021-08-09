@@ -231,7 +231,10 @@ def global_config_query() -> Dict[str, Any]:
     _local_url = click.prompt("Local API URL", default=_def_local)
 
     if not fdp_serv.check_server_running(_local_url):
-        _run_server = click.confirm("Local registry is offline, would you like to start it?", default=False)
+        _run_server = click.confirm(
+            "Local registry is offline, would you like to start it?",
+            default=False
+        )
         if _run_server:
             fdp_serv.launch_server(_local_url)
         else:
@@ -241,7 +244,9 @@ def global_config_query() -> Dict[str, Any]:
             try:
                 fdp_req.local_token()
             except fdp_exc.FileNotFoundError:
-                raise fdp_exc.RegistryError("Failed to retrieve local API token from registry.")
+                raise fdp_exc.RegistryError(
+                    "Failed to retrieve local API token from registry."
+                )
 
     _user_email = click.prompt("Email")
     _user_orcid = click.prompt("ORCID", default="None")

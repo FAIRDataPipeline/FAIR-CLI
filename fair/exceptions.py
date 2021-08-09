@@ -140,3 +140,10 @@ class StagingError(FAIRCLIException):
     """Errors relating to the staging of runs and files"""
     def __init__(self, msg):
         super().__init__(msg)
+
+
+class SynchronisationError(FAIRCLIException):
+    """Errors relating to synchronisation between registries"""
+    def __init__(self, msg, error_code):
+        self.error_code = error_code
+        super().__init__(msg, exit_code=error_code)
