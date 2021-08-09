@@ -344,7 +344,9 @@ class FAIR:
 
         This does NOT delete any information from the registry
         """
-        _log_files = glob.glob(fdp_hist.history_directory(), "*.log")
+        _log_files = glob.glob(
+            fdp_hist.history_directory(self._session_loc), "*.log"
+        )
         if _log_files:
             for log in _log_files:
                 os.remove(log)

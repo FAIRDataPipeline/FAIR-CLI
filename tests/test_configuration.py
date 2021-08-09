@@ -11,10 +11,10 @@ import fair.server as fdp_serv
 @pytest.mark.configuration
 def test_local_config_read(mocker, no_registry_autoinstall):
     _dummy_cfg = {"tag": "value"}
-    _temp_cfg = tempfile.mktemp()
-    mocker.patch.object(fdp_com, "local_fdpconfig", lambda *args: _temp_cfg)
+    _temp_cfg, _name = tempfile.mkstemp(suffix='.yaml')
+    mocker.patch.object(fdp_com, "local_fdpconfig", lambda *args: _name)
     assert not fdp_conf.read_local_fdpconfig("")
-    yaml.dump(_dummy_cfg, open(_temp_cfg, "w"))
+    yaml.dump(_dummy_cfg, os.fdopen(_temp_cfg, "w"))
     assert fdp_conf.read_local_fdpconfig("")
 
 

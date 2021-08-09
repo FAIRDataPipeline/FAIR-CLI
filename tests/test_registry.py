@@ -4,6 +4,7 @@ import pathlib
 import yaml
 import tempfile
 import hashlib
+import os
 
 import fair.registry.storage as fdp_store
 import fair.configuration as fdp_conf
@@ -33,10 +34,10 @@ def test_store_wkg_config(mocker):
             'write_data_store': '/fake/path/address'
         }
     }
-    _file = tempfile.mktemp()
+    _file, _name = tempfile.mkstemp(suffix='.yaml')
     pathlib.Path(_file).touch()
     mocker.patch.object(yaml, 'safe_load', lambda *args: _wkg_config)
-    fdp_store.store_working_config('', LOCALHOST, _file)
+    fdp_store.store_working_config('', LOCALHOST, _name)
     assert requests.get(LOCALHOST+'storage_root', params={'root': f"file:///fake/path/address/"})
-    _hash = hashlib.sha1(open(_file).read().encode("utf-8")).hexdigest()
+    _hash = hashlib.sha1(os.fdopen(_file).read().encode("utf-8")).hexdigest()
     assert requests.get(LOCALHOST+'storage_location', params={'hash': _hash}).json()['results']
