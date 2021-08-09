@@ -110,6 +110,7 @@ def no_registry_autoinstall(mocker):
 
 @pytest.fixture
 def no_init_session(
+    fake_token,
     global_test,
     repo_root,
     git_mock,
