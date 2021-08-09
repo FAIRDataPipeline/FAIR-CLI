@@ -19,6 +19,7 @@ Contents
 
 __date__ = "2021-07-02"
 
+from fair.registry.versioning import parse_incrementer
 import json
 import os
 import posixpath
@@ -47,12 +48,21 @@ def _access(
     method: str,
     obj_path: typing.Tuple[str],
     response_code: int,
-    token: str = local_token(),
-    headers: typing.Dict[str, typing.Any] = {},
-    params: typing.Dict = {},
+    token: str = None,
+    headers: typing.Dict[str, typing.Any] = None,
+    params: typing.Dict = None,
     *args,
     **kwargs,
 ):
+    if not headers:
+        headers = {}
+
+    if not params:
+        params = {}
+
+    if not token:
+        token = local_token()
+
     _obj_path = posixpath.join(*obj_path)
     _url = urllib.parse.urljoin(uri, _obj_path)
     if _url[-1] != "/":
@@ -114,10 +124,13 @@ def post(
     obj_path: typing.Tuple[str],
     data: typing.Dict[str, typing.Any],
     headers: typing.Dict[str, typing.Any] = None,
-    token: str = local_token()
+    token: str = None
 ):
     if headers is None:
         headers = {}
+
+    if not token:
+        token = local_token()
 
     headers.update({"Content-Type": "application/json"})
     return _access(
@@ -134,10 +147,19 @@ def post(
 def get(
     uri: str,
     obj_path: typing.Tuple[str],
-    headers: typing.Dict[str, typing.Any] = {},
-    params: typing.Dict[str, typing.Any] = {},
-    token: str = local_token()
+    headers: typing.Dict[str, typing.Any] = None,
+    params: typing.Dict[str, typing.Any] = None,
+    token: str = None
 ):
+    if not headers:
+        headers = {}
+    
+    if not params:
+        params = {}
+    
+    if not token:
+        token = local_token()
+    
     return _access(
         uri,
         "get",
@@ -153,9 +175,15 @@ def post_else_get(
     uri: str,
     obj_path: typing.Tuple[str],
     data: typing.Dict[str, typing.Any],
-    params: typing.Dict[str, typing.Any] = {},
-    token: str = local_token()
+    params: typing.Dict[str, typing.Any] = None,
+    token: str = None
 ):
+    if not params:
+        params = {}
+
+    if not token:
+        token = local_token()
+
     try:
         _loc = post(uri, obj_path, data=data, token=token)
     except fdp_exc.RegistryAPICallError as e:

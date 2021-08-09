@@ -139,19 +139,19 @@ class FAIR:
 
         self._setup_server()
 
-    def purge(self, Global: bool = False) -> None:
+    def purge(self, is_global: bool = False) -> None:
         """Remove FAIR-CLI tracking from the given directory
 
         Parameters
         ==========
-        global : bool, optional
+        is_global : bool, optional
             remove global directories
         """
         _root_dir = os.path.join(fdp_com.find_fair_root(), fdp_com.FAIR_FOLDER)
         if os.path.exists(_root_dir):
             click.echo(f"Removing directory '{_root_dir}'")
             shutil.rmtree(_root_dir)
-        if Global:
+        if is_global:
             _global_dirs = fdp_com.global_config_dir()
             if os.path.exists(_global_dirs):
                 shutil.rmtree(_global_dirs)
