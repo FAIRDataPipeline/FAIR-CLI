@@ -370,6 +370,8 @@ def local_config_query(
 
     _local_config: Dict[str, Any] = {}
 
+    _local_config['data_store'] = global_config['data_store']
+
     _local_config["namespaces"] = {
         "output": _def_ospace,
         "input": _def_ispace,
