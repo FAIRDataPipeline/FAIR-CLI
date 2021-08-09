@@ -67,27 +67,6 @@ class Stager:
         with open(self._staging_file, 'w') as f:
             yaml.dump(_staging_dict, f)
 
-
-    def change_file_stage_status(self, file_to_stage: str, stage: bool = True) -> bool:
-        """Stage a local file to be added to the registry and pushed to the server"""
-        raise fdp_exc.NotImplementedError(
-            f"File staging has not yet been implemented into FAIR-CLI"
-        )
-        if not os.path.exists(file_to_stage):
-            raise fdp_exc.StagingError(
-                f"Cannot stage file '{file_to_stage}' as it does not exist."
-            )
-
-        # Open the staging dictionary first
-        _staging_dict = yaml.safe_load(open(self._staging_file))
-        
-        _staging_dict['file'][self._create_file_label(file_to_stage)] = stage
-
-        with open(self._staging_file, 'w') as f:
-            yaml.dump(_staging_dict, f)
-        
-        return True
-
     
     def remove_staging_entry(self, identifier: str, stage_type: str = "run") -> None:
         """Remove an item of type 'stage_type' from staging
