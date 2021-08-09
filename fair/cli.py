@@ -312,15 +312,6 @@ def push(api_token: str):
     record metadata in the data registry (whilst editing relevant entries, e.g. storage_root)
     """
     click.echo(f"push command called")
-    # headers = {
-    #     'Authorization': 'token: api_token'
-    # }
-    #
-    # data = {
-    #
-    # }
-    #
-    # requests.put('https://data.scrc.uk/api/object/', data, headers=headers)
 
 
 @cli.group()

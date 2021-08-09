@@ -76,7 +76,7 @@ def read_global_fdpconfig() -> MutableMapping:
     return _global_config
 
 
-def set_email(repo_loc: str, email: str, Global: bool = False) -> None:
+def set_email(repo_loc: str, email: str, is_global: bool = False) -> None:
     """Update the email address for the user
 
     Parameters
@@ -85,19 +85,19 @@ def set_email(repo_loc: str, email: str, Global: bool = False) -> None:
         repository directory path
     email : str
         new email address to set
-    Global : bool, optional
+    is_global : bool, optional
         whether to also override the global settings, by default False
     """
     _loc_conf = read_local_fdpconfig(repo_loc)
     _loc_conf["user"]["email"] = email
     yaml.dump(_loc_conf, open(fdp_com.local_fdpconfig(repo_loc), "w"))
-    if Global:
+    if is_global:
         _glob_conf = read_global_fdpconfig()
         _glob_conf["user"]["email"] = email
         yaml.dump(_glob_conf, open(fdp_com.global_fdpconfig(), "w"))
 
 
-def set_user(repo_loc: str, name: str, Global: bool = False) -> None:
+def set_user(repo_loc: str, name: str, is_global: bool = False) -> None:
     """Update the name for the user
 
     Parameters
@@ -106,13 +106,13 @@ def set_user(repo_loc: str, name: str, Global: bool = False) -> None:
         repository directory path
     name : str
         new user full name
-    Global : bool, optional
+    is_global : bool, optional
         whether to also override the global settings, by default False
     """
     _loc_conf = read_local_fdpconfig(repo_loc)
     _loc_conf["user"]["name"] = name
     yaml.dump(_loc_conf, open(fdp_com.local_fdpconfig(repo_loc), "w"))
-    if Global:
+    if is_global:
         _glob_conf = read_global_fdpconfig()
         _glob_conf["user"]["name"] = name
         yaml.dump(_glob_conf, open(fdp_com.global_fdpconfig(), "w"))
