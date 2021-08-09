@@ -3,9 +3,26 @@ import os
 import pathlib
 import yaml
 import re
+import tempfile
 
 import fair.common as fdp_com
+import fair.registry.requests as fdp_req
+import fair.staging as fdp_stage
 
+
+@pytest.fixture
+def mock_uuid_return(mocker, no_init_session):
+    def run_return(*args, **kwargs):
+        return {"uuid": "312312312"}
+    _temp = tempfile.mktemp()
+    with open(fdp_com.staging_cache(no_init_session._session_loc), 'w') as f:
+        yaml.dump({"run": {"312312312": False}, "file": {}}, f)
+    _stager = fdp_stage.Stager(no_init_session._session_loc)
+    mocker.patch.object(fdp_stage, 'Stager', _stager)
+    mocker.patch.object(fdp_req, 'get', run_return)
+    mocker.patch.object(fdp_com, 'local_fdpconfig', lambda *args: fdp_com.global_fdpconfig())
+
+    return no_init_session
 
 @pytest.mark.session
 @pytest.mark.dependency()
@@ -19,19 +36,18 @@ def test_initialise(no_init_session):
 
 @pytest.mark.session
 @pytest.mark.dependency()
-def test_file_add(no_init_session):
+def test_run_add(mock_uuid_return):
     """Test staging of a file works.
 
     Expect that a new entry to be added matching relative file path of
     new file, and its status to be "True"
     """
-    _staged_file = os.path.join(no_init_session._session_loc, "temp")
-    pathlib.Path(_staged_file).touch()
-    no_init_session.change_staging_state(_staged_file)
-    no_init_session.close_session()
+    _dummy_id = "312312312"
+    mock_uuid_return.change_staging_state(_dummy_id)
+    mock_uuid_return.close_session()
     assert yaml.safe_load(
-        open(fdp_com.staging_cache(no_init_session._session_loc))
-    )["../temp"]
+        open(fdp_com.staging_cache(mock_uuid_return._session_loc))
+    )["run"][_dummy_id]
 
 
 @pytest.mark.session
@@ -44,83 +60,23 @@ def test_remote_list(no_init_session):
     assert sorted(['local', 'origin']) == sorted(_res)
 
 
-
 @pytest.mark.session
-@pytest.mark.dependency(depends=["test_file_add"])
-def test_file_reset(no_init_session):
-    """Test staging of a file works.
-
-    Expect that a new entry to be added matching relative file path of
-    new file, and its status to be "True"
-    """
-    _staged_file = os.path.join(no_init_session._session_loc, "temp")
-    no_init_session.change_staging_state(_staged_file, False)
-    no_init_session.close_session()
-    assert not yaml.safe_load(
-        open(fdp_com.staging_cache(no_init_session._session_loc))
-    )["../temp"]
-    no_init_session.change_staging_state(_staged_file, True)
-
-
-@pytest.mark.session
-@pytest.mark.dependency(depends=["test_file_reset"])
-def test_file_remove_soft(no_init_session):
-    _staged_file = os.path.join(no_init_session._session_loc, "temp")
-    no_init_session.remove_file(_staged_file, cached=True)
-    no_init_session.close_session()
-    assert os.path.exists(_staged_file)
-    assert "../temp" not in yaml.safe_load(
-        open(fdp_com.staging_cache(no_init_session._session_loc))
-    )
-
-
-@pytest.mark.session
-@pytest.mark.dependency(depends=["test_file_remove_soft"])
-def test_file_remove(no_init_session):
-    _staged_file = os.path.join(no_init_session._session_loc, "temp")
-    no_init_session.change_staging_state(_staged_file)
-    no_init_session.remove_file(_staged_file, cached=False)
-    no_init_session.close_session()
-    assert not os.path.exists(_staged_file)
-    assert "../temp" not in yaml.safe_load(
-        open(fdp_com.staging_cache(no_init_session._session_loc))
-    )
-
-
-@pytest.mark.session
-def test_get_status(no_init_session, capfd):
-    _tempdir = os.path.join(no_init_session._session_loc, "tempdir")
+def test_get_status(mock_uuid_return, capfd):
+    _tempdir = os.path.join(mock_uuid_return._session_loc, "tempdir")
     os.makedirs(_tempdir, exist_ok=True)
-    _staged_files = [os.path.join(_tempdir, f"temp_{i}") for i in range(5)]
-    no_init_session.status()
+    mock_uuid_return.status()
     out, _ = capfd.readouterr()
-    assert out == "Nothing marked for tracking.\n"
-    for _staged in _staged_files:
-        pathlib.Path(_staged).touch()
-        no_init_session.change_staging_state(_staged)
-    no_init_session.status()
-    out, _ = capfd.readouterr()
-    _expect = "Changes to be synchronized:\n\t\t"
-    _expect += (
-        "\n\t\t".join(
-            f"../tempdir/{os.path.basename(file)}" for file in _staged_files
-        )
-        + "\n"
-    )
+    _expect = "Changes not staged for synchronization:\n"
+    _expect += '\t(use "fair add <run>..." to stage runs)\n'
+    _expect += '\tRuns:\n'
+    _expect += '\t\t312312312\n'
     assert out == _expect
-    for _staged in _staged_files:
-        pathlib.Path(_staged).touch()
-        no_init_session.change_staging_state(_staged, False)
-    no_init_session.status()
+    mock_uuid_return.change_staging_state("312312312", True)
+    mock_uuid_return.status()
     out, _ = capfd.readouterr()
-    _expect = "Files not staged for synchronization:\n\t"
-    _expect += '(use "fair add <file>..." to stage files)\n\t\t'
-    _expect += (
-        "\n\t\t".join(
-            f"../tempdir/{os.path.basename(file)}" for file in _staged_files
-        )
-        + "\n"
-    )
+    _expect = "Changes to be synchronized:\n"
+    _expect += "\tRuns:\n"
+    _expect += '\t\t312312312\n'
     assert out == _expect
 
 

@@ -47,6 +47,7 @@ import fair.server as fdp_serv
 import fair.configuration as fdp_conf
 import fair.exceptions as fdp_exc
 import fair.history as fdp_hist
+import fair.staging as fdp_stage
 
 
 class FAIR:
@@ -61,7 +62,7 @@ class FAIR:
     Methods
     ----------
     check_is_repo()
-    change_staging_state(file_to_stage: str, stage: bool = True)
+    change_staging_state(run: str, stage: bool = True)
     remove_file(file_name: str, cached: bool = False)
     show_run_log(run_id: str)
     add_remote(url: str, label: str = "origin")
@@ -107,6 +108,7 @@ class FAIR:
         self._logger.debug("Starting new session.")
         self._session_loc = repo_loc
         self._run_mode = mode
+        self._stager = fdp_stage.Stager(self._session_loc)
         self._session_id = (
             uuid.uuid4() if mode == fdp_serv.SwitchMode.CLI else None
         )
@@ -129,8 +131,7 @@ class FAIR:
             )
             os.makedirs(fdp_com.global_config_dir())
 
-        # Initialise all configuration/staging status dictionaries
-        self._stage_status: typing.Dict[str, typing.Any] = {}
+        # Initialise all configuration status dictionaries
         self._local_config: typing.Dict[str, typing.Any] = {}
         self._global_config: typing.Dict[str, typing.Any] = {}
 
@@ -263,16 +264,10 @@ class FAIR:
         return self
 
     def _load_configurations(self) -> None:
-        """This ensures all configurations and staging statuses are read at the
+        """This ensures all configurations are read at the
         start of every session.
         """
-        if not os.path.exists(fdp_com.session_cache_dir()):
-            os.makedirs(fdp_com.session_cache_dir())
 
-        if os.path.exists(fdp_com.staging_cache(self._session_loc)):
-            self._stage_status = yaml.safe_load(
-                open(fdp_com.staging_cache(self._session_loc))
-            )
         if os.path.exists(fdp_com.global_fdpconfig()):
             self._global_config = fdp_conf.read_global_fdpconfig()
         if os.path.exists(fdp_com.local_fdpconfig(self._session_loc)):
@@ -281,32 +276,21 @@ class FAIR:
             )
 
     def change_staging_state(
-        self, file_to_stage: str, stage: bool = True
+        self, run_to_stage: str, stage: bool = True
     ) -> None:
-        """Change the staging status of a given file
+        """Change the staging status of a given run
 
         Parameters
         ----------
-        file_to_stage : str
-            path of the file to be staged/unstaged
+        run_to_stage : str
+            uuid of run to add to staging
         stage : bool, optional
-            whether to stage/unstage file, by default True (staged)
+            whether to stage/unstage run, by default True (staged)
         """
         self.check_is_repo()
+        self._stager.change_run_stage_status(run_to_stage, stage)
 
-        if not os.path.exists(file_to_stage):
-            raise fdp_exc.FileNotFoundError(f"No such file '{file_to_stage}.")
-
-        # Create a label with which to store the staging status of the given
-        # file using its path with respect to the staging status file
-        _label = os.path.relpath(
-            file_to_stage,
-            os.path.dirname(fdp_com.staging_cache(self._session_loc)),
-        )
-
-        self._stage_status[_label] = stage
-
-    def remove_file(self, file_name: str, cached: bool = False) -> None:
+    def remove_run(self, run_id: str, cached: bool = False) -> None:
         """Remove a file from the file system and tracking
 
         Parameters
@@ -317,20 +301,8 @@ class FAIR:
             remove from tracking but not from system, by default False
         """
         self.check_is_repo()
-        _label = os.path.relpath(
-            file_name,
-            os.path.dirname(fdp_com.staging_cache(self._session_loc)),
-        )
-        if _label in self._stage_status:
-            del self._stage_status[_label]
-        else:
-            click.echo(
-                f"File '{file_name}' is not tracked, so will not be removed"
-            )
-            return
-
-        if not cached:
-            os.remove(file_name)
+        
+        self._stager.remove_staging_entry(run_id)
 
     def add_remote(self, remote_url: str, label: str = "origin") -> None:
         """Add a remote to the list of remote URLs"""
@@ -395,23 +367,25 @@ class FAIR:
     def status(self) -> None:
         """Get the status of staging"""
         self.check_is_repo()
-        _staged = [i for i, j in self._stage_status.items() if j]
-        _unstaged = [i for i, j in self._stage_status.items() if not j]
 
-        if _staged:
+        _staged_runs = self._stager.get_item_list(True, "run")
+        _unstaged_runs = self._stager.get_item_list(False, "run")
+
+        if _staged_runs:
             click.echo("Changes to be synchronized:")
+            click.echo("\tRuns:")
+            for run in _staged_runs:
+                click.echo(click.style(f"\t\t{run}", fg="green"))
 
-            for file_name in _staged:
-                click.echo(click.style(f"\t\t{file_name}", fg="green"))
+        if _unstaged_runs:
+            click.echo("Changes not staged for synchronization:")
+            click.echo(f'\t(use "fair add <run>..." to stage runs)')
 
-        if _unstaged:
-            click.echo("Files not staged for synchronization:")
-            click.echo(f'\t(use "fair add <file>..." to stage files)')
+            click.echo("\tRuns:")
+            for run in _unstaged_runs:
+                click.echo(click.style(f"\t\t{run}", fg="red"))
 
-            for file_name in _unstaged:
-                click.echo(click.style(f"\t\t{file_name}", fg="red"))
-
-        if not _staged and not _unstaged:
+        if not _unstaged_runs and not _staged_runs:
             click.echo("Nothing marked for tracking.")
 
     def make_starter_config(self) -> None:
@@ -453,8 +427,6 @@ class FAIR:
                 f"FAIR repository is already initialised."
             )
 
-        self._staging_file = os.path.join(_fair_dir, "staging")
-
         click.echo(
             "Initialising FAIR repository, setup will now ask for basic info:\n"
         )
@@ -494,8 +466,6 @@ class FAIR:
         if not os.path.exists(os.path.join(fdp_com.session_cache_dir(), "user.run")) and self._run_mode != fdp_serv.SwitchMode.NO_SERVER:
             fdp_serv.stop_server(self._local_config["remotes"]["local"])
 
-        with open(fdp_com.staging_cache(self._session_loc), "w") as f:
-            yaml.dump(self._stage_status, f)
         with open(fdp_com.global_fdpconfig(), "w") as f:
             yaml.dump(self._global_config, f)
         with open(fdp_com.local_fdpconfig(self._session_loc), "w") as f:

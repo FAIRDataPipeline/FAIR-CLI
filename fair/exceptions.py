@@ -21,6 +21,7 @@ Exceptions
     FDPRepositoryError
     FileNotFoundError
     InternalError
+    StagingError
 
 """
 
@@ -133,3 +134,9 @@ class NotImplementedError(FAIRCLIException):
     """Errors relating to features that have not yet been implemented"""
     def __init__(self, msg, hint=""):
         super().__init__(msg, hint)
+
+
+class StagingError(FAIRCLIException):
+    """Errors relating to the staging of runs and files"""
+    def __init__(self, msg):
+        super().__init__(msg)
