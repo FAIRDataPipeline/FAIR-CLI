@@ -114,12 +114,21 @@ def post(
     uri: str,
     obj_path: typing.Tuple[str],
     data: typing.Dict[str, typing.Any],
-    headers: typing.Dict[str, typing.Any] = {},
+    headers: typing.Dict[str, typing.Any] = None,
     token: str = local_token()
 ):
+    if headers is None:
+        headers = {}
+
     headers.update({"Content-Type": "application/json"})
     return _access(
-        uri, "post", obj_path, 201, headers, data=json.dumps(data), token=token
+        uri,
+        "post",
+        obj_path,
+        201,
+        headers=headers,
+        data=json.dumps(data),
+        token=token
     )
 
 
@@ -131,7 +140,13 @@ def get(
     token: str = local_token()
 ):
     return _access(
-        uri, "get", obj_path, 200, headers, params=params, token=token
+        uri,
+        "get",
+        obj_path,
+        200,
+        headers=headers,
+        params=params,
+        token=token
     )
 
 
