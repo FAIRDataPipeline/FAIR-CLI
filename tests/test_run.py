@@ -91,7 +91,7 @@ def test_run_setup_with_script(setup_with_opts, no_registry_autoinstall):
     assert os.path.exists(_name)
     _out, _cfg = setup_with_opts({"shell": "python", "script_path": _name})
     assert _out["shell"] == "python"
-    assert open(_out["script"]).read() == "print('Test Run')"
+    assert open(_out["script"]).read() == _script
     assert _out["env"]["FDP_LOCAL_REPO"] == _cfg["run_metadata"]["local_repo"]
 
 

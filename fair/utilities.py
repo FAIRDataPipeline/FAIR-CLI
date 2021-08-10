@@ -135,3 +135,15 @@ def remove_dictlist_dupes(
         {i[0]: i[1] for i in kv}
         for kv in _set_tupleify
     ]
+
+
+def compare_entries(
+    local_reg_entry: typing.Dict, remote_reg_entry: typing.Dict
+    ) -> bool:
+    # TODO: This assumes the UUIDs have been setup to always match between
+    # registries. Ensure this occurs.
+
+    _flat_loc = fdp_util.flatten_dict(local_reg_entry)
+    _flat_rem = fdp_util.flatten_dict(remote_reg_entry)
+
+    return _flat_loc == _flat_rem

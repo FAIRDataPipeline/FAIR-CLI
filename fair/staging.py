@@ -56,10 +56,18 @@ class Stager:
 
         # Now check run actually exists on local registry
         try:
-            fdp_req.get(_local_url, ('code_run',), params={'uuid': run_uuid})
+            _results = fdp_req.get(
+                _local_url, ('code_run',), params={'uuid': run_uuid}
+            )
+
+            # Possible for query to return empty list
+            if not _results:
+                raise fdp_exc.RegistryAPICallError
+
         except fdp_exc.RegistryAPICallError:
             raise fdp_exc.StagingError(
-                f"Cannot stage run '{run_uuid}' as it does not exist on the local registry"
+                f"Cannot stage run '{run_uuid}' as it"
+                " does not exist on the local registry"
             )
 
         _staging_dict['run'][run_uuid] = stage

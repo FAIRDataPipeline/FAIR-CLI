@@ -29,12 +29,14 @@ import re
 
 import git
 import yaml
+import semver
 
 import fair.registry.requests as fdp_reg_req
 import fair.configuration as fdp_conf
 import fair.exceptions as fdp_exc
 import fair.utilities as fdp_util
 import fair.common as fdp_com
+import fair.registry.versioning as fdp_ver
 
 
 def glob_read_write(
@@ -103,6 +105,7 @@ def glob_read_write(
   
 
 def subst_cli_vars(
+    local_uri: str,
     run_dir: str,
     run_time: datetime.datetime,
     config_yaml: str
@@ -111,6 +114,8 @@ def subst_cli_vars(
 
     Parameters
     ----------
+    local_uri : str
+        endpoint of the local registry
     run_dir : str
         location of code run directory (not to be confused with
         local FAIR project repository)
@@ -149,7 +154,8 @@ def subst_cli_vars(
         # Currently only supports FAIR repository setup matching that of git
         if not os.path.exists(os.path.join(directory, '.git')):
             raise fdp_exc.NotImplementedError(
-                "Expected FAIR repository working tree head to match that of git when using GIT_* CLI variables",
+                "Expected FAIR repository working tree head to match that of "
+                "git when using GIT_* CLI variables",
                 hint="Did you run 'fair init' in the same location as 'git init'?"
             )
         return git.Repo(directory)
@@ -157,7 +163,9 @@ def subst_cli_vars(
     def _tag_check(*args, **kwargs):
         _repo = _repo_check(_fair_head)
         if len(_repo.tags) < 1:
-            fdp_exc.UserConfigError("Cannot use GIT_TAG variable, no git tags found.")
+            fdp_exc.UserConfigError(
+                "Cannot use GIT_TAG variable, no git tags found."
+            )
         return _repo.tags[-1].name
 
 
@@ -199,7 +207,9 @@ def subst_cli_vars(
 
     # The two regex searches should match lengths
     if len(_dt_fmt_res) != len(_fmt_res):
-        raise fdp_exc.UserConfigError("Failed to parse formatted datetime variable")
+        raise fdp_exc.UserConfigError(
+            "Failed to parse formatted datetime variable"
+        )
 
     if _dt_fmt_res:
         for i, _ in enumerate(_dt_fmt_res):
@@ -214,7 +224,9 @@ def subst_cli_vars(
                 _rem_str = _repo_check(_fair_head).remotes[_name_str.lower()]
                 _rem_str = _rem_str.url
             except KeyError:
-                raise fdp_exc.UserConfigError(f"Failed to find URL for git remote '{_name_str.lower()}'")
+                raise fdp_exc.UserConfigError(
+                    f"Failed to find URL for git remote '{_name_str.lower()}'"
+                )
             
             _conf_str = _conf_str.replace(_git_remote_res[i], _rem_str)
 
@@ -232,4 +244,64 @@ def subst_cli_vars(
     # Load the YAML (this also verifies the write was successful)
     _user_conf = yaml.safe_load(_conf_str)
 
+    # Parse 'write' block for any versioning
+    _user_conf = subst_versions(local_uri, _user_conf)    
+
     return _user_conf
+
+
+def subst_versions(local_uri: str, config_yaml_dict: typing.Dict) -> typing.Dict:
+    # dynamic versionables only present in write statement
+    if 'write' not in config_yaml_dict:
+        return config_yaml_dict
+    
+    _out_dict = config_yaml_dict.copy()
+    _obj_type = 'data_product'
+
+    _write_statements = config_yaml_dict['write']
+
+    for i, item in enumerate(_write_statements):
+        if _obj_type not in item:
+            raise fdp_exc.UserConfigError(
+                f"Expected '{_obj_type}' key in object '{item}'"
+            )
+
+        _params = {"name": item[_obj_type]}
+        _results = None
+
+        try:
+            _results = fdp_reg_req.get(local_uri, (_obj_type,), params=_params)
+            if not _results:
+                raise AssertionError
+        except (AssertionError, fdp_exc.RegistryAPICallError):
+            # Object does not yet exist on the local registry
+            pass
+
+        _latest_version = fdp_ver.get_latest_version(_results)
+
+        if 'version' in item.keys():
+            # Check if 'version' is an incrementer definition
+            # if     not then try using it as a hard set version
+            try:
+                _incrementer = fdp_ver.parse_incrementer(item['version'])
+                _new_version = getattr(_latest_version, _incrementer)()
+            except fdp_exc.UserConfigError:
+                _new_version = semver.VersionInfo.parse(item['version'])
+        else:       
+            _new_version = _latest_version.bump_minor()
+        _write_statements[i]['version'] = str(_new_version)
+    
+    _out_dict['write'] = _write_statements
+
+    return _out_dict
+
+
+
+        
+
+        
+            
+
+
+        
+    

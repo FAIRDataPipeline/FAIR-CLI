@@ -18,6 +18,7 @@ Functions
 __date__ = "2021-08-05"
 
 import re
+import typing
 
 import semver
 
@@ -58,3 +59,16 @@ def parse_incrementer(incrementer: str) -> str:
     raise fdp_exc.UserConfigError(
         f"Unrecognised version incrementer variable '{incrementer}'"
     )
+
+
+def get_latest_version(results_list: typing.Dict) -> semver.VersionInfo:
+    _versions = [
+        semver.VersionInfo.parse(i['version']) for i in results_list
+        if 'version' in i
+    ]
+
+    if not _versions:
+        return semver.VersionInfo.parse("0.0.0")
+
+    return max(_versions)
+
