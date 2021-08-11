@@ -16,8 +16,8 @@ jobs:
           architecture: "x64"
       - name: Install the Local Registry
         run: |
-          /bin/bash -c "$(curl -fsSL https://data.scrc.uk/static/localregistry.sh)"
-          $HOME/.fair/registry/scripts/start_fair_registry
+          HOME=./temp_registry /bin/bash -c "$(curl -fsSL https://data.scrc.uk/static/localregistry.sh)"
+          ./temp_registry/.fair/registry/scripts/start_fair_registry
       - name: Install system requirements (macOS-latest)
         if: matrix.config.os == 'macos-latest'
         run : |
@@ -35,7 +35,7 @@ jobs:
           install_github("FAIRDataPipeline/rFDP")
         shell: Rscript {0}
       - name: Populate Registry
-        run: HOME=./temp_registry curl -fsS https://raw.githubusercontent.com/FAIRDataPipeline/rFDP/main/tests/testthat/test_examples.R | Rscript
+        run: curl -fsS https://raw.githubusercontent.com/FAIRDataPipeline/rFDP/main/tests/testthat/test_examples.R | Rscript
       - name: Install Poetry
         run: python -m pip install poetry
       - name: Install Module
@@ -43,7 +43,7 @@ jobs:
       - name: Run Tests
         run: python -m poetry run pytest -m "not registry" --cov=fair --cov-report=xml --cov-report=term -s tests/
       - name: Stop Registry
-        run: HOM=./temp_registry ./temp_registry/.fair/registry/scripts/stop_fair_registry
+        run: HOME=./temp_registry ./temp_registry/.fair/registry/scripts/stop_fair_registry
       - uses: codecov/codecov-action@v2
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
