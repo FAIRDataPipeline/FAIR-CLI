@@ -22,11 +22,13 @@ jobs:
           $HOME/.fair/registry/scripts/start_fair_registry
       - name: Install R
         uses: r-lib/actions/setup-r@master
-      - name: Populate Local Registry
+      - name: Install R API Implementation
         run: |
           install.packages("devtools")
           install_github("FAIRDataPipeline/rFDP")
-          curl -fsS https://raw.githubusercontent.com/FAIRDataPipeline/rFDP/main/tests/testthat/test_examples.R | Rscript
+        shell: Rscript {0}
+      - name: Populate Registry
+        run: curl -fsS https://raw.githubusercontent.com/FAIRDataPipeline/rFDP/main/tests/testthat/test_examples.R | Rscript
       - name: Install Poetry
         run: python -m pip install poetry
       - name: Install Module
