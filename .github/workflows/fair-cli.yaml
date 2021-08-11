@@ -29,6 +29,8 @@ jobs:
         shell: bash
       - name: Install R
         uses: r-lib/actions/setup-r@master
+        with:
+          r-version: release
       - name: Install R API Implementation
         run: |
           install.packages("devtools")
