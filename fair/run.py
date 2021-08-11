@@ -24,7 +24,7 @@ __date__ = "2021-06-30"
 import os
 import sys
 import platform
-from typing import Dict, Any
+import typing
 from datetime import datetime
 
 import yaml
@@ -40,7 +40,7 @@ import fair.parsing as fdp_parse
 
 
 # Dictionary of recognised shell labels.
-SHELLS: Dict[str, str] = {
+SHELLS: typing.Dict[str, str] = {
     "pwsh": "pwsh -command \". '{0}'\"",
     "python2": "python2 {0}",
     "python3": "python3 {0}",
@@ -276,7 +276,7 @@ def create_working_config(
         yaml.dump(_conf_yaml, out_f)
 
 
-def setup_run_script(config_yaml: str, output_dir: str) -> Dict[str, Any]:
+def setup_run_script(config_yaml: str, output_dir: str) -> typing.Dict[str, typing.Any]:
     """Setup a run script from the given configuration.
 
     Checks the user configuration file for the required 'script' or 'script_path'

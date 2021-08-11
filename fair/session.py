@@ -246,6 +246,7 @@ class FAIR:
         if not os.path.exists(self._session_config):
             self.make_starter_config()
         self._logger.debug("Setting up command execution")
+        
         fdp_run.run_command(
             local_uri=self._local_config['remotes']['local'],
             repo_dir=self._session_loc,

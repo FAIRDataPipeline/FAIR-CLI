@@ -25,6 +25,7 @@ import click
 import rich
 
 import fair.common as fdp_com
+import fair.exceptions as fdp_exc
 from fair.templates import hist_template
 
 
@@ -75,10 +76,23 @@ def show_run_log(repo_loc: str, run_id: str) -> str:
         if _run_id[: len(run_id)] == run_id:
             with open(log_file) as f:
                 click.echo(f.read())
+            _code_runs_list = os.path.join(
+                fdp_com.CODERUN_DIR,
+                os.path.splitext(log_file)[0].replace("run_", ""),
+                'coderuns.txt'
+            )
+
+            # Check if a code runs file exists for the given run and also
+            # print the list of code_run uuids created in the registry
+            if os.path.exists(_code_runs_list):
+                click.echo("Related Code Runs: ")
+                click.echo('\n\t- '.join(open(_code_runs_list).readlines()))
+
             return log_file
 
-    click.echo(f"Could not find run matching id '{run_id}'")
-    sys.exit(1)
+    raise fdp_exc.FileNotFoundError(
+        f"Could not find run matching id '{run_id}'"
+    )
 
 
 def show_history(repo_loc: str, length: int = 10) -> None:
