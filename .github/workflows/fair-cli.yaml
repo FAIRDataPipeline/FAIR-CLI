@@ -38,7 +38,7 @@ jobs:
           install_github("FAIRDataPipeline/rFDP")
         shell: Rscript {0}
       - name: Populate Registry
-        run: Rscript <(curl https://raw.githubusercontent.com/FAIRDataPipeline/rFDP/main/tests/testthat/test_examples.R)
+        run: HOME=./temp_registry Rscript <(curl https://raw.githubusercontent.com/FAIRDataPipeline/rFDP/main/tests/testthat/test_examples.R)
       - name: Install Poetry
         run: python -m pip install poetry
       - name: Install Module
