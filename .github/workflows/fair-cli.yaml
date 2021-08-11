@@ -32,6 +32,7 @@ jobs:
       - name: Install R API Implementation
         run: |
           install.packages("devtools")
+          library(devtools)
           install_github("FAIRDataPipeline/rFDP")
         shell: Rscript {0}
       - name: Populate Registry
