@@ -247,6 +247,7 @@ class FAIR:
             self.make_starter_config()
         self._logger.debug("Setting up command execution")
         fdp_run.run_command(
+            local_uri=self._local_config['remotes']['local'],
             repo_dir=self._session_loc,
             config_yaml=self._session_config,
             bash_cmd=bash_cmd

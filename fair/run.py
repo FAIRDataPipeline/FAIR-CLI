@@ -55,6 +55,7 @@ SHELLS: Dict[str, str] = {
 
 
 def run_command(
+    local_uri: str,
     repo_dir: str,
     config_yaml: str = os.path.join(fdp_com.find_fair_root(), "config.yaml"),
     bash_cmd: str = "",
@@ -66,6 +67,8 @@ def run_command(
 
     Parameters
     ----------
+    local_uri : str
+        local registry endpoint
     run_dir : str
         directory of repository to run from
     config_yaml : str, optional
@@ -131,7 +134,9 @@ def run_command(
     _work_cfg_yml = os.path.join(_run_dir, "config.yaml")
 
     # Create working config
-    create_working_config(_run_dir, config_yaml, _work_cfg_yml, _now)
+    create_working_config(
+        local_uri, _run_dir, config_yaml, _work_cfg_yml, _now
+    )
 
     if not os.path.exists(_work_cfg_yml):
         raise fdp_exc.InternalError(
@@ -229,12 +234,18 @@ def run_command(
 
 
 def create_working_config(
-    run_dir: str, config_yaml: str, output_file: str, time: datetime
+    local_uri: str,
+    run_dir: str,
+    config_yaml: str,
+    output_file: str,
+    time: datetime
 ) -> None:
     """Generate a working configuration file used during runs
 
     Parameters
     ----------
+    local_uri : str
+        local registry endpoint
     run_dir : str
         session run directory
     config_yaml : str
@@ -247,7 +258,9 @@ def create_working_config(
     # TODO: 'VERSION' variable when registry connection available
     # [FAIRDataPipeline/FAIR-CLI/issues/6]
     
-    _conf_yaml = fdp_parse.subst_cli_vars(run_dir, time, config_yaml)
+    _conf_yaml = fdp_parse.subst_cli_vars(
+        local_uri, run_dir, time, config_yaml
+    )
 
     # Remove 'register' from working configuration
     if "register" in _conf_yaml:

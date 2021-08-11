@@ -20,6 +20,7 @@ def test_create_work_cfg(no_init_session):
     _out = os.path.join(fdp_com.default_coderun_dir(), _ts, "config.yaml")
     os.makedirs(os.path.dirname(_out), exist_ok=True)
     fdp_run.create_working_config(
+        "",
         no_init_session._session_loc,
         no_init_session._session_config,
         _out,
@@ -114,6 +115,7 @@ def test_run_config_cmd(mocker, no_init_session):
     with open(no_init_session._session_config, "w") as f:
         yaml.dump(_cfg, f)
     fdp_run.run_command(
+        "",
         no_init_session._session_loc,
         no_init_session._session_config,
     )
@@ -141,6 +143,7 @@ def test_run_bash_cmd(mocker, no_init_session):
     if "script_path" in _cfg["run_metadata"]:
         del _cfg["run_metadata"]["script_path"]
     fdp_run.run_command(
+        "",
         no_init_session._session_loc,
         no_init_session._session_config,
         'echo "Hello World!"',
