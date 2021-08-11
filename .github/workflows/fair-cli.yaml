@@ -20,6 +20,13 @@ jobs:
         run: |
           /bin/bash -c "$(curl -fsSL https://data.scrc.uk/static/localregistry.sh)"
           $HOME/.fair/registry/scripts/start_fair_registry
+      - name: Install system requirements (macOS-latest)
+        if: matrix.config.os == 'macos-latest'
+        run : |
+              rm '/usr/local/bin/gfortran'
+              brew install hdf5
+              brew install gdal
+        shell: bash
       - name: Install R
         uses: r-lib/actions/setup-r@master
       - name: Install R API Implementation
