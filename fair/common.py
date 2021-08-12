@@ -89,11 +89,11 @@ def staging_cache(user_loc: str) -> str:
     return os.path.join(find_fair_root(user_loc), FAIR_FOLDER, "staging")
 
 
-def default_data_dir() -> str:
+def default_data_dir(location: str = 'local') -> str:
     """Location of the default data store"""
     _glob_conf = yaml.safe_load(global_fdpconfig())
     if 'data_store' in _glob_conf:
-        return _glob_conf['data_store']
+        return _glob_conf['data_store'][location]
     return os.path.join(USER_FAIR_DIR, "data")
 
 

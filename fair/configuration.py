@@ -32,6 +32,7 @@ import fair.exceptions as fdp_exc
 import fair.identifiers as fdp_id
 import fair.server as fdp_serv
 import fair.registry.requests as fdp_req
+import fair.registry.storage as fdp_store
 
 
 def read_local_fdpconfig(repo_loc: str) -> MutableMapping:
@@ -286,6 +287,26 @@ def global_config_query() -> Dict[str, Any]:
     _def_local = "http://localhost:8000/api/"
 
     _remote_url = click.prompt("Remote API URL")
+
+    _rem_data_store = click.prompt(
+        "Remote Data Storage Root",
+        default=_remote_url.replace("api", "data")
+    )
+
+    _rem_key_file = click.prompt("Remote API Token File")
+    _rem_key_file = os.path.expandvars(_rem_key_file)
+
+    while (
+        not os.path.exists(_rem_key_file) 
+        or not open(_rem_key_file).read().strip()
+        ):
+        click.echo(
+            f"Token file '{_rem_key_file}' does not exist or is empty, "
+            "please provide a valid token file."
+        )
+        _rem_key_file = click.prompt("Remote API Token File")
+        _rem_key_file = os.path.expandvars(_rem_key_file)
+
     _local_url = click.prompt("Local API URL", default=_def_local)
 
     if not fdp_serv.check_server_running(_local_url):
@@ -306,14 +327,20 @@ def global_config_query() -> Dict[str, Any]:
                     "Failed to retrieve local API token from registry."
                 )
 
-    _def_data_store = click.prompt(
+    _loc_data_store = click.prompt(
         "Default Data Store: ", 
         default=os.path.join(fdp_com.USER_FAIR_DIR, 'data')
     )
 
     _glob_conf_dict = _get_user_info_and_namespaces()
     _glob_conf_dict["remotes"] = {"local": _local_url, "origin": _remote_url}
-    _glob_conf_dict["data_store"] = _def_data_store
+    _glob_conf_dict['data_store'] = {
+        "local": _loc_data_store,
+        "origin": _rem_data_store
+    }
+    _glob_conf_dict["tokens"] = {
+        "origin": _rem_key_file
+    }
 
     return _glob_conf_dict
 
@@ -341,6 +368,7 @@ def local_config_query(
     try:
         _def_remote = global_config["remotes"]["origin"]
         _def_local = global_config["remotes"]["local"]
+        _def_rem_key = global_config["tokens"]["origin"]
         _def_ospace = global_config["namespaces"]["output"]
         _def_user = global_config["user"]
     except KeyError:
@@ -352,6 +380,7 @@ def local_config_query(
         global_config = global_config_query()
         _def_remote = global_config["remotes"]["origin"]
         _def_local = global_config["remotes"]["local"]
+        _def_rem_key = global_config["tokens"]["origin"]
         _def_ospace = global_config["namespaces"]["output"]
         _def_user = global_config["user"]
 
@@ -373,6 +402,18 @@ def local_config_query(
     # can be suggested as defaults during local setup
     if not first_time_setup:
         _def_remote = click.prompt("Remote API URL", default=_def_remote)
+        _def_rem_key = click.prompt("Remote API Token File", default=_def_rem_key)
+        _def_rem_key = os.path.expandvars(_def_rem_key)
+        while (
+            not os.path.exists(_def_rem_key) 
+            or not open(_def_rem_key).read().strip()
+        ):
+            click.echo(
+                f"Token file '{_def_rem_key}' does not exist or is empty, "
+                "please provide a valid token file."
+            )
+            _def_rem_key = click.prompt("Remote API Token File")
+            _def_rem_key = os.path.expandvars(_def_rem_key)
         _def_local = click.prompt("Local API URL", default=_def_local)
         _def_ospace = click.prompt(
             "Default output namespace", default=_def_ospace
@@ -390,10 +431,15 @@ def local_config_query(
         "input": _def_ispace,
     }
 
-    _local_config["remotes"] = {
-        "origin": _def_remote,
-        "local": _def_local,
-    }
+    # Copy the global configuration then substitute updated
+    # configurations
+    _local_config["remotes"] = global_config["remotes"].copy()
+    _local_config["remotes"]["origin"] = _def_remote
+    _local_config["remotes"]["local"] = _def_local
+
+    _local_config["tokens"] = global_config["tokens"].copy()
+    _local_config["tokens"]["origin"] = _def_rem_key
+
     _local_config["description"] = _desc
     _local_config["user"] = _def_user
 

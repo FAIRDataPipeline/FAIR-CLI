@@ -306,11 +306,18 @@ class FAIR:
         
         self._stager.remove_staging_entry(run_id)
 
-    def add_remote(self, remote_url: str, label: str = "origin") -> None:
+    def add_remote(
+        self,
+        remote_url: str,
+        token_file: str,
+        label: str = "origin"
+        ) -> None:
         """Add a remote to the list of remote URLs"""
         self.check_is_repo()
         if "remotes" not in self._local_config:
             self._local_config["remotes"] = {}
+        if "tokens" not in self._global_config:
+            self._local_config["tokens"] = {}
         if label in self._local_config["remotes"]:
             raise fdp_exc.CLIConfigurationError(
                 f"Registry remote '{label}' already exists."

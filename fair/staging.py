@@ -11,7 +11,13 @@ class Stager:
         self._root = repo_root
         self._staging_file = fdp_com.staging_cache(self._root)
 
+        # Only create the staging file if one is not already present within the
+        # specified directory
         if not os.path.exists(self._staging_file):
+            # If the stager is called before the rest of the directory tree
+            # has been created make the parent directories first
+            if not os.path.exists(os.path.dirname(self._staging_file)):
+                os.makedirs(os.path.dirname(self._staging_file), exist_ok=True)
             self._create_staging_file()
 
     def _create_file_label(self, file_to_stage: str) -> str:

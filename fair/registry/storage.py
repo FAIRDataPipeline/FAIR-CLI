@@ -195,3 +195,38 @@ def store_working_config(repo_dir: str, uri: str, work_cfg_yml: str) -> str:
     return fdp_req.post_else_get(
         uri, ("object",), data=_object_data, params={"description": _desc}
     )
+
+
+def get_storage_root_obj_address(remote_uri: str, remote_token: str, address_str: str) -> str:
+    """Retrieve the RestAPI URL for a given storage location on the registry
+
+    Parameters
+    ----------
+    remote_uri : str
+        endpoint of remote registry
+    remote_token : str
+        token for accessing remote registry
+    address_str : str
+        path of the storage location
+
+    Returns
+    -------
+    str
+        URL of the RestAPI object representing this address
+    """
+    try:
+        _results = fdp_req.get(
+            remote_uri,
+            ('storage_root',),
+            params={
+                'root': address_str
+            },
+            token=remote_token
+        )
+        if not _results:
+            raise AssertionError
+    except (AssertionError, fdp_exc.RegistryAPICallError):
+        raise fdp_exc.RegistryAPICallError(
+            f"Cannot find a match for path '{address_str}' "
+            f"from endpoint '{remote_uri}."
+        )

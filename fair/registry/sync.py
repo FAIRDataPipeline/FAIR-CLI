@@ -157,7 +157,6 @@ def compare_entries(
     return _flat_loc == _flat_rem
 
 
-
 def sync(
     local_uri: str,
     remote_uri: str,

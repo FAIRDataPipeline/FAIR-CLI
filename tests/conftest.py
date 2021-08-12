@@ -134,6 +134,9 @@ def no_init_session(
             "local": "http://localhost:8000/api/",
             "origin": "http://noserver/api",
         },
+        "tokens": {
+            "origin": "rem_token"
+        },
         "user": {
             "email": "jbloggs@nowhere",
             "given_names": "Joe Emmanuel",

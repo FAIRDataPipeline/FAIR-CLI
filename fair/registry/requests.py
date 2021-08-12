@@ -23,6 +23,7 @@ from fair.registry.versioning import parse_incrementer
 import json
 import os
 import posixpath
+import yaml
 import typing
 import urllib.parse
 
@@ -43,6 +44,45 @@ def local_token() -> str:
     return open(_local_token_file).readlines()[0].strip()
 
 
+def remote_token(remote: str = "origin") -> str:
+    """Read the registry token for the given remote
+
+    Parameters
+    ----------
+    remote : str, optional
+        remote endpoint label, by default "origin"
+
+    Returns
+    -------
+    str
+        remote token
+    """
+    _glob_yaml = yaml.safe_load(open(fdp_com.global_fdpconfig()))
+
+    if 'tokens' not in _glob_yaml or remote not in _glob_yaml['tokens']:
+        raise fdp_exc.CLIConfigurationError(
+            f"Failed to retrieve token location for remote '{remote}' "
+        )
+
+    _token_file = _glob_yaml['tokens'][remote]
+
+    if not os.path.exists(_token_file):
+        raise fdp_exc.FileNotFoundError(
+            f"Cannot open token file '{_token_file}', "
+            "file does not exist."
+        )
+    
+    _token = open(_token_file).read()
+
+    if not _token.strip():
+        raise fdp_exc.FAIRCLIException(
+            f"Cannot load token for registry '{remote}', "
+            f"file '{_glob_yaml['tokens'][remote]} is empty."
+        )
+
+    return _token.strip()
+
+
 def _access(
     uri: str,
     method: str,
@@ -55,10 +95,10 @@ def _access(
     **kwargs,
 ):
     if not headers:
-        headers = {}
+        headers: typing.Dict[str, str] = {}
 
     if not params:
-        params = {}
+        params: typing.Dict[str, str] = {}
 
     if not token:
         token = local_token()
