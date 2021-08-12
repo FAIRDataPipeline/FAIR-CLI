@@ -86,8 +86,8 @@ def remote_token(remote: str = "origin") -> str:
 def _access(
     uri: str,
     method: str,
-    obj_path: typing.Tuple[str],
-    response_code: int,
+    obj_path: typing.Tuple[str] = None,
+    response_code: int = 200,
     token: str = None,
     headers: typing.Dict[str, typing.Any] = None,
     params: typing.Dict = None,
@@ -103,8 +103,8 @@ def _access(
     if not token:
         token = local_token()
 
-    _obj_path = posixpath.join(*obj_path)
-    _url = urllib.parse.urljoin(uri, _obj_path)
+    _obj_path = posixpath.join(*obj_path) if obj_path else None
+    _url = urllib.parse.urljoin(uri, _obj_path) if obj_path else uri
     if _url[-1] != "/":
         _url = _url + "/"
     if params:
@@ -140,8 +140,9 @@ def _access(
 
     # Case of unrecognised object
     if _request.status_code == 403:
+        _searchable = uri if not obj_path else '/'.join(obj_path)
         raise fdp_exc.RegistryAPICallError(
-            f"Failed to retrieve object of type '{' '.join(obj_path)}' "
+            f"Failed to retrieve object of type '{_searchable}' "
             f"using method '{method}' and arguments:\n"+_info,
             error_code=403
         )
@@ -182,6 +183,25 @@ def post(
         data=json.dumps(data),
         token=token
     )
+
+
+def url_get(url: str) -> typing.Dict:
+    """Send a URL only request and retrieve results
+
+    Unlike 'get' this method is 'raw' in that there is no validation of
+    components
+
+    Parameters
+    ----------
+    url : str
+        URL to send request to
+
+    Returns
+    -------
+    typing.Dict
+        results dictionary
+    """
+    return _access(url, "get")
 
 
 def get(
@@ -240,7 +260,54 @@ def post_else_get(
     return _loc
 
 
-def get_writable_fields(uri: str, obj_path: typing.Tuple[str]) -> typing.List[str]:
+def filter_object_dependencies(
+    uri: str,
+    obj_path: typing.Tuple[str],
+    filter: typing.Dict[str, typing.Any]
+    ) -> typing.List[typing.Tuple[str]]:
+    """Filter dependencies of an API object based on a set of conditions
+
+    Parameters
+    ----------
+    uri : str
+        endpoint of the registry
+    object : Tuple[str]
+        path of object type, e.g. ('code_run',)
+    filter : typing.Dict[str, typing.Any]
+        list of filters to apply to listing
+
+    Returns
+    -------
+    typing.List[typing.Tuple[str]]
+        list of object type paths
+    """
+    try:
+        _actions = _access(uri, 'options', obj_path, 200)['actions']['POST']
+    except KeyError:
+        raise fdp_exc.InternalError(
+            "Failed to retrieve fields for "
+            f"'{uri}/{'/'.join(obj_path)}'"
+        )
+    _fields: typing.List[typing.Tuple[str]] = []
+
+    for name, info in _actions.items():
+        _filter_result: typing.List[bool] = []
+        for filt, value in filter.items():
+            # Some objects may not have the key
+            if filt not in info:
+                continue
+            _filter_result.append(info[filt] == value)
+        if all(_filter_result):
+            _obj_path = (name,) if '/' not in name else tuple(name.split('/'))
+            _fields.append(_obj_path)
+    
+    return _fields
+
+
+def get_writable_fields(
+    uri: str,
+    obj_path: typing.Tuple[str]
+    ) -> typing.List[typing.Tuple[str]]:
     """Retrieve a list of writable fields for the given RestAPI object
 
     Parameters
@@ -252,18 +319,11 @@ def get_writable_fields(uri: str, obj_path: typing.Tuple[str]) -> typing.List[st
 
     Returns
     -------
-    Dict
-        
+    typing.List[typing.Tuple[str]]
+        list of object type paths   
     """
-    try:
-        _actions = _access(uri, 'options', obj_path, 200)['actions']['POST']
-    except KeyError:
-        raise fdp_exc.InternalError(
-            "Failed to retrieve writable fields for "
-            f"'{uri}/{'/'.join(obj_path)}'"
-        )
-    _writable_fields = [
-        name for name, info in _actions.items()
-        if not info['read_only']
-    ]
+    _writable_fields = filter_object_dependencies(
+        uri, obj_path, {"read_only": False}
+    )
+
     return _writable_fields

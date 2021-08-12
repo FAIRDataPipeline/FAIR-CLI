@@ -28,6 +28,7 @@ Misc Variables
 
 __date__ = "2021-06-28"
 
+from _typeshed import IdentityFunction
 import os
 import glob
 import uuid
@@ -375,7 +376,7 @@ class FAIR:
             rich.print("\n".join(_remote_print))
         return _remote_print
 
-    def status(self) -> None:
+    def status(self, verbose: bool = False) -> None:
         """Get the status of staging"""
         self.check_is_repo()
 
@@ -387,14 +388,61 @@ class FAIR:
             click.echo("\tRuns:")
             for run in _staged_runs:
                 click.echo(click.style(f"\t\t{run}", fg="green"))
+                _run_urls = self._stager.get_run_data(
+                    self._local_config["remotes"]["local"],
+                    run
+                )
+                if not verbose:
+                    continue
+
+                for key, value in _run_urls.items():
+                    if not value:
+                        continue
+                    click.echo(click.style(f"\t\t\t{key}:", fg="green"))
+                    if isinstance(value, list):
+                        for url in value:
+                            click.echo(
+                                click.style(f"\t\t\t\t{url}", fg="green")
+                            )
+                    else:
+                        click.echo(
+                            click.style(f"\t\t\t\t{value}", fg="green")
+                        )
 
         if _unstaged_runs:
             click.echo("Changes not staged for synchronization:")
             click.echo(f'\t(use "fair add <run>..." to stage runs)')
 
             click.echo("\tRuns:")
+            
             for run in _unstaged_runs:
                 click.echo(click.style(f"\t\t{run}", fg="red"))
+                _run_urls = self._stager.get_run_data(
+                    self._local_config["remotes"]["local"],
+                    run
+                )
+
+                if not verbose:
+                    continue
+
+                for key, value in _run_urls.items():
+                    if not value:
+                        continue
+                    click.echo(
+                        click.style(
+                            f"\t\t\t{key.replace('_', ' ').title()}:",
+                            fg="red"
+                        )
+                    )
+                    if isinstance(value, list):
+                        for url in value:
+                            click.echo(
+                                click.style(f"\t\t\t\t{url}", fg="red")
+                            )
+                    else:
+                        click.echo(
+                            click.style(f"\t\t\t\t{value}", fg="red")
+                        )
 
         if not _unstaged_runs and not _staged_runs:
             click.echo("Nothing marked for tracking.")

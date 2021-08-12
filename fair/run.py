@@ -25,6 +25,8 @@ import os
 import sys
 import platform
 import typing
+import glob
+import hashlib
 from datetime import datetime
 
 import yaml
@@ -274,6 +276,55 @@ def create_working_config(
     
     with open(output_file, "w") as out_f:
         yaml.dump(_conf_yaml, out_f)
+
+
+def get_cli_run_hash(cli_run_dir: str) -> str:
+    """Retrieve the hash for a given CLI run
+
+    NOTE: A cli run can consist of multiple code runs if the API implementation
+    called initiates multiple executions. CLI run here refers to a call of 
+    'fair run'.
+
+    Parameters
+    ----------
+    cli_run_dir : str
+        CLI run directory
+
+    Returns
+    -------
+    str
+        hash of CLI run
+    """
+    if not os.path.exists(cli_run_dir):
+        raise fdp_exc.FileNotFoundError(
+            "Failed to find hash for cli run, "
+            f" directory '{cli_run_dir}' does not exist."
+        )
+    _time_stamp = os.path.basename(os.path.dirname(cli_run_dir))
+    return hashlib.sha1(_time_stamp.encode("utf-8")).hexdigest()
+
+
+def get_cli_run_dir(cli_run_hash: str) -> str:
+    """Get CLI run directory from a hash
+
+    Parameters
+    ----------
+    cli_run_hash : str
+        hash for a given CLI run
+
+    Returns
+    -------
+    str
+        associated CLI run directory
+    """
+    _cli_runs = glob.glob(os.path.join(fdp_com.default_coderun_dir(), '*'))
+
+    for run in _cli_runs:
+        _hash = hashlib.sha1(os.path.basename(run).encode("utf-8")).hexdigest()
+        if _hash == cli_run_hash:
+            return run
+    
+    return ""
 
 
 def setup_run_script(config_yaml: str, output_dir: str) -> typing.Dict[str, typing.Any]:

@@ -18,13 +18,12 @@ Functions
 """
 import os
 import glob
-import sys
 
-import hashlib
 import click
 import rich
 
 import fair.common as fdp_com
+import fair.run as fdp_run
 import fair.exceptions as fdp_exc
 from fair.templates import hist_template
 
@@ -69,9 +68,8 @@ def show_run_log(repo_loc: str, run_id: str) -> str:
     )
 
     for log_file in _time_sorted_logs:
-        _run_id = hashlib.sha1(
-            open(log_file).read().encode("utf-8")
-        ).hexdigest()
+        # Use the timestamp directory name for the hash
+        _run_id = fdp_run.get_cli_run_hash(os.path.dirname(log_file))
 
         if _run_id[: len(run_id)] == run_id:
             with open(log_file) as f:
@@ -115,10 +113,7 @@ def show_history(repo_loc: str, length: int = 10) -> None:
 
     # Iterate through the logs printing out the run author
     for i, log in enumerate(_time_sorted_logs):
-
-        # TODO: This run ID is a dummy and if 'fair log' is kept should be
-        # replaced with an ID from the registry instead
-        _run_id = hashlib.sha1(open(log).read().encode("utf-8")).hexdigest()
+        _run_id = fdp_run.get_cli_run_hash(os.path.dirname(log))
         with open(log) as f:
             _metadata = f.readlines()[:5]
         if not _metadata:

@@ -16,7 +16,7 @@ Functions
 
 __date__ = "2021-08-05"
 
-from os import remove
+import requests
 import typing
 
 import fair.exceptions as fdp_exc
@@ -157,84 +157,48 @@ def compare_entries(
     return _flat_loc == _flat_rem
 
 
-def sync(
+def push(
     local_uri: str,
     remote_uri: str,
-    remote_key: str,
-    local_key: str,
-    sync_objects: typing.Dict,
-    semver_spec: typing.Dict
+    remote_token: str,
+    items: typing.Dict[typing.Tuple[str], typing.List[typing.Dict]]
     ) -> None:
-    """Synchronise remote and local registries
 
-    Parameters
-    ----------
-    local_uri : str
-        endpoint of the local registry
-    remote_uri : str
-        endpoint of the remote registry
-    remote_key : str
-        remote repository token
-    local_key : str
-        local repository token
-    sync_objects : Dict[str, Dict[str, Dict]]
-        dictionary containing objects to be synchronised
-    semver_spec: Dict
-        semantic version specifier dictionary
+    # To make sure the items are pushed in the right order make a list
+    # of URLs and delete as items are successfully pushed
+    _items_unpushed = []
 
-    The semantic versioning specification dictionary must be in the same form
-    as the sync_objects dictionary. Objects are arranged by type (as a path)
-    and a local identifier used to connect the sync_objects and semver_spec
-    dictionaries. By default the semver_spec entry can be None as many objects
-    do not have versioning, where this is the case a conflict should arise.
-    """
-    for obj_path, obj_listing in sync_objects.items():
-        for obj_id, data in obj_listing.items():
-            if obj_id not in semver_spec[obj_path]:
-                raise fdp_exc.InternalError(
-                    "Semantic version specification "
-                    "did not match expectation"
+    while _items_unpushed:
+        for obj_path in items:
+            # Check if the object has any API based dependencies
+            _field_type_dependencies = fdp_req.filter_object_dependencies(
+                remote_uri,
+                obj_path,
+                {
+                    "read_only": False,
+                    "type": "field",
+                    "local": True
+                }
+            )
+
+            for data in items[obj_path]:
+                # Firstly check that this object does indeed exist on the
+                # local registry with the data provided
+                _local_obj = fdp_req.get(
+                    local_uri, obj_path, params=data
                 )
-
-            _entry_local = None
-            _entry_remote = None
-
-            try:
-                _entry_local = fdp_req.get(
-                    local_uri,
-                    obj_path,
-                    params=data,
-                    token=local_key
-                )
-                if not _entry_local:
-                    raise AssertionError
-            except (AssertionError, fdp_exc.fdp_exc.RegistryAPICallError):
-                pass
-            
-            try:
-                _entry_remote = fdp_req.get(
-                    remote_uri,
-                    obj_path,
-                    params=data,
-                    token=remote_key
-                )
-                if not _entry_remote:
-                    raise AssertionError
-            except (AssertionError, fdp_exc.fdp_exc.RegistryAPICallError):
-                pass
-
-            # If the two are exactly the same then skip
-            if compare_entries(_entry_local, _entry_remote):
-                continue
-
-            # Case of sync conflict
-            if _entry_local and _entry_remote:
-                raise fdp_exc.SynchronisationError(
-                    "CONFLICT cannot synchronise object "
-                    f" '{'/'.join(obj_path)}' with parameters "
-                    f"{data}, this object is already present in both "
-                    "registries and semantic versioning is not permitted."
-                )
-
-            
+                if not _local_obj:
+                    raise fdp_exc.SynchronisationError(
+                        "Failed to retrieve local registry object matching "
+                        f"'{data}'"
+                    )
                 
+                # Now check that the objects requirements (if any)
+                # are already in the remote registry
+                for field in _field_type_dependencies:
+                    if not field in data or not data[field]:
+                        raise fdp_exc.InternalError(
+                            f"Expected non-empty field '{field}' in object "
+                            f" '{data}'"
+                        )
+                    fdp_req.url_get(data[field])

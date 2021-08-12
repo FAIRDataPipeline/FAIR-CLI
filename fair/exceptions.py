@@ -147,3 +147,9 @@ class SynchronisationError(FAIRCLIException):
     def __init__(self, msg, error_code):
         self.error_code = error_code
         super().__init__(msg, exit_code=error_code)
+
+
+class ImplementationError(FAIRCLIException):
+    """Errors relating to setup via API implementation"""
+    def __init__(self, msg):
+        super().__init__(msg)

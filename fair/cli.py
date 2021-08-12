@@ -37,11 +37,12 @@ def cli():
 
 
 @cli.command()
+@click.option("--verbose/--not-verbose", help="Display URLs", default=False)
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
-def status(debug) -> None:
+def status(verbose, debug) -> None:
     """Get the status of files under staging"""
     with fdp_session.FAIR(os.getcwd(), debug=debug) as fair_session:
-        fair_session.status()
+        fair_session.status(verbose)
 
 
 @cli.command()
