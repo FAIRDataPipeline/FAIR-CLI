@@ -62,6 +62,9 @@ def parse_incrementer(incrementer: str) -> str:
 
 
 def get_latest_version(results_list: typing.Dict) -> semver.VersionInfo:
+    if not results_list:
+        return semver.VersionInfo.parse("0.0.0")
+
     _versions = [
         semver.VersionInfo.parse(i['version']) for i in results_list
         if 'version' in i

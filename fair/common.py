@@ -23,6 +23,7 @@ Functions
 -------
 
     find_fair_root      - returns the closest '.fair' directory in the upper hierarchy
+    find_git_root       - returns the closest '.git' directory
     staging_cache       - returns the current repository staging cache directory
     default_data_dir    - returns the default data store
     local_fdpconfig     - returns path of FAIR-CLI local repository config
@@ -39,6 +40,7 @@ import os
 import pathlib
 
 import yaml
+import git
 
 import fair.exceptions as fdp_exc
 
@@ -125,3 +127,21 @@ def session_cache_dir() -> str:
 def global_fdpconfig() -> str:
     """Location of global CLI configuration"""
     return os.path.join(global_config_dir(), FAIR_CLI_CONFIG)
+
+
+def find_git_root(start_directory: str = os.getcwd()) -> str:
+    """Locate the .git folder within the current hierarchy
+
+    Parameters
+    ----------
+
+    start_directory : str, optional
+        starting point for local git folder search
+
+    Returns
+    -------
+    str
+        absolute path of the .git folder
+    """
+    _repository = git.Repo(start_directory, search_parent_directories=True)
+    return _repository.git.rev_parse("--show-toplevel").strip()

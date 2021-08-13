@@ -1,7 +1,6 @@
 import os
 import typing
 import yaml
-import urllib.parse
 import fair.common as fdp_com
 import fair.run as fdp_run
 import fair.registry.requests as fdp_req
@@ -32,38 +31,39 @@ class Stager:
 
     def _create_staging_file(self) -> None:
         _staging_dict = {
-            'run': {},
+            'job': {},
             'file': {}
         }
         yaml.dump(_staging_dict, open(self._staging_file, 'w'))
 
-    def change_run_stage_status(self, run_uuid: str, stage: bool = True) -> None:
-        """Stage a local code run ready to be pushed to the remote registry
+    def change_job_stage_status(self, job_id: str, stage: bool = True) -> None:
+        """Stage a local code job ready to be pushed to the remote registry
 
         Parameters
         ----------
-        run_uuid : str
-            a valid uuid for the given run
+        job_id : str
+            a valid uuid for the given job
         stage : bool
-            whether run is staged
+            whether job is staged
 
         Returns
         -------
             bool
-                success if staging/unstaging complete, else fail if uuid not recognised
+                success if staging/unstaging complete,
+                else fail if ID not recognised
         """
 
         # Open the staging dictionary first
         _staging_dict = yaml.safe_load(open(self._staging_file))
 
-        # When a run is completed by a language implementation the CLI should
+        # When a job is completed by a language implementation the CLI should
         # have already registered it into staging with a status of staged=False
-        if not fdp_run.get_job_dir(run_uuid):
+        if not fdp_run.get_job_dir(job_id):
             raise fdp_exc.StagingError(
-                f"Failed to recognise run with ID '{run_uuid}'"
+                f"Failed to recognise job with ID '{job_id}'"
             )
 
-        _staging_dict['run'][run_uuid] = stage
+        _staging_dict['job'][job_id] = stage
 
         with open(self._staging_file, 'w') as f:
             yaml.dump(_staging_dict, f)
@@ -134,9 +134,9 @@ class Stager:
         if ( os.path.exists(_code_run_file) and
             open(_code_run_file).read().strip()
         ):
-            _jobs = [i.strip() for i in open(_code_run_file).readlines()]
+            _runs = [i.strip() for i in open(_code_run_file).readlines()]
             
-            for run in _jobs:
+            for run in _runs:
                 _results = fdp_req.get(
                     local_uri,
                     ('code_run', ),
@@ -184,23 +184,23 @@ class Stager:
     def get_job_data(
             self, local_uri: str, identifier: str
         ) -> typing.Dict[str, str]:
-        # Firstly find the CLI run directory
+        # Firstly find the job directory
         _directory = fdp_run.get_job_dir(identifier)
         if not _directory:
             raise fdp_exc.StagingError(
-                f"Could not retrieve directory for run '{identifier}'"
+                f"Could not retrieve directory for job '{identifier}'"
             )
         
         # Check for a config.yaml file
         _config_yaml = os.path.join(_directory, "config.yaml")
         if not os.path.exists(_config_yaml):
             raise fdp_exc.FileNotFoundError(
-                f"Cannot stage run '{identifier}'"
+                f"Cannot stage job '{identifier}'"
                 f"Expected config.yaml in '{_directory}'"
             )
 
         # Find this config.yaml on the local registry, this involves
-        # firstly getting the path commencing from the 'coderun' folder
+        # firstly getting the path commencing from the 'jobs' folder
         _config_rel_path = _config_yaml.split(fdp_com.JOBS_DIR)[1]
         _config_rel_path = f'{fdp_com.JOBS_DIR}{_config_rel_path}'
 
@@ -209,15 +209,15 @@ class Stager:
             _config_rel_path
         )["url"]
 
-        # Check for run script file
+        # Check for job script file
         _config_yaml = os.path.join(_directory, "config.yaml")
         if not os.path.exists(_config_yaml):
             raise fdp_exc.FileNotFoundError(
-                f"Cannot stage run '{identifier}'"
+                f"Cannot stage job '{identifier}'"
                 f"Expected config.yaml in '{_directory}'"
             )
 
-        # Find this run script on the local registry, as the script
+        # Find this job script on the local registry, as the script
         # can have any name obtain this information from the config.yaml
         _config_dict = yaml.safe_load(open(_config_yaml))
 
@@ -231,7 +231,7 @@ class Stager:
             )        
 
         # Find the relevant script path on the local registry, this involves
-        # firstly getting the path commencing from the 'coderun' folder
+        # firstly getting the path commencing from the 'jobs' folder
         _script_path = _config_dict['run_metadata']['script_path']
         _rel_script_path = _script_path.split(fdp_com.JOBS_DIR)[1]
         _rel_script_path = f'{fdp_com.JOBS_DIR}{_rel_script_path}'
@@ -242,18 +242,20 @@ class Stager:
         )["url"]
 
         _code_run_urls = self._get_code_run_entries(local_uri, _directory)
-        _written_obj_urls = self._get_written_obj_entries(local_uri, _config_dict)
+        _user_written_obj_urls = self._get_written_obj_entries(
+            local_uri, _config_dict
+        )
 
         return {
             "jobs": _code_run_urls,
-            "written_objects": _written_obj_urls,
+            "user_written_objects": _user_written_obj_urls,
             "config_file": _config_url,
             "script_file": _script_url
         }
 
     
     def remove_staging_entry(
-        self, identifier: str, stage_type: str = "run"
+        self, identifier: str, stage_type: str = "job"
         ) -> None:
         """Remove an item of type 'stage_type' from staging
 
@@ -262,7 +264,7 @@ class Stager:
             identifier : str
                 name or ID of item
             stage_type: str, optional
-                type of stage item either run (default) or file
+                type of stage item either job (default) or file
         """
         # Open the staging dictionary first
         _staging_dict = yaml.safe_load(open(self._staging_file))
@@ -284,7 +286,7 @@ class Stager:
             yaml.dump(_staging_dict, f)
 
     def get_item_list(
-        self, staged: bool = True, stage_type: str = "run"
+        self, staged: bool = True, stage_type: str = "job"
         ) -> typing.List[str]:
         """Returns a list of items of type 'stage_type' which are staged/unstaged
         
@@ -293,7 +295,7 @@ class Stager:
             staged : bool
                 list staged/unstaged items
             stage_type : str, optional
-                type of stage item either run (default) or file
+                type of stage item either job (default) or file
         """
         _staging_dict = yaml.safe_load(open(self._staging_file))
 

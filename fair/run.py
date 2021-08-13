@@ -218,6 +218,14 @@ def run_command(
             ]
         )
 
+    if not "local_repo" in _cfg["run_metadata"]:
+        raise fdp_exc.InternalError(
+            "Expected local repository location to be defined in "
+            f"working configuration file '{config_yaml}'"
+        )
+
+    _run_dir = _cfg["run_metadata"]["local_repo"]
+
     # Run the submission script
     _process = subprocess.Popen(
         _cmd_list,
@@ -228,6 +236,7 @@ def run_command(
         text=True,
         shell=False,
         env=_cmd_setup["env"],
+        cwd=_run_dir
     )
 
     # Write any stdout to the job log
@@ -289,7 +298,12 @@ def create_working_config(
 
     if 'write' in _conf_yaml:
         _conf_yaml['write'] = fdp_parse.glob_read_write(job_dir, _conf_yaml['write'])
-    
+
+    # If local_repo is not present in the user config assign it to the
+    # the current git repository
+    if "local_repo" not in _conf_yaml["run_metadata"]:
+        _conf_yaml["run_metadata"]["local_repo"] = fdp_com.find_git_root()
+
     with open(output_file, "w") as out_f:
         yaml.dump(_conf_yaml, out_f)
 

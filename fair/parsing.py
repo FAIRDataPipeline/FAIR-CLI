@@ -70,6 +70,10 @@ def glob_read_write(
     # Iterate through all entries in the section looking for any
     # key-value pairs that contain glob statements.
     for entry in config_dict_sub:
+        # We still want to keep the wildcard version in case the
+        # user wants to write to this namespace 
+        _parsed.append(entry)
+
         _glob_vals = [(k, v) for k, v in entry.items() if '*' in v]
         if len(_glob_vals) > 1:
             # For now only allow one value within the dictionary to have them
@@ -137,11 +141,11 @@ def subst_cli_vars(
             "file does not exist"
         )
 
-    def _get_id(job_dir):
+    def _get_id(directory):
         try:
-            return fdp_conf.get_current_user_orcid(job_dir)
+            return fdp_conf.get_current_user_orcid(directory)
         except fdp_exc.CLIConfigurationError:
-            return fdp_conf.get_current_user_uuid(job_dir)
+            return fdp_conf.get_current_user_uuid(directory)
 
     # Substitutes are defined as functions for which particular cases
     # can be given as arguments, e.g. for DATE the format depends on if
@@ -150,18 +154,8 @@ def subst_cli_vars(
 
     _fair_head = fdp_com.find_fair_root(os.path.dirname(config_yaml))
 
-    def _repo_check(directory: str):
-        # Currently only supports FAIR repository setup matching that of git
-        if not os.path.exists(os.path.join(directory, '.git')):
-            raise fdp_exc.NotImplementedError(
-                "Expected FAIR repository working tree head to match that of "
-                "git when using GIT_* CLI variables",
-                hint="Did you run 'fair init' in the same location as 'git init'?"
-            )
-        return git.Repo(directory)
-
     def _tag_check(*args, **kwargs):
-        _repo = _repo_check(_fair_head)
+        _repo = git.Repo(fdp_com.find_git_root(_fair_head))
         if len(_repo.tags) < 1:
             fdp_exc.UserConfigError(
                 "Cannot use GIT_TAG variable, no git tags found."
@@ -179,7 +173,9 @@ def subst_cli_vars(
         ),
         "CONFIG_DIR": lambda : job_dir,
         "SOURCE_CONFIG": lambda : config_yaml,
-        "GIT_BRANCH": lambda : _repo_check(_fair_head).active_branch.name,
+        "GIT_BRANCH": lambda : git.Repo(
+                fdp_com.find_git_root(_fair_head)
+            ).active_branch.name,
         "GIT_TAG": _tag_check,
     }
 
@@ -213,7 +209,7 @@ def subst_cli_vars(
 
     if _dt_fmt_res:
         for i, _ in enumerate(_dt_fmt_res):
-            _time_str = run_time.strftime(_fmt_res[i].strip())
+            _time_str = job_time.strftime(_fmt_res[i].strip())
             _conf_str = _conf_str.replace(_dt_fmt_res[i], _time_str)
 
     if _git_remote_res:
@@ -221,7 +217,9 @@ def subst_cli_vars(
             _name_str = _git_rem_name_res[i]
 
             try:
-                _rem_str = _repo_check(_fair_head).remotes[_name_str.lower()]
+                _rem_str = git.Repo(
+                    fdp_com.find_git_root(_fair_head)
+                ).remotes[_name_str.lower()]
                 _rem_str = _rem_str.url
             except KeyError:
                 raise fdp_exc.UserConfigError(
@@ -279,17 +277,19 @@ def subst_versions(local_uri: str, config_yaml_dict: typing.Dict) -> typing.Dict
 
         _latest_version = fdp_ver.get_latest_version(_results)
 
-        if 'version' in item.keys():
+        if 'use' in item and 'version' in item['use']:
             # Check if 'version' is an incrementer definition
-            # if     not then try using it as a hard set version
+            # if not then try using it as a hard set version
             try:
-                _incrementer = fdp_ver.parse_incrementer(item['version'])
+                _incrementer = fdp_ver.parse_incrementer(item['use']['version'])
                 _new_version = getattr(_latest_version, _incrementer)()
             except fdp_exc.UserConfigError:
-                _new_version = semver.VersionInfo.parse(item['version'])
+                _new_version = semver.VersionInfo.parse(item['use']['version'])
         else:       
             _new_version = _latest_version.bump_minor()
-        _write_statements[i]['version'] = str(_new_version)
+        if 'use' not in _write_statements[i]:
+            _write_statements[i]['use'] = {}
+        _write_statements[i]['use']['version'] = str(_new_version)
     
     _out_dict['write'] = _write_statements
 

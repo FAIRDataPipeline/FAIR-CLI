@@ -61,8 +61,7 @@ def test_parse_vars(mocker, git_mock):
     assert _u_config['run_metadata']['conf_dir'] == os.getcwd()
     assert _u_config['run_metadata']['git_url'] == _other
     assert _u_config['read'][2]['user'] == _fake_name
-    print(_u_config)
-    assert _u_config['write'][0]['version'] == '0.1.0'
-    assert _u_config['write'][1]['version'] == '0.1.0'
-    assert _u_config['write'][2]['version'] == '1.0.0'
+    assert _u_config['write'][0]['use']['version'] == '0.1.0'
+    assert _u_config['write'][1]['use']['version'] == '0.1.0'
+    assert _u_config['write'][2]['use']['version'] == '1.0.0'
 

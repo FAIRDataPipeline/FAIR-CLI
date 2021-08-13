@@ -4,10 +4,12 @@ read:
 - user: ${{USER}}
 write:
   - data_product: new_data_product
-    version: ${{ MINOR }}
+    use:
+      version: ${{ MINOR }}
   - data_product: new_data_product_2
   - data_product: new_data_product_3
-    version: ${{ MAJOR }}
+    use:
+      version: ${{ MAJOR }}
 rando:
 - RandomText@?${{ GIT_BRANCH }}
 - origin21231${{ GIT_REMOTE_ORIGIN }}
