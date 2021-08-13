@@ -93,11 +93,13 @@ def git_mock(mocker):
         def __init__(self, name):
             self.name = name
     class mock_repo:
+        def __init__(self, *args, **kwargs):
+            pass
         tags = ['test-tag']
         remotes = {'origin': mock_remote('git@nowhere.com'), 'other': mock_remote('git@undefined.com')}
         active_branch = mock_branch('test-branch')
         branches = [mock_branch('test-branch')]
-    mocker.patch.object(git, 'Repo', lambda x: mock_repo())
+    mocker.patch.object(git, 'Repo', lambda *args, **kwargs: mock_repo())
 
 
 @pytest.fixture

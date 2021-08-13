@@ -31,6 +31,7 @@ from datetime import datetime
 
 import yaml
 import click
+import git
 import subprocess
 
 import fair.configuration as fdp_conf
@@ -303,6 +304,11 @@ def create_working_config(
     # the current git repository
     if "local_repo" not in _conf_yaml["run_metadata"]:
         _conf_yaml["run_metadata"]["local_repo"] = fdp_com.find_git_root()
+
+    # Add in key for latest commit on the given repository
+    _git_repo = git.Repo(_conf_yaml["run_metadata"]["local_repo"])
+
+    _conf_yaml["run_metadata"]["latest_commit"] = _git_repo.head.commit.hexsha
 
     with open(output_file, "w") as out_f:
         yaml.dump(_conf_yaml, out_f)
