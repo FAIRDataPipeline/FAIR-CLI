@@ -2,10 +2,10 @@
 # -*- coding: utf-8 -*-
 """
 
-Execute run
+Execute Job
 ===========
 
-Creates required files for a model run and executes the run itself using the
+Creates required files for job execution and runs the job itself using the
 retrieved metadata
 
 
@@ -61,33 +61,38 @@ def run_command(
     repo_dir: str,
     config_yaml: str = os.path.join(fdp_com.find_fair_root(), "config.yaml"),
     bash_cmd: str = "",
-) -> None:
-    """Execute a process as part of a model run
+) -> str:
+    """Execute a process as part of job
 
-    Executes a command from the given run config file, if a command is
-    given this is run instead and overwrites that in the run config file.
+    Executes a command from the given job config file, if a command is
+    given this is job instead and overwrites that in the job config file.
 
     Parameters
     ----------
     local_uri : str
         local registry endpoint
-    run_dir : str
+    repo_dir : str
         directory of repository to run from
     config_yaml : str, optional
         run from a given config.yaml file
     bash_cmd : str, optional
         override execution command with a bash command
+
+    Returns
+    -------
+        str
+            job hash
     """
-    # Record the time the run was executed, create a log and both
+    # Record the time the job was commenced, create a log and both
     # print output and write it to the log file
     _now = datetime.now()
     _timestamp = _now.strftime("%Y-%m-%d_%H_%M_%S_%f")
     _logs_dir = fdp_hist.history_directory(repo_dir)
     if not os.path.exists(_logs_dir):
         os.mkdir(_logs_dir)
-    _log_file = os.path.join(_logs_dir, f"run_{_timestamp}.log")
+    _log_file = os.path.join(_logs_dir, f"job_{_timestamp}.log")
 
-    # Check that the specified user config file for a run actually exists
+    # Check that the specified user config file for a job actually exists
     if not os.path.exists(config_yaml):
         raise fdp_exc.FileNotFoundError(
             "Failed to read user configuration, "
@@ -112,37 +117,40 @@ def run_command(
         _cfg['run_metadata']['script'] = bash_cmd
         yaml.dump(_cfg, open(config_yaml, 'w'))
 
-    if "script" not in _cfg["run_metadata"] and "script_path" not in _cfg["run_metadata"]:
+    if (
+        "script" not in _cfg["run_metadata"]
+        and "script_path" not in _cfg["run_metadata"]
+    ):
         raise fdp_exc.UserConfigError(
             "Failed to find executable method in specified "
             "'config.yaml', expected either key 'script' or 'script_path'"
             " with valid values."
         )
 
-    # Create a new timestamped directory for the run
+    # Create a new timestamped directory for the job
     # use the key 'write_data_store' from the 'config.yaml' if
     # specified else revert to the
     if "write_data_store" in _cfg["run_metadata"]:
-        _run_dir = os.path.join(
-            _cfg["run_metadata"]["write_data_store"], fdp_com.CODERUN_DIR
+        _job_dir = os.path.join(
+            _cfg["run_metadata"]["write_data_store"], fdp_com.JOBS_DIR
         )
     else:
-        _run_dir = fdp_com.default_coderun_dir()
+        _job_dir = fdp_com.default_jobs_dir()
 
-    _run_dir = os.path.join(_run_dir, _timestamp)
-    os.makedirs(_run_dir, exist_ok=True)
+    _job_dir = os.path.join(_job_dir, _timestamp)
+    os.makedirs(_job_dir, exist_ok=True)
 
-    # Set location of working config.yaml to the run directory
-    _work_cfg_yml = os.path.join(_run_dir, "config.yaml")
+    # Set location of working config.yaml to the job directory
+    _work_cfg_yml = os.path.join(_job_dir, "config.yaml")
 
     # Create working config
     create_working_config(
-        local_uri, _run_dir, config_yaml, _work_cfg_yml, _now
+        local_uri, _job_dir, config_yaml, _work_cfg_yml, _now
     )
 
     if not os.path.exists(_work_cfg_yml):
         raise fdp_exc.InternalError(
-            "Failed to create working config.yaml in run folder"
+            "Failed to create working config.yaml in job folder"
         )
 
     # Setup the registry storage location root
@@ -154,8 +162,15 @@ def run_command(
 
     # Create a run script if 'script' is specified instead of 'script_path'
     # else use the script
-    _cmd_setup = setup_run_script(_work_cfg_yml, _run_dir)
+    _cmd_setup = setup_job_script(_work_cfg_yml, _job_dir)
     _shell = _cmd_setup["shell"]
+
+    fdp_reg_store.store_working_script(
+        repo_dir,
+        fdp_conf.read_local_fdpconfig(repo_dir)["remotes"]["local"],
+        _cmd_setup["script"],
+        _work_cfg_yml
+    )
 
     if _shell not in SHELLS:
         raise fdp_exc.UserConfigError(
@@ -179,7 +194,7 @@ def run_command(
     if not _glob_conf:
         raise fdp_exc.CLIConfigurationError(
             "Global configuration is empty",
-            hint="You may need to resetup FAIR-CLI on this system"
+            hint="You may need to re-setup FAIR-CLI on this system"
         )
 
     _loc_conf = fdp_conf.read_local_fdpconfig(repo_dir)
@@ -187,7 +202,7 @@ def run_command(
     _email = _glob_conf["user"]["email"]
     _namespace = _loc_conf["namespaces"]["output"]
 
-    # Generate a local run log for the CLI, this is NOT
+    # Generate a local job log for the CLI, this is NOT
     # related to metadata sent to the registry
     # this log is viewable via the `fair view <run-cli-sha>`
     with open(_log_file, "a") as f:
@@ -203,7 +218,7 @@ def run_command(
             ]
         )
 
-    # Run the submission script/model run
+    # Run the submission script
     _process = subprocess.Popen(
         _cmd_list,
         stdout=subprocess.PIPE,
@@ -215,7 +230,7 @@ def run_command(
         env=_cmd_setup["env"],
     )
 
-    # Write any stdout to the CLI run log
+    # Write any stdout to the job log
     for line in iter(_process.stdout.readline, ""):
         with open(_log_file, "a") as f:
             f.writelines([line])
@@ -227,41 +242,42 @@ def run_command(
         _duration = _end_time - _now
         f.writelines([f"------- time taken {_duration} -------\n"])
 
-    # Exit the session if the run failed
+    # Exit the session if the job failed
     if _process.returncode != 0:
         raise fdp_exc.CommandExecutionError(
             f"Run failed with exit code '{_process.returncode}'",
             exit_code=_process.returncode
         )
 
+    _hash = get_job_hash(_job_dir)
+
+    return _hash
 
 def create_working_config(
     local_uri: str,
-    run_dir: str,
+    job_dir: str,
     config_yaml: str,
     output_file: str,
     time: datetime
 ) -> None:
-    """Generate a working configuration file used during runs
+    """Generate a working configuration file used during jobs
 
     Parameters
     ----------
     local_uri : str
         local registry endpoint
-    run_dir : str
-        session run directory
+    job_dir : str
+        session job directory
     config_yaml : str
-        user run configuration file
+        job configuration file
     output_file : str
         location to write generated config
     time : datetime.datetime
-        time stamp of run initiation time
+        time stamp of job initiation time
     """
-    # TODO: 'VERSION' variable when registry connection available
-    # [FAIRDataPipeline/FAIR-CLI/issues/6]
     
     _conf_yaml = fdp_parse.subst_cli_vars(
-        local_uri, run_dir, time, config_yaml
+        local_uri, job_dir, time, config_yaml
     )
 
     # Remove 'register' from working configuration
@@ -269,66 +285,69 @@ def create_working_config(
         del _conf_yaml["register"]    
 
     if 'read' in _conf_yaml:
-        _conf_yaml['read'] = fdp_parse.glob_read_write(run_dir, _conf_yaml['read'])
+        _conf_yaml['read'] = fdp_parse.glob_read_write(job_dir, _conf_yaml['read'])
 
     if 'write' in _conf_yaml:
-        _conf_yaml['write'] = fdp_parse.glob_read_write(run_dir, _conf_yaml['write'])
+        _conf_yaml['write'] = fdp_parse.glob_read_write(job_dir, _conf_yaml['write'])
     
     with open(output_file, "w") as out_f:
         yaml.dump(_conf_yaml, out_f)
 
 
-def get_cli_run_hash(cli_run_dir: str) -> str:
-    """Retrieve the hash for a given CLI run
+def get_job_hash(job_dir: str) -> str:
+    """Retrieve the hash for a given job
 
-    NOTE: A cli run can consist of multiple code runs if the API implementation
-    called initiates multiple executions. CLI run here refers to a call of 
+    NOTE: A job can consist of multiple code runs if the API implementation
+    called initiates multiple executions. "Job" here refers to a call of 
     'fair run'.
 
     Parameters
     ----------
-    cli_run_dir : str
-        CLI run directory
+    job_dir : str
+        jobs directory
 
     Returns
     -------
     str
-        hash of CLI run
+        hash of job
     """
-    if not os.path.exists(cli_run_dir):
+    if not os.path.exists(job_dir):
         raise fdp_exc.FileNotFoundError(
-            "Failed to find hash for cli run, "
-            f" directory '{cli_run_dir}' does not exist."
+            "Failed to find hash for job, "
+            f"directory '{job_dir}' does not exist."
         )
-    _time_stamp = os.path.basename(os.path.dirname(cli_run_dir))
-    return hashlib.sha1(_time_stamp.encode("utf-8")).hexdigest()
+    _directory = os.path.abspath(job_dir)
+    return hashlib.sha1(_directory.encode("utf-8")).hexdigest()
 
 
-def get_cli_run_dir(cli_run_hash: str) -> str:
-    """Get CLI run directory from a hash
+def get_job_dir(job_hash: str) -> str:
+    """Get job directory from a hash
 
     Parameters
     ----------
-    cli_run_hash : str
-        hash for a given CLI run
+    job_hash : str
+        hash for a given job
 
     Returns
     -------
     str
-        associated CLI run directory
+        associated job directory
     """
-    _cli_runs = glob.glob(os.path.join(fdp_com.default_coderun_dir(), '*'))
+    _jobs = glob.glob(os.path.join(fdp_com.default_jobs_dir(), '*'))
 
-    for run in _cli_runs:
-        _hash = hashlib.sha1(os.path.basename(run).encode("utf-8")).hexdigest()
-        if _hash == cli_run_hash:
-            return run
+    for job in _jobs:
+        _hash = hashlib.sha1(os.path.abspath(job).encode("utf-8")).hexdigest()
+        if _hash == job_hash:
+            return job
     
     return ""
 
 
-def setup_run_script(config_yaml: str, output_dir: str) -> typing.Dict[str, typing.Any]:
-    """Setup a run script from the given configuration.
+def setup_job_script(
+    config_yaml: str,
+    output_dir: str
+    ) -> typing.Dict[str, typing.Any]:
+    """Setup a job script from the given configuration.
 
     Checks the user configuration file for the required 'script' or 'script_path'
     keys and determines the process to be executed. Also sets up an environment
@@ -337,9 +356,9 @@ def setup_run_script(config_yaml: str, output_dir: str) -> typing.Dict[str, typi
     Parameters
     ----------
     config_yaml : str
-        user run configuration file
+        job configuration file
     output_dir : str
-        location to store submission/run script
+        location to store submission/job script
 
     Returns
     -------

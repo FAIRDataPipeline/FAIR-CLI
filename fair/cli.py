@@ -41,8 +41,17 @@ def cli():
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
 def status(verbose, debug) -> None:
     """Get the status of files under staging"""
-    with fdp_session.FAIR(os.getcwd(), debug=debug) as fair_session:
-        fair_session.status(verbose)
+    try:
+        with fdp_session.FAIR(
+            os.getcwd(), debug=debug, mode=fdp_svr.SwitchMode.CLI
+        ) as fair_session:
+            fair_session.status(verbose)
+    except fdp_exc.FAIRCLIException as e:
+        if debug:
+            raise e
+        e.err_print()
+        if e.level.lower() == "error":
+            sys.exit(e.exit_code)
 
 
 @cli.command()
@@ -71,6 +80,8 @@ def init(config: str, debug: bool) -> None:
         ) as fair_session:
             fair_session.initialise()
     except fdp_exc.FAIRCLIException as e:
+        if debug:
+            raise e
         e.err_print()
         if e.level.lower() == "error":
             sys.exit(e.exit_code)
@@ -82,7 +93,8 @@ def init(config: str, debug: bool) -> None:
     help="Delete global FAIR-CLI directories",
     default=False,
 )
-def purge(glob) -> None:
+@click.option("--debug/--no-debug", help="Run in debug mode", default=False)
+def purge(glob, debug) -> None:
     """Resets the repository deleting all local caches"""
     _purge = click.prompt(
         "Are you sure you want to reset FAIR tracking, "
@@ -94,6 +106,8 @@ def purge(glob) -> None:
             with fdp_session.FAIR(os.getcwd()) as fair_session:
                 fair_session.purge(glob)
         except fdp_exc.FAIRCLIException as e:
+            if debug:
+                raise e
             e.err_print()
             if e.level.lower() == "error":
                 sys.exit(e.exit_code)
@@ -106,11 +120,14 @@ def registry() -> None:
 
 
 @registry.command()
-def start() -> None:
+@click.option("--debug/--no-debug", help="Run in debug mode", default=False)
+def start(debug) -> None:
     """Start the local registry server"""
     try:
         fdp_session.FAIR(os.getcwd(), mode=fdp_svr.SwitchMode.USER_START)
     except fdp_exc.FAIRCLIException as e:
+        if debug:
+            raise e
         e.err_print()
         if e.level.lower() == "error":
             sys.exit(e.exit_code)
@@ -135,49 +152,35 @@ def stop(force) -> None:
 
 @cli.command()
 def log() -> None:
-    """Show a full run history"""
+    """Show a full job history"""
     fdp_hist.show_history(os.getcwd())
 
 
 @cli.command()
-@click.argument("run_id")
-def view(run_id: str) -> None:
-    """View log for a given run"""
-    fdp_hist.show_run_log(os.getcwd(), run_id)
+@click.argument("job_id")
+def view(job_id: str) -> None:
+    """View log for a given job"""
+    fdp_hist.show_job_log(os.getcwd(), job_id)
 
 
 @cli.command()
 @click.argument("file_paths", type=click.Path(exists=True), nargs=-1)
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
 def reset(file_paths: typing.List[str], debug: bool) -> None:
-    """Removes files/runs from staging"""
-    try:
-        with fdp_session.FAIR(os.getcwd(), debug=debug) as fair_session:
-            for file_name in file_paths:
-                fair_session.change_staging_state(file_name, False)
-    except fdp_exc.FAIRCLIException as e:
-        e.err_print()
-        if e.level.lower() == "error":
-            sys.exit(e.exit_code)
+    """Removes jobs from staging"""
+    pass
 
 
 @cli.command()
-@click.argument("file_paths", type=click.Path(exists=True), nargs=-1)
+@click.argument("job_ids", nargs=-1)
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
-def add(file_paths: typing.List[str], debug: bool) -> None:
-    """Add a file to staging"""
-    try:
-        with fdp_session.FAIR(os.getcwd(), debug=debug) as fair_session:
-            for file_name in file_paths:
-                fair_session.change_staging_state(file_name, True)
-    except fdp_exc.FAIRCLIException as e:
-        e.err_print()
-        if e.level.lower() == "error":
-            sys.exit(e.exit_code)
+def add(job_ids: typing.List[str], debug: bool) -> None:
+    """Add a job to staging"""
+    pass
 
 
 @cli.command()
-@click.argument("file_paths", type=click.Path(exists=True), nargs=-1)
+@click.argument("job_ids", nargs=-1)
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
 @click.option(
     "--cached/--not-cached",
@@ -185,17 +188,10 @@ def add(file_paths: typing.List[str], debug: bool) -> None:
     help="remove from tracking but do not delete from file system",
 )
 def rm(
-    file_paths: typing.List[str], cached: bool = False, debug: bool = False
+    job_ids: typing.List[str], cached: bool = False, debug: bool = False
 ) -> None:
-    """Removes files from system or just tracking"""
-    try:
-        with fdp_session.FAIR(os.getcwd(), debug=debug) as fair_session:
-            for file_name in file_paths:
-                fair_session.remove_file(file_name, cached)
-    except fdp_exc.FAIRCLIException as e:
-        e.err_print()
-        if e.level.lower() == "error":
-            sys.exit(e.exit_code)
+    """Removes jobs from system or just tracking"""
+    pass
 
 
 @cli.command()
@@ -210,7 +206,7 @@ def rm(
 )
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
 def run(config: str, script: str, debug: bool):
-    """Initialises a run with the option to specify a bash command"""
+    """Initialises a job with the option to specify a bash command"""
     # Allow no config to be specified, if that is the case use default local
     if len(config) > 0:
         config = config[0]
@@ -220,8 +216,10 @@ def run(config: str, script: str, debug: bool):
         with fdp_session.FAIR(
             os.getcwd(), config, debug=debug, mode=fdp_svr.SwitchMode.CLI
         ) as fair_session:
-            fair_session.run(script)
+            fair_session.run_job(script)
     except fdp_exc.FAIRCLIException as e:
+        if debug:
+            raise e
         e.err_print()
         if e.level.lower() == "error":
             sys.exit(e.exit_code)
@@ -237,6 +235,8 @@ def remote(ctx, verbose: bool = False, debug: bool = False):
             with fdp_session.FAIR(os.getcwd(), debug=debug) as fair_session:
                 fair_session.list_remotes(verbose)
         except fdp_exc.FAIRCLIException as e:
+            if debug:
+                raise e
             e.err_print()
             if e.level.lower() == "error":
                 sys.exit(e.exit_code)
@@ -263,6 +263,8 @@ def add(options: typing.List[str], debug: bool) -> None:
         with fdp_session.FAIR(os.getcwd(), debug=debug) as fair_session:
             fair_session.add_remote(_url, _label)
     except fdp_exc.FAIRCLIException as e:
+        if debug:
+            raise e
         e.err_print()
         if e.level.lower() == "error":
             sys.exit(e.exit_code)
@@ -283,6 +285,8 @@ def remove(label: str, debug: bool) -> None:
         with fdp_session.FAIR(os.getcwd(), debug=debug) as fair_session:
             fair_session.remove_remove(label)
     except fdp_exc.FAIRCLIException as e:
+        if debug:
+            raise e
         e.err_print()
         if e.level.lower() == "error":
             sys.exit(e.exit_code)
@@ -299,6 +303,8 @@ def modify(ctx, label: str, url: str, debug: bool) -> None:
         with fdp_session.FAIR(os.getcwd(), debug=debug) as fair_session:
             fair_session.modify_remote(label, url)
     except fdp_exc.FAIRCLIException as e:
+        if debug:
+            raise e
         e.err_print()
         if e.level.lower() == "error":
             sys.exit(e.exit_code)

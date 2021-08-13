@@ -106,8 +106,8 @@ def glob_read_write(
 
 def subst_cli_vars(
     local_uri: str,
-    run_dir: str,
-    run_time: datetime.datetime,
+    job_dir: str,
+    job_time: datetime.datetime,
     config_yaml: str
     ) -> typing.Dict:
     """Load configuration and substitute recognised FAIR CLI variables
@@ -116,12 +116,12 @@ def subst_cli_vars(
     ----------
     local_uri : str
         endpoint of the local registry
-    run_dir : str
-        location of code run directory (not to be confused with
+    job_dir : str
+        location of code job directory (not to be confused with
         local FAIR project repository)
 
-    run_time : datetime.datetime
-        time of run execution
+    job_time : datetime.datetime
+        time of job commencement
 
     config_yaml : str
         location of `config.yaml` file
@@ -137,11 +137,11 @@ def subst_cli_vars(
             "file does not exist"
         )
 
-    def _get_id(run_dir):
+    def _get_id(job_dir):
         try:
-            return fdp_conf.get_current_user_orcid(run_dir)
+            return fdp_conf.get_current_user_orcid(job_dir)
         except fdp_exc.CLIConfigurationError:
-            return fdp_conf.get_current_user_uuid(run_dir)
+            return fdp_conf.get_current_user_uuid(job_dir)
 
     # Substitutes are defined as functions for which particular cases
     # can be given as arguments, e.g. for DATE the format depends on if
@@ -170,14 +170,14 @@ def subst_cli_vars(
 
 
     _substitutes: collections.abc.Mapping = {
-        "DATE": lambda : run_time.strftime("%Y%m%d"),
-        "DATETIME": lambda : run_time.strftime("%Y-%m-%s %H:%M:%S"),
+        "DATE": lambda : job_time.strftime("%Y%m%d"),
+        "DATETIME": lambda : job_time.strftime("%Y-%m-%s %H:%M:%S"),
         "USER": lambda : fdp_conf.get_current_user_name(os.path.dirname(config_yaml)),
-        "USER_ID": lambda : _get_id(run_dir),
+        "USER_ID": lambda : _get_id(job_dir),
         "REPO_DIR": lambda : fdp_com.find_fair_root(
             os.path.dirname(config_yaml)
         ),
-        "CONFIG_DIR": lambda : run_dir,
+        "CONFIG_DIR": lambda : job_dir,
         "SOURCE_CONFIG": lambda : config_yaml,
         "GIT_BRANCH": lambda : _repo_check(_fair_head).active_branch.name,
         "GIT_TAG": _tag_check,

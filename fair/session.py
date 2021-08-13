@@ -13,7 +13,7 @@ Contents
 Classes
 -------
 
-    FAIR - main class for performing synchronisations and model runs
+    FAIR - main class for performing synchronisations and executing jobs
 
 Misc Variables
 --------------
@@ -28,7 +28,6 @@ Misc Variables
 
 __date__ = "2021-06-28"
 
-from _typeshed import IdentityFunction
 import os
 import glob
 import uuid
@@ -119,10 +118,9 @@ class FAIR:
             else fdp_com.local_user_config(self._session_loc)
         )
 
-        # Creates $HOME/.scrc if it does not exist
         if not os.path.exists(fdp_com.REGISTRY_HOME):
-            click.echo(
-                "Warning: User registry directory was not found, this could "
+            raise fdp_exc.RegistryError(
+                "User registry directory was not found, this could "
                 "mean the local registry has not been installed."
             )
 
@@ -232,7 +230,7 @@ class FAIR:
                 force=self._run_mode == fdp_serv.SwitchMode.FORCE_STOP,
             )
 
-    def run(
+    def run_job(
         self,
         bash_cmd: str = "",
     ) -> None:
@@ -248,12 +246,15 @@ class FAIR:
             self.make_starter_config()
         self._logger.debug("Setting up command execution")
         
-        fdp_run.run_command(
+        _hash = fdp_run.run_command(
             local_uri=self._local_config['remotes']['local'],
             repo_dir=self._session_loc,
             config_yaml=self._session_config,
             bash_cmd=bash_cmd
         )
+
+        # Automatically add the run to tracking but unstaged
+        self._stager.change_run_stage_status(_hash, False)
 
     def check_is_repo(self) -> None:
         """Check that the current location is a FAIR repository"""
@@ -293,8 +294,8 @@ class FAIR:
         self.check_is_repo()
         self._stager.change_run_stage_status(run_to_stage, stage)
 
-    def remove_run(self, run_id: str, cached: bool = False) -> None:
-        """Remove a file from the file system and tracking
+    def remove_job(self, job_id: str, cached: bool = False) -> None:
+        """Remove a job from tracking
 
         Parameters
         ----------
@@ -305,7 +306,7 @@ class FAIR:
         """
         self.check_is_repo()
         
-        self._stager.remove_staging_entry(run_id)
+        self._stager.remove_staging_entry(job_id)
 
     def add_remote(
         self,
@@ -380,22 +381,22 @@ class FAIR:
         """Get the status of staging"""
         self.check_is_repo()
 
-        _staged_runs = self._stager.get_item_list(True, "run")
-        _unstaged_runs = self._stager.get_item_list(False, "run")
+        _staged_jobs = self._stager.get_item_list(True, "run")
+        _unstaged_jobs = self._stager.get_item_list(False, "run")
 
-        if _staged_runs:
+        if _staged_jobs:
             click.echo("Changes to be synchronized:")
             click.echo("\tRuns:")
-            for run in _staged_runs:
-                click.echo(click.style(f"\t\t{run}", fg="green"))
-                _run_urls = self._stager.get_run_data(
+            for job in _staged_jobs:
+                click.echo(click.style(f"\t\t{job}", fg="green"))
+                _job_urls = self._stager.get_run_data(
                     self._local_config["remotes"]["local"],
-                    run
+                    job
                 )
                 if not verbose:
                     continue
 
-                for key, value in _run_urls.items():
+                for key, value in _job_urls.items():
                     if not value:
                         continue
                     click.echo(click.style(f"\t\t\t{key}:", fg="green"))
@@ -409,23 +410,23 @@ class FAIR:
                             click.style(f"\t\t\t\t{value}", fg="green")
                         )
 
-        if _unstaged_runs:
+        if _unstaged_jobs:
             click.echo("Changes not staged for synchronization:")
             click.echo(f'\t(use "fair add <run>..." to stage runs)')
 
             click.echo("\tRuns:")
             
-            for run in _unstaged_runs:
-                click.echo(click.style(f"\t\t{run}", fg="red"))
-                _run_urls = self._stager.get_run_data(
+            for job in _unstaged_jobs:
+                click.echo(click.style(f"\t\t{job}", fg="red"))
+                _job_urls = self._stager.get_run_data(
                     self._local_config["remotes"]["local"],
-                    run
+                    job
                 )
 
                 if not verbose:
                     continue
 
-                for key, value in _run_urls.items():
+                for key, value in _job_urls.items():
                     if not value:
                         continue
                     click.echo(
@@ -444,7 +445,7 @@ class FAIR:
                             click.style(f"\t\t\t\t{value}", fg="red")
                         )
 
-        if not _unstaged_runs and not _staged_runs:
+        if not _unstaged_jobs and not _staged_jobs:
             click.echo("Nothing marked for tracking.")
 
     def make_starter_config(self) -> None:
@@ -482,13 +483,18 @@ class FAIR:
         )
 
         if os.path.exists(_fair_dir):
-            fdp_exc.FDPRepositoryError(
+            raise fdp_exc.FDPRepositoryError(
                 f"FAIR repository is already initialised."
             )
 
         click.echo(
             "Initialising FAIR repository, setup will now ask for basic info:\n"
         )
+
+        if not os.path.exists(_fair_dir):
+            os.mkdir(_fair_dir)
+            os.makedirs(fdp_com.session_cache_dir(), exist_ok=True)
+            self._stager.initialise()           
 
         if not os.path.exists(fdp_com.global_fdpconfig()):
             self._global_config = fdp_conf.global_config_query()
@@ -499,9 +505,6 @@ class FAIR:
             self._local_config = fdp_conf.local_config_query(
                 self._global_config
             )
-
-        if not os.path.exists(_fair_dir):
-            os.mkdir(_fair_dir)
 
         with open(fdp_com.local_fdpconfig(self._session_loc), "w") as f:
             yaml.dump(self._local_config, f)

@@ -5,7 +5,7 @@
 Run History
 ===========
 
-Methods relating to the summary of runs called within the given FAIR-CLI
+Methods relating to the summary of jobs commenced within the given FAIR-CLI
 repository. Allowing user to view any stdout from these.
 
 Contents
@@ -29,7 +29,7 @@ from fair.templates import hist_template
 
 
 def history_directory(repo_loc: str) -> str:
-    """Retrieve the directory containing run logs for the specified repository
+    """Retrieve the directory containing job logs for the specified repository
 
     Parameters
     ----------
@@ -39,27 +39,27 @@ def history_directory(repo_loc: str) -> str:
     Returns
     -------
     str
-        location of the run logs directory
+        location of the job logs directory
     """
     return os.path.join(
         fdp_com.find_fair_root(repo_loc), fdp_com.FAIR_FOLDER, "logs"
     )
 
 
-def show_run_log(repo_loc: str, run_id: str) -> str:
-    """Show the log from a given run
+def show_job_log(repo_loc: str, job_id: str) -> str:
+    """Show the log from a given job
 
     Parameters
     ----------
     repo_loc : str
         FAIR-CLI repository path
-    run_id : str
-        SHA identifier for the code run
+    job_id : str
+        SHA identifier for the job
 
     Returns
     -------
     str
-        log file location for the given run
+        log file location for the given job
     """
     _time_sorted_logs = sorted(
         glob.glob(os.path.join(history_directory(repo_loc), "*")),
@@ -69,32 +69,32 @@ def show_run_log(repo_loc: str, run_id: str) -> str:
 
     for log_file in _time_sorted_logs:
         # Use the timestamp directory name for the hash
-        _run_id = fdp_run.get_cli_run_hash(os.path.dirname(log_file))
+        _job_id = fdp_run.get_job_hash(os.path.dirname(log_file))
 
-        if _run_id[: len(run_id)] == run_id:
+        if _job_id[: len(job_id)] == job_id:
             with open(log_file) as f:
                 click.echo(f.read())
-            _code_runs_list = os.path.join(
-                fdp_com.CODERUN_DIR,
-                os.path.splitext(log_file)[0].replace("run_", ""),
+            _jobs_list = os.path.join(
+                fdp_com.JOBS_DIR,
+                os.path.splitext(log_file)[0].replace("job_", ""),
                 'coderuns.txt'
             )
 
-            # Check if a code runs file exists for the given run and also
+            # Check if a code runs file exists for the given job and also
             # print the list of code_run uuids created in the registry
-            if os.path.exists(_code_runs_list):
+            if os.path.exists(_jobs_list):
                 click.echo("Related Code Runs: ")
-                click.echo('\n\t- '.join(open(_code_runs_list).readlines()))
+                click.echo('\n\t- '.join(open(_jobs_list).readlines()))
 
             return log_file
 
     raise fdp_exc.FileNotFoundError(
-        f"Could not find run matching id '{run_id}'"
+        f"Could not find job matching id '{job_id}'"
     )
 
 
 def show_history(repo_loc: str, length: int = 10) -> None:
-    """Show run history by time sorting log outputs, display metadata
+    """Show job history by time sorting log outputs, display metadata
 
     Parameters
     ----------
@@ -111,9 +111,9 @@ def show_history(repo_loc: str, length: int = 10) -> None:
         key=os.path.getmtime,
     )
 
-    # Iterate through the logs printing out the run author
+    # Iterate through the logs printing out the job author
     for i, log in enumerate(_time_sorted_logs):
-        _run_id = fdp_run.get_cli_run_hash(os.path.dirname(log))
+        _job_id = fdp_run.get_job_hash(os.path.dirname(log))
         with open(log) as f:
             _metadata = f.readlines()[:5]
         if not _metadata:
@@ -123,7 +123,7 @@ def show_history(repo_loc: str, length: int = 10) -> None:
         _name = _user.split("<")[0].strip()
         _email = _user.replace(_name, "").strip()
         _meta = {
-            "sha": _run_id,
+            "sha": _job_id,
             "user": _name,
             "user_email": _email,
             "datetime": _metadata[1].split("=")[1].strip(),

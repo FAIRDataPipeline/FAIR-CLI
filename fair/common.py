@@ -27,7 +27,7 @@ Functions
     default_data_dir    - returns the default data store
     local_fdpconfig     - returns path of FAIR-CLI local repository config
     local_user_config   - returns the path of the user config in the given folder
-    default_coderun_dir - returns the default code run folder
+    default_jobs_dir    - returns the default jobs folder
     global_config_dir   - returns the FAIR-CLI global config directory
     global_fdpconfig    - returns path of FAIR-CLI global config
     session_cache_dir   - returns location of session cache folder
@@ -46,7 +46,7 @@ USER_FAIR_DIR = os.path.join(pathlib.Path.home(), ".fair")
 REGISTRY_HOME = os.path.join(USER_FAIR_DIR, "registry")
 FAIR_CLI_CONFIG = "cli-config.yaml"
 FAIR_FOLDER = ".fair"
-CODERUN_DIR = "coderun"
+JOBS_DIR = "jobs"
 
 
 def find_fair_root(start_directory: str = os.getcwd()) -> str:
@@ -107,9 +107,9 @@ def local_user_config(user_loc: str) -> str:
     return os.path.join(find_fair_root(user_loc), "config.yaml")
 
 
-def default_coderun_dir() -> str:
-    """Default location to place code run outputs"""
-    return os.path.join(default_data_dir(), CODERUN_DIR)
+def default_jobs_dir() -> str:
+    """Default location to place job outputs"""
+    return os.path.join(default_data_dir(), JOBS_DIR)
 
 
 def global_config_dir() -> str:

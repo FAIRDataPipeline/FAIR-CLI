@@ -140,6 +140,8 @@ def store_working_config(repo_dir: str, uri: str, work_cfg_yml: str) -> str:
 
     Parameters
     ----------
+    repo_dir : str
+        local FAIR repository
     uri : str
         RestAPI end point
     work_cfg_yml : str
@@ -160,8 +162,12 @@ def store_working_config(repo_dir: str, uri: str, work_cfg_yml: str) -> str:
     _work_cfg = yaml.safe_load(open(work_cfg_yml))
     _work_cfg_data_store = _work_cfg["run_metadata"]["write_data_store"]
     _rel_path = os.path.relpath(work_cfg_yml, _work_cfg_data_store)
+    _time_stamp_dir = os.path.basename(os.path.dirname(work_cfg_yml))
 
-    _hash = hashlib.sha1(open(work_cfg_yml).read().encode("utf-8")).hexdigest()
+    # Construct hash from config contents and time stamp
+    _hashable = open(work_cfg_yml).read() + _time_stamp_dir
+
+    _hash = hashlib.sha1(_hashable.encode("utf-8")).hexdigest()
 
     _storage_loc_data = {
         "path": _rel_path,
@@ -170,11 +176,10 @@ def store_working_config(repo_dir: str, uri: str, work_cfg_yml: str) -> str:
         "hash": _hash,
     }
 
-    _post_store_loc = fdp_req.post_else_get(
+    _post_store_loc = fdp_req.post(
         uri,
         ("storage_location",),
-        data=_storage_loc_data,
-        params={"hash": _hash},
+        data=_storage_loc_data
     )
 
     _user = store_user(repo_dir, uri)
@@ -183,12 +188,86 @@ def store_working_config(repo_dir: str, uri: str, work_cfg_yml: str) -> str:
         uri, "YAML human readable data storage file", "yaml"
     )
 
-    _time_stamp_dir = os.path.basename(os.path.dirname(work_cfg_yml))
     _desc = f"Working configuration file for timestamp {_time_stamp_dir}"
     _object_data = {
         "description": _desc,
-        "storage_location": _post_store_loc,
+        "storage_location": _post_store_loc["url"],
         "file_type": _yaml_type,
+        "authors": [_user],
+    }
+
+    return fdp_req.post_else_get(
+        uri, ("object",), data=_object_data, params={"description": _desc}
+    )
+
+
+def store_working_script(
+    repo_dir: str,
+    uri: str,
+    script_path: str,
+    working_config: str
+    ) -> str:
+    """Construct a storage location and object for the CLI run script
+
+    Parameters
+    ----------
+    repo_dir : str
+        local FAIR repository
+    uri : str
+        RestAPI end point
+    script_path : str
+        location of working CLI run script
+    data_store : str
+        data store path
+
+    Returns
+    -------
+    str
+        new URI for the created object
+
+    Raises
+    ------
+    fair.exceptions.RegistryAPICallError
+        if bad status code returned from the registry
+    """
+    _work_cfg = yaml.safe_load(open(working_config))
+    _root_store = get_write_storage(uri, working_config)
+    _data_store = _work_cfg["run_metadata"]["write_data_store"]
+
+    _rel_path = os.path.relpath(script_path, _data_store)
+
+    _time_stamp_dir = os.path.basename(os.path.dirname(working_config))
+
+    # Construct hash from config contents and time 
+    _hashable = open(script_path).read() + _time_stamp_dir
+
+    _hash = hashlib.sha1(_hashable.encode("utf-8")).hexdigest()
+
+    _storage_loc_data = {
+        "path": _rel_path,
+        "storage_root": _root_store,
+        "public": False,
+        "hash": _hash,
+    }
+
+    _post_store_loc = fdp_req.post(
+        uri,
+        ("storage_location",),
+        data=_storage_loc_data,
+    )
+
+    _user = store_user(repo_dir, uri)
+
+    _shell_script_type = create_file_type(
+        uri, "Executable script", "sh"
+    )
+
+    _time_stamp_dir = os.path.basename(os.path.dirname(script_path))
+    _desc = f"Run script for timestamp {_time_stamp_dir}"
+    _object_data = {
+        "description": _desc,
+        "storage_location": _post_store_loc["url"],
+        "file_type": _shell_script_type,
         "authors": [_user],
     }
 

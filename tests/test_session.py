@@ -66,15 +66,15 @@ def test_get_status(mock_uuid_return, capfd):
     mock_uuid_return.status()
     out, _ = capfd.readouterr()
     _expect = "Changes not staged for synchronization:\n"
-    _expect += '\t(use "fair add <run>..." to stage runs)\n'
-    _expect += '\tRuns:\n'
+    _expect += '\t(use "fair add <run>..." to stage jobs)\n'
+    _expect += '\tJobs:\n'
     _expect += '\t\t312312312\n'
     assert out == _expect
     mock_uuid_return.change_staging_state("312312312", True)
     mock_uuid_return.status()
     out, _ = capfd.readouterr()
     _expect = "Changes to be synchronized:\n"
-    _expect += "\tRuns:\n"
+    _expect += "\tJobs:\n"
     _expect += '\t\t312312312\n'
     assert out == _expect
 

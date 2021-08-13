@@ -316,6 +316,13 @@ def global_config_query() -> Dict[str, Any]:
         )
         if _run_server:
             fdp_serv.launch_server(_local_url)
+
+            # Keep server running by creating user run cache file
+            _cache_addr = os.path.join(
+                fdp_com.session_cache_dir(), f"user.run"
+            )
+            pathlib.Path(_cache_addr).touch()
+
         else:
             click.echo("Temporarily launching server to retrieve API token.")
             fdp_serv.launch_server(_local_url)

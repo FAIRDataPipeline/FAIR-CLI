@@ -1,7 +1,7 @@
 import os
-from posixpath import basename
 import typing
 import yaml
+import urllib.parse
 import fair.common as fdp_com
 import fair.run as fdp_run
 import fair.registry.requests as fdp_req
@@ -13,6 +13,7 @@ class Stager:
         self._root = repo_root
         self._staging_file = fdp_com.staging_cache(self._root)
 
+    def initialise(self) -> None:
         # Only create the staging file if one is not already present within the
         # specified directory
         if not os.path.exists(self._staging_file):
@@ -21,6 +22,7 @@ class Stager:
             if not os.path.exists(os.path.dirname(self._staging_file)):
                 os.makedirs(os.path.dirname(self._staging_file), exist_ok=True)
             self._create_staging_file()
+
 
     def _create_file_label(self, file_to_stage: str) -> str:
         return os.path.relpath(
@@ -56,26 +58,9 @@ class Stager:
 
         # When a run is completed by a language implementation the CLI should
         # have already registered it into staging with a status of staged=False
-        if run_uuid not in _staging_dict['run']:
-            raise fdp_exc.StagingError(f"Failed to recognise run with ID '{run_uuid}'")
-
-        _local_config = fdp_com.local_fdpconfig(self._root)
-        _local_url = yaml.safe_load(open(_local_config))['remotes']['local']
-
-        # Now check run actually exists on local registry
-        try:
-            _results = fdp_req.get(
-                _local_url, ('code_run',), params={'uuid': run_uuid}
-            )
-
-            # Possible for query to return empty list
-            if not _results:
-                raise fdp_exc.RegistryAPICallError
-
-        except fdp_exc.RegistryAPICallError:
+        if not fdp_run.get_job_dir(run_uuid):
             raise fdp_exc.StagingError(
-                f"Cannot stage run '{run_uuid}' as it"
-                " does not exist on the local registry"
+                f"Failed to recognise run with ID '{run_uuid}'"
             )
 
         _staging_dict['run'][run_uuid] = stage
@@ -99,14 +84,9 @@ class Stager:
         """
         # Will search storage locations for a similar path by using
         # parent_directory/file_name
-        _obj_type = ('storage_location', )
-        _params = {
-            "path": os.path.join(
-                os.path.dirname(file_path),
-                os.path.basename(file_path)
-            )
-        }
-        _results = fdp_req.get(local_uri, obj_path=_obj_type, params=_params)
+        _obj_type = ('storage_location',)
+
+        _results = fdp_req.get(local_uri, _obj_type, params={"path": file_path})
 
         if not _results:
             raise fdp_exc.StagingError(
@@ -126,7 +106,7 @@ class Stager:
     def _get_code_run_entries(
         self,
         local_uri: str,
-        cli_run_dir: str
+        job_dir: str
         ) -> typing.List[str]:
         """Retrieve code_run URL list from a given CLI run directory
 
@@ -134,7 +114,7 @@ class Stager:
         ----------
         local_uri : str
             local registry endpoint
-        cli_run_dir : str
+        job_dir : str
             CLI run directory
 
         Returns
@@ -147,16 +127,16 @@ class Stager:
             If the expected registry entries have not been created by an API
             implementation
         """
-        # Check if any code_runs are present for the given cli run
-        _code_run_file = os.path.join(cli_run_dir, 'coderuns.txt')
+        # Check if any code_runs are present for the given job
+        _code_run_file = os.path.join(job_dir, 'coderuns.txt')
+        _code_run_urls = []
 
         if ( os.path.exists(_code_run_file) and
             open(_code_run_file).read().strip()
         ):
-            _code_runs = [i.strip() for i in open(_code_run_file).readlines()]
-            _code_run_urls = []
+            _jobs = [i.strip() for i in open(_code_run_file).readlines()]
             
-            for run in _code_runs:
+            for run in _jobs:
                 _results = fdp_req.get(
                     local_uri,
                     ('code_run', ),
@@ -205,7 +185,7 @@ class Stager:
             self, local_uri: str, identifier: str
         ) -> typing.Dict[str, str]:
         # Firstly find the CLI run directory
-        _directory = fdp_run.get_cli_run_dir(identifier)
+        _directory = fdp_run.get_job_dir(identifier)
         if not _directory:
             raise fdp_exc.StagingError(
                 f"Could not retrieve directory for run '{identifier}'"
@@ -219,10 +199,14 @@ class Stager:
                 f"Expected config.yaml in '{_directory}'"
             )
 
-        # Find this config.yaml on the local registry
+        # Find this config.yaml on the local registry, this involves
+        # firstly getting the path commencing from the 'coderun' folder
+        _config_rel_path = _config_yaml.split(fdp_com.JOBS_DIR)[1]
+        _config_rel_path = f'{fdp_com.JOBS_DIR}{_config_rel_path}'
+
         _config_url = self.find_registry_entry_for_file(
             local_uri,
-            _config_yaml
+            _config_rel_path
         )["url"]
 
         # Check for run script file
@@ -235,7 +219,7 @@ class Stager:
 
         # Find this run script on the local registry, as the script
         # can have any name obtain this information from the config.yaml
-        _config_dict = yaml.safe_load(_config_yaml)
+        _config_dict = yaml.safe_load(open(_config_yaml))
 
         if (
             'run_metadata' not in _config_dict
@@ -243,21 +227,25 @@ class Stager:
         ):
             raise fdp_exc.InternalError(
                 "Expected 'script_path' under 'run_metadata' within "
-                f" config file '{_config_yaml}'"
-            )
+                f"config file '{_config_yaml}'"
+            )        
 
-        _script_path = _config_yaml['run_metadata']['script_path']
+        # Find the relevant script path on the local registry, this involves
+        # firstly getting the path commencing from the 'coderun' folder
+        _script_path = _config_dict['run_metadata']['script_path']
+        _rel_script_path = _script_path.split(fdp_com.JOBS_DIR)[1]
+        _rel_script_path = f'{fdp_com.JOBS_DIR}{_rel_script_path}'
 
         _script_url = self.find_registry_entry_for_file(
             local_uri,
-            _script_path
+            _rel_script_path
         )["url"]
 
         _code_run_urls = self._get_code_run_entries(local_uri, _directory)
         _written_obj_urls = self._get_written_obj_entries(local_uri, _config_dict)
 
         return {
-            "code_runs": _code_run_urls,
+            "jobs": _code_run_urls,
             "written_objects": _written_obj_urls,
             "config_file": _config_url,
             "script_file": _script_url

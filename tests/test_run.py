@@ -17,7 +17,7 @@ def test_create_work_cfg(no_init_session):
     no_init_session.make_starter_config()
     _now = datetime.datetime.now()
     _ts = _now.strftime("%Y-%m-%d_%H_%M_%S")
-    _out = os.path.join(fdp_com.default_coderun_dir(), _ts, "config.yaml")
+    _out = os.path.join(fdp_com.default_jobs_dir(), _ts, "config.yaml")
     os.makedirs(os.path.dirname(_out), exist_ok=True)
     fdp_run.create_working_config(
         "",
@@ -44,7 +44,7 @@ def setup_with_opts(no_init_session):
         with open(no_init_session._session_config, "w") as f:
             yaml.dump(_cfg, f)
 
-        _out = fdp_run.setup_run_script(
+        _out = fdp_run.setup_job_script(
             no_init_session._session_config, no_init_session._session_loc
         )
 
@@ -107,7 +107,7 @@ def test_run_config_cmd(mocker, no_init_session):
         "read_local_fdpconfig",
         lambda *args: no_init_session._local_config,
     )
-    _before = glob.glob(os.path.join(fdp_com.default_coderun_dir(), "*"))
+    _before = glob.glob(os.path.join(fdp_com.default_jobs_dir(), "*"))
 
     with open(no_init_session._session_config) as f:
         _cfg = yaml.safe_load(f)
@@ -119,7 +119,7 @@ def test_run_config_cmd(mocker, no_init_session):
         no_init_session._session_loc,
         no_init_session._session_config,
     )
-    _after = glob.glob(os.path.join(fdp_com.default_coderun_dir(), "*"))
+    _after = glob.glob(os.path.join(fdp_com.default_jobs_dir(), "*"))
     assert len(_before) + 1 == len(_after)
     _run_dir = [i for i in _after if i not in _before][0]
     assert os.path.exists(os.path.join(_run_dir, "config.yaml"))
@@ -136,7 +136,7 @@ def test_run_bash_cmd(mocker, no_init_session):
         "read_local_fdpconfig",
         lambda *args: no_init_session._local_config,
     )
-    _before = glob.glob(os.path.join(fdp_com.default_coderun_dir(), "*"))
+    _before = glob.glob(os.path.join(fdp_com.default_jobs_dir(), "*"))
 
     with open(no_init_session._session_config) as f:
         _cfg = yaml.safe_load(f)
@@ -148,7 +148,7 @@ def test_run_bash_cmd(mocker, no_init_session):
         no_init_session._session_config,
         'echo "Hello World!"',
     )
-    _after = glob.glob(os.path.join(fdp_com.default_coderun_dir(), "*"))
+    _after = glob.glob(os.path.join(fdp_com.default_jobs_dir(), "*"))
     assert len(_before) + 1 == len(_after)
     _run_dir = [i for i in _after if i not in _before][0]
     assert os.path.exists(os.path.join(_run_dir, "config.yaml"))
