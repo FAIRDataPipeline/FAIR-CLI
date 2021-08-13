@@ -254,7 +254,7 @@ class FAIR:
         )
 
         # Automatically add the run to tracking but unstaged
-        self._stager.change_run_stage_status(_hash, False)
+        self._stager.change_job_stage_status(_hash, False)
 
     def check_is_repo(self) -> None:
         """Check that the current location is a FAIR repository"""

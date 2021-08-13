@@ -44,16 +44,76 @@ import fair.parsing as fdp_parse
 
 # Dictionary of recognised shell labels.
 SHELLS: typing.Dict[str, str] = {
-    "pwsh": "pwsh -command \". '{0}'\"",
-    "python2": "python2 {0}",
-    "python3": "python3 {0}",
-    "python": "python {0}",
-    "R": "R -f {0}",
-    "julia": "julia {0}",
-    "bash": "bash -eo pipefail {0}",
-    "java": "java {0}",
-    "sh": "sh -e {0}",
-    "powershell": "powershell -command \". '{0}'\".",
+    "pwsh": {
+        "exec": "pwsh -command \". '{0}'\"",
+        "file_type": {
+            "name": "PowerShell script", 
+            "extension": "ps1"
+        }
+    },
+    "powershell": {
+        "powershell": "-command \". '{0}'\".",
+        "file_type": {
+            "name": "PowerShell script", 
+            "extension": "ps1"
+        }
+    },
+    "python2": {
+        "exec": "python2 {0}",
+        "file_type": {
+            "name": "Python script", 
+            "extension": "py"
+        }
+    },
+    "python3": {
+        "exec": "python3 {0}",
+        "file_type": {
+            "name": "Python script", 
+            "extension": "py"
+        }
+    },
+    "python": {
+        "exec": "python {0}",
+        "file_type": {
+            "name": "Python script", 
+            "extension": "py"
+        }
+    },
+    "R": {
+        "exec": "R -f {0}",
+        "file_type": {
+            "name": "R script",
+            "extension": "R"
+        }
+    },
+    "julia": {
+        "exec": "julia {0}",
+        "file_type": {
+            "name": "Julia script",
+            "extension": "jl"
+        }
+    },
+    "bash": {
+        "exec": "bash -eo pipefail {0}",
+        "file_type": {
+            "name": "Shell script",
+            "extension": "sh"
+        }
+    },
+    "java": {
+        "exec": "java {0}",
+        "file_type": {
+            "name": "Java script",
+            "extension": "java"
+        },
+    },
+    "sh": {
+        "exec":"sh -e {0}",
+        "file_type": {
+            "name": "Shell script",
+            "extension": "sh"
+        }
+    }
 }
 
 
@@ -178,7 +238,8 @@ def run_command(
             f"Unrecognised shell '{_shell}' specified."
         )
 
-    _cmd_list = SHELLS[_shell].format(_cmd_setup["script"]).split()
+    _exec = SHELLS[_shell]["exec"]
+    _cmd_list = _exec.format(_cmd_setup["script"]).split()
 
     _run_meta = _cfg["run_metadata"]
 
@@ -305,6 +366,10 @@ def create_working_config(
     if "local_repo" not in _conf_yaml["run_metadata"]:
         _conf_yaml["run_metadata"]["local_repo"] = fdp_com.find_git_root()
 
+    # Make status public by default if not defined
+    if "public" not in _conf_yaml["run_metadata"]:
+        _conf_yaml["run_metadata"]["public"] = True
+
     # Add in key for latest commit on the given repository
     _git_repo = git.Repo(_conf_yaml["run_metadata"]["local_repo"])
 
@@ -407,12 +472,10 @@ def setup_job_script(
         else:
             _shell = "sh"
 
-    # TODO: Currently when "script" is specified the script is
-    # written to a file with no suffix as this cannot be determined
-    # by the shell choice or contents
     if "script" in _conf_yaml["run_metadata"]:
         _cmd = _conf_yaml["run_metadata"]["script"]
-        _out_file = os.path.join(output_dir, "run_script")
+        _ext = SHELLS[_shell]["file_type"]["extension"]
+        _out_file = os.path.join(output_dir, f"run_script.{_ext}")
         if _cmd:
             with open(_out_file, "w") as f:
                 f.write(_cmd)

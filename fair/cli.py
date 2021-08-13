@@ -135,7 +135,8 @@ def start(debug) -> None:
 
 @registry.command()
 @click.option("--force/--no-force", help="Force server stop", default=False)
-def stop(force) -> None:
+@click.option("--debug/--no-debug", help="Run in debug mode", default=False)
+def stop(force: bool, debug: bool) -> None:
     """Stop the local registry server"""
     _mode = (
         fdp_svr.SwitchMode.FORCE_STOP
@@ -145,22 +146,40 @@ def stop(force) -> None:
     try:
         fdp_session.FAIR(os.getcwd(), mode=_mode)
     except fdp_exc.FAIRCLIException as e:
+        if debug:
+            raise e
         e.err_print()
         if e.level.lower() == "error":
             sys.exit(e.exit_code)
 
 
 @cli.command()
-def log() -> None:
+@click.option("--debug/--no-debug", help="Run in debug mode", default=False)
+def log(debug: bool) -> None:
     """Show a full job history"""
-    fdp_hist.show_history(os.getcwd())
+    try:
+        fdp_hist.show_history(os.getcwd())
+    except fdp_exc.FAIRCLIException as e:
+        if debug:
+            raise e
+        e.err_print()
+        if e.level.lower() == "error":
+            sys.exit(e.exit_code)
 
 
 @cli.command()
+@click.option("--debug/--no-debug", help="Run in debug mode", default=False)
 @click.argument("job_id")
-def view(job_id: str) -> None:
+def view(job_id: str, debug: bool) -> None:
     """View log for a given job"""
-    fdp_hist.show_job_log(os.getcwd(), job_id)
+    try:
+        fdp_hist.show_job_log(os.getcwd(), job_id)
+    except fdp_exc.FAIRCLIException as e:
+        if debug:
+            raise e
+        e.err_print()
+        if e.level.lower() == "error":
+            sys.exit(e.exit_code)
 
 
 @cli.command()
