@@ -386,10 +386,10 @@ class FAIR:
 
         if _staged_jobs:
             click.echo("Changes to be synchronized:")
-            click.echo("\tRuns:")
+            click.echo("\tJobs:")
             for job in _staged_jobs:
                 click.echo(click.style(f"\t\t{job}", fg="green"))
-                _job_urls = self._stager.get_run_data(
+                _job_urls = self._stager.get_job_data(
                     self._local_config["remotes"]["local"],
                     job
                 )
@@ -412,13 +412,13 @@ class FAIR:
 
         if _unstaged_jobs:
             click.echo("Changes not staged for synchronization:")
-            click.echo(f'\t(use "fair add <run>..." to stage runs)')
+            click.echo(f'\t(use "fair add <run>..." to stage jobs)')
 
-            click.echo("\tRuns:")
+            click.echo("\tJobs:")
             
             for job in _unstaged_jobs:
                 click.echo(click.style(f"\t\t{job}", fg="red"))
-                _job_urls = self._stager.get_run_data(
+                _job_urls = self._stager.get_job_data(
                     self._local_config["remotes"]["local"],
                     job
                 )

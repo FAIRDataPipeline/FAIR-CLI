@@ -181,7 +181,7 @@ class Stager:
         
         return _data_product_urls
     
-    def get_run_data(
+    def get_job_data(
             self, local_uri: str, identifier: str
         ) -> typing.Dict[str, str]:
         # Firstly find the CLI run directory

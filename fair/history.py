@@ -61,24 +61,27 @@ def show_job_log(repo_loc: str, job_id: str) -> str:
     str
         log file location for the given job
     """
-    _time_sorted_logs = sorted(
-        glob.glob(os.path.join(history_directory(repo_loc), "*")),
-        key=os.path.getmtime,
-        reverse=True,
+    _sorted_time_dirs = sorted(
+        glob.glob(os.path.join(fdp_com.default_jobs_dir(), "*")),
+        reverse=True
     )
 
-    for log_file in _time_sorted_logs:
+    _log_files = [
+        os.path.join(
+            history_directory(repo_loc),
+            f'job_{os.path.basename(i)}.log'
+        )
+        for i in _sorted_time_dirs
+    ]
+
+    for job_dir, _log_file in zip(_sorted_time_dirs, _log_files):
         # Use the timestamp directory name for the hash
-        _job_id = fdp_run.get_job_hash(os.path.dirname(log_file))
+        _job_id = fdp_run.get_job_hash(job_dir)
 
         if _job_id[: len(job_id)] == job_id:
-            with open(log_file) as f:
+            with open(_log_file) as f:
                 click.echo(f.read())
-            _jobs_list = os.path.join(
-                fdp_com.JOBS_DIR,
-                os.path.splitext(log_file)[0].replace("job_", ""),
-                'coderuns.txt'
-            )
+            _jobs_list = os.path.join(job_dir, 'coderuns.txt')
 
             # Check if a code runs file exists for the given job and also
             # print the list of code_run uuids created in the registry
@@ -86,7 +89,7 @@ def show_job_log(repo_loc: str, job_id: str) -> str:
                 click.echo("Related Code Runs: ")
                 click.echo('\n\t- '.join(open(_jobs_list).readlines()))
 
-            return log_file
+            return _log_file
 
     raise fdp_exc.FileNotFoundError(
         f"Could not find job matching id '{job_id}'"
@@ -104,17 +107,25 @@ def show_history(repo_loc: str, length: int = 10) -> None:
         max number of entries to display, by default 10
     """
 
-    # Read in all log files from the log storage by reverse sorting them
-    # by datetime created
-    _time_sorted_logs = sorted(
-        glob.glob(os.path.join(history_directory(repo_loc), "*")),
-        key=os.path.getmtime,
+    _sorted_time_dirs = sorted(
+        glob.glob(os.path.join(fdp_com.default_jobs_dir(), "*")),
+        reverse=True
     )
 
+    _log_files = [
+        os.path.join(
+            history_directory(repo_loc),
+            f'job_{os.path.basename(i)}.log'
+        )
+        for i in _sorted_time_dirs
+    ]
+
     # Iterate through the logs printing out the job author
-    for i, log in enumerate(_time_sorted_logs):
-        _job_id = fdp_run.get_job_hash(os.path.dirname(log))
-        with open(log) as f:
+    for i, (job_dir, _log_file) in enumerate(
+        zip(_sorted_time_dirs, _log_files)
+    ):
+        _job_id = fdp_run.get_job_hash(job_dir)
+        with open(_log_file) as f:
             _metadata = f.readlines()[:5]
         if not _metadata:
             continue
