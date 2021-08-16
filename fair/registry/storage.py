@@ -30,6 +30,7 @@ import fair.registry.requests as fdp_req
 import fair.exceptions as fdp_exc
 import fair.configuration as fdp_conf
 import fair.identifiers as fdp_id
+import fair.registry.file_types as fdp_file
 
 
 def get_write_storage(uri: str, work_cfg_yml: str) -> str:
@@ -96,9 +97,9 @@ def store_user(repo_dir: str, uri: str) -> str:
     _user = fdp_conf.get_current_user_name(repo_dir)
     _data = {}
     if len(_user) > 1:
-        _data["name"] = ' '.join(_user)
+        _data['name'] = ' '.join(_user)
     else:
-        _data["name"] = _user[0]
+        _data['name'] = _user[0]
 
     try:
         _orcid = fdp_conf.get_current_user_orcid(repo_dir)
@@ -109,13 +110,13 @@ def store_user(repo_dir: str, uri: str) -> str:
         )
     except fdp_exc.CLIConfigurationError:
         _uuid = fdp_conf.get_current_user_uuid(repo_dir)
-        _data["uuid"] = _uuid
+        _data['uuid'] = _uuid
         return fdp_req.post_else_get(
             uri, ("author",), data=_data, params={"uuid": _uuid}
         )
 
 
-def create_file_type(uri: str, name: str, extension: str) -> str:
+def create_file_type(uri: str, extension: str) -> str:
     """Creates a new file type on the registry
 
     Parameters
@@ -130,8 +131,9 @@ def create_file_type(uri: str, name: str, extension: str) -> str:
     str
         URI for created file type
     """
+    _name = fdp_file.FILE_TYPES[extension]
     return fdp_req.post_else_get(
-        uri, ("file_type",), data={"name": name, "extension": extension}
+        uri, ("file_type",), data={"name": _name, "extension": extension}
     )
 
 
@@ -184,9 +186,7 @@ def store_working_config(repo_dir: str, uri: str, work_cfg_yml: str) -> str:
 
     _user = store_user(repo_dir, uri)
 
-    _yaml_type = create_file_type(
-        uri, "YAML human readable data storage file", "yaml"
-    )
+    _yaml_type = create_file_type(uri, "yaml")
 
     _desc = f"Working configuration file for timestamp {_time_stamp_dir}"
     _object_data = {

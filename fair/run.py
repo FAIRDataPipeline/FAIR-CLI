@@ -28,7 +28,6 @@ import typing
 import glob
 import hashlib
 from datetime import datetime
-from git import repo
 
 import yaml
 import click
@@ -40,80 +39,51 @@ import fair.common as fdp_com
 import fair.history as fdp_hist
 import fair.exceptions as fdp_exc
 import fair.registry.storage as fdp_reg_store
-import fair.parsing as fdp_parse
+import fair.parsing.variables as fdp_varparse
+import fair.parsing.globbing as fdp_glob
 
 
 # Dictionary of recognised shell labels.
 SHELLS: typing.Dict[str, str] = {
     "pwsh": {
         "exec": "pwsh -command \". '{0}'\"",
-        "file_type": {
-            "name": "PowerShell script", 
-            "extension": "ps1"
-        }
+        "extension": "ps1"
     },
     "powershell": {
         "powershell": "-command \". '{0}'\".",
-        "file_type": {
-            "name": "PowerShell script", 
-            "extension": "ps1"
-        }
+        "extension": "ps1"
     },
     "python2": {
         "exec": "python2 {0}",
-        "file_type": {
-            "name": "Python script", 
-            "extension": "py"
-        }
+        "extension": "py"
     },
     "python3": {
         "exec": "python3 {0}",
-        "file_type": {
-            "name": "Python script", 
-            "extension": "py"
-        }
+        "extension": "py"
     },
     "python": {
         "exec": "python {0}",
-        "file_type": {
-            "name": "Python script", 
-            "extension": "py"
-        }
+        "extension": "py"
     },
     "R": {
         "exec": "R -f {0}",
-        "file_type": {
-            "name": "R script",
-            "extension": "R"
-        }
+        "extension": "R"
     },
     "julia": {
         "exec": "julia {0}",
-        "file_type": {
-            "name": "Julia script",
-            "extension": "jl"
-        }
+        "extension": "jl"
     },
     "bash": {
         "exec": "bash -eo pipefail {0}",
-        "file_type": {
-            "name": "Shell script",
-            "extension": "sh"
-        }
+        "name": "Shell script",
     },
     "java": {
         "exec": "java {0}",
-        "file_type": {
-            "name": "Java script",
-            "extension": "java"
-        },
+        "extension": "java"
     },
     "sh": {
         "exec":"sh -e {0}",
-        "file_type": {
-            "name": "Shell script",
-            "extension": "sh"
-        }
+        "extension": "sh"
     }
 }
 
@@ -218,7 +188,7 @@ def run_command(
     # Setup the registry storage location root
     fdp_reg_store.store_working_config(
         repo_dir,
-        fdp_conf.read_local_fdpconfig(repo_dir)["registries"]["local"],
+        fdp_conf.read_local_fdpconfig(repo_dir)['registries']['local'],
         _work_cfg_yml,
     )
 
@@ -229,7 +199,7 @@ def run_command(
 
     fdp_reg_store.store_working_script(
         repo_dir,
-        fdp_conf.read_local_fdpconfig(repo_dir)["registries"]["local"],
+        fdp_conf.read_local_fdpconfig(repo_dir)['registries']['local'],
         _cmd_setup["script"],
         _work_cfg_yml
     )
@@ -262,8 +232,8 @@ def run_command(
 
     _loc_conf = fdp_conf.read_local_fdpconfig(repo_dir)
     _user = fdp_conf.get_current_user_name(repo_dir)
-    _email = _glob_conf["user"]["email"]
-    _namespace = _loc_conf["namespaces"]["output"]
+    _email = _glob_conf['user']['email']
+    _namespace = _loc_conf['namespaces']['output']
 
     # Generate a local job log for the CLI, this is NOT
     # related to metadata sent to the registry
@@ -287,7 +257,7 @@ def run_command(
             f"working configuration file '{config_yaml}'"
         )
 
-    _run_dir = _cfg["run_metadata"]["local_repo"]
+    _run_dir = _cfg["run_metadata"]['local_repo']
 
     # Run the submission script
     _process = subprocess.Popen(
@@ -350,7 +320,7 @@ def create_working_config(
 
     _work_cfg_yml = os.path.join(job_dir, "config.yaml")
     
-    _conf_yaml = fdp_parse.subst_cli_vars(
+    _conf_yaml = fdp_varparse.subst_cli_vars(
         local_uri, job_dir, time, config_yaml
     )
 
@@ -359,22 +329,22 @@ def create_working_config(
         del _conf_yaml["register"]    
 
     if 'read' in _conf_yaml:
-        _conf_yaml['read'] = fdp_parse.glob_read_write(repo_dir, _conf_yaml['read'])
+        _conf_yaml['read'] = fdp_glob.glob_read_write(repo_dir, _conf_yaml['read'])
 
     if 'write' in _conf_yaml:
-        _conf_yaml['write'] = fdp_parse.glob_read_write(repo_dir, _conf_yaml['write'])
+        _conf_yaml['write'] = fdp_glob.glob_read_write(repo_dir, _conf_yaml['write'])
 
     # If local_repo is not present in the user config assign it to the
     # the current git repository
     if "local_repo" not in _conf_yaml["run_metadata"]:
-        _conf_yaml["run_metadata"]["local_repo"] = fdp_conf.get_session_git_repo(repo_dir)
+        _conf_yaml["run_metadata"]['local_repo'] = fdp_conf.get_session_git_repo(repo_dir)
 
     # Make status public by default if not defined
     if "public" not in _conf_yaml["run_metadata"]:
         _conf_yaml["run_metadata"]["public"] = True
 
     # Add in key for latest commit on the given repository
-    _git_repo = git.Repo(_conf_yaml["run_metadata"]["local_repo"])
+    _git_repo = git.Repo(_conf_yaml["run_metadata"]['local_repo'])
 
     _conf_yaml["run_metadata"]["latest_commit"] = _git_repo.head.commit.hexsha
 
@@ -460,7 +430,7 @@ def setup_job_script(
 
     # Create environment variable which users can refer to in their
     # submission scripts
-    _run_env["FDP_LOCAL_REPO"] = _conf_yaml["run_metadata"]["local_repo"]
+    _run_env["FDP_LOCAL_REPO"] = _conf_yaml["run_metadata"]['local_repo']
     _run_env["FDP_CONFIG_DIR"] = os.path.dirname(config_yaml)
 
     # Check if a specific shell has been defined for the script

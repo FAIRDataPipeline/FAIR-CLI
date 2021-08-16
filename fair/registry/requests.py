@@ -185,7 +185,7 @@ def post(
     )
 
 
-def url_get(url: str) -> typing.Dict:
+def url_get(url: str, *args, **kwargs) -> typing.Dict:
     """Send a URL only request and retrieve results
 
     Unlike 'get' this method is 'raw' in that there is no validation of
@@ -201,7 +201,7 @@ def url_get(url: str) -> typing.Dict:
     typing.Dict
         results dictionary
     """
-    return _access(url, "get")
+    return _access(url, "get", *args, **kwargs)
 
 
 def get(

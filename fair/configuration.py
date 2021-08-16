@@ -31,7 +31,7 @@ import git
 import fair.common as fdp_com
 import fair.exceptions as fdp_exc
 import fair.identifiers as fdp_id
-import fair.server as fdp_serv
+import fair.registry.server as fdp_serv
 import fair.registry.requests as fdp_req
 import fair.registry.storage as fdp_store
 
@@ -91,11 +91,11 @@ def set_email(repo_loc: str, email: str, is_global: bool = False) -> None:
         whether to also override the global settings, by default False
     """
     _loc_conf = read_local_fdpconfig(repo_loc)
-    _loc_conf["user"]["email"] = email
+    _loc_conf['user']['email'] = email
     yaml.dump(_loc_conf, open(fdp_com.local_fdpconfig(repo_loc), "w"))
     if is_global:
         _glob_conf = read_global_fdpconfig()
-        _glob_conf["user"]["email"] = email
+        _glob_conf['user']['email'] = email
         yaml.dump(_glob_conf, open(fdp_com.global_fdpconfig(), "w"))
 
 
@@ -112,11 +112,11 @@ def set_user(repo_loc: str, name: str, is_global: bool = False) -> None:
         whether to also override the global settings, by default False
     """
     _loc_conf = read_local_fdpconfig(repo_loc)
-    _loc_conf["user"]["name"] = name
+    _loc_conf['user']['name'] = name
     yaml.dump(_loc_conf, open(fdp_com.local_fdpconfig(repo_loc), "w"))
     if is_global:
         _glob_conf = read_global_fdpconfig()
-        _glob_conf["user"]["name"] = name
+        _glob_conf['user']['name'] = name
         yaml.dump(_glob_conf, open(fdp_com.global_fdpconfig(), "w"))
 
 
@@ -133,9 +133,9 @@ def get_current_user_name(repo_loc: str) -> Tuple[str]:
     if not _local_conf:
         raise fdp_exc.CLIConfigurationError("Cannot retrieve current user from empty CLI config")
 
-    _given = _local_conf["user"]["given_names"]
-    if "family_name" in _local_conf["user"]:
-        _family = _local_conf["user"]["family_name"]
+    _given = _local_conf['user']['given_names']
+    if "family_name" in _local_conf['user']:
+        _family = _local_conf['user']['family_name']
     else:
         _family = ""
     return (_given, _family)
@@ -150,7 +150,7 @@ def get_local_uri(repo_loc: str) -> str:
         local URI path
     """
     _local_conf = read_local_fdpconfig(repo_loc)
-    return _local_conf["registries"]["local"]
+    return _local_conf['registries']['local']
 
 
 def get_remote_uri(repo_loc: str, remote_label: str = 'origin') -> str:
@@ -169,7 +169,7 @@ def get_remote_uri(repo_loc: str, remote_label: str = 'origin') -> str:
         remote URI path
     """
     _local_conf = read_local_fdpconfig(repo_loc)
-    return _local_conf["registries"][remote_label]
+    return _local_conf['registries'][remote_label]
 
 
 def get_session_git_repo(repo_loc: str) -> str:
@@ -188,7 +188,7 @@ def get_session_git_repo(repo_loc: str) -> str:
     _local_conf = read_local_fdpconfig(repo_loc)
     
     try:
-        return _local_conf["git"]["local_repo"]
+        return _local_conf['git']['local_repo']
     except KeyError:
         raise fdp_exc.InternalError(
             "Failed to retrieve project git repository directory"
@@ -211,7 +211,7 @@ def get_session_git_remote(repo_loc: str) -> str:
     _local_conf = read_local_fdpconfig(repo_loc)
     
     try:
-        return _local_conf["git"]["remote"]
+        return _local_conf['git']['remote']
     except KeyError:
         raise fdp_exc.InternalError(
             "Failed to retrieve project git repository remote"
@@ -233,7 +233,7 @@ def get_current_user_orcid(repo_loc: str) -> str:
     """
     _local_conf = read_local_fdpconfig(repo_loc)
     try:
-        _orcid =_local_conf["user"]["orcid"]
+        _orcid =_local_conf['user']['orcid']
     except KeyError:
         _orcid = None
     if not _orcid or _orcid == "None":
@@ -250,7 +250,7 @@ def get_current_user_uuid(repo_loc: str) -> str:
         user ORCID
     """
     _local_conf = read_local_fdpconfig(repo_loc)
-    return _local_conf["user"]["uuid"]
+    return _local_conf['user']['uuid']
 
 def check_registry_exists() -> bool:
     """Checks if fair registry is set up on users machine
@@ -282,12 +282,12 @@ def _get_user_info_and_namespaces() -> Dict[str, Dict]:
             f"{_user_info['family_name']}"
         )
 
-        _def_ospace = _user_info["given_names"][0]
+        _def_ospace = _user_info['given_names'][0]
 
-        if len(_user_info["family_name"].split()) > 1:
-            _def_ospace += _user_info["family_name"].split()[-1]
+        if len(_user_info['family_name'].split()) > 1:
+            _def_ospace += _user_info['family_name'].split()[-1]
         else:
-            _def_ospace += _user_info["family_name"]
+            _def_ospace += _user_info['family_name']
 
     else:
         _uuid = str(uuid.uuid4())
@@ -298,14 +298,14 @@ def _get_user_info_and_namespaces() -> Dict[str, Dict]:
             _given_name, _family_name = _full_name.split(" ", 1)
             _def_ospace = _full_name.lower().strip()[0]
             _def_ospace += _full_name.lower().split()[-1]
-            _user_info["given_names"] = _given_name.strip()
-            _user_info["family_name"] = _family_name.strip()
+            _user_info['given_names'] = _given_name.strip()
+            _user_info['family_name'] = _family_name.strip()
         else:
             _def_ospace += _full_name
-            _user_info["given_names"] = _full_name
-            _user_info["family_name"] = None
+            _user_info['given_names'] = _full_name
+            _user_info['family_name'] = None
 
-        _user_info["uuid"] = _uuid
+        _user_info['uuid'] = _uuid
 
         _def_ospace = _def_ospace.lower().replace(" ", "").strip()
 
@@ -317,8 +317,8 @@ def _get_user_info_and_namespaces() -> Dict[str, Dict]:
 
         _namespaces = {"input": _def_ispace, "output": _def_ospace}
 
-        _user_info["email"] = _user_email
-        _user_info["orcid"] = _user_orcid
+        _user_info['email'] = _user_email
+        _user_info['orcid'] = _user_orcid
 
     return {"user": _user_info, "namespaces": _namespaces}
 
@@ -392,12 +392,12 @@ def global_config_query() -> Dict[str, Any]:
     )
 
     _glob_conf_dict = _get_user_info_and_namespaces()
-    _glob_conf_dict["registries"] = {"local": _local_url, "origin": _remote_url}
+    _glob_conf_dict['registries'] = {"local": _local_url, "origin": _remote_url}
     _glob_conf_dict['data_store'] = {
         "local": _loc_data_store,
         "origin": _rem_data_store
     }
-    _glob_conf_dict["tokens"] = {
+    _glob_conf_dict['tokens'] = {
         "origin": _rem_key_file
     }
 
@@ -425,11 +425,11 @@ def local_config_query(
     # Try extracting global configurations. If any keys do not exist re-run
     # setup for creation of these, then try again.
     try:
-        _def_remote = global_config["registries"]["origin"]
-        _def_local = global_config["registries"]["local"]
-        _def_rem_key = global_config["tokens"]["origin"]
-        _def_ospace = global_config["namespaces"]["output"]
-        _def_user = global_config["user"]
+        _def_remote = global_config['registries']['origin']
+        _def_local = global_config['registries']['local']
+        _def_rem_key = global_config['tokens']['origin']
+        _def_ospace = global_config['namespaces']['output']
+        _def_user = global_config['user']
     except KeyError:
         click.echo(
             "Error: Failed to read global configuration,"
@@ -437,15 +437,15 @@ def local_config_query(
         )
         first_time_setup = True
         global_config = global_config_query()
-        _def_remote = global_config["registries"]["origin"]
-        _def_local = global_config["registries"]["local"]
-        _def_rem_key = global_config["tokens"]["origin"]
-        _def_ospace = global_config["namespaces"]["output"]
-        _def_user = global_config["user"]
+        _def_remote = global_config['registries']['origin']
+        _def_local = global_config['registries']['local']
+        _def_rem_key = global_config['tokens']['origin']
+        _def_ospace = global_config['namespaces']['output']
+        _def_user = global_config['user']
 
     # Allow the user to continue without an input namespace as some
     # functionality does not require this.
-    if "input" not in global_config["namespaces"]:
+    if "input" not in global_config['namespaces']:
         click.echo(
             "Warning: No global input namespace declared,"
             " in order to use the registry you will need to specify one"
@@ -453,7 +453,7 @@ def local_config_query(
         )
         _def_ispace = None
     else:
-        _def_ispace = global_config["namespaces"]["input"]
+        _def_ispace = global_config['namespaces']['input']
 
     _desc = click.prompt("Project description")
 
@@ -533,26 +533,26 @@ def local_config_query(
 
     _local_config['data_store'] = global_config['data_store']
 
-    _local_config["namespaces"] = {
+    _local_config['namespaces'] = {
         "output": _def_ospace,
         "input": _def_ispace,
     }
 
-    _local_config["git"] = {
+    _local_config['git'] = {
         "remote": _git_remote,
         "local_repo": _git_repo
     }
 
     # Copy the global configuration then substitute updated
     # configurations
-    _local_config["registries"] = global_config["registries"].copy()
-    _local_config["registries"]["origin"] = _def_remote
-    _local_config["registries"]["local"] = _def_local
+    _local_config['registries'] = global_config['registries'].copy()
+    _local_config['registries']['origin'] = _def_remote
+    _local_config['registries']['local'] = _def_local
 
-    _local_config["tokens"] = global_config["tokens"].copy()
-    _local_config["tokens"]["origin"] = _def_rem_key
+    _local_config['tokens'] = global_config['tokens'].copy()
+    _local_config['tokens']['origin'] = _def_rem_key
 
     _local_config["description"] = _desc
-    _local_config["user"] = _def_user
+    _local_config['user'] = _def_user
 
     return _local_config

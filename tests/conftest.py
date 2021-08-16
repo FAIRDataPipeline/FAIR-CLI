@@ -12,7 +12,7 @@ import git
 
 import fair.common as fdp_com
 import fair.session as fdp_s
-import fair.server as fdp_svr
+import fair.registry.server as fdp_svr
 import fair.configuration as fdp_conf
 import fair.registry.storage as fdp_store
 import fair.registry.requests as fdp_req

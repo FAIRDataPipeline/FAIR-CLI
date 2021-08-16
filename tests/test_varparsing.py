@@ -4,7 +4,7 @@ import git
 import datetime
 import pathlib
 
-import fair.parsing as fdp_parse
+import fair.parsing.variables as fdp_varparse
 import fair.common as fdp_com
 import fair.configuration as fdp_conf
 import fair.registry.requests as fdp_req
@@ -41,7 +41,7 @@ def test_parse_vars(mocker, git_mock):
         pathlib.Path(os.path.dirname(_dummy_file)).parent.parent
     ).remotes['other'].url
 
-    _u_config = fdp_parse.subst_cli_vars(
+    _u_config = fdp_varparse.subst_cli_vars(
         "http://localhost:3333",
         os.getcwd(),
         _now,

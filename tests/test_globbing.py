@@ -1,7 +1,7 @@
 import pytest
 
 import fair.registry.requests as fdp_req
-import fair.parsing as fdp_parse
+import fair.parsing.globbing as fdp_glob
 import fair.configuration as fdp_conf
 
 _test_dict_list = [
@@ -42,6 +42,6 @@ def test_globbing_author(mocker):
     mocker.patch.object(fdp_req, 'get', _dummy_get)
     mocker.patch.object(fdp_conf, 'get_local_uri', _do_nowt)
 
-    _out_list = fdp_parse.glob_read_write('.', [{'author': '*'}], local_glob=True)
+    _out_list = fdp_glob.glob_read_write('.', [{'author': '*'}], local_glob=True)
 
     assert len(_out_list) == 2

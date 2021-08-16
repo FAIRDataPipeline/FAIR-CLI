@@ -3,7 +3,7 @@ import os
 import requests_mock
 import glob
 
-import fair.server as fdp_serv
+import fair.registry.server as fdp_serv
 import fair.exceptions as fdp_exc
 import fair.common as fdp_com
 

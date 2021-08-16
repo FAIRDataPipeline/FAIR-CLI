@@ -20,7 +20,7 @@ import fair.common as fdp_com
 import fair.history as fdp_hist
 import fair.configuration as fdp_conf
 import fair.exceptions as fdp_exc
-import fair.server as fdp_svr
+import fair.registry.server as fdp_svr
 
 __author__ = "Scottish COVID Response Consortium"
 __credits__ = ["Nathan Cummings (UKAEA)", "Kristian Zarebski (UKAEA)"]
