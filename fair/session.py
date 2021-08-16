@@ -184,7 +184,7 @@ class FAIR:
             if not glob.glob(
                 os.path.join(fdp_com.session_cache_dir(), "*.run")
             ):
-                fdp_serv.launch_server(self._local_config["remotes"]["local"])
+                fdp_serv.launch_server(self._local_config["registries"]["local"])
 
             # Create new session cache file
             pathlib.Path(_cache_addr).touch()
@@ -193,14 +193,14 @@ class FAIR:
                 fdp_com.session_cache_dir(), f"user.run"
             )
 
-            if "remotes" not in self._local_config:
+            if "registries" not in self._local_config:
                 raise fdp_exc.CLIConfigurationError(
                     "Cannot find server address in current configuration",
                     hint="Is the current location a FAIR repository?"
                 )
 
             if fdp_serv.check_server_running(
-                self._local_config["remotes"]["local"]
+                self._local_config["registries"]["local"]
             ):
                 raise fdp_exc.UnexpectedRegistryServerState(
                     "Server already running."
@@ -208,7 +208,7 @@ class FAIR:
             click.echo("Starting local registry server")
             pathlib.Path(_cache_addr).touch()
             fdp_serv.launch_server(
-                self._local_config["remotes"]["local"], verbose=True
+                self._local_config["registries"]["local"], verbose=True
             )
         elif self._run_mode in [
             fdp_serv.SwitchMode.USER_STOP,
@@ -218,7 +218,7 @@ class FAIR:
                 fdp_com.session_cache_dir(), f"user.run"
             )
             if not fdp_serv.check_server_running(
-                self._local_config["remotes"]["local"]
+                self._local_config["registries"]["local"]
             ):
                 raise fdp_exc.UnexpectedRegistryServerState(
                     "Server is not running."
@@ -227,7 +227,7 @@ class FAIR:
                 os.remove(_cache_addr)
             click.echo("Stopping local registry server.")
             fdp_serv.stop_server(
-                self._local_config["remotes"]["local"],
+                self._local_config["registries"]["local"],
                 force=self._run_mode == fdp_serv.SwitchMode.FORCE_STOP,
             )
 
@@ -336,21 +336,21 @@ class FAIR:
         ) -> None:
         """Add a remote to the list of remote URLs"""
         self.check_is_repo()
-        if "remotes" not in self._local_config:
-            self._local_config["remotes"] = {}
+        if "registries" not in self._local_config:
+            self._local_config["registries"] = {}
         if "tokens" not in self._global_config:
             self._local_config["tokens"] = {}
-        if label in self._local_config["remotes"]:
+        if label in self._local_config["registries"]:
             raise fdp_exc.CLIConfigurationError(
                 f"Registry remote '{label}' already exists."
             )
-        self._local_config["remotes"][label] = remote_url
+        self._local_config["registries"][label] = remote_url
 
     def remove_remote(self, label: str) -> None:
         """Remove a remote URL from the list of remotes by label"""
         self.check_is_repo()
         if (
-            "remotes" not in self._local_config
+            "registries" not in self._local_config
             or label not in self._local_config
         ):
             raise fdp_exc.CLIConfigurationError(
@@ -362,13 +362,13 @@ class FAIR:
         """Update a remote URL for a given remote"""
         self.check_is_repo()
         if (
-            "remotes" not in self._local_config
-            or label not in self._local_config["remotes"]
+            "registries" not in self._local_config
+            or label not in self._local_config["registries"]
         ):
             raise fdp_exc.CLIConfigurationError(
                 f"No such entry '{label}' in available remotes"
             )
-        self._local_config["remotes"][label] = url
+        self._local_config["registries"][label] = url
 
     def clear_logs(self) -> None:
         """Delete all local run stdout logs
@@ -385,11 +385,11 @@ class FAIR:
     def list_remotes(self, verbose: bool = False) -> typing.List[str]:
         """List the available RestAPI URLs"""
         self.check_is_repo()
-        if "remotes" not in self._local_config:
+        if "registries" not in self._local_config:
             return []
         else:
             _remote_print = []
-            for remote, url in self._local_config["remotes"].items():
+            for remote, url in self._local_config["registries"].items():
                 _out_str = f"[bold white]{remote}[/bold white]"
                 if verbose:
                     _out_str += f"\t[yellow]{url}[/yellow]"
@@ -410,7 +410,7 @@ class FAIR:
             for job in _staged_jobs:
                 click.echo(click.style(f"\t\t{job}", fg="green"))
                 _job_urls = self._stager.get_job_data(
-                    self._local_config["remotes"]["local"],
+                    self._local_config["registries"]["local"],
                     job
                 )
                 if not verbose:
@@ -439,7 +439,7 @@ class FAIR:
             for job in _unstaged_jobs:
                 click.echo(click.style(f"\t\t{job}", fg="red"))
                 _job_urls = self._stager.get_job_data(
-                    self._local_config["remotes"]["local"],
+                    self._local_config["registries"]["local"],
                     job
                 )
 
@@ -470,7 +470,7 @@ class FAIR:
 
     def make_starter_config(self) -> None:
         """Create a starter config.yaml"""
-        if "remotes" not in self._local_config:
+        if "registries" not in self._local_config:
             raise fdp_exc.CLIConfigurationError(
                 "Cannot generate user 'config.yaml'",
                 hint="You need to set the remote URL"
@@ -546,7 +546,7 @@ class FAIR:
             os.remove(_cache_addr)
 
         if not os.path.exists(os.path.join(fdp_com.session_cache_dir(), "user.run")) and self._run_mode != fdp_serv.SwitchMode.NO_SERVER:
-            fdp_serv.stop_server(self._local_config["remotes"]["local"])
+            fdp_serv.stop_server(self._local_config["registries"]["local"])
 
         with open(fdp_com.global_fdpconfig(), "w") as f:
             yaml.dump(self._global_config, f)

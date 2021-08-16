@@ -121,7 +121,7 @@ def no_init_session(
     """
     _glob_conf = {
         "namespaces": {"input": "SCRC", "output": "test"},
-        "remotes": {
+        "registries": {
             "local": "http://localhost:8000/api/",
             "origin": "http://noserver/api",
         },

@@ -150,7 +150,7 @@ def get_local_uri(repo_loc: str) -> str:
         local URI path
     """
     _local_conf = read_local_fdpconfig(repo_loc)
-    return _local_conf["remotes"]["local"]
+    return _local_conf["registries"]["local"]
 
 
 def get_remote_uri(repo_loc: str, remote_label: str = 'origin') -> str:
@@ -169,7 +169,7 @@ def get_remote_uri(repo_loc: str, remote_label: str = 'origin') -> str:
         remote URI path
     """
     _local_conf = read_local_fdpconfig(repo_loc)
-    return _local_conf["remotes"][remote_label]
+    return _local_conf["registries"][remote_label]
 
 
 def get_session_git_repo(repo_loc: str) -> str:
@@ -392,7 +392,7 @@ def global_config_query() -> Dict[str, Any]:
     )
 
     _glob_conf_dict = _get_user_info_and_namespaces()
-    _glob_conf_dict["remotes"] = {"local": _local_url, "origin": _remote_url}
+    _glob_conf_dict["registries"] = {"local": _local_url, "origin": _remote_url}
     _glob_conf_dict['data_store'] = {
         "local": _loc_data_store,
         "origin": _rem_data_store
@@ -425,8 +425,8 @@ def local_config_query(
     # Try extracting global configurations. If any keys do not exist re-run
     # setup for creation of these, then try again.
     try:
-        _def_remote = global_config["remotes"]["origin"]
-        _def_local = global_config["remotes"]["local"]
+        _def_remote = global_config["registries"]["origin"]
+        _def_local = global_config["registries"]["local"]
         _def_rem_key = global_config["tokens"]["origin"]
         _def_ospace = global_config["namespaces"]["output"]
         _def_user = global_config["user"]
@@ -437,8 +437,8 @@ def local_config_query(
         )
         first_time_setup = True
         global_config = global_config_query()
-        _def_remote = global_config["remotes"]["origin"]
-        _def_local = global_config["remotes"]["local"]
+        _def_remote = global_config["registries"]["origin"]
+        _def_local = global_config["registries"]["local"]
         _def_rem_key = global_config["tokens"]["origin"]
         _def_ospace = global_config["namespaces"]["output"]
         _def_user = global_config["user"]
@@ -545,9 +545,9 @@ def local_config_query(
 
     # Copy the global configuration then substitute updated
     # configurations
-    _local_config["remotes"] = global_config["remotes"].copy()
-    _local_config["remotes"]["origin"] = _def_remote
-    _local_config["remotes"]["local"] = _def_local
+    _local_config["registries"] = global_config["registries"].copy()
+    _local_config["registries"]["origin"] = _def_remote
+    _local_config["registries"]["local"] = _def_local
 
     _local_config["tokens"] = global_config["tokens"].copy()
     _local_config["tokens"]["origin"] = _def_rem_key

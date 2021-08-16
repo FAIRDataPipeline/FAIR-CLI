@@ -218,7 +218,7 @@ def run_command(
     # Setup the registry storage location root
     fdp_reg_store.store_working_config(
         repo_dir,
-        fdp_conf.read_local_fdpconfig(repo_dir)["remotes"]["local"],
+        fdp_conf.read_local_fdpconfig(repo_dir)["registries"]["local"],
         _work_cfg_yml,
     )
 
@@ -229,7 +229,7 @@ def run_command(
 
     fdp_reg_store.store_working_script(
         repo_dir,
-        fdp_conf.read_local_fdpconfig(repo_dir)["remotes"]["local"],
+        fdp_conf.read_local_fdpconfig(repo_dir)["registries"]["local"],
         _cmd_setup["script"],
         _work_cfg_yml
     )
