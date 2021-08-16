@@ -232,7 +232,6 @@ def run_command(
 
     _loc_conf = fdp_conf.read_local_fdpconfig(repo_dir)
     _user = fdp_conf.get_current_user_name(repo_dir)
-    print(_glob_conf)
     _email = _glob_conf['user']['email']
     _namespace = _loc_conf['namespaces']['output']
 

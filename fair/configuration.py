@@ -268,6 +268,7 @@ def check_registry_exists() -> bool:
 def _get_user_info_and_namespaces() -> Dict[str, Dict]:
     _user_email = click.prompt("Email")
     _user_orcid = click.prompt("ORCID", default="None")
+    _user_uuid = None
 
     if _user_orcid != "None":
         _user_info = fdp_id.check_orcid(_user_orcid)
@@ -305,7 +306,7 @@ def _get_user_info_and_namespaces() -> Dict[str, Dict]:
             _user_info['given_names'] = _full_name
             _user_info['family_name'] = None
 
-    _user_info['uuid'] = _uuid
+    _user_info['uuid'] = _user_uuid
 
     _user_info['email'] = _user_email
     _user_info['orcid'] = _user_orcid
