@@ -307,18 +307,18 @@ def _get_user_info_and_namespaces() -> Dict[str, Dict]:
 
         _user_info['uuid'] = _uuid
 
-        _def_ospace = _def_ospace.lower().replace(" ", "").strip()
-
-        _def_ispace = click.prompt("Default input namespace", default="None")
-        _def_ispace = _def_ispace if _def_ispace != "None" else None
-        _def_ospace = click.prompt(
-            "Default output namespace", default=_def_ospace
-        )
-
-        _namespaces = {"input": _def_ispace, "output": _def_ospace}
-
         _user_info['email'] = _user_email
         _user_info['orcid'] = _user_orcid
+
+    _def_ospace = _def_ospace.lower().replace(" ", "").strip()
+
+    _def_ispace = click.prompt("Default input namespace", default="None")
+    _def_ispace = _def_ispace if _def_ispace != "None" else None
+    _def_ospace = click.prompt(
+        "Default output namespace", default=_def_ospace
+    )
+
+    _namespaces = {"input": _def_ispace, "output": _def_ospace}
 
     return {"user": _user_info, "namespaces": _namespaces}
 
