@@ -248,7 +248,7 @@ class FAIR:
         self._logger.debug("Setting up command execution")
         
         _hash = fdp_run.run_command(
-            local_uri=self._local_config['remotes']['local'],
+            local_uri=self._local_config['registries']['local'],
             repo_dir=self._session_loc,
             config_yaml=self._session_config,
             bash_cmd=bash_cmd
@@ -401,8 +401,8 @@ class FAIR:
         """Get the status of staging"""
         self.check_is_repo()
 
-        _staged_jobs = self._stager.get_item_list(True, "run")
-        _unstaged_jobs = self._stager.get_item_list(False, "run")
+        _staged_jobs = self._stager.get_item_list(True, "job")
+        _unstaged_jobs = self._stager.get_item_list(False, "job")
 
         if _staged_jobs:
             click.echo("Changes to be synchronized:")
