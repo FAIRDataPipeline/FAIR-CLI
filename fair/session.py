@@ -38,6 +38,7 @@ import shutil
 
 import click
 import rich
+import git
 import yaml
 
 from fair.templates import config_template
@@ -72,7 +73,7 @@ class FAIR:
     list_remotes(verbose: bool = False)
     status()
     initialise()
-    run()
+    run_job()
     """
 
     def __init__(
@@ -262,6 +263,25 @@ class FAIR:
             raise fdp_exc.FDPRepositoryError(
                 "Not a FAIR repository", hint="Run 'fair init' to initialise."
             )
+
+    def check_git_repo_state(self, git_repo: str, remote_label: str = 'origin') -> bool:
+        """Checks the git repository is clean and that local matches remote"""
+        _repo_root = fdp_com.find_git_root(git_repo)
+        _repo = git.Repo(_repo_root)
+
+        # Firstly get the current branch
+        _current_branch = _repo.active_branch.name
+
+        # Get the latest commit on the current branch locally
+        _loc_commit = _repo.refs[_current_branch].commit.hexsha
+
+        # Get the latest commit on this branch on remote
+        _rem_commit = _repo.remotes[remote_label].refs[_current_branch].commit.hexsha
+
+        # Commit match
+        _com_match = _loc_commit == _rem_commit
+
+        return _repo.is_dirty() and _com_match
 
     def __enter__(self) -> None:
         """Method called when using 'with' statement."""

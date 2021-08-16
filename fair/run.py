@@ -28,6 +28,7 @@ import typing
 import glob
 import hashlib
 from datetime import datetime
+from git import repo
 
 import yaml
 import click
@@ -206,7 +207,7 @@ def run_command(
 
     # Create working config
     create_working_config(
-        local_uri, _job_dir, config_yaml, _work_cfg_yml, _now
+        local_uri, repo_dir, config_yaml, _job_dir, _now
     )
 
     if not os.path.exists(_work_cfg_yml):
@@ -326,9 +327,9 @@ def run_command(
 
 def create_working_config(
     local_uri: str,
-    job_dir: str,
+    repo_dir: str,
     config_yaml: str,
-    output_file: str,
+    job_dir: str,
     time: datetime
 ) -> None:
     """Generate a working configuration file used during jobs
@@ -337,15 +338,17 @@ def create_working_config(
     ----------
     local_uri : str
         local registry endpoint
-    job_dir : str
-        session job directory
+    repo_dir : str
+        FAIR repository directory
     config_yaml : str
         job configuration file
-    output_file : str
+    job_dir : str
         location to write generated config
     time : datetime.datetime
         time stamp of job initiation time
     """
+
+    _work_cfg_yml = os.path.join(job_dir, "config.yaml")
     
     _conf_yaml = fdp_parse.subst_cli_vars(
         local_uri, job_dir, time, config_yaml
@@ -356,15 +359,15 @@ def create_working_config(
         del _conf_yaml["register"]    
 
     if 'read' in _conf_yaml:
-        _conf_yaml['read'] = fdp_parse.glob_read_write(job_dir, _conf_yaml['read'])
+        _conf_yaml['read'] = fdp_parse.glob_read_write(repo_dir, _conf_yaml['read'])
 
     if 'write' in _conf_yaml:
-        _conf_yaml['write'] = fdp_parse.glob_read_write(job_dir, _conf_yaml['write'])
+        _conf_yaml['write'] = fdp_parse.glob_read_write(repo_dir, _conf_yaml['write'])
 
     # If local_repo is not present in the user config assign it to the
     # the current git repository
     if "local_repo" not in _conf_yaml["run_metadata"]:
-        _conf_yaml["run_metadata"]["local_repo"] = fdp_com.find_git_root()
+        _conf_yaml["run_metadata"]["local_repo"] = fdp_conf.get_session_git_repo(repo_dir)
 
     # Make status public by default if not defined
     if "public" not in _conf_yaml["run_metadata"]:
@@ -375,7 +378,7 @@ def create_working_config(
 
     _conf_yaml["run_metadata"]["latest_commit"] = _git_repo.head.commit.hexsha
 
-    with open(output_file, "w") as out_f:
+    with open(_work_cfg_yml, "w") as out_f:
         yaml.dump(_conf_yaml, out_f)
 
 

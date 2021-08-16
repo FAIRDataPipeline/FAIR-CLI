@@ -26,6 +26,7 @@ from typing import MutableMapping, Any, Dict, Tuple
 
 import yaml
 import click
+import git
 
 import fair.common as fdp_com
 import fair.exceptions as fdp_exc
@@ -171,8 +172,59 @@ def get_remote_uri(repo_loc: str, remote_label: str = 'origin') -> str:
     return _local_conf["remotes"][remote_label]
 
 
+def get_session_git_repo(repo_loc: str) -> str:
+    """Retrieves the local repository git directory
+
+    Parameters
+    ----------
+    repo_loc : str
+        Location of session CLI config
+
+    Returns
+    -------
+    str
+        the root git repository directory
+    """
+    _local_conf = read_local_fdpconfig(repo_loc)
+    
+    try:
+        return _local_conf["git"]["local_repo"]
+    except KeyError:
+        raise fdp_exc.InternalError(
+            "Failed to retrieve project git repository directory"
+        )
+
+
+def get_session_git_remote(repo_loc: str) -> str:
+    """Retrieves the local repository git remote
+
+    Parameters
+    ----------
+    repo_loc : str
+        Location of session CLI config
+
+    Returns
+    -------
+    str
+        the remote of the git repository
+    """
+    _local_conf = read_local_fdpconfig(repo_loc)
+    
+    try:
+        return _local_conf["git"]["remote"]
+    except KeyError:
+        raise fdp_exc.InternalError(
+            "Failed to retrieve project git repository remote"
+        )
+
+
 def get_current_user_orcid(repo_loc: str) -> str:
     """Retrieves the ORCID of the current session user as defined in the config
+
+    Parameters
+    ----------
+    repo_loc : str
+        Location of session CLI config
 
     Returns
     -------
@@ -405,6 +457,54 @@ def local_config_query(
 
     _desc = click.prompt("Project description")
 
+    # Try checking to see if the current location is a git repository and
+    # suggesting this as a default
+    try:
+        _git_repo = fdp_com.find_git_root(os.getcwd())
+    except fdp_exc.UserConfigError:
+        _git_repo = None
+
+    _git_repo = click.prompt("Local Git repository", default=_git_repo)
+    _invalid_repo = True
+
+    # Check this is indeed a git repository
+    while _invalid_repo:
+        try:
+            git.Repo(_git_repo)
+            _invalid_repo = False
+        except git.InvalidGitRepositoryError:
+            _invalid_repo = True
+            click.echo(
+                "Invalid directory, location is not the head of a local"
+                " git repository."
+            )
+            _git_repo = click.prompt("Local Git repository", default=_git_repo)
+
+    # Set the remote to use within git by label, by default 'origin'
+    # check the remote label is valid before proceeding
+    try:
+        git.Repo(_git_repo).remotes['origin']
+        _def_rem = 'origin'
+    except IndexError:
+        _def_rem = None
+
+    _git_remote = click.prompt("Git remote name", default=_def_rem)
+    _invalid_rem = True
+
+    while _invalid_rem:
+        try:
+            git.Repo(_git_repo).remotes[_git_remote]
+            _invalid_rem = False
+        except IndexError:
+            _invalid_rem = True
+            click.echo("Invalid remote name for git repository")
+            _git_remote = click.prompt("Git remote name", default=_def_rem)
+
+    click.echo(
+        f"Using git repository remote '{_git_remote}': "
+        f"{git.Repo(_git_repo).remotes[_git_remote].url}"
+    )
+
     # If this is not the first setup it means globals are available so these
     # can be suggested as defaults during local setup
     if not first_time_setup:
@@ -436,6 +536,11 @@ def local_config_query(
     _local_config["namespaces"] = {
         "output": _def_ospace,
         "input": _def_ispace,
+    }
+
+    _local_config["git"] = {
+        "remote": _git_remote,
+        "local_repo": _git_repo
     }
 
     # Copy the global configuration then substitute updated

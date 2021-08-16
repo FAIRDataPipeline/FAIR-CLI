@@ -143,5 +143,13 @@ def find_git_root(start_directory: str = os.getcwd()) -> str:
     str
         absolute path of the .git folder
     """
-    _repository = git.Repo(start_directory, search_parent_directories=True)
+    try:
+        _repository = git.Repo(
+            start_directory,
+            search_parent_directories=True
+        )
+    except git.InvalidGitRepositoryError:
+        raise fdp_exc.UserConfigError(
+            f"Failed to retrieve git repository for current configuration"
+        )
     return _repository.git.rev_parse("--show-toplevel").strip()

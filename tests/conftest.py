@@ -7,6 +7,7 @@ import yaml
 import click
 import uuid
 import subprocess
+import pathlib
 import git
 
 import fair.common as fdp_com
@@ -15,7 +16,6 @@ import fair.server as fdp_svr
 import fair.configuration as fdp_conf
 import fair.registry.storage as fdp_store
 import fair.registry.requests as fdp_req
-
 
 @pytest.fixture(scope="module")
 def global_test(module_mocker):
@@ -86,20 +86,10 @@ def no_prompt(mocker):
 
 @pytest.fixture
 def git_mock(mocker):
-    class mock_remote:
-        def __init__(self, url):
-            self.url = url
-    class mock_branch:
-        def __init__(self, name):
-            self.name = name
-    class mock_repo:
-        def __init__(self, *args, **kwargs):
-            pass
-        tags = ['test-tag']
-        remotes = {'origin': mock_remote('git@nowhere.com'), 'other': mock_remote('git@undefined.com')}
-        active_branch = mock_branch('test-branch')
-        branches = [mock_branch('test-branch')]
-    mocker.patch.object(git, 'Repo', lambda *args, **kwargs: mock_repo())
+    _repo_root = pathlib.Path(os.path.dirname(__file__)).parent
+    _git_repo = git.Repo(_repo_root)
+    mocker.patch.object(fdp_conf, "get_session_git_repo", lambda : _repo_root)
+    mocker.patch.object(git, "Repo", lambda *args, **kwargs: _git_repo)
 
 
 @pytest.fixture
@@ -117,7 +107,6 @@ def no_init_session(
     repo_root,
     git_mock,
     mocker,
-    no_registry_autoinstall,
     no_prompt,
     no_registry_edits,
 ):
@@ -157,7 +146,6 @@ def no_init_session(
     mocker.patch.object(
         fdp_conf, "read_local_fdpconfig", lambda *args: _loc_conf
     )
-
     os.makedirs(os.path.join(repo_root, '.fair'), exist_ok=True)
 
     _fdp_session = fdp_s.FAIR(repo_root)

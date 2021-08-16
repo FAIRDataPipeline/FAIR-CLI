@@ -120,6 +120,7 @@ def subst_cli_vars(
     ----------
     local_uri : str
         endpoint of the local registry
+
     job_dir : str
         location of code job directory (not to be confused with
         local FAIR project repository)
@@ -152,10 +153,19 @@ def subst_cli_vars(
     # the key is a version key or not.
     # Tags in config.yaml are specified as ${{ CLI.VAR }}
 
-    _fair_head = fdp_com.find_fair_root(os.path.dirname(config_yaml))
+    _yaml_dict = yaml.safe_load(open(config_yaml))
+
+    if 'local_repo' not in _yaml_dict['run_metadata']:
+        raise fdp_exc.InternalError(
+            "Expected 'local_repo' definition in user configuration file"
+        )
+    
+    _local_repo = _yaml_dict['run_metadata']['local_repo']
+
+    _fair_head = fdp_com.find_fair_root(_local_repo)
 
     def _tag_check(*args, **kwargs):
-        _repo = git.Repo(fdp_com.find_git_root(_fair_head))
+        _repo = git.Repo(fdp_conf.get_session_git_repo(_local_repo))
         if len(_repo.tags) < 1:
             fdp_exc.UserConfigError(
                 "Cannot use GIT_TAG variable, no git tags found."
@@ -166,16 +176,17 @@ def subst_cli_vars(
     _substitutes: collections.abc.Mapping = {
         "DATE": lambda : job_time.strftime("%Y%m%d"),
         "DATETIME": lambda : job_time.strftime("%Y-%m-%s %H:%M:%S"),
-        "USER": lambda : fdp_conf.get_current_user_name(os.path.dirname(config_yaml)),
+        "USER": lambda : fdp_conf.get_current_user_name(_local_repo),
         "USER_ID": lambda : _get_id(job_dir),
-        "REPO_DIR": lambda : fdp_com.find_fair_root(
-            os.path.dirname(config_yaml)
-        ),
+        "REPO_DIR": lambda : _fair_head,
         "CONFIG_DIR": lambda : job_dir,
         "SOURCE_CONFIG": lambda : config_yaml,
         "GIT_BRANCH": lambda : git.Repo(
-                fdp_com.find_git_root(_fair_head)
+                fdp_conf.get_session_git_repo(_local_repo)
             ).active_branch.name,
+        "GIT_REMOTE": lambda : git.Repo(
+            fdp_conf.get_session_git_repo(_local_repo)
+        ).refs[fdp_conf.get_session_git_remote(_local_repo)].url,
         "GIT_TAG": _tag_check,
     }
 
@@ -187,19 +198,8 @@ def subst_cli_vars(
     _regex_dt_fmt = re.compile(r'\$\{\{\s*DATETIME\-.+\s*\}\}')
     _regex_fmt = re.compile(r'\$\{\{\s*DATETIME\-(.+)\s*\}\}')
 
-    # Additional parse for branch choice
-    _regex_git_remote = re.compile(r'\$\{\{\s*GIT_REMOTE_[A-Z]+\s*\}\}')
-    _regex_git_remote_name = re.compile(r'\$\{\{\s*GIT_REMOTE_([A-Z]+)\s*\}\}')
-
     _dt_fmt_res = _regex_dt_fmt.findall(_conf_str)
     _fmt_res = _regex_fmt.findall(_conf_str)
-
-    _git_remote_res = _regex_git_remote.findall(_conf_str)
-    _git_rem_name_res = _regex_git_remote_name.findall(_conf_str)
-
-    # The two regex searches should match lengths
-    if len(_git_remote_res) != len(_git_rem_name_res):
-        raise fdp_exc.UserConfigError("Failed to parse git remote variable")
 
     # The two regex searches should match lengths
     if len(_dt_fmt_res) != len(_fmt_res):
@@ -211,22 +211,6 @@ def subst_cli_vars(
         for i, _ in enumerate(_dt_fmt_res):
             _time_str = job_time.strftime(_fmt_res[i].strip())
             _conf_str = _conf_str.replace(_dt_fmt_res[i], _time_str)
-
-    if _git_remote_res:
-        for i, _ in enumerate(_git_remote_res):
-            _name_str = _git_rem_name_res[i]
-
-            try:
-                _rem_str = git.Repo(
-                    fdp_com.find_git_root(_fair_head)
-                ).remotes[_name_str.lower()]
-                _rem_str = _rem_str.url
-            except KeyError:
-                raise fdp_exc.UserConfigError(
-                    f"Failed to find URL for git remote '{_name_str.lower()}'"
-                )
-            
-            _conf_str = _conf_str.replace(_git_remote_res[i], _rem_str)
 
     _regex_dict = {
         var: r'\$\{\{\s*'+f'{var}'+r'\s*\}\}'
@@ -295,13 +279,3 @@ def subst_versions(local_uri: str, config_yaml_dict: typing.Dict) -> typing.Dict
 
     return _out_dict
 
-
-
-        
-
-        
-            
-
-
-        
-    
