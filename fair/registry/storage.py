@@ -309,3 +309,4 @@ def get_storage_root_obj_address(remote_uri: str, remote_token: str, address_str
             f"Cannot find a match for path '{address_str}' "
             f"from endpoint '{remote_uri}."
         )
+
