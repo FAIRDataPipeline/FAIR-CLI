@@ -232,6 +232,7 @@ def run_command(
 
     _loc_conf = fdp_conf.read_local_fdpconfig(repo_dir)
     _user = fdp_conf.get_current_user_name(repo_dir)
+    print(_glob_conf)
     _email = _glob_conf['user']['email']
     _namespace = _loc_conf['namespaces']['output']
 
@@ -447,7 +448,7 @@ def setup_job_script(
 
     if "script" in _conf_yaml["run_metadata"]:
         _cmd = _conf_yaml["run_metadata"]["script"]
-        _ext = SHELLS[_shell]["file_type"]["extension"]
+        _ext = SHELLS[_shell]["extension"]
         _out_file = os.path.join(output_dir, f"run_script.{_ext}")
         if _cmd:
             with open(_out_file, "w") as f:

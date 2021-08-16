@@ -305,10 +305,10 @@ def _get_user_info_and_namespaces() -> Dict[str, Dict]:
             _user_info['given_names'] = _full_name
             _user_info['family_name'] = None
 
-        _user_info['uuid'] = _uuid
+    _user_info['uuid'] = _uuid
 
-        _user_info['email'] = _user_email
-        _user_info['orcid'] = _user_orcid
+    _user_info['email'] = _user_email
+    _user_info['orcid'] = _user_orcid
 
     _def_ospace = _def_ospace.lower().replace(" ", "").strip()
 
@@ -472,7 +472,7 @@ def local_config_query(
         try:
             git.Repo(_git_repo)
             _invalid_repo = False
-        except git.InvalidGitRepositoryError:
+        except (git.InvalidGitRepositoryError, git.NoSuchPathError):
             _invalid_repo = True
             click.echo(
                 "Invalid directory, location is not the head of a local"

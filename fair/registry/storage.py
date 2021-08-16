@@ -259,7 +259,7 @@ def store_working_script(
     _user = store_user(repo_dir, uri)
 
     _shell_script_type = create_file_type(
-        uri, "Executable script", "sh"
+        uri, "sh"
     )
 
     _time_stamp_dir = os.path.basename(os.path.dirname(script_path))
