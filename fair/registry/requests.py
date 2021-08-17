@@ -24,6 +24,7 @@ import json
 import os
 import posixpath
 import yaml
+import tempfile
 import typing
 import urllib.parse
 
@@ -327,3 +328,30 @@ def get_writable_fields(
     )
 
     return _writable_fields
+
+
+def download_file(url: str, chunk_size: int = 8192) -> str:
+    """Download a file from a given URL
+
+    Parameters
+    ----------
+    url : str
+        address of remote file
+    chunk_size : int, optional
+        chunk size for download, by default 8192
+
+    Returns
+    -------
+    str
+        path of downloaded temporary file
+    """
+    # Save the data to a temporary file so we can calculate the hash
+    _file, _fname = tempfile.mkstemp()
+
+    with requests.get(url, stream=True) as r_in:
+        r_in.raise_for_status()
+        with os.fdopen(_file, 'wb') as in_f:
+            for chunk in r_in.iter_content(chunk_size=chunk_size):
+                in_f.write(chunk)
+
+    return _fname
