@@ -350,14 +350,22 @@ def store_data_file(
         uri, _file_type
     )
 
-    # Allow the user to override the namespace for this particular file
-    # if 'default_output_namespace' is also in the entry data
-    if 'default_output_namespace' in data:
-        _output_namespace = data['default_output_namespace']
-    else:
-        _output_namespace = _cfg["run_metadata"]["default_output_namespace"]
+    # Namespace is read from the source information
+    if 'namespace_name' not in data:
+        raise fdp_exc.UserConfigError(
+            f"Expected 'namespace_name' for item '{local_file}'"
+        )
 
-    _namespace_url = store_namespace(_output_namespace)
+    _namespace_args = {
+        "uri": uri,
+        "namespace_label": data['namespace_name'],
+        "full_name": data['namespace_full_name']
+            if 'namespace_full_name' in data else None,
+        "website": data['namespace_website']
+            if 'namespace_website' in data else None
+    } 
+
+    _namespace_url = store_namespace(**_namespace_args)
 
     _desc = data['description'] if 'description' in data else None
 
@@ -407,6 +415,32 @@ def store_data_file(
         "title"
     ]
 
+    _identifier = None
+    _alternate_identifier = None
+    _alternate_identifier_type = None
+
+    if 'identifier' in data:
+        _identifier = data['identifier']
+        if not fdp_id.check_id_permitted(_identifier):
+            raise fdp_exc.UserConfigError(
+                f"Identifier '{_identifier}' is not a valid identifier"
+            )
+
+    if not _identifier:
+        if 'unique_name' not in data or 'source_name' not in data:
+            raise fdp_exc.UserConfigError(
+                "No identifier/alternate_identifier given for "
+                f"item '{local_file}'",
+                hint="You must provide either a URL 'identifier', or "
+                "'unique_name' and 'source_name' keys"
+            )
+    else:
+        _alternate_identifier = data['unique_name']
+        if 'alternate_identifier_type' in  data:
+            _alternate_identifier_type = data['alternate_identifier_type']
+        else:
+            _alternate_identifier_type = 'locally source descriptor'
+
     for key in _expected_ext_obj_keys:
         if key not in data:
             raise fdp_exc.UserConfigError(
@@ -417,7 +451,10 @@ def store_data_file(
         "data_product": _data_prod_url,
         "title": data['title'],
         "primary_not_supplement": data['primary'],
-        "release_date": data['release_date']
+        "release_date": data['release_date'],
+        "identifier": _identifier,
+        "alternate_identifier": _alternate_identifier,
+        "alternate_identifier_type": _alternate_identifier_type
     }
 
     return fdp_req.post(uri, ('external_object', ), data=_external_obj_data)

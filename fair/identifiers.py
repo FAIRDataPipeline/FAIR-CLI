@@ -56,3 +56,25 @@ def check_orcid(orcid: str) -> Dict:
     _result_dict['orcid'] = orcid
 
     return _result_dict
+
+
+def check_id_permitted(identifier: str) -> bool:
+    """Check a user provided identifier is permitted
+
+    This ID is expected to be a valid URL
+
+    Parameters
+    ----------
+    identifier : str
+        identifier URL candidate
+
+    Returns
+    -------
+    bool
+        if valid identifier
+    """
+    try:
+        requests.get(identifier).raise_for_status()
+        return True
+    except requests.HTTPError:
+        return False

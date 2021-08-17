@@ -84,8 +84,8 @@ class CLIConfigurationError(FAIRCLIException):
 class UserConfigError(FAIRCLIException):
     """Errors relating to the user 'config.yaml' file"""
 
-    def __init__(self, msg):
-        super().__init__(msg)
+    def __init__(self, msg, hint):
+        super().__init__(msg, hint=hint)
 
 
 class UnexpectedRegistryServerState(FAIRCLIException):

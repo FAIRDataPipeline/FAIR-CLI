@@ -349,7 +349,13 @@ def download_file(url: str, chunk_size: int = 8192) -> str:
     _file, _fname = tempfile.mkstemp()
 
     with requests.get(url, stream=True) as r_in:
-        r_in.raise_for_status()
+        try:
+            r_in.raise_for_status()
+        except requests.HTTPError:
+            raise fdp_exc.FileNotFoundError(
+                f"Failed to download file from '{url}'"
+                f" with status code {r_in.status_code}"
+            )
         with os.fdopen(_file, 'wb') as in_f:
             for chunk in r_in.iter_content(chunk_size=chunk_size):
                 in_f.write(chunk)

@@ -16,7 +16,6 @@ Functions
 
 __date__ = "2021-08-05"
 
-import requests
 import typing
 
 import fair.exceptions as fdp_exc

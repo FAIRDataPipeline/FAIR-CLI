@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Synchronization interface for the SCRC FAIR Data Pipeline registry"
 authors = [
     "Nathan Cummings <nathan.cummings@ukaea.uk>",
+    "Dennis Reddyhoff <d.reddyhoff@sheffield.ac.uk>",
     "Kristian Zarebski <kristian.zarebski@ukaea.uk>"
 ]
 license = "BSD-2-Clause"
@@ -17,8 +18,6 @@ Jinja2 = "^2.11.1"
 rich = "^10.2.2"
 GitPython = "^3.1.18"
 semver = "^2.13.0"
-pyfdp = { git = "https://github.com/FAIRDataPipeline/pythonFDP.git", branch = "dev" }
-beautifulsoup4 = "^4.9.3"
 
 [tool.poetry.dev-dependencies]
 pytest = "^6.2.4"
