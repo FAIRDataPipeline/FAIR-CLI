@@ -28,6 +28,7 @@ Misc Variables
 
 __date__ = "2021-06-28"
 
+from datetime import datetime
 import os
 import glob
 import uuid
@@ -49,6 +50,7 @@ import fair.configuration as fdp_conf
 import fair.exceptions as fdp_exc
 import fair.history as fdp_hist
 import fair.staging as fdp_stage
+import fair.register as fdp_reg
 
 
 class FAIR:
@@ -168,6 +170,9 @@ class FAIR:
                 if os.path.exists(fdp_com.default_data_dir()):
                     shutil.rmtree(fdp_com.default_data_dir())
 
+    def pull(self) -> None:
+        fdp_run.run_command()
+
     def _setup_server(self) -> None:
         """Start or stop the server if required"""
 
@@ -234,14 +239,9 @@ class FAIR:
     def run_job(
         self,
         bash_cmd: str = "",
+        mode: fdp_run.CMD_MODE = fdp_run.CMD_MODE.RUN
     ) -> None:
-        """Execute a run using the given user configuration file
-
-        Parameters
-        ----------
-        config_yaml : str, optional
-            user configuration file, defaults to FAIR repository config.yaml
-        """
+        """Execute a run using the given user configuration file"""
         self.check_is_repo()
         if not os.path.exists(self._session_config):
             self.make_starter_config()
@@ -251,7 +251,8 @@ class FAIR:
             local_uri=self._local_config['registries']['local'],
             repo_dir=self._session_loc,
             config_yaml=self._session_config,
-            bash_cmd=bash_cmd
+            bash_cmd=bash_cmd,
+            mode=mode
         )
 
         # Automatically add the run to tracking but unstaged
@@ -432,7 +433,7 @@ class FAIR:
 
         if _unstaged_jobs:
             click.echo("Changes not staged for synchronization:")
-            click.echo(f'\t(use "fair add <run>..." to stage jobs)')
+            click.echo(f'\t(use "fair add <job>..." to stage jobs)')
 
             click.echo("\tJobs:")
             
@@ -484,8 +485,6 @@ class FAIR:
             )
             _yaml_dict = yaml.safe_load(_yaml_str)
 
-            # Null keys are not loaded by YAML so add manually
-            _yaml_dict["run_metadata"]["script"] = None
             yaml.dump(_yaml_dict, f)
 
     def initialise(self) -> None:

@@ -58,6 +58,13 @@ def get_write_storage(uri: str, config_yaml: str) -> str:
     """
 
     _cfg = yaml.safe_load(open(config_yaml))
+
+    if not _cfg:
+        raise fdp_exc.UserConfigError(
+            f"Failed to read file '{config_yaml}' "
+            "file is empty"
+        )
+
     _cfg_meta = _cfg["run_metadata"]
 
     if "write_data_store" not in _cfg_meta:
@@ -183,11 +190,22 @@ def store_working_config(repo_dir: str, uri: str, work_cfg_yml: str) -> str:
         "hash": _hash,
     }
 
-    _post_store_loc = fdp_req.post(
-        uri,
-        ("storage_location",),
-        data=_storage_loc_data
-    )
+    try:
+        _post_store_loc = fdp_req.post(
+            uri,
+            ("storage_location",),
+            data=_storage_loc_data
+        )
+    except fdp_exc.RegistryAPICallError as e:
+        if not e.error_code == 409:
+            raise e
+        else:
+            raise fdp_exc.RegistryAPICallError(
+                f"Cannot post storage_location "
+                f"'{_rel_path}' with hash"
+                f" '{_hash}', object already exists",
+                error_code=409
+            )
 
     _user = store_user(repo_dir, uri)
 
@@ -257,11 +275,22 @@ def store_working_script(
         "hash": _hash,
     }
 
-    _post_store_loc = fdp_req.post(
-        uri,
-        ("storage_location",),
-        data=_storage_loc_data,
-    )
+    try:
+        _post_store_loc = fdp_req.post(
+            uri,
+            ("storage_location",),
+            data=_storage_loc_data
+        )
+    except fdp_exc.RegistryAPICallError as e:
+        if not e.error_code == 409:
+            raise e
+        else:
+            raise fdp_exc.RegistryAPICallError(
+                f"Cannot post storage_location "
+                f"'{_rel_path}' with hash"
+                f" '{_hash}', object already exists",
+                error_code=409   
+            )
 
     _user = store_user(repo_dir, uri)
 
@@ -326,18 +355,37 @@ def store_data_file(
 
     _rel_path = os.path.relpath(local_file, _data_store)
 
+    if 'version' not in data:
+        raise fdp_exc.InternalError(
+            f"Expected version number for '{local_file}' "
+            "registry submission but none found"
+        )
+
+    _hash = calculate_file_hash(local_file)
+
     _storage_loc_data = {
         "path": _rel_path,
         "storage_root": _root_store,
         "public": public,
-        "hash": calculate_file_hash(local_file),
+        "hash": _hash,
     }
 
-    _post_store_loc = fdp_req.post(
-        uri,
-        ("storage_location",),
-        data=_storage_loc_data,
-    )
+    try:
+        _post_store_loc = fdp_req.post(
+            uri,
+            ("storage_location",),
+            data=_storage_loc_data
+        )['url']
+    except fdp_exc.RegistryAPICallError as e:
+        if not e.error_code == 409:
+            raise e
+        else:
+            raise fdp_exc.RegistryAPICallError(
+                f"Cannot post storage_location "
+                f"'{_rel_path}' with hash"
+                f" '{_hash}', object already exists",
+                error_code=409 
+            )
 
     _user = store_user(repo_dir, uri)
 
@@ -376,12 +424,21 @@ def store_data_file(
         "authors": [_user]
     }
 
-    _obj_url = fdp_req.post(uri, ("object",), data=_object_data)['url']
-
-    if 'version' not in data:
+    try:
+        _obj_url = fdp_req.post(uri, ("object",), data=_object_data)['url']
+    except fdp_exc.RegistryAPICallError as e:
+        if not e.error_code == 409:
+            raise e
+        else:
+            raise fdp_exc.RegistryAPICallError(
+                f"Cannot post object"
+                f"'{_desc}', duplicate already exists",
+                error_code=409
+            )
+    except KeyError:
         raise fdp_exc.InternalError(
-            f"Expected version number for '{local_file}' "
-            "registry submission but none found"
+            f"Expected key 'url' in local registry API response"
+            f" for post object '{_desc}'"
         )
     
     # Get the name of the entry
@@ -402,7 +459,22 @@ def store_data_file(
         "name": _name
     }
 
-    _data_prod_url = fdp_req.post(uri, ('data_product',), data=_data_prod_data)
+    try:
+        _data_prod_url = fdp_req.post(uri, ('data_product',), data=_data_prod_data)['url']
+    except fdp_exc.RegistryAPICallError as e:
+        if not e.error_code == 409:
+            raise e
+        else:
+            raise fdp_exc.RegistryAPICallError(
+                f"Cannot post data_product"
+                f"'{_name}', duplicate already exists",
+                error_code=409   
+            )
+    except KeyError:
+        raise fdp_exc.InternalError(
+            f"Expected key 'url' in local registry API response"
+            f" for post object '{_name}'"
+        )
 
     # If 'data_product' key present finish here and return URL
     # else this is an external object
@@ -427,19 +499,19 @@ def store_data_file(
             )
 
     if not _identifier:
-        if 'unique_name' not in data or 'source_name' not in data:
+        if 'unique_name' not in data or 'namespace_name' not in data:
             raise fdp_exc.UserConfigError(
                 "No identifier/alternate_identifier given for "
                 f"item '{local_file}'",
                 hint="You must provide either a URL 'identifier', or "
                 "'unique_name' and 'source_name' keys"
             )
-    else:
-        _alternate_identifier = data['unique_name']
-        if 'alternate_identifier_type' in  data:
-            _alternate_identifier_type = data['alternate_identifier_type']
         else:
-            _alternate_identifier_type = 'locally source descriptor'
+            _alternate_identifier = f"{data['namespace_name']}/{data['unique_name']}"
+            if 'alternate_identifier_type' in  data:
+                _alternate_identifier_type = data['alternate_identifier_type']
+            else:
+                _alternate_identifier_type = 'local source descriptor'
 
     for key in _expected_ext_obj_keys:
         if key not in data:
@@ -547,7 +619,7 @@ def check_if_object_exists(
     local_uri: str,
     file_loc: str,
     obj_type: typing.Tuple[str] ,
-    name: str,
+    search_data: typing.Dict,
     token: str = None) -> str:
     """Checks if a data product is already present in the registry
 
@@ -569,13 +641,17 @@ def check_if_object_exists(
     # Obtain list of storage_locations for the given data_product
     _results = fdp_req.get(
         local_uri,
-        (obj_type,),
-        params={"name": name},
+        obj_type,
+        params=search_data,
         token=token
     )
 
     if not _results:
         return "absent"
+
+    if obj_type == ('external_object',):
+        _results = [res['data_product'] for res in _results]
+        _results = [fdp_req.url_get(r) for r in _results]
 
     _object_urls = [res['object'] for res in _results]
 

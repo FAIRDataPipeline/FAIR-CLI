@@ -100,10 +100,9 @@ def subst_cli_vars(
             )
         return _repo.tags[-1].name
 
-
     _substitutes: collections.abc.Mapping = {
         "DATE": lambda : job_time.strftime("%Y%m%d"),
-        "DATETIME": lambda : job_time.strftime("%Y-%m-%s %H:%M:%S"),
+        "DATETIME": lambda : job_time.strftime("%Y-%m-%dT%H:%M:%S%Z"),
         "USER": lambda : fdp_conf.get_current_user_name(_local_repo),
         "USER_ID": lambda : _get_id(job_dir),
         "REPO_DIR": lambda : _fair_head,
@@ -150,7 +149,6 @@ def subst_cli_vars(
         # Only execute functions in var substitutions that are required
         if re.findall(subst, _conf_str):
             _conf_str = re.sub(subst, str(_substitutes[var]()), _conf_str)
-
     # Load the YAML (this also verifies the write was successful)
     _user_conf = yaml.safe_load(_conf_str)
 

@@ -59,7 +59,7 @@ def test_run_setup_custom(setup_with_opts, no_registry_autoinstall):
         {"shell": "python", "script": "print('Test Run')"}
     )
     assert _out["shell"] == "python"
-    assert open(_out["script"]).read() == "print('Test Run')"
+    assert open(_out['script']).read() == "print('Test Run')"
     assert _out["env"]["FDP_LOCAL_REPO"] == _cfg["run_metadata"]['local_repo']
 
 
@@ -69,7 +69,7 @@ def test_run_setup_default_unix(mocker, setup_with_opts, no_registry_autoinstall
     _cmd = 'echo "Test Run"'
     _out, _cfg = setup_with_opts({"script": _cmd})
     assert _out["shell"] == "sh"
-    assert open(_out["script"]).read() == _cmd
+    assert open(_out['script']).read() == _cmd
     assert _out["env"]["FDP_LOCAL_REPO"] == _cfg["run_metadata"]['local_repo']
 
 
@@ -79,7 +79,7 @@ def test_run_setup_default_windows(mocker, setup_with_opts, no_registry_autoinst
     _cmd = 'Write-Host "Test Run"'
     _out, _cfg = setup_with_opts({"script": _cmd})
     assert _out["shell"] == "pwsh"
-    assert open(_out["script"]).read() == _cmd
+    assert open(_out['script']).read() == _cmd
     assert _out["env"]["FDP_LOCAL_REPO"] == _cfg["run_metadata"]['local_repo']
 
 
@@ -92,7 +92,7 @@ def test_run_setup_with_script(setup_with_opts, no_registry_autoinstall):
     assert os.path.exists(_name)
     _out, _cfg = setup_with_opts({"shell": "python", "script_path": _name})
     assert _out["shell"] == "python"
-    assert open(_out["script"]).read() == _script
+    assert open(_out['script']).read() == _script
     assert _out["env"]["FDP_LOCAL_REPO"] == _cfg["run_metadata"]['local_repo']
 
 
@@ -111,7 +111,7 @@ def test_run_config_cmd(mocker, no_init_session):
 
     with open(no_init_session._session_config) as f:
         _cfg = yaml.safe_load(f)
-    _cfg["run_metadata"]["script"] = 'echo "Hello World!"'
+    _cfg["run_metadata"]['script'] = 'echo "Hello World!"'
     with open(no_init_session._session_config, "w") as f:
         yaml.dump(_cfg, f)
     fdp_run.run_command(

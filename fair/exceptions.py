@@ -84,7 +84,7 @@ class CLIConfigurationError(FAIRCLIException):
 class UserConfigError(FAIRCLIException):
     """Errors relating to the user 'config.yaml' file"""
 
-    def __init__(self, msg, hint):
+    def __init__(self, msg, hint=""):
         super().__init__(msg, hint=hint)
 
 
@@ -105,8 +105,8 @@ class FDPRepositoryError(FAIRCLIException):
 class FileNotFoundError(FAIRCLIException):
     """Attempt to access a non-existent file"""
 
-    def __init__(self, msg):
-        super().__init__(msg)
+    def __init__(self, msg, hint=""):
+        super().__init__(msg, hint=hint)
 
 
 class InternalError(FAIRCLIException):
@@ -128,7 +128,11 @@ class RegistryAPICallError(FAIRCLIException):
 
     def __init__(self, msg, error_code):
         self.error_code = error_code
-        super().__init__(msg, exit_code=error_code, level="Warning" if error_code == 403 else "Error")
+        if self.error_code in [403]:
+            _level = "Warning"
+        else:
+            _level = "Error"
+        super().__init__(msg, exit_code=error_code, level=_level)
 
 class NotImplementedError(FAIRCLIException):
     """Errors relating to features that have not yet been implemented"""

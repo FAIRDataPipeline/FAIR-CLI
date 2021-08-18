@@ -271,7 +271,7 @@ def _get_user_info_and_namespaces() -> Dict[str, Dict]:
     _user_uuid = None
 
     if _user_orcid != "None":
-        _user_info = fdp_id.check_orcid(_user_orcid)
+        _user_info = fdp_id.check_orcid(_user_orcid.strip())
 
         while not _user_info:
             click.echo("Invalid ORCID given.")
@@ -291,7 +291,8 @@ def _get_user_info_and_namespaces() -> Dict[str, Dict]:
             _def_ospace += _user_info['family_name']
 
     else:
-        _uuid = str(uuid.uuid4())
+        _user_orcid = None
+        _user_uuid = str(uuid.uuid4())
         _full_name = click.prompt("Full Name")
         _def_ospace = ""
         _user_info = {}

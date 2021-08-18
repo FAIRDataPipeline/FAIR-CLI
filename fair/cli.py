@@ -21,6 +21,7 @@ import fair.history as fdp_hist
 import fair.configuration as fdp_conf
 import fair.exceptions as fdp_exc
 import fair.registry.server as fdp_svr
+import fair.run as fdp_run
 
 __author__ = "Scottish COVID Response Consortium"
 __credits__ = ["Nathan Cummings (UKAEA)", "Kristian Zarebski (UKAEA)"]
@@ -235,7 +236,7 @@ def run(config: str, script: str, debug: bool):
         with fdp_session.FAIR(
             os.getcwd(), config, debug=debug, mode=fdp_svr.SwitchMode.CLI
         ) as fair_session:
-            fair_session.run_job(script)
+            fair_session.run_job(script, mode=fdp_run.CMD_MODE.RUN)
     except fdp_exc.FAIRCLIException as e:
         if debug:
             raise e
@@ -349,11 +350,6 @@ def config():
 @config.command(name="user.name")
 @click.argument("user_name")
 def config_user(user_name: str) -> None:
-    """
-    TODO: should update a user file in .scrc containing user information
-    (API token, associated namespace, local data
-    store, login node, and so on).
-    """
     fdp_conf.set_user(os.getcwd(), user_name)
 
 
@@ -362,6 +358,24 @@ def config_user(user_name: str) -> None:
 def config_email(user_email: str) -> None:
     fdp_conf.set_email(os.getcwd(), user_email)
 
+
+@cli.command()
+@click.option('--debug/--no-debug')
+def pull(debug):
+    """Update local registry from remotes and sources"""
+    try:
+        with fdp_session.FAIR(
+            os.getcwd(),
+            mode=fdp_svr.SwitchMode.CLI,
+            debug=debug
+        ) as fair:
+            fair.run_job(mode=fdp_run.CMD_MODE.PULL)
+    except fdp_exc.FAIRCLIException as e:
+        if debug:
+            raise e
+        e.err_print()
+        if e.level.lower() == "error":
+            sys.exit(e.exit_code)
 
 if __name__ in "__main__":
     cli(ob={})

@@ -19,7 +19,6 @@ Contents
 
 __date__ = "2021-07-02"
 
-from fair.registry.versioning import parse_incrementer
 import json
 import os
 import posixpath
@@ -30,6 +29,7 @@ import urllib.parse
 
 import fair.common as fdp_com
 import fair.exceptions as fdp_exc
+import fair.utilities as fdp_util
 
 import requests
 
@@ -40,7 +40,9 @@ def local_token() -> str:
     if not os.path.exists(_local_token_file):
         raise fdp_exc.FileNotFoundError(
             f"Failed to find local registry token, file '{_local_token_file}'"
-            "does not exist."
+            " does not exist.",
+            hint="Try creating the file by manually starting the registry "
+            "by running 'fair registry start'"
         )
     return open(_local_token_file).readlines()[0].strip()
 
@@ -147,7 +149,16 @@ def _access(
             f"using method '{method}' and arguments:\n"+_info,
             error_code=403
         )
-    if _request.status_code != response_code:
+    elif _request.status_code == 409:
+        _searchable = uri if not obj_path else '/'.join(obj_path)
+        raise fdp_exc.RegistryAPICallError(
+            f"Cannot post object of type '{_searchable}' "
+            f"using method '{method}' as it already exists."
+            f"Arguments:\n"+_info,
+            error_code=409,
+            
+        )
+    elif _request.status_code != response_code:
         _info = ""
         if isinstance(_result, dict) and "detail" in _result:
             _info = _result["detail"]
@@ -181,7 +192,7 @@ def post(
         obj_path,
         201,
         headers=headers,
-        data=json.dumps(data),
+        data=json.dumps(data, cls=fdp_util.JSONDateTimeEncoder),
         token=token
     )
 

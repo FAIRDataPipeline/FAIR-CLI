@@ -19,11 +19,17 @@ Functions
     expand_dict  - expands a single level dictionary to a nested version.
     remove_dictlist_dupes - removes duplicates from list of depth 1 dictionaries
 
+Class
+-----
+    JSONDateTimeEncoder - for allowing datetime strings to be json parsed
+
 """
 
 __date__ = "2021-08-04"
 
 import typing
+import json
+import datetime
 
 
 def flatten_dict(
@@ -143,7 +149,15 @@ def compare_entries(
     # TODO: This assumes the UUIDs have been setup to always match between
     # registries. Ensure this occurs.
 
-    _flat_loc = fdp_util.flatten_dict(local_reg_entry)
-    _flat_rem = fdp_util.flatten_dict(remote_reg_entry)
+    _flat_loc = flatten_dict(local_reg_entry)
+    _flat_rem = flatten_dict(remote_reg_entry)
 
     return _flat_loc == _flat_rem
+
+
+class JSONDateTimeEncoder(json.JSONEncoder):
+    def default(self, date_time_candidate):
+        if isinstance(date_time_candidate, datetime.datetime):
+            return str(date_time_candidate)
+        else:
+            return super().default(date_time_candidate)

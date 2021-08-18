@@ -225,21 +225,19 @@ class Stager:
             'run_metadata' not in _config_dict
             or 'script_path' not in _config_dict['run_metadata']
         ):
-            raise fdp_exc.InternalError(
-                "Expected 'script_path' under 'run_metadata' within "
-                f"config file '{_config_yaml}'"
-            )        
+            _script_url  = None 
+        else:      
 
-        # Find the relevant script path on the local registry, this involves
-        # firstly getting the path commencing from the 'jobs' folder
-        _script_path = _config_dict['run_metadata']['script_path']
-        _rel_script_path = _script_path.split(fdp_com.JOBS_DIR)[1]
-        _rel_script_path = f'{fdp_com.JOBS_DIR}{_rel_script_path}'
+            # Find the relevant script path on the local registry, this involves
+            # firstly getting the path commencing from the 'jobs' folder
+            _script_path = _config_dict['run_metadata']['script_path']
+            _rel_script_path = _script_path.split(fdp_com.JOBS_DIR)[1]
+            _rel_script_path = f'{fdp_com.JOBS_DIR}{_rel_script_path}'
 
-        _script_url = self.find_registry_entry_for_file(
-            local_uri,
-            _rel_script_path
-        )["url"]
+            _script_url = self.find_registry_entry_for_file(
+                local_uri,
+                _rel_script_path
+            )["url"]
 
         _code_run_urls = self._get_code_run_entries(local_uri, _directory)
         _user_written_obj_urls = self._get_written_obj_entries(

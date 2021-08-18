@@ -54,7 +54,7 @@ def test_run_norm(no_init_session):
         open(fdp_com.local_user_config(no_init_session._session_loc))
     )
     _cfg["run_metadata"]["shell"] = "python"
-    _cfg["run_metadata"]["script"] = "print('Hello World!')"
+    _cfg["run_metadata"]['script'] = "print('Hello World!')"
     yaml.dump(
         _cfg,
         open(fdp_com.local_user_config(no_init_session._session_loc), "w"),
