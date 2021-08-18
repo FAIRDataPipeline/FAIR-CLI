@@ -3,31 +3,15 @@
 [![codecov](https://codecov.io/gh/FAIRDataPipeline/FAIR-CLI/branch/dev/graph/badge.svg?token=h93TkTiiWf)](https://codecov.io/gh/FAIRDataPipeline/FAIR-CLI)
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=FAIRDataPipeline_FAIR-CLI&metric=alert_status)](https://sonarcloud.io/dashboard?id=FAIRDataPipeline_FAIR-CLI)
 
-| **DISCLAIMER:**                                                                                                                                                                                                                   |
-| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| The following document is largely conceptual and therefore does *not* represent a manual for the final interface. Statements within the following are likely to change, further details of possible changes are given throughout. |
+| **DISCLAIMER:**                                                                                                                                                                                                                                                                                                                                                                    |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The following document is largely conceptual and therefore does *not* represent a manual for the final interface. Statements within the following are likely to change, further details of possible changes are given throughout. Please either open an issue or pull request on the [source repository](https://github.com/FAIRDataPipeline/FAIR-CLI) raising any changes/issues. |
 
-**Table of Contents**
-   * [Installation](#installation)
-   * [Structure](#structure)
-      * [Global and Local Directories](#global-and-local-directories)
-      * [Data Directory](#data-directory)
-      * [Sessions Directory](#sessions-directory)
-      * [Logs Directory](#logs-directory)
-      * [Staging File](#staging-file)
-      * [config.yaml](#configyaml)
-   * [Registry Interaction](#registry-interaction) 
-   * [Command Line Usage](#command-line-usage)
-      * [init](#init)
-      * [run](#run)
-      * [registry](#registry)
-      * [log](#log)
-      * [view](#view)
-   * [Template Variables](#template-variables)
+
 
 FAIR-CLI forms the main interface for synchronising changes between your local and shared remote FAIR Data Pipeline registries, it is also used to instantiate model runs/data submissions to the pipeline.
 
-The project is still under development with many features still pending review. Available commands are summarised below along with their usage.
+The project is still under development with many features still to be implemented and checked. Available commands are summarised below along with their usage.
 
 ## Installation
 
@@ -58,7 +42,7 @@ $HOME
 │   │   ├── cli-config.yaml
 │   │   └── sessions
 │   ├── data
-│   │   └── coderun
+│   │   └── jobs
 │   └── $REGISTRY_HOME
 │
 └─ Documents
@@ -75,22 +59,22 @@ FAIR-CLI stores information for projects in two locations. The first is a *globa
 The CLI holds metadata for the user in it's own configuration file (not to be confused with the user modifiable `config.yaml`), `cli-config.yaml`, the *global* version of which is initialised during first use. In a manner similar to `git`, FAIR-CLI has repositories which allow the user to override these *global* configurations, this then forming a *local* variant.
 
 ### Data Directory
-The directory `$HOME/.fair/data` is the default data store initialised by FAIR-CLI, this can be later changed on a per-run basis if the user so desires. The subdirectory `coderun` contains timestamped directories of submission script/model runs.
+The directory `$HOME/.fair/data` is the default data store initialised by FAIR-CLI. During setup an alternative can be provided and this can be later changed on a per-run basis if the user so desires. The subdirectory `$HOME/data/jobs` contains timestamped directories of jobs.
 
 ### Sessions Directory
 The directory `$HOME/.fair/sessions` is used to keep track of ongoing queries to the registry as a safety mechanism to ensure the registry is not shutdown whilst processes are still occuring.
 
 ### Logs Directory
-The directory `$PROJECT/.fair/logs` stores `stdout` logs for runs also giving information on who launched the run and how long it lasted.
+The directory `$PROJECT/.fair/logs` stores `stdout` logs for jobs also giving information on who launched the job and how long it lasted.
 
 ### Staging File
-Not yet fully implemented, the file `$PROJECT/.fair/staging` keeps track of which runs/files the user wishes to "commit" for synchronisation between local and remote registries.
+The staging file, `$PROJECT/.fair/staging`, contains information of what jobs are being tracked, by default all jobs are added to this file after completion and are set to "unstaged". 
 Simply contains a dictionary of booleans where items for sync (staged) are marked true `True` and those to be held only locally `False`.
 The file uses paths relative to the *local* `.fair` folder as keys, to behave in a manner identical to `git` staging.
 
 ### `config.yaml`
 
-This is the main file the user will interact with to customise their run. FAIR-CLI automatically generates a starter version of this file with everything in place. The only addition required is setting of either `script` or `script_path` (with the exception of running using `fair run --script` - see [below](#run)) under `run_metadata`.
+This is the main file the user will interact with to customise their run. FAIR-CLI automatically generates a starter version of this file with everything in place. The only addition required is setting of either `script` or `script_path` (with the exception of running using `fair run bash` - see [below](#run)) under `run_metadata`.
 |                                                                                                                                                      |
 | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **`script`**                                                                                                                                         |
@@ -125,7 +109,7 @@ Currently `FAIR-CLI` sets up the write data storage location on the local regist
 As mentioned, all of the subcommands within FAIR-CLI are still under review with many still serving as placeholders for future features. Running `fair` without arguments or `fair --help` will show all of these.
 
 ### `init`
-Initialises a new FAIR repository within the given directory. This should ideally be the same location as the `.git` folder for the current project. The command will ask the user a series of questions which will provide metadata for tracking run authors, and also allow for the creation of a starter `config.yaml`.
+Initialises a new FAIR repository within the given directory. This should ideally be the same location as the `.git` folder for the current project, although setup will ask if you want to use an alternative location. The command will ask the user a series of questions which will provide metadata for tracking run authors, and also allow for the creation of a starter `config.yaml`.
 
 The first time this command is launched the *global* CLI configuration will be populated. In subsequent calls the *global* will provide default suggestions towards creating the CLI configuration for the repository (*local*).
 
@@ -135,65 +119,151 @@ A repository directory matching the structure above will be placed in the curren
 
 This example shows the process of setting up for the first time. Note the default suggestions for each prompt, in the case of `Full name` and `Default output namespace` this is the hostname of the system and an abbreviated version of this name.
 ```
-fair init
+$ fair init
 Initialising FAIR repository, setup will now ask for basic info:
 
-Remote API URL: https://data.scrc.uk/api/
+Checking for local registry
+Local registry found
+Remote API URL: http://data.scrc.uk/api/
+Remote Data Storage Root [http://data.scrc.uk/data/]: 
+Remote API Token File: $HOME/scrc_token.txt
 Local API URL [http://localhost:8000/api/]: 
-Full name [jbloggs-pc]: Joe Bloggs
+Local registry is offline, would you like to start it? [y/N]: y
+Default Data Store:  [/home/joebloggs/.fair/data]: 
 Email: jbloggs@noreply.uk
-ORCID: 
+ORCID [None]: 
+Full Name: Joe Bloggs
 Default input namespace [None]: SCRC
 Default output namespace [jbloggs]: 
-Project description: A test project
-Initialised empty fair repository in /home/kristian/Documents/UKAEA/SCRC/fair/.fair
+Project description: Test project
+Local Git repository [/home/joebloggs/Documents/AnalysisProject]: 
+Git remote name [origin]: 
+Using git repository remote 'origin': git@notagit.com:jbloggs/AnalysisProject.git
+Initialised empty fair repository in /home/joebloggs/Documents/AnalysisProject/.fair
 ```
 **Example: Subsequent runs**
 
 In subsequent runs the first time setup will provide further defaults.
 ```
-fair init
+$ fair init
 Initialising FAIR repository, setup will now ask for basic info:
 
-Project description: A new project
-Remote API URL [https://data.scrc.uk/api/]: 
+Project description: Test Project
+Local Git repository [/home/joebloggs/Documents/AnalysisProject]: 
+Git remote name [origin]: 
+Using git repository remote 'origin': git@nogit.com:joebloggs/AnalysisProject.git
+Remote API URL [http://data.scrc.uk/api/]: 
+Remote API Token File [/home/kristian/scrc_token.txt]: 
 Local API URL [http://localhost:8000/api/]: 
 Default output namespace [jbloggs]: 
 Default input namespace [SCRC]: 
-Initialised empty fair repository in /home/kristian/Documents/UKAEA/SCRC/fair/temp/.fair
+Initialised empty fair repository in /home/joebloggs/Documents/AnalysisProject/.fair
 ```
 
 **Generated `config.yaml`**
 
 ```yaml
-fail_on_hash_mismatch: true
 run_metadata:
-  data_store: /home/kristian/.fair/data
   default_input_namespace: SCRC
   default_output_namespace: jbloggs
-  description: A new project
+  description: Test Project
   local_data_registry: http://localhost:8000/api/
-  local_repo: /home/jbloggs/Documents/my_project
-  script: null
+  local_repo: /home/joebloggs/Documents/AnalysisProject
+  write_data_store: /home/joebloggs/.fair/data
 ```
 
-the user then only needs to update `script` for this to be a valid `config.yaml`.
-
+the user then only needs to add a `script` or `script_path` entry to execute a code run. This is only required for `run`.
 
 ### `run`
 
-The purpose of `run` is to execute a model/submission run to the local registry. The command fills any specified template variables of the form `${{ CLI.VAR }}` to match those outlined [below](#template-variables). Outputs of a run will be stored within the `coderun` folder in the directory specified under the `data_store` tag in the `config.yaml`, by default this is `$HOME/.fair/data/coderun`.
+The purpose of `run` is to execute a model/submission run to the local registry. The command fills any specified template variables of the form `${{ VAR }}` to match those outlined [below](#template-variables). Outputs of a run will be stored within the `coderun` folder in the directory specified under the `data_store` tag in the `config.yaml`, by default this is `$HOME/.fair/data/coderun`.
 ```
 fair run
+```
+If you wish to use an alternative `config.yaml` then specify it as an additional argument:
+```
+fair run /path/to/config.yaml
 ```
 You can also launch a bash command directly which will then be automatically written into the `config.yaml` for you:
 ```
 fair run --script "echo \"Hello World\""
 ```
-note the command itself must be quoted as it is a single argument. Finally if you wish to use an alternative `config.yaml` in another location:
+note the command itself must be quoted as it is a single argument.
+
+### `pull`
+Currently `pull` will update any entries within the `config.yaml` under the `register` heading creating `external_object` and `data_product` objects on the registry and downloading the data to the local data storage. For example:
+
+```yaml
+run_metadata:
+  default_input_namespace: SCRC
+  default_output_namespace: jbloggs
+  description: Test project
+  local_data_registry: http://localhost:8000/api/
+  local_repo: /home/joebloggs/Documents/SCRC/FAIR-CLI
+  write_data_store: /home/joebloggs/.fair/data
+register:
+- external_object: records/SARS-CoV-2/scotland/human-mortality
+  namespace_name: Scottish Government Open Data Repository
+  namespace_full_name: Scottish Government Open Data Repository
+  namespace_website: https://statistics.gov.scot/
+  root: https://statistics.gov.scot/sparql.csv?query=
+  path: |-
+    PREFIX qb: <http://purl.org/linked-data/cube#>
+    PREFIX data: <http://statistics.gov.scot/data/>
+    PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+    PREFIX dim: <http://purl.org/linked-data/sdmx/2009/dimension#>
+    PREFIX sdim: <http://statistics.gov.scot/def/dimension/>
+    PREFIX stat: <http://statistics.data.gov.uk/def/statistical-entity#>
+    PREFIX mp: <http://statistics.gov.scot/def/measure-properties/>
+    SELECT ?featurecode ?featurename ?areatypename ?date ?cause ?location ?gender ?age ?type ?count
+    WHERE {
+     ?indicator qb:dataSet data:deaths-involving-coronavirus-covid-19;
+       mp:count ?count;
+       qb:measureType ?measType;
+       sdim:age ?value;
+       sdim:causeOfDeath ?causeDeath;
+       sdim:locationOfDeath ?locDeath;
+       sdim:sex ?sex;
+       dim:refArea ?featurecode;
+       dim:refPeriod ?period.
+
+       ?measType rdfs:label ?type.
+       ?value rdfs:label ?age.
+       ?causeDeath rdfs:label ?cause.
+       ?locDeath rdfs:label ?location.
+       ?sex rdfs:label ?gender.
+       ?featurecode stat:code ?areatype;
+         rdfs:label ?featurename.
+       ?areatype rdfs:label ?areatypename.
+       ?period rdfs:label ?date.
+    }
+  title: Deaths involving COVID19
+  description: Nice description of the dataset
+  unique_name: Scottish deaths involving COVID19
+  file_type: csv
+  release_date: ${{DATETIME}}
+  version: 0.${{DATE}}.0       
+  primary: True
 ```
-fair run /path/to/config.yaml
+
+if run on `10/10/2021` would download the data from the given `root`/`path` URL and store in a file:
 ```
+/home/joebloggs/.fair/data/records/SARS-CoV-2/scotland/human-mortality/0.20211010.0.csv
+```
+and register all required objects into the local registry.
+
+### `purge`
+Removes the local `.fair` (FAIR repository) folder by default so the user can reinitialise:
+
+```
+fair purge
+```
+
+You can remove the global configuration and start again entirely by running:
+```
+fair purge --glob
+```
+you will be asked if you wish to erase the data store, do not do this unless you intend on reinstalling the registry itself.
 
 ### `registry`
 
@@ -226,7 +296,7 @@ Date:   Wed Jun 30 09:09:30 2021
 
 | **NOTE**                                                                                                                            |
 | ----------------------------------------------------------------------------------------------------------------------------------- |
-| The SHA for a run is *not* yet related to a registry run ID. This value is calculated from the contents of the `stdout` of the run. |
+| The SHA for a job is *not* yet related to a registry code run identifier as multiple code runs can be executed within a single job. |
 
 ### `view`
 To view the `stdout` of a run given its SHA as shown by running `fair log` use the command:
@@ -256,16 +326,17 @@ you do not need to specify the full SHA but rather the first few characters:
 ```
 
 ## Template Variables
-Within the `config.yaml` file, template variables can be specified by using the notation `${{ CLI.VAR }}`, the following variables are currently recognised:
+Within the `config.yaml` file, template variables can be specified by using the notation `${{ VAR }}`, the following variables are currently recognised:
 
 | **Variable**        | **Description**                                                                  |
 | ------------------- | -------------------------------------------------------------------------------- |
-| `DATE`              | Date in the form `%Y%m%d` if the key contains the word `version` else `%Y-%m-%d` |
-| `DATETIME`          | Date and time in the form `%Y-%m-%s %H:%M:S`                                     |
+| `DATE`              | Date in the form `%Y%m%d` |
+| `DATETIME`          | Date and time in the form `%Y-%m-%sT%H:%M:S`                                     |
+| `DATETIME-%Y%H%M`   | Date and time in custom format (where `%Y%H%M` can be any valid form) |
 | `USER`              | The current user as defined in the CLI                                           |
 | `REPO_DIR`          | The FAIR repository root directory                                               |
 | `CONFIG_DIR`        | The directory containing the `config.yaml` after template substitution           |
 | `SOURCE_CONFIG`     | Path of the user defined `config.yaml`                                           |
 | `GIT_BRANCH`        | Current branch of the `git` repository                                           |
-| `GIT_REMOTE_ORIGIN` | The URI of the git repository under the tag `origin`                             |
+| `GIT_REMOTE` | The URI of the git repository specified during setup |
 | `GIT_TAG`           | The latest tag on `git`                                                          |
