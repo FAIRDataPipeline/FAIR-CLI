@@ -65,30 +65,29 @@ def find_fair_root(start_directory: str = os.getcwd()) -> str:
     str
         absolute path of the .fair folder
     """
-    _current_dir = start_directory
+    _current_dir = os.path.abspath(start_directory)
 
-    # Keep upward searching until you find '.fair', stop at the level of
-    # the user's home directory.
-    _top_level = os.path.abspath(".").split(os.path.sep)[0] + os.path.sep
-    while _current_dir != pathlib.Path.home():
-        # If the current directory is '/' or 'C:\' it means the given path
-        # was not in the user area, and no repository was found. This is not
-        # allowed except in test cases where a temporary directory in '/tmp'
-        # is used.
-        if _current_dir == _top_level:
-            raise fdp_exc.FDPRepositoryError(
-                "The specified path must be in a user home area"
-            )
-        _fair_dir = os.path.join(_current_dir, FAIR_FOLDER)
-        if os.path.exists(_fair_dir):
-            return os.path.dirname(_fair_dir)
-        _current_dir = pathlib.Path(_current_dir).parent
-    return ""
+    while _current_dir:
+        if os.path.exists(os.path.join(_current_dir, FAIR_FOLDER)):
+            return _current_dir
+        _current_dir, _directory = os.path.split(_current_dir)
+
+        # If there is no directory component this means the top of the file
+        # system has been reached
+        if not _directory:
+            return ""
+
+        # If the home directory has been reached then abort as upper file system
+        # is outside user area
+        if str(_current_dir) == str(pathlib.Path().home()):
+            return ""
 
 
 def staging_cache(user_loc: str) -> str:
     """Location of staging cache for the given repository"""
-    return os.path.join(find_fair_root(user_loc), FAIR_FOLDER, "staging")
+    return os.path.abspath(
+        os.path.join(find_fair_root(user_loc), FAIR_FOLDER, "staging")
+    )
 
 
 def default_data_dir(location: str = 'local') -> str:
