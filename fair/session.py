@@ -170,9 +170,6 @@ class FAIR:
                 if os.path.exists(fdp_com.default_data_dir()):
                     shutil.rmtree(fdp_com.default_data_dir())
 
-    def pull(self) -> None:
-        fdp_run.run_command()
-
     def _setup_server(self) -> None:
         """Start or stop the server if required"""
 
