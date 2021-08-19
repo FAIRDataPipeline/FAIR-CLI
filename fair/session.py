@@ -157,11 +157,11 @@ class FAIR:
             _global_dirs = fdp_com.global_config_dir()
             if os.path.exists(_global_dirs):
                 shutil.rmtree(_global_dirs)
-            _rm_dat = click.prompt(
-                "Remove default data directory [Y/N]?\n"
+            _rm_dat = click.confirm(
+                "Remove default data directory?\n"
                 "Warning: Removing data directories may cause issues "
                 "with the local registry.",
-                type=click.BOOL,
+                default=False
             )
             if _rm_dat:
                 click.echo(
