@@ -68,6 +68,11 @@ def find_fair_root(start_directory: str = os.getcwd()) -> str:
     _current_dir = os.path.abspath(start_directory)
 
     while _current_dir:
+        # If the home directory has been reached then abort as upper file system
+        # is outside user area, also we do not want to return global FAIR folder
+        if str(_current_dir) == str(pathlib.Path().home()):
+            return ""
+
         if os.path.exists(os.path.join(_current_dir, FAIR_FOLDER)):
             return _current_dir
         _current_dir, _directory = os.path.split(_current_dir)
@@ -75,11 +80,6 @@ def find_fair_root(start_directory: str = os.getcwd()) -> str:
         # If there is no directory component this means the top of the file
         # system has been reached
         if not _directory:
-            return ""
-
-        # If the home directory has been reached then abort as upper file system
-        # is outside user area
-        if str(_current_dir) == str(pathlib.Path().home()):
             return ""
 
 
