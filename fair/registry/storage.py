@@ -78,14 +78,14 @@ def get_write_storage(uri: str, config_yaml: str) -> str:
 
     # Check if the data store already exists by querying for it
     _search_root = fdp_req.get(
-        uri, ("storage_root",), params={"root": _write_store_root}
+        uri, "storage_root", params={"root": _write_store_root}
     )
 
     # If the data store already exists just return the URI else create it
     # and then do the same
     if not _search_root:
         _post_data = {"root": _write_store_root, "local": True}
-        _storage_root = fdp_req.post(uri, ("storage_root",), data=_post_data)
+        _storage_root = fdp_req.post(uri, "storage_root", data=_post_data)
         return _storage_root["url"]
     else:
         return _search_root[0]["url"]
@@ -116,13 +116,13 @@ def store_user(repo_dir: str, uri: str) -> str:
         _orcid = urllib.parse.urljoin(fdp_id.ORCID_URL, _orcid)
         _data["identifier"] = _orcid
         return fdp_req.post_else_get(
-            uri, ("author",), data=_data, params={"identifier": _orcid}
+            uri, "author", data=_data, params={"identifier": _orcid}
         )
     except fdp_exc.CLIConfigurationError:
         _uuid = fdp_conf.get_current_user_uuid(repo_dir)
         _data['uuid'] = _uuid
         return fdp_req.post_else_get(
-            uri, ("author",), data=_data, params={"uuid": _uuid}
+            uri, "author", data=_data, params={"uuid": _uuid}
         )
 
 
@@ -143,7 +143,7 @@ def create_file_type(uri: str, extension: str) -> str:
     """
     _name = fdp_file.FILE_TYPES[extension]
     return fdp_req.post_else_get(
-        uri, ("file_type",), data={"name": _name, "extension": extension}
+        uri, "file_type", data={"name": _name, "extension": extension}
     )
 
 
@@ -193,7 +193,7 @@ def store_working_config(repo_dir: str, uri: str, work_cfg_yml: str) -> str:
     try:
         _post_store_loc = fdp_req.post(
             uri,
-            ("storage_location",),
+            "storage_location",
             data=_storage_loc_data
         )
     except fdp_exc.RegistryAPICallError as e:
@@ -220,7 +220,7 @@ def store_working_config(repo_dir: str, uri: str, work_cfg_yml: str) -> str:
     }
 
     return fdp_req.post_else_get(
-        uri, ("object",), data=_object_data, params={"description": _desc}
+        uri, "object", data=_object_data, params={"description": _desc}
     )
 
 
@@ -278,7 +278,7 @@ def store_working_script(
     try:
         _post_store_loc = fdp_req.post(
             uri,
-            ("storage_location",),
+            "storage_location",
             data=_storage_loc_data
         )
     except fdp_exc.RegistryAPICallError as e:
@@ -308,7 +308,7 @@ def store_working_script(
     }
 
     return fdp_req.post_else_get(
-        uri, ("object",), data=_object_data, params={"description": _desc}
+        uri, "object", data=_object_data, params={"description": _desc}
     )
 
 
@@ -337,7 +337,7 @@ def store_namespace(uri: str, namespace_label: str, full_name: str = None, websi
         "website": website
     }
     return fdp_req.post_else_get(
-        uri, ("namespace",), data=_data, params={"name": namespace_label}
+        uri, "namespace", data=_data, params={"name": namespace_label}
     )
 
 
@@ -373,7 +373,7 @@ def store_data_file(
     try:
         _post_store_loc = fdp_req.post(
             uri,
-            ("storage_location",),
+            "storage_location",
             data=_storage_loc_data
         )['url']
     except fdp_exc.RegistryAPICallError as e:
@@ -425,7 +425,7 @@ def store_data_file(
     }
 
     try:
-        _obj_url = fdp_req.post(uri, ("object",), data=_object_data)['url']
+        _obj_url = fdp_req.post(uri, "object", data=_object_data)['url']
     except fdp_exc.RegistryAPICallError as e:
         if not e.error_code == 409:
             raise e
@@ -460,7 +460,7 @@ def store_data_file(
     }
 
     try:
-        _data_prod_url = fdp_req.post(uri, ('data_product',), data=_data_prod_data)['url']
+        _data_prod_url = fdp_req.post(uri, 'data_product', data=_data_prod_data)['url']
     except fdp_exc.RegistryAPICallError as e:
         if not e.error_code == 409:
             raise e
@@ -529,7 +529,7 @@ def store_data_file(
         "alternate_identifier_type": _alternate_identifier_type
     }
 
-    return fdp_req.post(uri, ('external_object', ), data=_external_obj_data)
+    return fdp_req.post(uri, 'external_object', data=_external_obj_data)
     
 
 def calculate_file_hash(file_name: str, buffer_size: int = 64*1024) -> str:
@@ -582,7 +582,7 @@ def get_storage_root_obj_address(
     try:
         _results = fdp_req.get(
             remote_uri,
-            ('storage_root',),
+            'storage_root',
             params={
                 'root': address_str
             },
@@ -618,7 +618,7 @@ def check_match(input_object: str, results_list: typing.List[str]):
 def check_if_object_exists(
     local_uri: str,
     file_loc: str,
-    obj_type: typing.Tuple[str] ,
+    obj_type: str,
     search_data: typing.Dict,
     token: str = None) -> str:
     """Checks if a data product is already present in the registry
@@ -629,6 +629,10 @@ def check_if_object_exists(
         endpoint of the local registry
     file_loc : str
         path of file on system
+    obj_type : str
+        object type
+    search_data : typing.Dict
+        data for query
     name : str
         label for the data_product object
 
@@ -649,7 +653,7 @@ def check_if_object_exists(
     if not _results:
         return "absent"
 
-    if obj_type == ('external_object',):
+    if obj_type == 'external_object':
         _results = [res['data_product'] for res in _results]
         _results = [fdp_req.url_get(r) for r in _results]
 

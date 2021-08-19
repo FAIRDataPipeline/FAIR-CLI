@@ -42,7 +42,7 @@ def history_directory(repo_loc: str) -> str:
         location of the job logs directory
     """
     return os.path.join(
-        fdp_com.find_fair_root(repo_loc), fdp_com.FAIR_FOLDER, "logs"
+        fdp_com.USER_FAIR_DIR, "logs"
     )
 
 
@@ -125,19 +125,42 @@ def show_history(repo_loc: str, length: int = 10) -> None:
         zip(_sorted_time_dirs, _log_files)
     ):
         _job_id = fdp_run.get_job_hash(job_dir)
+        if not os.path.exists(_log_file):
+            raise fdp_exc.FileNotFoundError(
+                f"Cannot open log for job '{_job_id}'"
+            )
         with open(_log_file) as f:
-            _metadata = f.readlines()[:5]
+            _log_lines = f.readlines()
+            _metadata = []
+            for line in _log_lines:
+                if '------- time taken ' in line:
+                    break
+                if ' = ' in line:
+                    _metadata.append(line)
         if not _metadata:
             continue
         _metadata = [i for i in _metadata if i.strip()]
-        _user = _metadata[2].split("=")[1]
+        _user_lines = [i for i in _metadata if 'Author' in i]
+        if not _user_lines:
+            raise fdp_exc.InternalError(
+                "Failed to retrieve author information from log "
+                f"for job '{_job_id}'"
+            )
+        _date_lines = [i for i in _metadata if 'Commenced' in i]
+        if not _date_lines:
+            raise fdp_exc.InternalError(
+                "Failed to retrieve date information from log "
+                f"for job '{_job_id}'"
+            )
+        _date = _date_lines[0].split('=')[1].strip()
+        _user = _user_lines[0].split('=')[1].strip()
         _name = _user.split("<")[0].strip()
         _email = _user.replace(_name, "").strip()
         _meta = {
             "sha": _job_id,
             "user": _name,
             "user_email": _email,
-            "datetime": _metadata[1].split("=")[1].strip(),
+            "datetime": _date,
         }
         rich.print(hist_template.render(**_meta))
 

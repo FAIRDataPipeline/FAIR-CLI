@@ -17,6 +17,7 @@ Functions
 __date__ = "2021-08-05"
 
 import typing
+import collections
 
 import fair.exceptions as fdp_exc
 import fair.registry.requests as fdp_req
@@ -27,7 +28,7 @@ import semver
 
 def get_new_version(
     uri: str,
-    obj_path: typing.Tuple[str],
+    obj_path: str,
     version_fmt: str = None,
     **kwargs) -> semver.VersionInfo:
     """Determine the next release version for an object
@@ -36,8 +37,8 @@ def get_new_version(
     ----------
     uri : str
         end point of the registry
-    obj_path : Tuple[str]
-        path of object type, e.g. ('code_run',)
+    obj_path : str
+        path of object type, e.g. 'code_run'
     version_fmt : str
         a formatting string which determines how the version is incremented
     
@@ -71,7 +72,7 @@ def get_new_version(
 def push_item(
     local_uri: str,
     remote_uri: str,
-    object_path: typing.Tuple[str],
+    object_path: str,
     params: typing.Dict,
     remote_token: str) -> None:
     """Push an object to the remote registry
@@ -82,8 +83,8 @@ def push_item(
         endpoint of local registry
     remote_uri : str
         endpoint of remote registry
-    object_path : Tuple[str]
-        path of object type, e.g. ('code_run',)
+    object_path : str
+        path of object type, e.g. 'code_run'
     params : Dict
         dictionary containing search term parameters of the
         object on the source registry to push
@@ -94,7 +95,7 @@ def push_item(
 
     if not _response:
         raise fdp_exc.SynchronisationError(
-            f"Failed to retrieve '{''.join(object_path)}'"
+            f"Failed to retrieve '{object_path}'"
             f" from registry '{local_uri}', no object found."
         )
 
@@ -111,17 +112,54 @@ def push_item(
         )
     except fdp_exc.RegistryAPICallError as e:
         raise fdp_exc.SynchronisationError(
-            f"Failed to sync object of type '{''.join(object_path)}'"
+            f"Failed to sync object of type '{object_path}'"
             f" with data '{_data}' to registry at '{remote_uri}' "
             f" server returned code {e.error_code}",
             error_code=e.error_code
         )
 
 
+def get_dependency_chain(object_url: str) -> collections.deque:
+    """Get all objects relating to an object in order of dependency
+
+    For a given URL this function fetches all component URLs ordering them
+    in terms of creation order (no dependencies -> most dependencies)
+    allowing them to then be re-created in the correct order.
+
+    Parameters
+    ----------
+    object_url : str
+        Full URL of an object within a registry
+
+    Returns
+    -------
+    collections.deque
+        ordered iterable of component object URLs
+    """
+    _local_uri, _ = fdp_util.split_api_url(object_url)
+
+    _dependency_list = get_dependency_listing(_local_uri)
+
+    def _dependency_of(url_list: collections.deque, item: str):
+        if item in url_list:
+            return
+        url_list.appendleft(item)
+        _results = fdp_req.url_get(item)
+        for req in _results:
+            if req in _dependency_list and _results[req]:
+                _dependency_of(url_list, _results[req])
+
+    # Ordering is important so use a deque to preserve
+    _urls = collections.deque()
+    _dependency_of(_urls, object_url)
+
+    return _urls
+
+
 def pull_item(
     remote_uri: str,
     local_uri: str,
-    object_path: typing.Tuple[str],
+    object_path: str,
     params: typing.Dict,
     local_token: str
     ) -> None:
@@ -133,8 +171,8 @@ def pull_item(
         endpoint of local registry
     remote_uri : str
         endpoint of remote registry
-    object_path : Tuple[str]
-        path of object type, e.g. ('code_run',)
+    object_path : str
+        path of object type, e.g. 'code_run'
     params : Dict
         dictionary containing search term parameters of the
         object on the source registry to push
@@ -160,44 +198,6 @@ def push(
     local_uri: str,
     remote_uri: str,
     remote_token: str,
-    items: typing.Dict[typing.Tuple[str], typing.List[typing.Dict]]
+    items: typing.Dict[str, typing.List[typing.Dict]]
     ) -> None:
-
-    # To make sure the items are pushed in the right order make a list
-    # of URLs and delete as items are successfully pushed
-    _items_unpushed = []
-
-    while _items_unpushed:
-        for obj_path in items:
-            # Check if the object has any API based dependencies
-            _field_type_dependencies = fdp_req.filter_object_dependencies(
-                remote_uri,
-                obj_path,
-                {
-                    "read_only": False,
-                    "type": "field",
-                    "local": True
-                }
-            )
-
-            for data in items[obj_path]:
-                # Firstly check that this object does indeed exist on the
-                # local registry with the data provided
-                _local_obj = fdp_req.get(
-                    local_uri, obj_path, params=data
-                )
-                if not _local_obj:
-                    raise fdp_exc.SynchronisationError(
-                        "Failed to retrieve local registry object matching "
-                        f"'{data}'"
-                    )
-                
-                # Now check that the objects requirements (if any)
-                # are already in the remote registry
-                for field in _field_type_dependencies:
-                    if not field in data or not data[field]:
-                        raise fdp_exc.InternalError(
-                            f"Expected non-empty field '{field}' in object "
-                            f" '{data}'"
-                        )
-                    fdp_req.url_get(data[field])
+    pass

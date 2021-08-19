@@ -34,6 +34,11 @@ import fair.utilities as fdp_util
 import requests
 
 
+def split_api_url(request_url: str, splitter: str = 'api') -> typing.Tuple[str]:
+    _root, _path = request_url.split(f'{splitter}/')
+    return f'{_root}{splitter}', _path
+
+
 def local_token() -> str:
     """Read the local registry token from the relevant file"""
     _local_token_file = os.path.join(fdp_com.REGISTRY_HOME, "token")
@@ -89,7 +94,7 @@ def remote_token(remote: str = "origin") -> str:
 def _access(
     uri: str,
     method: str,
-    obj_path: typing.Tuple[str] = None,
+    obj_path: str = None,
     response_code: int = 200,
     token: str = None,
     headers: typing.Dict[str, typing.Any] = None,
@@ -106,10 +111,16 @@ def _access(
     if not token:
         token = local_token()
 
-    _obj_path = posixpath.join(*obj_path) if obj_path else None
-    _url = urllib.parse.urljoin(uri, _obj_path) if obj_path else uri
+    # Make sure we have the right number of '/' in the components
+    _uri = uri
+    if _uri[-1] != "/":
+        _uri += '/'
+
+    _url = urllib.parse.urljoin(_uri, obj_path) if obj_path else uri
+    
     if _url[-1] != "/":
-        _url = _url + "/"
+        _url += "/"
+
     if params:
         _url += "?"
         _param_strs = [f"{k}={v}" for k, v in params.items()]
@@ -174,7 +185,7 @@ def _access(
 
 def post(
     uri: str,
-    obj_path: typing.Tuple[str],
+    obj_path: str,
     data: typing.Dict[str, typing.Any],
     headers: typing.Dict[str, typing.Any] = None,
     token: str = None
@@ -218,7 +229,7 @@ def url_get(url: str, *args, **kwargs) -> typing.Dict:
 
 def get(
     uri: str,
-    obj_path: typing.Tuple[str],
+    obj_path: str,
     headers: typing.Dict[str, typing.Any] = None,
     params: typing.Dict[str, typing.Any] = None,
     token: str = None
@@ -245,7 +256,7 @@ def get(
 
 def post_else_get(
     uri: str,
-    obj_path: typing.Tuple[str],
+    obj_path: str,
     data: typing.Dict[str, typing.Any],
     params: typing.Dict[str, typing.Any] = None,
     token: str = None
@@ -274,33 +285,31 @@ def post_else_get(
 
 def filter_object_dependencies(
     uri: str,
-    obj_path: typing.Tuple[str],
+    obj_path: str,
     filter: typing.Dict[str, typing.Any]
-    ) -> typing.List[typing.Tuple[str]]:
+    ) -> typing.List[str]:
     """Filter dependencies of an API object based on a set of conditions
 
     Parameters
     ----------
     uri : str
         endpoint of the registry
-    object : Tuple[str]
-        path of object type, e.g. ('code_run',)
+    object : str
+        path of object type, e.g. 'code_run'
     filter : typing.Dict[str, typing.Any]
         list of filters to apply to listing
 
     Returns
     -------
-    typing.List[typing.Tuple[str]]
+    typing.List[str]
         list of object type paths
     """
     try:
         _actions = _access(uri, 'options', obj_path, 200)['actions']['POST']
     except KeyError:
-        raise fdp_exc.InternalError(
-            "Failed to retrieve fields for "
-            f"'{uri}/{'/'.join(obj_path)}'"
-        )
-    _fields: typing.List[typing.Tuple[str]] = []
+        # No 'actions' key means no dependencies
+        return []
+    _fields: typing.List[str] = []
 
     for name, info in _actions.items():
         _filter_result: typing.List[bool] = []
@@ -310,28 +319,27 @@ def filter_object_dependencies(
                 continue
             _filter_result.append(info[filt] == value)
         if all(_filter_result):
-            _obj_path = (name,) if '/' not in name else tuple(name.split('/'))
-            _fields.append(_obj_path)
+            _fields.append(name)
     
     return _fields
 
 
 def get_writable_fields(
     uri: str,
-    obj_path: typing.Tuple[str]
-    ) -> typing.List[typing.Tuple[str]]:
+    obj_path: str
+    ) -> typing.List[str]:
     """Retrieve a list of writable fields for the given RestAPI object
 
     Parameters
     ----------
     uri : str
         endpoint of the registry
-    object : Tuple[str]
-        path of object type, e.g. ('code_run',)
+    object : str
+        path of object type, e.g. 'code_run'
 
     Returns
     -------
-    typing.List[typing.Tuple[str]]
+    typing.List[str]
         list of object type paths   
     """
     _writable_fields = filter_object_dependencies(
@@ -372,3 +380,28 @@ def download_file(url: str, chunk_size: int = 8192) -> str:
                 in_f.write(chunk)
 
     return _fname
+
+
+def get_dependency_listing(uri: str) -> typing.Dict:
+
+    _registry_objs = url_get(uri)
+
+    _dependencies = {}
+
+    for obj in _registry_objs:
+        _dependencies[obj] = filter_object_dependencies(
+            uri,
+            obj,
+            {
+                "read_only": False,
+                "type": "field",
+                "local": True
+            }
+        )
+    return _dependencies
+
+def get_obj_type_from_url(request_url: str) -> str:
+    _uri, _ = split_api_url(request_url)
+    # for obj_type in url_get(_uri):
+    #     if obj_type in 
+    pass

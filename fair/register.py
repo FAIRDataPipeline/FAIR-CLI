@@ -108,7 +108,7 @@ def fetch_registrations(
             )
         elif _external_object:
             _name = entry['external_object']
-            _obj_type = ('external_object',)
+            _obj_type = 'external_object'
             if 'unique_name' in entry and 'namespace_name' in entry:
                 _search_data['alternate_identifier'] = f"{entry['namespace_name']}/{entry['unique_name']}"
             elif 'identifier' in entry:
@@ -120,7 +120,7 @@ def fetch_registrations(
                 )
         else:
             _name = entry['data_product']
-            _obj_type = ('data_product',)
+            _obj_type = 'data_product'
             _search_data = {"name": _name}
 
         if not _identifier and not _unique_name:
@@ -267,7 +267,7 @@ def subst_registrations(local_uri: str, input_config: typing.Dict):
         if 'external_object' in reg:
             _results = fdp_req.get(
                 local_uri,
-                ('external_object',),
+                'external_object',
                 params={"version": reg['version'], "title": reg['title']}
             )
             
@@ -280,7 +280,7 @@ def subst_registrations(local_uri: str, input_config: typing.Dict):
 
         _results = fdp_req.get(
             local_uri,
-            ('data_product',),
+            'data_product',
             params=_data
         )
 

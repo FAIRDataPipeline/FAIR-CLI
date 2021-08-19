@@ -84,7 +84,7 @@ class Stager:
         """
         # Will search storage locations for a similar path by using
         # parent_directory/file_name
-        _obj_type = ('storage_location',)
+        _obj_type = 'storage_location'
 
         _results = fdp_req.get(local_uri, _obj_type, params={"path": file_path})
 
@@ -139,7 +139,7 @@ class Stager:
             for run in _runs:
                 _results = fdp_req.get(
                     local_uri,
-                    ('code_run', ),
+                    'code_run',
                     params={"uuid": run}
                 )
 
@@ -167,7 +167,7 @@ class Stager:
             _data_product = write_obj['data_product']
             _results = fdp_req.get(
                 local_uri,
-                ('data_product', ),
+                'data_product',
                 params={"name": _data_product}
             )
 

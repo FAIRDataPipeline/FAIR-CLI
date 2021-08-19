@@ -81,7 +81,7 @@ def glob_read_write(
         # and the selected search key
         _results = fdp_reg_req.get(
             _uri,
-            (_key_glob,),
+            _key_glob,
             params = {search_key: _globbable}
         )
 

@@ -178,7 +178,7 @@ def subst_versions(local_uri: str, config_yaml_dict: typing.Dict) -> typing.Dict
         _results = None
 
         try:
-            _results = fdp_reg_req.get(local_uri, (_obj_type,), params=_params)
+            _results = fdp_reg_req.get(local_uri, _obj_type, params=_params)
             if not _results:
                 raise AssertionError
         except (AssertionError, fdp_exc.RegistryAPICallError):
