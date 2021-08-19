@@ -471,12 +471,18 @@ class FAIR:
 
     def make_starter_config(self) -> None:
         """Create a starter config.yaml"""
+        if os.path.exists(self._session_config):
+            click.echo(
+                f"'{self._session_config}' already exists, skipping creation."
+            )
+            return
         if "registries" not in self._local_config:
             raise fdp_exc.CLIConfigurationError(
                 "Cannot generate user 'config.yaml'",
                 hint="You need to set the remote URL"
                 " by running: \n\n\tfair remote add <url>\n",
             )
+
         with open(self._session_config, "w") as f:
             _yaml_str = config_template.render(
                 instance=self,
