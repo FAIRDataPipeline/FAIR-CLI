@@ -483,9 +483,9 @@ class FAIR:
         """Create a starter config.yaml"""
         if not output_file_name:
             output_file_name = os.path.join(self._session_loc, 'config.yaml')
-        if os.path.exists(self._session_config):
+        if os.path.exists(output_file_name):
             click.echo(
-                f"The user configuration file '{os.path.abspath(self._session_config)}'"
+                f"The user configuration file '{os.path.abspath(output_file_name)}'"
                 " already exists, skipping creation."
             )
             return
@@ -577,7 +577,6 @@ class FAIR:
         if export_as:
             self._export_cli_configuration(export_as)
 
-        self.make_starter_config()
         click.echo(f"Initialised empty fair repository in {_fair_dir}")
 
     def close_session(self) -> None:
