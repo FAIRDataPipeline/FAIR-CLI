@@ -175,6 +175,7 @@ run_metadata:
 the user then only needs to add a `script` or `script_path` entry to execute a code run. This is only required for `run`.
 
 **Advanced usage**
+
 CLI configuration can be read directly from a file which should contain the following:
 ```yaml
 namespaces: 
