@@ -59,11 +59,16 @@ def status(verbose, debug) -> None:
 
 @cli.command()
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
-@click.option("--output", help="Specify the output file", default=os.path.join(os.getcwd(), 'config.yaml'))
+@click.argument("output", nargs=-1)
 def create(debug, output: str) -> None:
     """Generate a new FAIR repository user YAML config file"""
+    if not output:
+        output = os.path.join(os.getcwd(), 'config.yaml')
+    else:
+        output = output[0]
     click.echo(
-        f"Generating new 'config.yaml' in '{fdp_com.find_fair_root(os.getcwd())}'"
+        f"Generating new user configuration file"
+        f" '{output}'"
     )
     with fdp_session.FAIR(os.getcwd(), debug=debug) as fair_session:
         fair_session.make_starter_config(output)
@@ -78,7 +83,8 @@ def create(debug, output: str) -> None:
 @click.option(
     "--using",
     help="Initialise the CLI system from an existing CLI global configuration file",
-    default=""
+    default="",
+    type=click.Path(exists=True)
 )
 @click.option(
     "--registry",
