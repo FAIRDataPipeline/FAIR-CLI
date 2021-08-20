@@ -5,6 +5,7 @@ import fair.common as fdp_com
 import fair.run as fdp_run
 import fair.registry.requests as fdp_req
 import fair.exceptions as fdp_exc
+import fair.configuration as fdp_conf
 
 
 class Stager:
@@ -182,7 +183,7 @@ class Stager:
         return _data_product_urls
     
     def get_job_data(
-            self, local_uri: str, identifier: str
+            self, local_uri, identifier: str
         ) -> typing.Dict[str, str]:
         # Firstly find the job directory
         _directory = fdp_run.get_job_dir(identifier)
@@ -205,7 +206,7 @@ class Stager:
         _config_rel_path = f'{fdp_com.JOBS_DIR}{_config_rel_path}'
 
         _config_url = self.find_registry_entry_for_file(
-            local_uri,
+            fdp_conf.get_local_uri(),
             _config_rel_path
         )["url"]
 

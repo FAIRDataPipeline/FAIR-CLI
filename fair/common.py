@@ -45,10 +45,26 @@ import git
 import fair.exceptions as fdp_exc
 
 USER_FAIR_DIR = os.path.join(pathlib.Path.home(), ".fair")
-REGISTRY_HOME = os.path.join(USER_FAIR_DIR, "registry")
 FAIR_CLI_CONFIG = "cli-config.yaml"
 FAIR_FOLDER = ".fair"
 JOBS_DIR = "jobs"
+
+
+def registry_home() -> str:
+    _glob_conf = yaml.safe_load(open(global_fdpconfig()))
+    if 'registries' not in _glob_conf:
+        raise fdp_exc.CLIConfigurationError(
+            f"Expected key 'registries' in global CLI configuration"
+        )
+    if 'local' not in _glob_conf['registries']:
+        raise fdp_exc.CLIConfigurationError(
+            f"Expected remote 'local' in global CLI configuration registries"
+        )
+    if 'directory' not in _glob_conf['registries']['local']:
+        raise fdp_exc.CLIConfigurationError(
+            f"Expected directory of local registry in global CLI configuration"
+        )
+    return _glob_conf['registries']['local']['directory']
 
 
 def find_fair_root(start_directory: str = os.getcwd()) -> str:
@@ -80,7 +96,7 @@ def find_fair_root(start_directory: str = os.getcwd()) -> str:
         # If there is no directory component this means the top of the file
         # system has been reached
         if not _directory:
-            return ""
+            return ""            
 
 
 def staging_cache(user_loc: str) -> str:
@@ -92,9 +108,13 @@ def staging_cache(user_loc: str) -> str:
 
 def default_data_dir(location: str = 'local') -> str:
     """Location of the default data store"""
-    _glob_conf = yaml.safe_load(global_fdpconfig())
-    if 'data_store' in _glob_conf:
-        return _glob_conf['data_store'][location]
+    if not os.path.exists(global_fdpconfig()):
+        raise fdp_exc.InternalError(
+            f"Failed to read CLI global configuration file '{global_fdpconfig()}"
+        )
+    _glob_conf = yaml.safe_load(open(global_fdpconfig()))
+    if 'data_store' in _glob_conf['registries'][location]:
+        return _glob_conf['registries'][location]['data_store']
     return os.path.join(USER_FAIR_DIR, "data")
 
 

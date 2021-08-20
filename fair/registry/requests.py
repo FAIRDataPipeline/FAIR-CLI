@@ -21,10 +21,10 @@ __date__ = "2021-07-02"
 
 import json
 import os
-import posixpath
 import yaml
 import tempfile
 import typing
+import copy
 import urllib.parse
 
 import fair.common as fdp_com
@@ -35,13 +35,27 @@ import requests
 
 
 def split_api_url(request_url: str, splitter: str = 'api') -> typing.Tuple[str]:
+    """Split a request URL into endpoint and path
+
+    Parameters
+    ----------
+    request_url : str
+        URL to be split
+    splitter : str, optional
+        split point, by default 'api'
+
+    Returns
+    -------
+    typing.Tuple[str]
+        endpoint, path
+    """
     _root, _path = request_url.split(f'{splitter}/')
     return f'{_root}{splitter}', _path
 
 
 def local_token() -> str:
     """Read the local registry token from the relevant file"""
-    _local_token_file = os.path.join(fdp_com.REGISTRY_HOME, "token")
+    _local_token_file = os.path.join(fdp_com.registry_home(), "token")
     if not os.path.exists(_local_token_file):
         raise fdp_exc.FileNotFoundError(
             f"Failed to find local registry token, file '{_local_token_file}'"
@@ -125,7 +139,7 @@ def _access(
         _url += "?"
         _param_strs = [f"{k}={v}" for k, v in params.items()]
         _url += "&".join(_param_strs)
-    _headers = headers.copy()
+    _headers = copy.deepcopy(headers)
     _headers["Authorization"] = f"token {token}"
     try:
         _request = getattr(requests, method)(
@@ -189,7 +203,27 @@ def post(
     data: typing.Dict[str, typing.Any],
     headers: typing.Dict[str, typing.Any] = None,
     token: str = None
-):
+) -> typing.Dict:
+    """Post an object to the registry
+
+    Parameters
+    ----------
+    uri : str
+        endpoint of the registry
+    obj_path : str
+        type of object to post
+    data : typing.Dict[str, typing.Any]
+        data for the object
+    headers : typing.Dict[str, typing.Any], optional
+        any additional headers for the request, by default None
+    token : str, optional
+        token for accessing the registry, by default None
+
+    Returns
+    -------
+    typing.Dict
+        resulting data returned from the request
+    """
     if headers is None:
         headers = {}
 
@@ -233,7 +267,27 @@ def get(
     headers: typing.Dict[str, typing.Any] = None,
     params: typing.Dict[str, typing.Any] = None,
     token: str = None
-):
+) -> typing.Dict:
+    """Retrieve an object from the given registry
+
+    Parameters
+    ----------
+    uri : str
+        endpoint of the registry
+    obj_path : str
+        type of the object to fetch
+    headers : typing.Dict[str, typing.Any], optional
+        any additional headers for the request, by default None
+    params : typing.Dict[str, typing.Any], optional
+        search parameters for the object, by default None
+    token : str, optional
+        token for accessing the registry, by default None
+
+    Returns
+    -------
+    typing.Dict
+        returned data for the given request
+    """
     if not headers:
         headers = {}
     
@@ -260,7 +314,27 @@ def post_else_get(
     data: typing.Dict[str, typing.Any],
     params: typing.Dict[str, typing.Any] = None,
     token: str = None
-):
+) -> str:
+    """Post to the registry if an object does not exist else retrieve URL
+
+    Parameters
+    ----------
+    uri : str
+        endpoint of the registry
+    obj_path : str
+        object type to post
+    data : typing.Dict[str, typing.Any]
+        data for the object to be posted
+    params : typing.Dict[str, typing.Any], optional
+        parameters for searching if object exists, by default None
+    token : str, optional
+        token to access registry, by default None
+
+    Returns
+    -------
+    str
+        URL for object either retrieved or posted
+    """
     if not params:
         params = {}
 
@@ -324,6 +398,29 @@ def filter_object_dependencies(
     return _fields
 
 
+def get_filter_variables(uri: str, obj_path: str) -> typing.List[str]:
+    """Retrieves a list of variables you can filter by for a given object
+
+    Parameters
+    ----------
+    uri : str
+        endpoint of registry
+    obj_path : str
+        type of object
+
+    Returns
+    -------
+    typing.List[str]
+        list of filterable fields
+    """
+    try:
+        _filters = _access(uri, 'options', obj_path, 200)['filter_fields']
+    except KeyError:
+        # No 'filter_fields' key means no filters
+        return []
+    return list(_filters.keys())
+
+
 def get_writable_fields(
     uri: str,
     obj_path: str
@@ -383,6 +480,18 @@ def download_file(url: str, chunk_size: int = 8192) -> str:
 
 
 def get_dependency_listing(uri: str) -> typing.Dict:
+    """Get complete listing of all objects and their registry based dependencies
+
+    Parameters
+    ----------
+    uri : str
+        endpoint of the registry
+
+    Returns
+    -------
+    typing.Dict
+        dictionary of object types and their registry based dependencies
+    """
 
     _registry_objs = url_get(uri)
 
@@ -401,7 +510,20 @@ def get_dependency_listing(uri: str) -> typing.Dict:
     return _dependencies
 
 def get_obj_type_from_url(request_url: str) -> str:
+    """Retrieves the type of object from the given URL
+
+    Parameters
+    ----------
+    request_url : str
+        url to type check
+
+    Returns
+    -------
+    str
+        object type if recognised else empty string
+    """
     _uri, _ = split_api_url(request_url)
-    # for obj_type in url_get(_uri):
-    #     if obj_type in 
-    pass
+    for obj_type in sorted(url_get(_uri).keys(), key=len, reverse=True):
+        if obj_type in request_url:
+            return obj_type
+    return ""

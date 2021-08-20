@@ -16,40 +16,12 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
           architecture: "x64"
-      - name: Install the Local Registry
-        run: |
-          HOME=./temp_registry /bin/bash -c "$(curl -fsSL https://data.scrc.uk/static/localregistry.sh)"
-          ./temp_registry/.fair/registry/scripts/start_fair_registry
-      - name: Install system requirements (macOS-latest)
-        if: matrix.config.os == 'macos-latest'
-        run : |
-              rm '/usr/local/bin/gfortran'
-              brew install hdf5
-              brew install gdal
-      - name: Install system requirements (ubuntu-20.04)
-        if: matrix.config.os == 'ubuntu-20.04'
-        run: |
-          while read -r cmd
-          do
-            eval sudo $cmd
-          done < <(Rscript -e 'cat(remotes::system_requirements("ubuntu", "20.04"), sep = "\n")')
-        shell: bash
-      - name: Install R
-        uses: r-lib/actions/setup-r@master
-        with:
-          r-version: release
-      - name: Install R API Implementation
-        run: |
-          install.packages("devtools")
-          library(devtools)
-          install_github("FAIRDataPipeline/rFDP")
-        shell: Rscript {0}
-      - name: Populate Registry
-        run: HOME=./temp_registry Rscript <(curl https://raw.githubusercontent.com/FAIRDataPipeline/rFDP/main/tests/testthat/test_examples.R)
       - name: Install Poetry
         run: python -m pip install poetry
       - name: Install Module
         run: python -m poetry install
+      - name: Test CI mode
+        run: fair init --ci
       - name: Run Tests
         run: python -m poetry run pytest -m "not registry" --cov=fair --cov-report=xml --cov-report=term -s tests/
       - name: Stop Registry

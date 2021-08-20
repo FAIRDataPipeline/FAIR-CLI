@@ -143,18 +143,6 @@ def remove_dictlist_dupes(
     ]
 
 
-def compare_entries(
-    local_reg_entry: typing.Dict, remote_reg_entry: typing.Dict
-    ) -> bool:
-    # TODO: This assumes the UUIDs have been setup to always match between
-    # registries. Ensure this occurs.
-
-    _flat_loc = flatten_dict(local_reg_entry)
-    _flat_rem = flatten_dict(remote_reg_entry)
-
-    return _flat_loc == _flat_rem
-
-
 class JSONDateTimeEncoder(json.JSONEncoder):
     def default(self, date_time_candidate):
         if isinstance(date_time_candidate, datetime.datetime):

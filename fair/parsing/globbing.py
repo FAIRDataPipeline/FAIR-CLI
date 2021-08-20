@@ -22,6 +22,7 @@ Functions
 __date__ = "2021-08-16"
 
 import typing
+import copy
 
 import fair.registry.requests as fdp_reg_req
 import fair.configuration as fdp_conf
@@ -89,7 +90,7 @@ def glob_read_write(
         # the globbable statement for the result statement appending this
         # to the output list
         for result in _results:
-            _entry_dict = entry.copy()
+            _entry_dict = copy.deepcopy(entry)
             _entry_dict[_key_glob] = result[search_key]
             _parsed.append(_entry_dict)
 

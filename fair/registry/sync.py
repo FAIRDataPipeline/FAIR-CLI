@@ -17,13 +17,19 @@ Functions
 __date__ = "2021-08-05"
 
 import typing
+import os
 import collections
+import urllib.parse
+import logging
+import yaml
 
 import fair.exceptions as fdp_exc
 import fair.registry.requests as fdp_req
 import fair.registry.versioning as fdp_ver
-import fair.utilities as fdp_util
 import semver
+
+
+_logger = logging.getLogger('FairDataPipeline.Sync')
 
 
 def get_new_version(
@@ -69,56 +75,6 @@ def get_new_version(
     return getattr(_latest, _bump_func)()
 
 
-def push_item(
-    local_uri: str,
-    remote_uri: str,
-    object_path: str,
-    params: typing.Dict,
-    remote_token: str) -> None:
-    """Push an object to the remote registry
-
-    Parameters
-    ----------
-    local_uri : str
-        endpoint of local registry
-    remote_uri : str
-        endpoint of remote registry
-    object_path : str
-        path of object type, e.g. 'code_run'
-    params : Dict
-        dictionary containing search term parameters of the
-        object on the source registry to push
-    token : str
-        token for the remote registry to push to
-    """
-    _response = fdp_req.get(local_uri, object_path, params=params)
-
-    if not _response:
-        raise fdp_exc.SynchronisationError(
-            f"Failed to retrieve '{object_path}'"
-            f" from registry '{local_uri}', no object found."
-        )
-
-    _writable_fields = fdp_req.get_writable_fields(local_uri, object_path)
-
-    _data = {
-        k: v for k, v in _response.items()
-        if k in _writable_fields
-    }
-    
-    try:
-        _response = fdp_req.post(
-            remote_uri, object_path, data=_data, token=remote_token
-        )
-    except fdp_exc.RegistryAPICallError as e:
-        raise fdp_exc.SynchronisationError(
-            f"Failed to sync object of type '{object_path}'"
-            f" with data '{_data}' to registry at '{remote_uri}' "
-            f" server returned code {e.error_code}",
-            error_code=e.error_code
-        )
-
-
 def get_dependency_chain(object_url: str) -> collections.deque:
     """Get all objects relating to an object in order of dependency
 
@@ -136,9 +92,10 @@ def get_dependency_chain(object_url: str) -> collections.deque:
     collections.deque
         ordered iterable of component object URLs
     """
-    _local_uri, _ = fdp_util.split_api_url(object_url)
+    _logger.debug(f"Retrieving dependency chain for '{object_url}'")
+    _local_uri, _ = fdp_req.split_api_url(object_url)
 
-    _dependency_list = get_dependency_listing(_local_uri)
+    _dependency_list = fdp_req.get_dependency_listing(_local_uri)
 
     def _dependency_of(url_list: collections.deque, item: str):
         if item in url_list:
@@ -156,48 +113,88 @@ def get_dependency_chain(object_url: str) -> collections.deque:
     return _urls
 
 
-def pull_item(
-    remote_uri: str,
-    local_uri: str,
-    object_path: str,
-    params: typing.Dict,
-    local_token: str
-    ) -> None:
-    """Pull an object from the remote registry
+def push_dependency_chain(
+    object_url: str,
+    dest_uri: str,
+    dest_token: str,
+    ) -> typing.Dict[str, str]:
+    """Push an object and all of its dependencies to the remote registry
+
+    In order to push an object, firstly any dependencies which are also
+    registry items must be pushed first.
 
     Parameters
     ----------
-    local_uri : str
-        endpoint of local registry
-    remote_uri : str
-        endpoint of remote registry
-    object_path : str
-        path of object type, e.g. 'code_run'
-    params : Dict
-        dictionary containing search term parameters of the
-        object on the source registry to push
-    token : str
-        token for the remote registry to push to
+    object_url : str
+        object to push
+    dest_uri : str
+        endpoint of the destination registry
+    dest_token : str
+        access token for the destination registry
+
+    Returns
+    -------
+    typing.Dict[str, str]
+        dictionary showing conversion from source registry URL to destination
     """
-    push_item(local_uri, remote_uri, object_path, params, local_token)
+    _logger.debug(
+        f"Attempting to push object '{object_url}' to '{dest_uri}'"
+    )
 
+    _dependency_chain: collections.deque = get_dependency_chain(object_url)
+    _new_urls: typing.Dict[str, str] = {
+        k: ""
+        for k in _dependency_chain
+    }
 
-def compare_entries(
-    local_reg_entry: typing.Dict, remote_reg_entry: typing.Dict
-    ) -> bool:
-    # TODO: This assumes the UUIDs have been setup to always match between
-    # registries. Ensure this occurs.
+    for object in _dependency_chain:
+        _obj_data = fdp_req.url_get(object)
+        _obj_type = fdp_req.get_obj_type_from_url(object)
+        _uri, _ = fdp_req.split_api_url(object)
+        # Substitute any local dependency URLs for those
+        # from the components created on the remote
+        for key, value in _obj_data:
+            if value in _new_urls:
+                _obj_data[key] = _new_urls[value]
+        _writable_data = {
+            k: v for k, v in _obj_data.items()
+            if k in fdp_req.get_writable_fields(_uri, _obj_type)
+        }
 
-    _flat_loc = fdp_util.flatten_dict(local_reg_entry)
-    _flat_rem = fdp_util.flatten_dict(remote_reg_entry)
+        # Filters are all variables returned by 'filter_fields' request for a
+        # given object minus any variables which have a URL value
+        # (as remote URL will never match local)
+        _filters = {
+            k: v for k, v in _obj_data.items()
+            if k in fdp_req.get_filter_variables(_uri, _obj_type) and
+            not urllib.parse.urlparse(v).netloc
+        }
 
-    return _flat_loc == _flat_rem
+        _logger.debug(
+            f"Pushing member '{object}' to '{dest_uri}'"
+        )
+        _new_url = fdp_req.post_else_get(
+            dest_uri,
+            _obj_type,
+            data=_writable_data,
+            token=dest_token,
+            params=_filters
+        )
 
+        _new_urls[object] = _new_url
 
-def push(
-    local_uri: str,
-    remote_uri: str,
-    remote_token: str,
-    items: typing.Dict[str, typing.List[typing.Dict]]
-    ) -> None:
+    return _new_urls
+        
+
+def push_from_config(config_yaml: str) -> None:
+    if not os.path.exists(config_yaml):
+        raise fdp_exc.FileNotFoundError(
+            f"Cannot load write statements from '{config_yaml}', "
+            "file does not exist."
+        )
+    _config = yaml.safe_load(open(config_yaml))
+
+    if 'write' not in _config:
+        return
+
     pass

@@ -121,8 +121,7 @@ def test_glob_cfg_query(mocker, no_prompt, no_registry_autoinstall, subprocess_d
     assert _out_dict['user']['given_names'] == "Joe"
     assert _out_dict['user']['family_name'] == "Bloggs"
     assert "local" in _out_dict['registries'] and "origin" in _out_dict['registries']
-    assert _out_dict['registries']['local'] == "http://localhost:8000/api/"
-    assert _out_dict['registries']['origin'] == "http://noserver/api/"
+    assert _out_dict['registries']['origin']['uri'] == "http://noserver/api/"
     assert _out_dict['namespaces']['output'] == "jbloggs"
     assert _out_dict['namespaces']['input'] == "SCRC"
 

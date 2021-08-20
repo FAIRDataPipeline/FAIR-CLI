@@ -22,6 +22,8 @@ __date__ = "2021-07-02"
 import os
 import pathlib
 import uuid
+import copy
+import re
 from typing import MutableMapping, Any, Dict, Tuple
 
 import yaml
@@ -33,7 +35,6 @@ import fair.exceptions as fdp_exc
 import fair.identifiers as fdp_id
 import fair.registry.server as fdp_serv
 import fair.registry.requests as fdp_req
-import fair.registry.storage as fdp_store
 
 
 def read_local_fdpconfig(repo_loc: str) -> MutableMapping:
@@ -141,18 +142,6 @@ def get_current_user_name(repo_loc: str) -> Tuple[str]:
     return (_given, _family)
 
 
-def get_local_uri(repo_loc: str) -> str:
-    """Retrieves the URI of the local registry
-    
-    Returns
-    -------
-    str
-        local URI path
-    """
-    _local_conf = read_local_fdpconfig(repo_loc)
-    return _local_conf['registries']['local']
-
-
 def get_remote_uri(repo_loc: str, remote_label: str = 'origin') -> str:
     """Retrieves the URI of the remote registry
 
@@ -169,7 +158,7 @@ def get_remote_uri(repo_loc: str, remote_label: str = 'origin') -> str:
         remote URI path
     """
     _local_conf = read_local_fdpconfig(repo_loc)
-    return _local_conf['registries'][remote_label]
+    return _local_conf['registries'][remote_label]['uri']
 
 
 def get_session_git_repo(repo_loc: str) -> str:
@@ -252,7 +241,8 @@ def get_current_user_uuid(repo_loc: str) -> str:
     _local_conf = read_local_fdpconfig(repo_loc)
     return _local_conf['user']['uuid']
 
-def check_registry_exists() -> bool:
+
+def check_registry_exists(registry: str = None) -> bool:
     """Checks if fair registry is set up on users machine
 
     Returns
@@ -260,9 +250,29 @@ def check_registry_exists() -> bool:
     bool
         True if registry exists, else False
     """
+    if not registry:
+        registry = os.path.join(pathlib.Path.home(), fdp_com.FAIR_FOLDER, 'registry')
+    return os.path.isdir(registry)
 
-    directory = os.path.join(pathlib.Path.home(), '.fair/registry')
-    return os.path.isdir(directory)
+
+def get_local_uri() -> str:
+    _cfg = read_global_fdpconfig()
+    try:
+        return _cfg['registries']['local']['uri']
+    except KeyError:
+        raise fdp_exc.CLIConfigurationError(
+            f"Expected key 'registries:local:uri' in local CLI configuration"
+        )
+
+
+def get_local_port() -> str:
+    _port_res = re.findall(r'localhost:([0-9]+)', get_local_uri())
+    if not _port_res:
+        raise fdp_exc.InternalError(
+            "Failed to determine port number from local registry URL"
+        )
+    return _port_res[0]
+
 
 
 def _get_user_info_and_namespaces() -> Dict[str, Dict]:
@@ -325,11 +335,16 @@ def _get_user_info_and_namespaces() -> Dict[str, Dict]:
     return {"user": _user_info, "namespaces": _namespaces}
 
 
-def global_config_query() -> Dict[str, Any]:
+def global_config_query(registry: str = None) -> Dict[str, Any]:
     """Ask user question set for creating global FAIR config"""
 
+    if not registry:
+        registry = os.path.join(
+            pathlib.Path().home(), fdp_com.FAIR_FOLDER, 'registries'
+        )
+
     click.echo("Checking for local registry")
-    if check_registry_exists():
+    if check_registry_exists(registry):
         click.echo("Local registry found")
     else:
         click.confirm(
@@ -338,7 +353,7 @@ def global_config_query() -> Dict[str, Any]:
         )
         fdp_serv.install_registry()
 
-    _def_local = "http://localhost:8000/api/"
+    _local_port = click.prompt("Local server port", default=str(8000))
 
     _remote_url = click.prompt("Remote API URL")
 
@@ -361,15 +376,13 @@ def global_config_query() -> Dict[str, Any]:
         _rem_key_file = click.prompt("Remote API Token File")
         _rem_key_file = os.path.expandvars(_rem_key_file)
 
-    _local_url = click.prompt("Local API URL", default=_def_local)
-
-    if not fdp_serv.check_server_running(_local_url):
+    if not fdp_serv.check_server_running(_local_port):
         _run_server = click.confirm(
             "Local registry is offline, would you like to start it?",
             default=False
         )
         if _run_server:
-            fdp_serv.launch_server(_local_url)
+            fdp_serv.launch_server(registry_dir=registry)
 
             # Keep server running by creating user run cache file
             _cache_addr = os.path.join(
@@ -379,8 +392,8 @@ def global_config_query() -> Dict[str, Any]:
 
         else:
             click.echo("Temporarily launching server to retrieve API token.")
-            fdp_serv.launch_server(_local_url)
-            fdp_serv.stop_server(_local_url)
+            fdp_serv.launch_server(registry_dir=registry)
+            fdp_serv.stop_server()
             try:
                 fdp_req.local_token()
             except fdp_exc.FileNotFoundError:
@@ -394,13 +407,17 @@ def global_config_query() -> Dict[str, Any]:
     )
 
     _glob_conf_dict = _get_user_info_and_namespaces()
-    _glob_conf_dict['registries'] = {"local": _local_url, "origin": _remote_url}
-    _glob_conf_dict['data_store'] = {
-        "local": _loc_data_store,
-        "origin": _rem_data_store
-    }
-    _glob_conf_dict['tokens'] = {
-        "origin": _rem_key_file
+    _glob_conf_dict['registries']  = {
+        'local': {
+            'uri': f'http://localhost:{_local_port}/api/',
+            'directory': os.path.abspath(registry),
+            'data_store': _loc_data_store
+        },
+        'origin': {
+            'uri': _remote_url,
+            'token': _rem_key_file,
+            'data_store': _rem_data_store
+        }
     }
 
     return _glob_conf_dict
@@ -427,9 +444,8 @@ def local_config_query(
     # Try extracting global configurations. If any keys do not exist re-run
     # setup for creation of these, then try again.
     try:
-        _def_remote = global_config['registries']['origin']
-        _def_local = global_config['registries']['local']
-        _def_rem_key = global_config['tokens']['origin']
+        _def_remote = global_config['registries']['origin']['uri']
+        _def_rem_key = global_config['registries']['origin']['token']
         _def_ospace = global_config['namespaces']['output']
         _def_user = global_config['user']
     except KeyError:
@@ -439,9 +455,8 @@ def local_config_query(
         )
         first_time_setup = True
         global_config = global_config_query()
-        _def_remote = global_config['registries']['origin']
-        _def_local = global_config['registries']['local']
-        _def_rem_key = global_config['tokens']['origin']
+        _def_remote = global_config['registries']['origin']['uri']
+        _def_rem_key = global_config['registries']['origin']['token']
         _def_ospace = global_config['namespaces']['output']
         _def_user = global_config['user']
 
@@ -523,7 +538,6 @@ def local_config_query(
             )
             _def_rem_key = click.prompt("Remote API Token File")
             _def_rem_key = os.path.expandvars(_def_rem_key)
-        _def_local = click.prompt("Local API URL", default=_def_local)
         _def_ospace = click.prompt(
             "Default output namespace", default=_def_ospace
         )
@@ -532,8 +546,6 @@ def local_config_query(
         )
 
     _local_config: Dict[str, Any] = {}
-
-    _local_config['data_store'] = global_config['data_store']
 
     _local_config['namespaces'] = {
         "output": _def_ospace,
@@ -547,12 +559,12 @@ def local_config_query(
 
     # Copy the global configuration then substitute updated
     # configurations
-    _local_config['registries'] = global_config['registries'].copy()
-    _local_config['registries']['origin'] = _def_remote
-    _local_config['registries']['local'] = _def_local
+    _local_config['registries'] = copy.deepcopy(global_config['registries'])
 
-    _local_config['tokens'] = global_config['tokens'].copy()
-    _local_config['tokens']['origin'] = _def_rem_key
+    # Local registry is a globally defined entity
+    del _local_config['registries']['local']
+
+    _local_config['registries']['origin']['uri'] =  _def_remote
 
     _local_config["description"] = _desc
     _local_config['user'] = _def_user

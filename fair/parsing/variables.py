@@ -21,6 +21,7 @@ Functions
 __date__ = "2021-08-16"
 
 import datetime
+import copy
 import typing
 import collections.abc
 import os
@@ -163,7 +164,7 @@ def subst_versions(local_uri: str, config_yaml_dict: typing.Dict) -> typing.Dict
     if 'write' not in config_yaml_dict:
         return config_yaml_dict
     
-    _out_dict = config_yaml_dict.copy()
+    _out_dict = copy.deepcopy(config_yaml_dict)
     _obj_type = 'data_product'
 
     _write_statements = config_yaml_dict['write']

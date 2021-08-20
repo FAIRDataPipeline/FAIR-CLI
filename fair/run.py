@@ -26,6 +26,7 @@ import sys
 import platform
 import typing
 import glob
+import copy
 import hashlib
 import enum
 from datetime import datetime
@@ -91,7 +92,8 @@ SHELLS: typing.Dict[str, str] = {
 
 class CMD_MODE(enum.Enum):
     RUN = 1,
-    PULL = 2
+    PULL = 2,
+    PUSH = 3
 
 
 def run_command(
@@ -208,7 +210,11 @@ def run_command(
                     "--------------------------------\n",
                 ]
             )
-        _conf_yaml = fdp_reg.fetch_registrations(local_uri, repo_dir, _work_cfg_yml)
+        _conf_yaml = fdp_reg.fetch_registrations(
+            local_uri,
+            repo_dir,
+            _work_cfg_yml
+        )
 
     with open(_work_cfg_yml, 'w') as f:
         yaml.dump(_conf_yaml, f)
@@ -221,7 +227,7 @@ def run_command(
     # Setup the registry storage location root
     fdp_reg_store.store_working_config(
         repo_dir,
-        fdp_conf.read_local_fdpconfig(repo_dir)['registries']['local'],
+        local_uri,
         _work_cfg_yml,
     )
 
@@ -233,7 +239,7 @@ def run_command(
 
         fdp_reg_store.store_working_script(
             repo_dir,
-            fdp_conf.read_local_fdpconfig(repo_dir)['registries']['local'],
+            local_uri,
             _cmd_setup['script'],
             _work_cfg_yml
         )
@@ -462,7 +468,7 @@ def setup_job_script(
     """
     _conf_yaml = yaml.safe_load(open(config_yaml))
     _cmd = None
-    _run_env = os.environ.copy()
+    _run_env = copy.deepcopy(os.environ)
 
     # Create environment variable which users can refer to in their
     # submission scripts
