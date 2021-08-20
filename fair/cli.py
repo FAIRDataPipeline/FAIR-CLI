@@ -92,8 +92,9 @@ def create(debug, output: str) -> None:
     default=False
 )
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
+@click.option("--export", help="Export the CLI configuration to a file", default="")
 def init(
-    config: str, debug: bool, using: str, registry: str, ci:bool
+    config: str, debug: bool, using: str, registry: str, ci:bool, export: str = ""
     ) -> None:
     """Initialise repository in current location"""
     try:
@@ -108,7 +109,7 @@ def init(
                         "file does not exist."
                     )
                 _use_dict = yaml.safe_load(open(using))
-            fair_session.initialise(using=_use_dict, registry=registry)
+            fair_session.initialise(using=_use_dict, registry=registry, export_as=export)
     except fdp_exc.FAIRCLIException as e:
         if debug:
             raise e

@@ -479,8 +479,10 @@ class FAIR:
         if not _unstaged_jobs and not _staged_jobs:
             click.echo("Nothing marked for tracking.")
 
-    def make_starter_config(self, output_file_name: str) -> None:
+    def make_starter_config(self, output_file_name: str = None) -> None:
         """Create a starter config.yaml"""
+        if not output_file_name:
+            output_file_name = os.path.join(self._session_loc, 'config.yaml')
         if os.path.exists(self._session_config):
             click.echo(
                 f"The user configuration file '{os.path.abspath(self._session_config)}'"
@@ -504,7 +506,21 @@ class FAIR:
 
             yaml.dump(_yaml_dict, f)
 
-    def initialise(self, using: typing.Dict = None, registry: str = None) -> None:
+    def _export_cli_configuration(self, output_file: str) -> None:
+        _cli_config = fdp_conf.read_global_fdpconfig()
+        _loc_config = fdp_conf.read_local_fdpconfig(self._session_loc)
+        _cli_config['git'] = _loc_config['git']
+        _cli_config['description'] = _loc_config['description']
+        _cli_config['registries'].update(_loc_config['registries'])
+        with open(output_file, 'w') as f:
+            yaml.dump(_cli_config, f)
+
+    def initialise(
+        self,
+        using: typing.Dict = None,
+        registry: str = None,
+        export_as: str = None
+        ) -> None:
         """Initialise an fair repository within the current location
 
         Parameters
@@ -520,9 +536,13 @@ class FAIR:
             using = fdp_test.create_configurations(registry)
 
         if os.path.exists(_fair_dir):
-            raise fdp_exc.FDPRepositoryError(
+            if export_as:
+                self._export_cli_configuration(export_as)
+                return
+            click.echo(
                 f"FAIR repository is already initialised."
             )
+            return
 
         click.echo(
             "Initialising FAIR repository, setup will now ask for basic info:\n"
@@ -553,6 +573,9 @@ class FAIR:
         else:
             self._global_config = yaml.safe_load(open(fdp_com.global_fdpconfig()))
             self._local_config = yaml.safe_load(open(fdp_com.local_fdpconfig(self._session_loc)))
+        
+        if export_as:
+            self._export_cli_configuration(export_as)
 
         self.make_starter_config()
         click.echo(f"Initialised empty fair repository in {_fair_dir}")
