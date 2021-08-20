@@ -84,7 +84,7 @@ def create(debug, output: str) -> None:
     "--using",
     help="Initialise the CLI system from an existing CLI global configuration file",
     default="",
-    type=click.Path(exists=True)
+    type=click.Path()
 )
 @click.option(
     "--registry",

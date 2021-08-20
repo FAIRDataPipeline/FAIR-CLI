@@ -276,41 +276,39 @@ def subst_registrations(local_uri: str, input_config: typing.Dict):
                     f"Expected singular external_object for version '{reg['version']}' "
                     f""
                 )
-            _object_data = {
-                'external_object': _results[0]['title'],
-            }
-            if _results[0]['identifier']:
-                _object_data['identifier'] = _results[0]['identifier']
-            if _results[0]['alternate_identifier']:
-                _object_data['unique_name'] = _results[0]['alternate_identifier']
-            _object_data['title'] = _results[0]['title']
-        else:
 
-            _results = fdp_req.get(
-                local_uri,
-                'data_product',
-                params=_data
+            if 'data_product' not in _results[0]:
+                raise fdp_exc.RegistryError(
+                    f"Expected external_object '{reg['external_object']}' "
+                    "to have a data_product"
+                )
+            _data['url'] = _results[0]['data_product']
+
+        _results = fdp_req.get(
+            local_uri,
+            'data_product',
+            params=_data
+        )
+
+        if len(_results) > 1 or not _results:
+            raise fdp_exc.InternalError(
+                f"Expected singular result for version '{reg['version']}' "
+                f""
             )
 
-            if len(_results) > 1 or not _results:
-                raise fdp_exc.InternalError(
-                    f"Expected singular result for version '{reg['version']}' "
-                    f""
-                )
+        _namespace_url = _results[0]['namespace']
 
-            _namespace_url = _results[0]['namespace']
+        _namespace_data = fdp_req.url_get(_namespace_url)
 
-            _namespace_data = fdp_req.url_get(_namespace_url)
-
-            _object_data = {
-                'data_product': _results[0]['name'],
-                'use': {
-                    'version': _results[0]['version'],
-                    'namespace': _namespace_data['name'],
-                }
+        _object_data = {
+            'data_product': _results[0]['name'],
+            'use': {
+                'version': _results[0]['version'],
+                'namespace': _namespace_data['name'],
             }
+        }
 
-        _new_cfg['read'].append(_object_data)
+    _new_cfg['read'].append(_object_data)
         
     return _new_cfg
 
