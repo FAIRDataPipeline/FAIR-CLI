@@ -162,6 +162,7 @@ def run_command(
         yaml.dump(_cfg, open(config_yaml, 'w'))
 
     _run_executable = "script" in _cfg["run_metadata"] or "script_path" in _cfg["run_metadata"]
+    _run_executable = _run_executable and mode == CMD_MODE.RUN
 
     # Create a new timestamped directory for the job
     # use the key 'write_data_store' from the 'config.yaml' if
