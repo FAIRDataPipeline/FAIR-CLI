@@ -479,7 +479,7 @@ class FAIR:
         if not _unstaged_jobs and not _staged_jobs:
             click.echo("Nothing marked for tracking.")
 
-    def make_starter_config(self) -> None:
+    def make_starter_config(self, output_file_name: str) -> None:
         """Create a starter config.yaml"""
         if os.path.exists(self._session_config):
             click.echo(
@@ -494,7 +494,7 @@ class FAIR:
                 " by running: \n\n\tfair remote add <url>\n",
             )
 
-        with open(self._session_config, "w") as f:
+        with open(output_file_name, "w") as f:
             _yaml_str = config_template.render(
                 instance=self,
                 data_dir=fdp_com.default_data_dir(),
