@@ -157,8 +157,8 @@ def fetch_registrations(
         # Hash matched version already present
         if _is_present == "hash_match":
             click.echo(
-                f"Skipping item '{_name}' as hash matched entry already in"
-                "the local registry with this name"
+                f"Skipping item '{_name}' as a hash matched entry is already"
+                " present with this name"
             )
             os.remove(_temp_data_file)
             continue
@@ -282,7 +282,7 @@ def subst_registrations(local_uri: str, input_config: typing.Dict):
                     f"Expected external_object '{reg['external_object']}' "
                     "to have a data_product"
                 )
-            _data['url'] = _results[0]['data_product']
+            _data['external_object'] = _results[0]['url']
 
         _results = fdp_req.get(
             local_uri,
