@@ -124,7 +124,7 @@ Initialising FAIR repository, setup will now ask for basic info:
 
 Checking for local registry
 Local registry found
-Remote API URL: http://data.scrc.uk/api/
+Local server port [8000]:
 Remote Data Storage Root [http://data.scrc.uk/data/]: 
 Remote API Token File: $HOME/scrc_token.txt
 Local API URL [http://localhost:8000/api/]: 
@@ -173,6 +173,43 @@ run_metadata:
 ```
 
 the user then only needs to add a `script` or `script_path` entry to execute a code run. This is only required for `run`.
+
+**Advanced usage**
+CLI configuration can be read directly from a file which should contain the following:
+```yaml
+namespaces: 
+  input: testing
+  output: testing
+registries:
+  local:
+    data_store: /path/to/local/data_store,
+    directory: /local/registry/install/directory
+    uri: http://localhost:8000/api/
+  origin:
+    data_store: /remote/registry/data/store/path
+    token: /path/to/remote/token
+    uri: https://data.scrc.uk/api/'
+user:
+  email: 'test@noreply',
+  family_name: 'Test'
+  given_names: 'Interface'
+  orcid: None,
+  uuid: '2ddb2358-84bf-43ff-b2aa-3ac7dc3b49f1'
+git:
+  local_repo: /local/repo/path
+  remote: origin
+description: Testing Project
+```
+this file is then read during initialisation:
+```
+fair init --using <cli-config.yaml file>
+```
+
+For the purposes of CI runs, the initialisation can be "skipped" by running:
+```
+fair init --ci
+```
+which will create temporary directories for some locations.
 
 ### `run`
 
@@ -263,7 +300,17 @@ You can remove the global configuration and start again entirely by running:
 ```
 fair purge --glob
 ```
-you will be asked if you wish to erase the data store, do not do this unless you intend on reinstalling the registry itself.
+
+and also the data directory by running:
+```
+fair purge --data
+```
+**WARNING**: This is not recommended as the registry may still have entries pointing to this location!
+
+You can skip any confirmation messages by running:
+```
+fair purge --yes
+```
 
 ### `registry`
 
