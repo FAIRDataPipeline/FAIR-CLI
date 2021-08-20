@@ -382,14 +382,23 @@ def modify(ctx, label: str, url: str, debug: bool) -> None:
 
 
 @cli.command()
-@click.argument("api-token")
-def push(api_token: str):
-    """
-    Push new files (generated from write: and register:) to the remote data store
-
-    record metadata in the data registry (whilst editing relevant entries, e.g. storage_root)
-    """
-    click.echo(f"push command called")
+@click.argument("remote", nargs=-1)
+@click.option("--debug/--no-debug", help="Run in debug mode", default=False)
+def push(remote: str, debug: bool):
+    """Push data between the local and remote registry"""
+    if len(remote) == 0:
+        remote = 'origin'
+    else:
+        remote = remote[0]
+    try:
+        with fdp_session.FAIR(os.getcwd(), debug=debug) as fair_session:
+            fair_session.push(remote)
+    except fdp_exc.FAIRCLIException as e:
+        if debug:
+            raise e
+        e.err_print()
+        if e.level.lower() == "error":
+            sys.exit(e.exit_code)
 
 
 @cli.group()

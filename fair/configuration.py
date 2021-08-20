@@ -184,6 +184,33 @@ def get_session_git_repo(repo_loc: str) -> str:
         )
 
 
+def get_remote_token(repo_dir: str, remote: str = 'origin') -> str:
+    _local_config = read_local_fdpconfig(repo_dir)
+    if remote not in _local_config['registries']:
+        raise fdp_exc.CLIConfigurationError(
+            f"Cannot find remote registry '{remote}' in local CLI configuration"
+        )
+    if 'token' not in _local_config['registries'][remote]:
+        raise fdp_exc.CLIConfigurationError(
+            f"Cannot find token for registry '{remote}', no token file provided"
+        )
+    _token_file = _local_config['registries'][remote]['token']
+
+    if not os.path.exists(_token_file):
+        raise fdp_exc.FileNotFoundError(
+            f"Cannot read token for registry '{remote}', no such token file"
+        )
+
+    _token = open(_token_file).read().strip()
+
+    if not _token:
+        raise fdp_exc.CLIConfigurationError(
+            f"Cannot read token from file '{_token_file}', file is empty."
+        )
+
+    return _token
+
+
 def get_session_git_remote(repo_loc: str) -> str:
     """Retrieves the local repository git remote
 
@@ -257,6 +284,7 @@ def check_registry_exists(registry: str = None) -> bool:
 
 def get_local_uri() -> str:
     _cfg = read_global_fdpconfig()
+
     try:
         return _cfg['registries']['local']['uri']
     except KeyError:
@@ -265,8 +293,10 @@ def get_local_uri() -> str:
         )
 
 
-def get_local_port() -> str:
-    _port_res = re.findall(r'localhost:([0-9]+)', get_local_uri())
+def get_local_port(local_uri: str = None) -> str:
+    if not local_uri:
+        local_uri = get_local_uri()
+    _port_res = re.findall(r'localhost:([0-9]+)', local_uri)
     if not _port_res:
         raise fdp_exc.InternalError(
             "Failed to determine port number from local registry URL"
@@ -353,7 +383,8 @@ def global_config_query(registry: str = None) -> Dict[str, Any]:
         )
         fdp_serv.install_registry()
 
-    _local_port = click.prompt("Local server port", default=str(8000))
+    _default_url = 'http://localhost:8000/api/'
+    _local_uri = click.prompt("Local Registry URL", default=_default_url)
 
     _remote_url = click.prompt("Remote API URL")
 
@@ -376,13 +407,13 @@ def global_config_query(registry: str = None) -> Dict[str, Any]:
         _rem_key_file = click.prompt("Remote API Token File")
         _rem_key_file = os.path.expandvars(_rem_key_file)
 
-    if not fdp_serv.check_server_running(_local_port):
+    if not fdp_serv.check_server_running(_local_uri):
         _run_server = click.confirm(
             "Local registry is offline, would you like to start it?",
             default=False
         )
         if _run_server:
-            fdp_serv.launch_server(registry_dir=registry)
+            fdp_serv.launch_server(_local_uri, registry_dir=registry)
 
             # Keep server running by creating user run cache file
             _cache_addr = os.path.join(
@@ -392,7 +423,7 @@ def global_config_query(registry: str = None) -> Dict[str, Any]:
 
         else:
             click.echo("Temporarily launching server to retrieve API token.")
-            fdp_serv.launch_server(registry_dir=registry)
+            fdp_serv.launch_server(_local_uri, registry_dir=registry)
             fdp_serv.stop_server()
             try:
                 fdp_req.local_token()
@@ -409,7 +440,7 @@ def global_config_query(registry: str = None) -> Dict[str, Any]:
     _glob_conf_dict = _get_user_info_and_namespaces()
     _glob_conf_dict['registries']  = {
         'local': {
-            'uri': f'http://localhost:{_local_port}/api/',
+            'uri': _local_uri,
             'directory': os.path.abspath(registry),
             'data_store': _loc_data_store
         },

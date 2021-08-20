@@ -20,6 +20,7 @@ import typing
 import os
 import collections
 import urllib.parse
+import click
 import logging
 import yaml
 
@@ -186,15 +187,73 @@ def push_dependency_chain(
     return _new_urls
         
 
-def push_from_config(config_yaml: str) -> None:
+def push_from_config(
+    local_uri: str,
+    dest_uri: str,
+    dest_token: str,
+    config_yaml: str) -> None:
     if not os.path.exists(config_yaml):
         raise fdp_exc.FileNotFoundError(
             f"Cannot load write statements from '{config_yaml}', "
             "file does not exist."
         )
+    _logger.debug(f"Reading 'write' statement in '{config_yaml}'")
     _config = yaml.safe_load(open(config_yaml))
 
     if 'write' not in _config:
+        click.echo("Nothing to push.")
         return
 
-    pass
+    for object in _config['write']:
+        _logger.debug(f"Processing object '{object}'")
+        if 'external_object' in object:
+            _usable_fields = {}
+            if 'identifier' in object:
+                _usable_fields['identifier'] = object['identifier']
+            elif 'alternate_identifier' in object:
+                _usable_fields['identifier'] = object['alternate_identifier']
+            if 'title' in object:
+                _usable_fields['title'] = object['title']
+            if 'version' in object:
+                _usable_fields['version'] = object['version']
+            _entries = fdp_req.get(
+                local_uri,
+                'external_object',
+                params=_usable_fields
+            )
+
+            if not _entries or len(_entries) > 1:
+                raise fdp_exc.InternalError(
+                    "Expected single entry for 'external_object' "
+                    f"'{object['external_object']}"
+                )
+            
+            _url = _entries[0]['url']
+
+            push_dependency_chain(_url, dest_uri, dest_token)
+        elif 'data_product' in object:
+            _usable_fields = {'name': object['data_product']}
+            if 'version' in object:
+                _usable_fields['version'] = object['version']
+            
+            _entries = fdp_req.get(
+                local_uri,
+                'data_product',
+                params=_usable_fields
+            )
+
+            if not _entries or len(_entries) > 1:
+                raise fdp_exc.InternalError(
+                    "Expected single entry for 'data_product' "
+                    f"'{object['data_product']}"
+                )
+            
+            _url = _entries[0]['url']
+
+            push_dependency_chain(_url, dest_uri, dest_token)
+        else:
+            fdp_exc.NotImplementedError(
+                "Cannot write unsupported data type, object must be "
+                "either a data_product or external_object"
+            )
+            

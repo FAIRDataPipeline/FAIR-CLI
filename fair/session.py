@@ -51,6 +51,7 @@ import fair.exceptions as fdp_exc
 import fair.history as fdp_hist
 import fair.staging as fdp_stage
 import fair.testing as fdp_test
+import fair.registry.sync as fdp_sync
 
 
 class FAIR:
@@ -131,6 +132,18 @@ class FAIR:
         self._load_configurations()
 
         self._setup_server()
+
+    def push(self, remote: str = 'origin'):
+        self._logger.debug(
+            f"Pushing items in '{self._session_config}:write' to remote"
+            f" registry '{remote}'"
+        )
+        fdp_sync.push_from_config(
+            fdp_conf.get_local_uri(),
+            fdp_conf.get_remote_uri(self._session_loc, remote),
+            fdp_conf.get_remote_token(self._session_loc, remote),
+            self._session_config
+        )
 
     def purge(
         self,
@@ -214,7 +227,7 @@ class FAIR:
                 )
             click.echo("Starting local registry server")
             pathlib.Path(_cache_addr).touch()
-            fdp_serv.launch_server(self._session_loc, verbose=True)
+            fdp_serv.launch_server(fdp_conf.get_local_uri(), verbose=True)
         elif self._run_mode in [
             fdp_serv.SwitchMode.USER_STOP,
             fdp_serv.SwitchMode.FORCE_STOP,

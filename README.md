@@ -124,7 +124,6 @@ Initialising FAIR repository, setup will now ask for basic info:
 
 Checking for local registry
 Local registry found
-Local server port [8000]:
 Remote Data Storage Root [http://data.scrc.uk/data/]: 
 Remote API Token File: $HOME/scrc_token.txt
 Local API URL [http://localhost:8000/api/]: 

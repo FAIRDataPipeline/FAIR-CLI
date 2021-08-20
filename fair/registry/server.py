@@ -48,32 +48,31 @@ class SwitchMode(enum.Enum):
     NO_SERVER = 4
 
 
-def check_server_running(port: int = None) -> bool:
+def check_server_running(local_uri: str = None) -> bool:
     """Check the state of server
 
     Parameters
     ----------
-    port : int
-        port local registry is running on
+    local_uri : str
+        local registyr endpoint
 
     Returns
     -------
     bool
         whether server is running
     """
-    if not port:
-        port = fdp_conf.get_local_port()
-    _local_remote = f'http://localhost:{port}/api/'
+    if not local_uri:
+        local_uri = fdp_conf.get_local_uri()
 
     try:
-        _status_code = requests.get(_local_remote).status_code
+        _status_code = requests.get(local_uri).status_code
         assert _status_code == 200
         return True
     except (requests.exceptions.ConnectionError, AssertionError):
         return False
 
 
-def launch_server(registry_dir: str = None, verbose: bool = False) -> int:
+def launch_server(local_uri: str = None, registry_dir: str = None, verbose: bool = False) -> int:
     """Start the registry server.
 
     Parameters
@@ -95,7 +94,7 @@ def launch_server(registry_dir: str = None, verbose: bool = False) -> int:
             " is the FAIR data pipeline properly installed on this system?"
         )
 
-    _cmd = [_server_start_script, '-p', fdp_conf.get_local_port()]
+    _cmd = [_server_start_script, '-p', fdp_conf.get_local_port(local_uri)]
 
     _start = subprocess.Popen(
         _cmd,
@@ -110,7 +109,7 @@ def launch_server(registry_dir: str = None, verbose: bool = False) -> int:
 
     _start.wait()
 
-    if not check_server_running():
+    if not check_server_running(local_uri):
         raise fdp_exc.RegistryError(
             "Failed to start local registry, no response from server"
         )
@@ -134,8 +133,6 @@ def stop_server(
             f"'{_session_port_file}', file does not exist"
         )
     
-    _port = int(open(_session_port_file).read().strip())
-
     # If there are no session cache files shut down server
     _run_files = glob.glob(os.path.join(fdp_com.session_cache_dir(), "*.run"))
     if not force and _run_files:
@@ -166,7 +163,7 @@ def stop_server(
 
     _stop.wait()
 
-    if check_server_running(_port):
+    if check_server_running():
         raise fdp_exc.RegistryError("Failed to stop registry server.")
 
 def install_registry() -> None:
