@@ -34,8 +34,8 @@ def glob_read_write(
     config_dict_sub: typing.List,
     search_key: str = 'name',
     local_glob: bool = False) -> typing.List:
-    """Substitute glob expressions in the 'read' or 'write' part of a user config 
-    
+    """Substitute glob expressions in the 'read' or 'write' part of a user config
+
     Parameters
     ----------
     local_repo : str
@@ -49,11 +49,11 @@ def glob_read_write(
         default is False.
     """
     _parsed: typing.List[typing.Dict] = []
-    
+
     # Check whether to glob the local or remote registry
     # retrieve the URI from the repository CLI config
     if local_glob:
-        _uri = fdp_conf.get_local_uri(local_repo) 
+        _uri = fdp_conf.get_local_uri() 
     else:
         _uri = fdp_conf.get_remote_uri(local_repo)
 
@@ -61,7 +61,7 @@ def glob_read_write(
     # key-value pairs that contain glob statements.
     for entry in config_dict_sub:
         # We still want to keep the wildcard version in case the
-        # user wants to write to this namespace 
+        # user wants to write to this namespace
         _parsed.append(entry)
 
         _glob_vals = [(k, v) for k, v in entry.items() if '*' in v]
@@ -94,7 +94,5 @@ def glob_read_write(
             _entry_dict[_key_glob] = result[search_key]
             _parsed.append(_entry_dict)
 
-    # Before returning the list of dictionaries remove any duplicates    
+    # Before returning the list of dictionaries remove any duplicates
     return fdp_util.remove_dictlist_dupes(_parsed)
-  
-

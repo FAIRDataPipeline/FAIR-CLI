@@ -93,7 +93,7 @@ def remote_token(remote: str = "origin") -> str:
             f"Cannot open token file '{_token_file}', "
             "file does not exist."
         )
-    
+
     _token = open(_token_file).read()
 
     if not _token.strip():
@@ -131,7 +131,7 @@ def _access(
         _uri += '/'
 
     _url = urllib.parse.urljoin(_uri, obj_path) if obj_path else uri
-    
+
     if _url[-1] != "/":
         _url += "/"
 
@@ -167,8 +167,10 @@ def _access(
     _result = _json_req["results"] if "results" in _json_req else _json_req
 
     # Case of unrecognised object
+
+    #TODO: fix _searchable as for 403 error, shouldnt need join()
     if _request.status_code == 403:
-        _searchable = uri if not obj_path else '/'.join(obj_path)
+        _searchable = uri if not obj_path else obj_path
         raise fdp_exc.RegistryAPICallError(
             f"Failed to retrieve object of type '{_searchable}' "
             f"using method '{method}' and arguments:\n"+_info,
@@ -181,7 +183,7 @@ def _access(
             f"using method '{method}' as it already exists."
             f"Arguments:\n"+_info,
             error_code=409,
-            
+
         )
     elif _request.status_code != response_code:
         _info = ""
@@ -290,13 +292,13 @@ def get(
     """
     if not headers:
         headers = {}
-    
+
     if not params:
         params = {}
-    
+
     if not token:
         token = local_token()
-    
+
     return _access(
         uri,
         "get",
@@ -394,7 +396,7 @@ def filter_object_dependencies(
             _filter_result.append(info[filt] == value)
         if all(_filter_result):
             _fields.append(name)
-    
+
     return _fields
 
 
@@ -437,7 +439,7 @@ def get_writable_fields(
     Returns
     -------
     typing.List[str]
-        list of object type paths   
+        list of object type paths
     """
     _writable_fields = filter_object_dependencies(
         uri, obj_path, {"read_only": False}
