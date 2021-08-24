@@ -200,7 +200,7 @@ def subst_versions(local_uri: str, config_yaml_dict: typing.Dict) -> typing.Dict
             except fdp_exc.UserConfigError:
                 _new_version = semver.VersionInfo.parse(item['use']['version'])
         else:
-            _new_version = _latest_version.bump_minor()
+            _new_version = _latest_version.bump_patch()
         if 'use' not in _write_statements[i]:
             _write_statements[i]['use'] = {}
         _write_statements[i]['use']['version'] = str(_new_version)
