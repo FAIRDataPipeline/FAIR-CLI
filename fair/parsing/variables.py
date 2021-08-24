@@ -63,7 +63,7 @@ def subst_cli_vars(
     Returns
     -------
     Dict
-        new user configuration dictionary with substitutions    
+        new user configuration dictionary with substitutions
     """
     if not os.path.exists(config_yaml):
         raise fdp_exc.FileNotFoundError(
@@ -88,7 +88,7 @@ def subst_cli_vars(
         raise fdp_exc.InternalError(
             "Expected 'local_repo' definition in user configuration file"
         )
-    
+
     _local_repo = _yaml_dict['run_metadata']['local_repo']
 
     _fair_head = fdp_com.find_fair_root(_local_repo)
@@ -144,7 +144,7 @@ def subst_cli_vars(
         var: r'\$\{\{\s*'+f'{var}'+r'\s*\}\}'
         for var in _substitutes
     }
-    
+
     # Perform string substitutions
     for var, subst in _regex_dict.items():
         # Only execute functions in var substitutions that are required
@@ -154,7 +154,7 @@ def subst_cli_vars(
     _user_conf = yaml.safe_load(_conf_str)
 
     # Parse 'write' block for any versioning
-    _user_conf = subst_versions(local_uri, _user_conf)    
+    _user_conf = subst_versions(local_uri, _user_conf)
 
     return _user_conf
 
@@ -163,7 +163,7 @@ def subst_versions(local_uri: str, config_yaml_dict: typing.Dict) -> typing.Dict
     # dynamic versionables only present in write statement
     if 'write' not in config_yaml_dict:
         return config_yaml_dict
-    
+
     _out_dict = copy.deepcopy(config_yaml_dict)
     _obj_type = 'data_product'
 
@@ -196,13 +196,12 @@ def subst_versions(local_uri: str, config_yaml_dict: typing.Dict) -> typing.Dict
                 _new_version = getattr(_latest_version, _incrementer)()
             except fdp_exc.UserConfigError:
                 _new_version = semver.VersionInfo.parse(item['use']['version'])
-        else:       
-            _new_version = _latest_version.bump_minor()
+        else:
+            _new_version = _latest_version.bump_patch()
         if 'use' not in _write_statements[i]:
             _write_statements[i]['use'] = {}
         _write_statements[i]['use']['version'] = str(_new_version)
-    
+
     _out_dict['write'] = _write_statements
 
     return _out_dict
-
