@@ -156,6 +156,9 @@ def subst_cli_vars(
     # Parse 'write' block for any versioning
     _user_conf = subst_versions(local_uri, _user_conf)
 
+    # Parse 'read' block and get data product versions
+    _user_conf = get_read_version(local_uri, _user_conf)
+
     return _user_conf
 
 
@@ -203,5 +206,59 @@ def subst_versions(local_uri: str, config_yaml_dict: typing.Dict) -> typing.Dict
         _write_statements[i]['use']['version'] = str(_new_version)
 
     _out_dict['write'] = _write_statements
+
+    return _out_dict
+
+def get_read_version(
+    local_uri: str,
+    config_yaml_dict: typing.Dict
+) -> typing.Dict:
+    # Check if read block exists, if not return unaltered dict
+    if 'read' not in config_yaml_dict:
+        return config_yaml_dict
+
+    _out_dict = copy.deepcopy(config_yaml_dict)
+    _obj_type = 'data_product'
+
+    _read_statements = config_yaml_dict['read']
+
+    for i, item in enumerate(_read_statements):
+        if _obj_type not in item:
+            raise fdp_exc.UserConfigError(
+                f"Expected '{_obj_type}' key in object '{item}'"
+            )
+
+        _params = {"name": item[_obj_type]}
+        _results = None
+
+        try:
+            _results = fdp_reg_req.get(local_uri, _obj_type, params=_params)
+            if not _results:
+                raise AssertionError
+        except (AssertionError, fdp_exc.RegistryAPICallError):
+            # Object does not yet exist on the local registry
+            pass
+
+        _product_version = fdp_ver.get_latest_version(_results)
+
+        # Shouldn't need this block for read versioning
+        """
+        if 'use' in item and 'version' in item['use']:
+            # Check if 'version' is an incrementer definition
+            # if not then try using it as a hard set version
+            try:
+                _incrementer = fdp_ver.parse_incrementer(item['use']['version'])
+                _new_version = getattr(_latest_version, _incrementer)()
+            except fdp_exc.UserConfigError:
+                _new_version = semver.VersionInfo.parse(item['use']['version'])
+        else:
+            _new_version = _latest_version.bump_minor()
+        """
+
+        if 'use' not in _read_statements[i]:
+            _read_statements[i]['use'] = {}
+        _read_statements[i]['use']['version'] = str(_product_version)
+
+    _out_dict['read'] = _read_statements
 
     return _out_dict
