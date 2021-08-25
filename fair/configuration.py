@@ -150,8 +150,8 @@ def get_remote_uri(repo_loc: str, remote_label: str = 'origin') -> str:
     repo_loc : str
         local FAIR repository directory
     remote_label : str, optional
-        label of remote to retrieve, default is 'origin' 
-    
+        label of remote to retrieve, default is 'origin'
+
     Returns
     -------
     str
@@ -175,7 +175,7 @@ def get_session_git_repo(repo_loc: str) -> str:
         the root git repository directory
     """
     _local_conf = read_local_fdpconfig(repo_loc)
-    
+
     try:
         return _local_conf['git']['local_repo']
     except KeyError:
@@ -225,7 +225,7 @@ def get_session_git_remote(repo_loc: str) -> str:
         the remote of the git repository
     """
     _local_conf = read_local_fdpconfig(repo_loc)
-    
+
     try:
         return _local_conf['git']['remote']
     except KeyError:
@@ -397,7 +397,7 @@ def global_config_query(registry: str = None) -> Dict[str, Any]:
     _rem_key_file = os.path.expandvars(_rem_key_file)
 
     while (
-        not os.path.exists(_rem_key_file) 
+        not os.path.exists(_rem_key_file)
         or not open(_rem_key_file).read().strip()
         ):
         click.echo(
@@ -433,7 +433,7 @@ def global_config_query(registry: str = None) -> Dict[str, Any]:
                 )
 
     _loc_data_store = click.prompt(
-        "Default Data Store: ", 
+        "Default Data Store: ",
         default=os.path.join(fdp_com.USER_FAIR_DIR, 'data')
     )
 
@@ -503,7 +503,7 @@ def local_config_query(
     else:
         _def_ispace = global_config['namespaces']['input']
 
-    _desc = click.prompt("Project description")
+    #_desc = click.prompt("Project description")
 
     # Try checking to see if the current location is a git repository and
     # suggesting this as a default
@@ -560,7 +560,7 @@ def local_config_query(
         _def_rem_key = click.prompt("Remote API Token File", default=_def_rem_key)
         _def_rem_key = os.path.expandvars(_def_rem_key)
         while (
-            not os.path.exists(_def_rem_key) 
+            not os.path.exists(_def_rem_key)
             or not open(_def_rem_key).read().strip()
         ):
             click.echo(
@@ -597,7 +597,7 @@ def local_config_query(
 
     _local_config['registries']['origin']['uri'] =  _def_remote
 
-    _local_config["description"] = _desc
+    #_local_config["description"] = _desc
     _local_config['user'] = _def_user
 
     return _local_config
