@@ -111,7 +111,7 @@ class FAIR:
             else fdp_com.local_user_config(self._session_loc)
         )
 
-        if (not server_mode == fdp_serv.SwitchMode.NO_SERVER 
+        if (not server_mode == fdp_serv.SwitchMode.NO_SERVER
             and not os.path.exists(fdp_com.registry_home())
         ):
             raise fdp_exc.RegistryError(
@@ -256,7 +256,7 @@ class FAIR:
         if not os.path.exists(self._session_config):
             self.make_starter_config()
         self._logger.debug("Setting up command execution")
-        
+
         _hash = fdp_run.run_command(
             local_uri=fdp_conf.get_local_uri(),
             repo_dir=self._session_loc,
@@ -336,7 +336,7 @@ class FAIR:
             remove from tracking but not from system, by default False
         """
         self.check_is_repo()
-        
+
         self._stager.remove_staging_entry(job_id)
 
     def add_remote(
@@ -446,7 +446,7 @@ class FAIR:
             click.echo(f'\t(use "fair add <job>..." to stage jobs)')
 
             click.echo("\tJobs:")
-            
+
             for job in _unstaged_jobs:
                 click.echo(click.style(f"\t\t{job}", fg="red"))
                 _job_urls = self._stager.get_job_data(
@@ -504,7 +504,7 @@ class FAIR:
             )
             _yaml_dict = yaml.safe_load(_yaml_str)
 
-            yaml.dump(_yaml_dict, f)
+            yaml.dump(_yaml_dict, f, sort_keys = False)
 
     def _export_cli_configuration(self, output_file: str) -> None:
         _cli_config = fdp_conf.read_global_fdpconfig()
@@ -553,7 +553,7 @@ class FAIR:
             os.makedirs(fdp_com.session_cache_dir(), exist_ok=True)
             if using:
                 self._validate_and_load_cli_config(using)
-            self._stager.initialise()           
+            self._stager.initialise()
 
         if not os.path.exists(fdp_com.global_fdpconfig()):
             self._global_config = fdp_conf.global_config_query(
@@ -573,7 +573,7 @@ class FAIR:
         else:
             self._global_config = yaml.safe_load(open(fdp_com.global_fdpconfig()))
             self._local_config = yaml.safe_load(open(fdp_com.local_fdpconfig(self._session_loc)))
-        
+
         if export_as:
             self._export_cli_configuration(export_as)
 
@@ -593,7 +593,7 @@ class FAIR:
             )
             os.remove(_cache_addr)
 
-        if (not os.path.exists(os.path.join(fdp_com.session_cache_dir(), "user.run")) 
+        if (not os.path.exists(os.path.join(fdp_com.session_cache_dir(), "user.run"))
             and self._run_mode != fdp_serv.SwitchMode.NO_SERVER
         ):
             fdp_serv.stop_server()
@@ -647,7 +647,7 @@ class FAIR:
                     f"Expected key 'directory' for remote '{name}' "
                     "in CLI configuration"
                 )
-        
+
         _user_keys = ['email', 'family_name', 'given_names', 'orcid', 'uuid']
 
         for key in _user_keys:
