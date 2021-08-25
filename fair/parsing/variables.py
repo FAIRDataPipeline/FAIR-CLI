@@ -191,16 +191,16 @@ def subst_versions(local_uri: str, config_yaml_dict: typing.Dict) -> typing.Dict
 
         _latest_version = fdp_ver.get_latest_version(_results)
 
+        # Check for whether format is ['use']['version'] or just ['version']
         if 'use' in item and 'version' in item['use']:
-            # Check if 'version' is an incrementer definition
-            # if not then try using it as a hard set version
-            try:
-                _incrementer = fdp_ver.parse_incrementer(item['use']['version'])
-                _new_version = getattr(_latest_version, _incrementer)()
-            except fdp_exc.UserConfigError:
-                _new_version = semver.VersionInfo.parse(item['use']['version'])
+            _new_version = _bump_version(item['use']['version'], _latest_version)
+        elif 'version' in item:
+            _new_version = _bump_version(item['version'], _latest_version)
+            # Remove version entry and add back as use: version later
+            del item['version']
         else:
             _new_version = _latest_version.bump_patch()
+
         if 'use' not in _write_statements[i]:
             _write_statements[i]['use'] = {}
         _write_statements[i]['use']['version'] = str(_new_version)
@@ -209,6 +209,7 @@ def subst_versions(local_uri: str, config_yaml_dict: typing.Dict) -> typing.Dict
 
     return _out_dict
 
+# TODO: This should probably be merged as one function with subst_versions
 def get_read_version(
     local_uri: str,
     config_yaml_dict: typing.Dict
@@ -241,20 +242,6 @@ def get_read_version(
 
         _product_version = fdp_ver.get_latest_version(_results)
 
-        # Shouldn't need this block for read versioning
-        """
-        if 'use' in item and 'version' in item['use']:
-            # Check if 'version' is an incrementer definition
-            # if not then try using it as a hard set version
-            try:
-                _incrementer = fdp_ver.parse_incrementer(item['use']['version'])
-                _new_version = getattr(_latest_version, _incrementer)()
-            except fdp_exc.UserConfigError:
-                _new_version = semver.VersionInfo.parse(item['use']['version'])
-        else:
-            _new_version = _latest_version.bump_minor()
-        """
-
         if 'use' not in _read_statements[i]:
             _read_statements[i]['use'] = {}
         _read_statements[i]['use']['version'] = str(_product_version)
@@ -262,3 +249,18 @@ def get_read_version(
     _out_dict['read'] = _read_statements
 
     return _out_dict
+
+def _bump_version(
+    item_version: str,
+    latest_version: semver.VersionInfo
+) -> semver.VersionInfo:
+    # Check if 'version' is an incrementer definition
+    # if not then try using it as a hard set version
+
+    try:
+        _incrementer = fdp_ver.parse_incrementer(item_version)
+        _new_version = getattr(latest_version, _incrementer)()
+    except fdp_exc.UserConfigError:
+        _new_version = semver.VersionInfo.parse(item_version)
+
+    return _new_version
