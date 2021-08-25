@@ -548,9 +548,11 @@ def local_config_query(
             click.echo("Invalid remote name for git repository")
             _git_remote = click.prompt("Git remote name", default=_def_rem)
 
+    _git_remote_repo = git.Repo(_git_repo).remotes[_git_remote].url
+
     click.echo(
         f"Using git repository remote '{_git_remote}': "
-        f"{git.Repo(_git_repo).remotes[_git_remote].url}"
+        f"{_git_remote_repo}"
     )
 
     # If this is not the first setup it means globals are available so these
@@ -585,7 +587,8 @@ def local_config_query(
 
     _local_config['git'] = {
         "remote": _git_remote,
-        "local_repo": _git_repo
+        "local_repo": _git_repo,
+        "remote_repo": _git_remote_repo
     }
 
     # Copy the global configuration then substitute updated
