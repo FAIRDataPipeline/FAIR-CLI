@@ -33,7 +33,8 @@ def glob_read_write(
     local_repo: str,
     config_dict_sub: typing.List,
     search_key: str = 'name',
-    local_glob: bool = False) -> typing.List:
+    local_glob: bool = False,
+    remove_wildcard: bool = False) -> typing.List:
     """Substitute glob expressions in the 'read' or 'write' part of a user config
 
     Parameters
@@ -47,13 +48,15 @@ def glob_read_write(
     local_glob : bool, optional
         whether to search the local or remote registry,
         default is False.
+    remove_wildcard: bool, optional
+        whether to delete wildcard from yaml file, default is False
     """
     _parsed: typing.List[typing.Dict] = []
 
     # Check whether to glob the local or remote registry
     # retrieve the URI from the repository CLI config
     if local_glob:
-        _uri = fdp_conf.get_local_uri() 
+        _uri = fdp_conf.get_local_uri()
     else:
         _uri = fdp_conf.get_remote_uri(local_repo)
 
@@ -62,7 +65,8 @@ def glob_read_write(
     for entry in config_dict_sub:
         # We still want to keep the wildcard version in case the
         # user wants to write to this namespace
-        _parsed.append(entry)
+        if not remove_wildcard:
+            _parsed.append(entry)
 
         _glob_vals = [(k, v) for k, v in entry.items() if '*' in v]
         if len(_glob_vals) > 1:
