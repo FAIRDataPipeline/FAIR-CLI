@@ -361,22 +361,30 @@ def create_working_config(
         location to write generated config
     time : datetime.datetime
         time stamp of job initiation time
-    
+
     Return
     ------
     typing.Dict
         dictionary after substitutions
     """
-    
+
     _conf_yaml = fdp_varparse.subst_cli_vars(
         local_uri, job_dir, time, config_yaml
-    )   
+    )
 
     if 'read' in _conf_yaml:
-        _conf_yaml['read'] = fdp_glob.glob_read_write(repo_dir, _conf_yaml['read'])
+        _conf_yaml['read'] = fdp_glob.glob_read_write(
+            repo_dir,
+            _conf_yaml['read'],
+            local_glob = True
+        )
 
     if 'write' in _conf_yaml:
-        _conf_yaml['write'] = fdp_glob.glob_read_write(repo_dir, _conf_yaml['write'])
+        _conf_yaml['write'] = fdp_glob.glob_read_write(
+            repo_dir,
+            _conf_yaml['write'],
+            local_glob = True
+        )
 
     # If local_repo is not present in the user config assign it to the
     # the current git repository
@@ -399,7 +407,7 @@ def get_job_hash(job_dir: str) -> str:
     """Retrieve the hash for a given job
 
     NOTE: A job can consist of multiple code runs if the API implementation
-    called initiates multiple executions. "Job" here refers to a call of 
+    called initiates multiple executions. "Job" here refers to a call of
     'fair run'.
 
     Parameters
@@ -440,7 +448,7 @@ def get_job_dir(job_hash: str) -> str:
         _hash = hashlib.sha1(os.path.abspath(job).encode("utf-8")).hexdigest()
         if _hash == job_hash:
             return job
-    
+
     return ""
 
 
@@ -510,7 +518,7 @@ def setup_job_script(
         if _cmd:
             with open(_out_file, "w") as f:
                 f.write(_cmd)
-    
+
     if not _cmd or not _out_file:
         raise fdp_exc.UserConfigError(
             "Configuration file must contain either a valid "
