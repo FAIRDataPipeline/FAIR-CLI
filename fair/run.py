@@ -376,7 +376,8 @@ def create_working_config(
         _conf_yaml['read'] = fdp_glob.glob_read_write(
             repo_dir,
             _conf_yaml['read'],
-            local_glob = True
+            local_glob = True,
+            remove_wildcard = True
         )
 
     if 'write' in _conf_yaml:
