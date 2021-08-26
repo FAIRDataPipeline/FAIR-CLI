@@ -584,6 +584,9 @@ class FAIR:
             fdp_serv.launch_server(_local_uri)
         fdp_store.populate_file_type(_local_uri)
 
+        # Add author and UserAuthor
+        fdp_store.store_user(self._session_loc, _local_uri)
+
         click.echo(f"Initialised empty fair repository in {_fair_dir}")
 
     def close_session(self) -> None:
