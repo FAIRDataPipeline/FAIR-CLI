@@ -230,6 +230,15 @@ def get_read_version(
             )
 
         _params = {"name": item[_obj_type]}
+
+        # If version is specified, add as parameter for API call
+        if 'use' in item and 'version' in item['use']:
+            _params['version'] = item['use']['version']
+        elif 'version' in item:
+            _params['version'] = item['version']
+            # Remove version entry and add back as use: version later
+            del item['version']
+
         _results = None
 
         try:
