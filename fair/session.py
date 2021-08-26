@@ -586,7 +586,11 @@ class FAIR:
         fdp_store.populate_file_type(_local_uri)
 
         # Add author and UserAuthor
-        _author_url = fdp_store.store_user(self._session_loc, _local_uri)['url']
+        _author_result = fdp_store.store_user(self._session_loc, _local_uri)
+        try:
+            _author_url = _author_result['url']
+        except(TypeError):
+            _author_url = _author_result[0]['url']
         _user_url = fdp_req.get(
             _local_uri,
             'users',
