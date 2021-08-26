@@ -53,6 +53,7 @@ import fair.staging as fdp_stage
 import fair.testing as fdp_test
 import fair.registry.sync as fdp_sync
 import fair.registry.storage as fdp_store
+import fair.registry.requests as fdp_req
 
 
 class FAIR:
@@ -585,7 +586,23 @@ class FAIR:
         fdp_store.populate_file_type(_local_uri)
 
         # Add author and UserAuthor
-        fdp_store.store_user(self._session_loc, _local_uri)
+        _author_url = fdp_store.store_user(self._session_loc, _local_uri)['url']
+        _user_url = fdp_req.get(
+            _local_uri,
+            'users',
+            params = {
+                'username': 'admin'
+            }
+        )[0]['url']
+
+        fdp_req.post_else_get(
+            _local_uri,
+            'user_author',
+            data = {
+                'user': _user_url,
+                'author': _author_url
+            }
+        )
 
         click.echo(f"Initialised empty fair repository in {_fair_dir}")
 
