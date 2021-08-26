@@ -52,6 +52,7 @@ import fair.history as fdp_hist
 import fair.staging as fdp_stage
 import fair.testing as fdp_test
 import fair.registry.sync as fdp_sync
+import fair.registry.storage as fdp_store
 
 
 class FAIR:
@@ -576,6 +577,12 @@ class FAIR:
 
         if export_as:
             self._export_cli_configuration(export_as)
+
+        # Populate file type table
+        _local_uri = fdp_conf.get_local_uri()
+        if not fdp_serv.check_server_running(_local_uri):
+            fdp_serv.launch_server(_local_uri)
+        fdp_store.populate_file_type(_local_uri)
 
         click.echo(f"Initialised empty fair repository in {_fair_dir}")
 
