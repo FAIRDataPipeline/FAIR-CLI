@@ -181,13 +181,13 @@ def subst_versions(local_uri: str, config_yaml_dict: typing.Dict) -> typing.Dict
         _params = {"name": item[_obj_type]}
         _results = None
 
-        try:
-            _results = fdp_reg_req.get(local_uri, _obj_type, params=_params)
-            if not _results:
-                raise AssertionError
-        except (AssertionError, fdp_exc.RegistryAPICallError):
-            # Object does not yet exist on the local registry
-            pass
+        _results = fdp_reg_req.get(local_uri, _obj_type, params=_params)
+
+        if not _results:
+            raise fdp_exc.RegistryAPICallError(
+                f"'{item[_obj_type]}' does not exist in local registry",
+                error_code = 400
+            )
 
         _latest_version = fdp_ver.get_latest_version(_results)
 
@@ -247,7 +247,7 @@ def get_read_version(
                 raise AssertionError
         except (AssertionError, fdp_exc.RegistryAPICallError):
             # Object does not yet exist on the local registry
-            pass
+            continue
 
         _product_version = fdp_ver.get_latest_version(_results)
 
