@@ -427,12 +427,17 @@ def config_email(user_email: str) -> None:
 
 
 @cli.command()
+@click.argument(
+    "config",
+    nargs=-1
+)
 @click.option('--debug/--no-debug')
-def pull(debug: bool):
+def pull(config: str, debug: bool):
     """Update local registry from remotes and sources"""
     try:
         with fdp_session.FAIR(
             os.getcwd(),
+            config,
             server_mode=fdp_svr.SwitchMode.CLI,
             debug=debug
         ) as fair:
