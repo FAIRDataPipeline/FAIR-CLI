@@ -252,7 +252,7 @@ def get_read_version(
         _results = fdp_reg_req.get(local_uri, _obj_type, params=_params)
 
         if not _results:
-            if _params['version']:
+            if 'version' in _params:
                 _msg = f"'{item[_obj_type]} v{_params['version']}' does not exist in local registry"
             else:
                 _msg = f"'{item[_obj_type]}' does not exist in local registry"
