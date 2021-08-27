@@ -503,8 +503,6 @@ def local_config_query(
     else:
         _def_ispace = global_config['namespaces']['input']
 
-    #_desc = click.prompt("Project description")
-
     # Try checking to see if the current location is a git repository and
     # suggesting this as a default
     try:
@@ -599,8 +597,7 @@ def local_config_query(
     del _local_config['registries']['local']
 
     _local_config['registries']['origin']['uri'] =  _def_remote
-
-    #_local_config["description"] = _desc
+    
     _local_config['user'] = _def_user
 
     return _local_config
