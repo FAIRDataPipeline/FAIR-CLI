@@ -253,15 +253,15 @@ def get_read_version(
 
         if not _results:
             if _params['version']:
-                raise fdp_exc.RegistryAPICallError(
-                    f"'{item[_obj_type]} v{_params['version']}' does not exist in local registry",
-                    error_code = 400
-                )
+                _msg = f"'{item[_obj_type]} v{_params['version']}' does not exist in local registry"
             else:
-                raise fdp_exc.RegistryAPICallError(
-                    f"'{item[_obj_type]}' does not exist in local registry",
-                    error_code = 400
-                )
+                _msg = f"'{item[_obj_type]}' does not exist in local registry"
+
+            raise fdp_exc.RegistryAPICallError(
+                _msg,
+                error_code = 400
+            )
+
 
         _product_version = fdp_ver.get_latest_version(_results)
 
