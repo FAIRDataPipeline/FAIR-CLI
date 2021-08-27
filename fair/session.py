@@ -579,32 +579,6 @@ class FAIR:
         if export_as:
             self._export_cli_configuration(export_as)
 
-        # Populate file type table
-        _local_uri = fdp_conf.get_local_uri()
-        if not fdp_serv.check_server_running(_local_uri):
-            fdp_serv.launch_server(_local_uri)
-        fdp_store.populate_file_type(_local_uri)
-        
-        #TODO Kristian decide where this code should go
-        # Add author and UserAuthor
-        _author_url = fdp_store.store_user(self._session_loc, _local_uri)
-        _user_url = fdp_req.get(
-            _local_uri,
-            'users',
-            params = {
-                'username': 'admin'
-            }
-        )[0]['url']
-
-        fdp_req.post_else_get(
-            _local_uri,
-            'user_author',
-            data = {
-                'user': _user_url,
-                'author': _author_url
-            }
-        )
-
         click.echo(f"Initialised empty fair repository in {_fair_dir}")
 
     def close_session(self) -> None:
@@ -630,6 +604,33 @@ class FAIR:
             yaml.dump(self._global_config, f)
         with open(fdp_com.local_fdpconfig(self._session_loc), "w") as f:
             yaml.dump(self._local_config, f)
+
+        #TODO Kristian decide where this code should go
+        # Populate file type table
+        _local_uri = fdp_conf.get_local_uri()
+        if not fdp_serv.check_server_running(_local_uri):
+            fdp_serv.launch_server(_local_uri)
+        fdp_store.populate_file_type(_local_uri)
+
+
+        # Add author and UserAuthor
+        _author_url = fdp_store.store_user(self._session_loc, _local_uri)
+        _user_url = fdp_req.get(
+            _local_uri,
+            'users',
+            params = {
+                'username': 'admin'
+            }
+        )[0]['url']
+
+        fdp_req.post_else_get(
+            _local_uri,
+            'user_author',
+            data = {
+                'user': _user_url,
+                'author': _author_url
+            }
+        )
 
     def _validate_and_load_cli_config(self, cli_config: typing.Dict):
         _exp_keys = [
