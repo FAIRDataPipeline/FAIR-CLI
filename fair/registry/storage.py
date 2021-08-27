@@ -14,6 +14,7 @@ Functions
 
     get_write_storage - retrieve/create root data store
     store_user - create author entry for the current user
+    populate_file_type - adds entries for standard file types
     create_file_type - create a file type entry
     store_working_config - create locations/objects for a working config
 
@@ -125,6 +126,20 @@ def store_user(repo_dir: str, uri: str) -> str:
             uri, "author", data=_data, params={"uuid": _uuid}
         )
 
+def populate_file_type(uri:str):
+    """Populates file_type table with common file file_types
+
+    Parameters
+    ----------
+    uri: str
+        registry RestAPI end point
+    """
+
+    for _extension, _name in fdp_file.FILE_TYPES.items():
+        # Use post_else_get in case some file types exist already
+        fdp_req.post_else_get(
+            uri, "file_type", data={"name": _name, "extension": _extension.lower()}
+        )
 
 def create_file_type(uri: str, extension: str) -> str:
     """Creates a new file type on the registry
@@ -143,7 +158,7 @@ def create_file_type(uri: str, extension: str) -> str:
     """
     _name = fdp_file.FILE_TYPES[extension]
     return fdp_req.post_else_get(
-        uri, "file_type", data={"name": _name, "extension": extension}
+        uri, "file_type", data={"name": _name, "extension": extension.lower()}
     )
 
 
@@ -289,7 +304,7 @@ def store_working_script(
                 f"Cannot post storage_location "
                 f"'{_rel_path}' with hash"
                 f" '{_hash}', object already exists",
-                error_code=409   
+                error_code=409
             )
 
     _user = store_user(repo_dir, uri)
@@ -313,7 +328,7 @@ def store_working_script(
 
 
 def store_namespace(uri: str, namespace_label: str, full_name: str = None, website: str = None) -> str:
-    """Create a namespace on the 
+    """Create a namespace on the
 
     Parameters
     ----------
@@ -384,7 +399,7 @@ def store_data_file(
                 f"Cannot post storage_location "
                 f"'{_rel_path}' with hash"
                 f" '{_hash}', object already exists",
-                error_code=409 
+                error_code=409
             )
 
     _user = store_user(repo_dir, uri)
@@ -411,7 +426,7 @@ def store_data_file(
             if 'namespace_full_name' in data else None,
         "website": data['namespace_website']
             if 'namespace_website' in data else None
-    } 
+    }
 
     _namespace_url = store_namespace(**_namespace_args)
 
@@ -440,7 +455,7 @@ def store_data_file(
             f"Expected key 'url' in local registry API response"
             f" for post object '{_desc}'"
         )
-    
+
     # Get the name of the entry
     if 'data_product' in data:
         _name = data['data_product']
@@ -468,7 +483,7 @@ def store_data_file(
             raise fdp_exc.RegistryAPICallError(
                 f"Cannot post data_product"
                 f"'{_name}', duplicate already exists",
-                error_code=409   
+                error_code=409
             )
     except KeyError:
         raise fdp_exc.InternalError(
@@ -530,7 +545,7 @@ def store_data_file(
     }
 
     return fdp_req.post(uri, 'external_object', data=_external_obj_data)
-    
+
 
 def calculate_file_hash(file_name: str, buffer_size: int = 64*1024) -> str:
     """Calculates the hash of a data file
@@ -553,7 +568,7 @@ def calculate_file_hash(file_name: str, buffer_size: int = 64*1024) -> str:
         while len(_buffer) > 0:
             _input_hasher.update(_buffer)
             _buffer = in_f.read(buffer_size)
-    
+
     _hash = _input_hasher.hexdigest()
 
     return _hash
