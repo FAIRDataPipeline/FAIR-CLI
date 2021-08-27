@@ -181,13 +181,13 @@ def subst_versions(local_uri: str, config_yaml_dict: typing.Dict) -> typing.Dict
         _params = {"name": item[_obj_type]}
         _results = None
 
-        _results = fdp_reg_req.get(local_uri, _obj_type, params=_params)
-
-        if not _results:
-            raise fdp_exc.RegistryAPICallError(
-                f"'{item[_obj_type]}' does not exist in local registry",
-                error_code = 400
-            )
+        try:
+            _results = fdp_reg_req.get(local_uri, _obj_type, params=_params)
+            if not _results:
+                raise AssertionError
+        except (AssertionError, fdp_exc.RegistryAPICallError):
+            # Object does not yet exist on the local registry
+            pass
 
         _latest_version = fdp_ver.get_latest_version(_results)
 
@@ -200,6 +200,14 @@ def subst_versions(local_uri: str, config_yaml_dict: typing.Dict) -> typing.Dict
             del item['version']
         else:
             _new_version = _latest_version.bump_patch()
+
+        # Check write product/version not already in registry
+        _params['version'] = str(_new_version)
+        _write_product = fdp_reg_req.get(local_uri, _obj_type, params=_params)
+        if _write_product:
+            raise fdp_exc.UserConfigError(
+                f"Data product '{item[_obj_type]} v{str(_new_version)}' already exists in registry"
+            )
 
         if 'use' not in _write_statements[i]:
             _write_statements[i]['use'] = {}
@@ -241,13 +249,13 @@ def get_read_version(
 
         _results = None
 
-        try:
-            _results = fdp_reg_req.get(local_uri, _obj_type, params=_params)
-            if not _results:
-                raise AssertionError
-        except (AssertionError, fdp_exc.RegistryAPICallError):
-            # Object does not yet exist on the local registry
-            continue
+        _results = fdp_reg_req.get(local_uri, _obj_type, params=_params)
+
+        if not _results:
+            raise fdp_exc.RegistryAPICallError(
+                f"'{item[_obj_type]}' does not exist in local registry",
+                error_code = 400
+            )
 
         _product_version = fdp_ver.get_latest_version(_results)
 
