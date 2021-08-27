@@ -138,7 +138,7 @@ def populate_file_type(uri:str):
     for _extension, _name in fdp_file.FILE_TYPES.items():
         # Use post_else_get in case some file types exist already
         fdp_req.post_else_get(
-            uri, "file_type", data={"name": _name, "extension": _extension}
+            uri, "file_type", data={"name": _name, "extension": _extension.lower()}
         )
 
 def create_file_type(uri: str, extension: str) -> str:
@@ -158,7 +158,7 @@ def create_file_type(uri: str, extension: str) -> str:
     """
     _name = fdp_file.FILE_TYPES[extension]
     return fdp_req.post_else_get(
-        uri, "file_type", data={"name": _name, "extension": extension}
+        uri, "file_type", data={"name": _name, "extension": extension.lower()}
     )
 
 

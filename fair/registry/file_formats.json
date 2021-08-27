@@ -18,6 +18,7 @@
     "sh": "Bash Shell Script",
     "ps1": "Windows PowerShell Cmdlet File",
     "h5": "Hierarchical Data Format 5 File",
+    "hdf5": "Hierarchical Data Format 5 File",
     "pdb": "Program Database",
     "zip": "Zipped File",
     "tar": "Consolidated Unix File Archive",
