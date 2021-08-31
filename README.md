@@ -298,7 +298,7 @@ fair purge
 
 You can remove the global configuration and start again entirely by running:
 ```
-fair purge --glob
+fair purge --global
 ```
 
 and also the data directory by running:
