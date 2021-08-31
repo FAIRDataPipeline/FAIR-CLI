@@ -545,9 +545,10 @@ class FAIR:
             )
             return
 
-        click.echo(
-            "Initialising FAIR repository, setup will now ask for basic info:\n"
-        )
+        if not using:
+            click.echo(
+                "Initialising FAIR repository, setup will now ask for basic info:\n"
+            )
 
         if not os.path.exists(_fair_dir):
             os.mkdir(_fair_dir)
@@ -604,9 +605,9 @@ class FAIR:
         with open(fdp_com.local_fdpconfig(self._session_loc), "w") as f:
             yaml.dump(self._local_config, f)
 
-        #TODO Kristian decide where this code should go
+        #TODO Kristian decide where this code should go and whether there is a better way of identifying _local_uri
         # Populate file type table
-        _local_uri = fdp_conf.get_local_uri()
+        _local_uri = self._global_config['registries']['local']['uri']
         if not fdp_serv.check_server_running(_local_uri):
             fdp_serv.launch_server(_local_uri)
         fdp_store.populate_file_type(_local_uri)
