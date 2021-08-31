@@ -251,7 +251,8 @@ class FAIR:
     def run_job(
         self,
         bash_cmd: str = "",
-        mode: fdp_run.CMD_MODE = fdp_run.CMD_MODE.RUN
+        mode: fdp_run.CMD_MODE = fdp_run.CMD_MODE.RUN,
+        run_script = True
     ) -> None:
         """Execute a run using the given user configuration file"""
         self.check_is_repo()
@@ -265,6 +266,7 @@ class FAIR:
             config_yaml=self._session_config,
             bash_cmd=bash_cmd,
             mode=mode
+            run_script = run_script
         )
 
         # Automatically add the run to tracking but unstaged

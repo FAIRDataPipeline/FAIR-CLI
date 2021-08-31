@@ -102,6 +102,7 @@ def run_command(
     config_yaml: str = os.path.join(fdp_com.find_fair_root(), "config.yaml"),
     mode: CMD_MODE = CMD_MODE.RUN,
     bash_cmd: str = "",
+    run_script = True
 ) -> str:
     """Execute a process as part of job
 
@@ -118,7 +119,8 @@ def run_command(
         run from a given config.yaml file
     bash_cmd : str, optional
         override execution command with a bash command
-
+    run_script: bool, optional
+        whether to run script as part of run command
     Returns
     -------
         str
@@ -161,8 +163,10 @@ def run_command(
         _cfg['run_metadata']['script'] = bash_cmd
         yaml.dump(_cfg, open(config_yaml, 'w'))
 
-    _run_executable = "script" in _cfg["run_metadata"] or "script_path" in _cfg["run_metadata"]
-    _run_executable = _run_executable and mode == CMD_MODE.RUN
+    _run_exceutable = None
+    if run_script:
+        _run_executable = "script" in _cfg["run_metadata"] or "script_path" in _cfg["run_metadata"]
+        _run_executable = _run_executable and mode == CMD_MODE.RUN
 
     # Create a new timestamped directory for the job
     # use the key 'write_data_store' from the 'config.yaml' if

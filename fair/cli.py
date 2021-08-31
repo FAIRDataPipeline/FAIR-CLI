@@ -283,18 +283,28 @@ def rm(
     default=""
 )
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
-def run(config: str, script: str, debug: bool):
+@click.option(
+    "--cli/--no-cli",
+    help="Script not ran in cli mode",
+    default = False
+)
+def run(config: str, script: str, debug: bool, cli: bool):
     """Initialises a job with the option to specify a bash command"""
     # Allow no config to be specified, if that is the case use default local
     if len(config) > 0:
         config = config[0]
     else:
         config = fdp_com.local_user_config(os.getcwd())
+    if cli:
+        run_script = False
+    else:
+        run_script = True
+        
     try:
         with fdp_session.FAIR(
             os.getcwd(), config, debug=debug, server_mode=fdp_svr.SwitchMode.CLI,
         ) as fair_session:
-            fair_session.run_job(script, mode=fdp_run.CMD_MODE.RUN)
+            fair_session.run_job(script, mode=fdp_run.CMD_MODE.RUN, run_script)
     except fdp_exc.FAIRCLIException as e:
         if debug:
             raise e
