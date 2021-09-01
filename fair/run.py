@@ -128,8 +128,7 @@ def run_command(
     """
 
     _logger = logging.getLogger("FAIRDataPipeline.Run")
-
-    click.echo("Updating registry from config.yaml")
+    click.echo(f"Updating registry from {config_yaml}", err = True)
 
     # Record the time the job was commenced, create a log and both
     # print output and write it to the log file
