@@ -42,6 +42,5 @@ def create_configurations(registry_dir: str) -> typing.Dict:
             'local_repo': _git,
             'remote': 'origin'
         },
-        'description': 'Testing Project'
     }
     return _config_dict
