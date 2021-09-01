@@ -300,7 +300,9 @@ def run(config: str, script: str, debug: bool, ci: bool):
         with fdp_session.FAIR(
             os.getcwd(), config, debug=debug, server_mode=fdp_svr.SwitchMode.CLI,
         ) as fair_session:
-            fair_session.run_job(script, mode=_run_mode)
+            _hash = fair_session.run_job(script, mode=_run_mode)
+            if ci:
+                click.echo(f"Job directory: {fdp_run.get_job_dir(_hash)}")
     except fdp_exc.FAIRCLIException as e:
         if debug:
             raise e
