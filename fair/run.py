@@ -26,6 +26,7 @@ import sys
 import platform
 import typing
 import glob
+import logging
 import copy
 import hashlib
 import enum
@@ -93,7 +94,8 @@ SHELLS: typing.Dict[str, str] = {
 class CMD_MODE(enum.Enum):
     RUN = 1,
     PULL = 2,
-    PUSH = 3
+    PUSH = 3,
+    PASS = 4
 
 
 def run_command(
@@ -124,6 +126,8 @@ def run_command(
         str
             job hash
     """
+
+    _logger = logging.getLogger("FAIRDataPipeline.Run")
 
     click.echo("Updating registry from config.yaml")
 
@@ -164,6 +168,11 @@ def run_command(
     _run_executable = "script" in _cfg["run_metadata"] or "script_path" in _cfg["run_metadata"]
     _run_executable = _run_executable and mode == CMD_MODE.RUN
 
+    if mode == CMD_MODE.PASS:
+        _logger.debug(
+            "Run called in passive mode, no command will be executed"
+        )
+
     # Create a new timestamped directory for the job
     # use the key 'write_data_store' from the 'config.yaml' if
     # specified else revert to the
@@ -174,11 +183,15 @@ def run_command(
     else:
         _job_dir = fdp_com.default_jobs_dir()
 
+    _logger.debug("Using job directory: %s", _job_dir)
+
     _job_dir = os.path.join(_job_dir, _timestamp)
     os.makedirs(_job_dir, exist_ok=True)
 
     # Set location of working config.yaml to the job directory
     _work_cfg_yml = os.path.join(_job_dir, "config.yaml")
+
+    _logger.debug("Creating working config '%s'", _work_cfg_yml)
 
     # Create working config
     _work_cfg = create_working_config(
@@ -195,6 +208,7 @@ def run_command(
     _email = _glob_conf['user']['email']
 
     if mode == CMD_MODE.RUN:
+        _logger.debug("Performing 'register' substitutions")
         _conf_yaml = fdp_reg.subst_registrations(local_uri, _work_cfg)
     else:
         # If not a fair run then the log file will have less metadata
@@ -224,6 +238,8 @@ def run_command(
         raise fdp_exc.InternalError(
             "Failed to create working config.yaml in job folder"
         )
+
+    _logger.debug("Creating working configuration storage location")
 
     # Setup the registry storage location root
     fdp_reg_store.store_working_config(
@@ -297,6 +313,8 @@ def run_command(
             )
 
         _run_dir = _cfg["run_metadata"]['local_repo']
+
+        _logger.debug("Executing command: %s", ' '.join(_cmd_list))
 
         # Run the submission script
         _process = subprocess.Popen(
