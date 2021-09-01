@@ -225,14 +225,15 @@ def run_command(
             "Failed to create working config.yaml in job folder"
         )
 
-    # Setup the registry storage location root
-    fdp_reg_store.store_working_config(
-        repo_dir,
-        local_uri,
-        _work_cfg_yml,
-    )
-
     if _run_executable:
+        # Setup the registry storage location root for the working config
+        # only of it called an executable/command
+        fdp_reg_store.store_working_config(
+            repo_dir,
+            local_uri,
+            _work_cfg_yml,
+        )
+
         # Create a run script if 'script' is specified instead of 'script_path'
         # else use the script
         _cmd_setup = setup_job_script(_work_cfg_yml, _job_dir)
