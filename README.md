@@ -1,4 +1,5 @@
 # FAIR Data Pipeline Command Line Interface
+
 [![FAIR Data Pipeline CLI](https://github.com/FAIRDataPipeline/FAIR-CLI/actions/workflows/fair-cli.yaml/badge.svg?branch=dev)](https://github.com/FAIRDataPipeline/FAIR-CLI/actions/workflows/fair-cli.yaml)
 [![codecov](https://codecov.io/gh/FAIRDataPipeline/FAIR-CLI/branch/dev/graph/badge.svg?token=h93TkTiiWf)](https://codecov.io/gh/FAIRDataPipeline/FAIR-CLI)
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=FAIRDataPipeline_FAIR-CLI&metric=alert_status)](https://sonarcloud.io/dashboard?id=FAIRDataPipeline_FAIR-CLI)
@@ -7,8 +8,6 @@
 | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | The following document is largely conceptual and therefore does *not* represent a manual for the final interface. Statements within the following are likely to change, further details of possible changes are given throughout. Please either open an issue or pull request on the [source repository](https://github.com/FAIRDataPipeline/FAIR-CLI) raising any changes/issues. |
 
-
-
 FAIR-CLI forms the main interface for synchronising changes between your local and shared remote FAIR Data Pipeline registries, it is also used to instantiate model runs/data submissions to the pipeline.
 
 The project is still under development with many features still to be implemented and checked. Available commands are summarised below along with their usage.
@@ -16,26 +15,34 @@ The project is still under development with many features still to be implemente
 ## Installation
 
 The project makes use of [Poetry](https://python-poetry.org/) for development which allows quick and easy mangement of dependencies, and provides a virtual environment exclusive to the project. Ultimately the project will be built into a pip installable module (using `poetry build`) meaning users will not need Poetry. You can access this environment by installing poetry:
-```bash
+
+```sh
 pip install poetry
 ```
+
 and, ensuring you are in the project repository, running:
-```
+
+```sh
 poetry install
 ```
+
 which will setup the virtual environment and install requirements. You can then either launch the environment as a shell using:
-```bash
+
+```sh
 poetry shell
 ```
+
 or run commands within it externally using:
-```bash
+
+```sh
 poetry run <command>
 ```
 
 ## Structure
 
 The layout of FAIR-CLI on a simplified system looks like this:
-```bash
+
+```sh
 $HOME
 ├── .fair
 │   ├── cli
@@ -53,24 +60,28 @@ $HOME
           ├── logs
           └── staging
 ```
+
 ### Global and Local Directories
+
 FAIR-CLI stores information for projects in two locations. The first is a *global* directory stored in the user's home folder in the same location as the registry itself `$HOME/.fair/cli`, and the second is a *local* directory which exists within the model project itself `$PROJECT_HOME/.fair`.
 
 The CLI holds metadata for the user in it's own configuration file (not to be confused with the user modifiable `config.yaml`), `cli-config.yaml`, the *global* version of which is initialised during first use. In a manner similar to `git`, FAIR-CLI has repositories which allow the user to override these *global* configurations, this then forming a *local* variant.
 
 ### Data Directory
+
 The directory `$HOME/.fair/data` is the default data store initialised by FAIR-CLI. During setup an alternative can be provided and this can be later changed on a per-run basis if the user so desires. The subdirectory `$HOME/data/jobs` contains timestamped directories of jobs.
 
 ### Sessions Directory
+
 The directory `$HOME/.fair/sessions` is used to keep track of ongoing queries to the registry as a safety mechanism to ensure the registry is not shutdown whilst processes are still occuring.
 
 ### Logs Directory
+
 The directory `$PROJECT/.fair/logs` stores `stdout` logs for jobs also giving information on who launched the job and how long it lasted.
 
 ### Staging File
-The staging file, `$PROJECT/.fair/staging`, contains information of what jobs are being tracked, by default all jobs are added to this file after completion and are set to "unstaged". 
-Simply contains a dictionary of booleans where items for sync (staged) are marked true `True` and those to be held only locally `False`.
-The file uses paths relative to the *local* `.fair` folder as keys, to behave in a manner identical to `git` staging.
+
+The staging file, `$PROJECT/.fair/staging`, contains information of what jobs are being tracked, by default all jobs are added to this file after completion and are set to "unstaged". Simply contains a dictionary of booleans where items for sync (staged) are marked true `True` and those to be held only locally `False`. The file uses paths relative to the *local* `.fair` folder as keys, to behave in a manner identical to `git` staging.
 
 ### `config.yaml`
 
@@ -103,22 +114,26 @@ By default the shell used will be `sh` or `pwsh` for UNIX and Windows systems re
 | This layout is subject to possible change depending on whether or not multiple aliases for the same user will be allowed in the registry itself. The main reason for having a *local* version is to support separate handling of multiple projects. |
 
 ## Registry Interaction
+
 Currently `FAIR-CLI` sets up the write data storage location on the local registry if it does not exist. Entries are created for the YAML file type, current user as an author, and object for a given run.
 
 ## Command Line Usage
+
 As mentioned, all of the subcommands within FAIR-CLI are still under review with many still serving as placeholders for future features. Running `fair` without arguments or `fair --help` will show all of these.
 
 ### `init`
+
 Initialises a new FAIR repository within the given directory. This should ideally be the same location as the `.git` folder for the current project, although setup will ask if you want to use an alternative location. The command will ask the user a series of questions which will provide metadata for tracking run authors, and also allow for the creation of a starter `config.yaml`.
 
 The first time this command is launched the *global* CLI configuration will be populated. In subsequent calls the *global* will provide default suggestions towards creating the CLI configuration for the repository (*local*).
 
 A repository directory matching the structure above will be placed in the current location and a starter `config.yaml` file will be generated (see below).
 
-**Example: First call to `fair init`**
+#### Example: First call to `fair init`
 
 This example shows the process of setting up for the first time. Note the default suggestions for each prompt, in the case of `Full name` and `Default output namespace` this is the hostname of the system and an abbreviated version of this name.
-```
+
+```sh
 $ fair init
 Initialising FAIR repository, setup will now ask for basic info:
 
@@ -140,10 +155,12 @@ Git remote name [origin]:
 Using git repository remote 'origin': git@notagit.com:jbloggs/AnalysisProject.git
 Initialised empty fair repository in /home/joebloggs/Documents/AnalysisProject/.fair
 ```
-**Example: Subsequent runs**
+
+#### Example: Subsequent runs
 
 In subsequent runs the first time setup will provide further defaults.
-```
+
+```sh
 $ fair init
 Initialising FAIR repository, setup will now ask for basic info:
 
@@ -159,7 +176,7 @@ Default input namespace [SCRC]:
 Initialised empty fair repository in /home/joebloggs/Documents/AnalysisProject/.fair
 ```
 
-**Generated `config.yaml`**
+#### Generated `config.yaml`
 
 ```yaml
 run_metadata:
@@ -173,9 +190,10 @@ run_metadata:
 
 the user then only needs to add a `script` or `script_path` entry to execute a code run. This is only required for `run`.
 
-**Advanced usage**
+#### Advanced usage
 
 CLI configuration can be read directly from a file which should contain the following:
+
 ```yaml
 namespaces: 
   input: testing
@@ -200,34 +218,45 @@ git:
   remote: origin
 description: Testing Project
 ```
+
 this file is then read during initialisation:
-```
+
+```sh
 fair init --using <cli-config.yaml file>
 ```
 
 For the purposes of CI runs, the initialisation can be "skipped" by running:
-```
+
+```sh
 fair init --ci
 ```
+
 which will create temporary directories for some locations.
 
 ### `run`
 
 The purpose of `run` is to execute a model/submission run to the local registry. The command fills any specified template variables of the form `${{ VAR }}` to match those outlined [below](#template-variables). Outputs of a run will be stored within the `coderun` folder in the directory specified under the `data_store` tag in the `config.yaml`, by default this is `$HOME/.fair/data/coderun`.
-```
+
+```sh
 fair run
 ```
+
 If you wish to use an alternative `config.yaml` then specify it as an additional argument:
-```
+
+```sh
 fair run /path/to/config.yaml
 ```
+
 You can also launch a bash command directly which will then be automatically written into the `config.yaml` for you:
-```
+
+```sh
 fair run --script "echo \"Hello World\""
 ```
+
 note the command itself must be quoted as it is a single argument.
 
 ### `pull`
+
 Currently `pull` will update any entries within the `config.yaml` under the `register` heading creating `external_object` and `data_product` objects on the registry and downloading the data to the local data storage. For example:
 
 ```yaml
@@ -284,31 +313,38 @@ register:
 ```
 
 if run on `10/10/2021` would download the data from the given `root`/`path` URL and store in a file:
-```
+
+```sh
 /home/joebloggs/.fair/data/records/SARS-CoV-2/scotland/human-mortality/0.20211010.0.csv
 ```
+
 and register all required objects into the local registry.
 
 ### `purge`
+
 Removes the local `.fair` (FAIR repository) folder by default so the user can reinitialise:
 
-```
+```sh
 fair purge
 ```
 
 You can remove the global configuration and start again entirely by running:
-```
-fair purge --glob
+
+```sh
+fair purge --global
 ```
 
 and also the data directory by running:
-```
+
+```sh
 fair purge --data
 ```
+
 **WARNING**: This is not recommended as the registry may still have entries pointing to this location!
 
 You can skip any confirmation messages by running:
-```
+
+```sh
 fair purge --yes
 ```
 
@@ -319,23 +355,30 @@ By default the CLI will launch the registry whenever a synchronisation or run is
 However the user may also specify a manual launch that will override this behaviour, instead leaving the server running constantly allowing them to view the registry in the browser.
 
 The commands:
-```
+
+```sh
 fair registry start
 ```
+
 and
-```
+
+```sh
 fair registry stop
 ```
+
 will launch and halt the server respectively.
 
 ### `log`
 
 Runs are logged locally within the local FAIR repository. A full list of runs is shown by running:
-```
+
+```sh
 fair log
 ```
+
 This will present a list of runs in a summary analogous to a `git log` call:
-```
+
+```yaml
 run 0db35c20946a1ebeaafdc3b30103cd74a57eb6b6
 Author: Joe Bloggs <jbloggs@noreply.uk>
 Date:   Wed Jun 30 09:09:30 2021
@@ -346,12 +389,16 @@ Date:   Wed Jun 30 09:09:30 2021
 | The SHA for a job is *not* yet related to a registry code run identifier as multiple code runs can be executed within a single job. |
 
 ### `view`
+
 To view the `stdout` of a run given its SHA as shown by running `fair log` use the command:
-```
+
+```sh
 fair view <sha>
 ```
+
 you do not need to specify the full SHA but rather the first few characters:
-```
+
+```text
 --------------------------------
  Commenced = Wed Jun 30 09:09:30 2021 
  Author    = Joe Bloggs <jbloggs@noreply.uk>
@@ -373,6 +420,7 @@ you do not need to specify the full SHA but rather the first few characters:
 ```
 
 ## Template Variables
+
 Within the `config.yaml` file, template variables can be specified by using the notation `${{ VAR }}`, the following variables are currently recognised:
 
 | **Variable**        | **Description**                                                                  |

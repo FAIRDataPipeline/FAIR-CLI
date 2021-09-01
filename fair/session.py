@@ -514,7 +514,6 @@ class FAIR:
         _cli_config = fdp_conf.read_global_fdpconfig()
         _loc_config = fdp_conf.read_local_fdpconfig(self._session_loc)
         _cli_config['git'] = _loc_config['git']
-        _cli_config['description'] = _loc_config['description']
         _cli_config['registries'].update(_loc_config['registries'])
         with open(output_file, 'w') as f:
             yaml.dump(_cli_config, f)
@@ -548,9 +547,10 @@ class FAIR:
             )
             return
 
-        click.echo(
-            "Initialising FAIR repository, setup will now ask for basic info:\n"
-        )
+        if not using:
+            click.echo(
+                "Initialising FAIR repository, setup will now ask for basic info:\n"
+            )
 
         if not os.path.exists(_fair_dir):
             os.mkdir(_fair_dir)
@@ -607,7 +607,7 @@ class FAIR:
         with open(fdp_com.local_fdpconfig(self._session_loc), "w") as f:
             yaml.dump(self._local_config, f)
 
-        #TODO Kristian decide where this code should go
+        #TODO Kristian decide where this code should go and whether there is a better way of identifying _local_uri
         # Populate file type table
         _local_uri = fdp_conf.get_local_uri()
         if not fdp_serv.check_server_running(_local_uri):
@@ -639,8 +639,7 @@ class FAIR:
             'registries',
             'namespaces',
             'user',
-            'git',
-            'description'
+            'git'
         ]
 
         for key in _exp_keys:
@@ -704,7 +703,8 @@ class FAIR:
         _glob_cfg = copy.deepcopy(cli_config)
         _loc_cfg = copy.deepcopy(cli_config)
         del _glob_cfg['git']
-        del _glob_cfg['description']
+        if 'description' in _glob_cfg:
+            del _glob_cfg['description']
         del _loc_cfg['registries']['local']
 
         with open(fdp_com.global_fdpconfig(), 'w') as f:
