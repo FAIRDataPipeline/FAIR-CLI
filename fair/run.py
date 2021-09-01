@@ -129,8 +129,7 @@ def run_command(
     """
 
     _logger = logging.getLogger("FAIRDataPipeline.Run")
-
-    click.echo("Updating registry from config.yaml")
+    click.echo(f"Updating registry from {config_yaml}", err = True)
 
     # Record the time the job was commenced, create a log and both
     # print output and write it to the log file
@@ -167,7 +166,7 @@ def run_command(
         yaml.dump(_cfg, open(config_yaml, 'w'))
 
     _run_executable = "script" in _cfg["run_metadata"] or "script_path" in _cfg["run_metadata"]
-    _run_executable = _run_executable and mode == CMD_MODE.RUN
+    _run_executable = _run_executable and mode in [CMD_MODE.RUN, CMD_MODE.PASS]
 
     if mode == CMD_MODE.PASS:
         _logger.debug(
@@ -320,39 +319,50 @@ def run_command(
 
         _run_dir = _cfg["run_metadata"]['local_repo']
 
-        _logger.debug("Executing command: %s", ' '.join(_cmd_list))
+        if mode == CMD_MODE.RUN:
+            _logger.debug("Executing command: %s", ' '.join(_cmd_list))
 
-        # Run the submission script
-        _process = subprocess.Popen(
-            _cmd_list,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            universal_newlines=True,
-            bufsize=1,
-            text=True,
-            shell=False,
-            env=_cmd_setup["env"],
-            cwd=_run_dir
-        )
-
-        # Write any stdout to the job log
-        for line in iter(_process.stdout.readline, ""):
-            with open(_log_file, "a") as f:
-                f.writelines([line])
-            click.echo(line, nl=False)
-            sys.stdout.flush()
-        _process.wait()
-        _end_time = datetime.now()
-        with open(_log_file, "a") as f:
-            _duration = _end_time - _now
-            f.writelines([f"------- time taken {_duration} -------\n"])
-
-        # Exit the session if the job failed
-        if _process.returncode != 0:
-            raise fdp_exc.CommandExecutionError(
-                f"Run failed with exit code '{_process.returncode}'",
-                exit_code=_process.returncode
+            # Run the submission script
+            _process = subprocess.Popen(
+                _cmd_list,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                universal_newlines=True,
+                bufsize=1,
+                text=True,
+                shell=False,
+                env=_cmd_setup["env"],
+                cwd=_run_dir
             )
+
+            # Write any stdout to the job log
+            for line in iter(_process.stdout.readline, ""):
+                with open(_log_file, "a") as f:
+                    f.writelines([line])
+                click.echo(line, nl=False)
+                sys.stdout.flush()
+            _process.wait()
+            _end_time = datetime.now()
+            with open(_log_file, "a") as f:
+                _duration = _end_time - _now
+                f.writelines([f"------- time taken {_duration} -------\n"])
+
+            # Exit the session if the job failed
+            if _process.returncode != 0:
+                raise fdp_exc.CommandExecutionError(
+                    f"Run failed with exit code '{_process.returncode}'",
+                    exit_code=_process.returncode
+                )
+        else: # CMD_MODE.PASS
+            _end_time = datetime.now()
+            with open(_log_file, "a") as f:
+                _duration = _end_time - _now
+                f.writelines(
+                    [
+                        "Operating in ci mode without running script\n",
+                        f"------- time taken {_duration} -------\n"
+                    ]
+                )
     else:
         _end_time = datetime.now()
         with open(_log_file, "a") as f:

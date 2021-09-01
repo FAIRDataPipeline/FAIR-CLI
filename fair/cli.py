@@ -303,7 +303,7 @@ def run(config: str, script: str, debug: bool, ci: bool):
         ) as fair_session:
             _hash = fair_session.run_job(script, mode=_run_mode)
             if ci:
-                click.echo(f"Job directory: {fdp_run.get_job_dir(_hash)}")
+                click.echo(fdp_run.get_job_dir(_hash))
     except fdp_exc.FAIRCLIException as e:
         if debug:
             raise e
