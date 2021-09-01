@@ -241,14 +241,19 @@ def run_command(
 
     _logger.debug("Creating working configuration storage location")
 
-    # Setup the registry storage location root
-    fdp_reg_store.store_working_config(
-        repo_dir,
-        local_uri,
-        _work_cfg_yml,
-    )
+
+    if mode in [CMD_MODE.RUN, CMD_MODE.PASS]:
+        # Setup the registry storage location root
+        fdp_reg_store.store_working_config(
+            repo_dir,
+            local_uri,
+            _work_cfg_yml,
+        )
+    else:
+        os.remove(_work_cfg_yml)
 
     if _run_executable:
+
         # Create a run script if 'script' is specified instead of 'script_path'
         # else use the script
         _cmd_setup = setup_job_script(_work_cfg_yml, _job_dir)
