@@ -125,9 +125,10 @@ def init(
 
 @cli.command()
 @click.option(
-    "--glob/--no-glob",
+    "glob",
+    "--global/--no-global",
     help="Also delete global FAIR-CLI directories",
-    default=False,
+    default=False
 )
 @click.option(
     "--yes/--no",
