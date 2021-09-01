@@ -194,7 +194,7 @@ def subst_versions(local_uri: str, config_yaml_dict: typing.Dict) -> typing.Dict
             # Remove version entry and add back as use: version later
             del item['version']
         else:
-            _new_version = _latest_version.bump_patch()
+            _new_version = fdp_ver.default_bump(_latest_version)
 
         # Check write product/version not already in registry
         _params['version'] = str(_new_version)
