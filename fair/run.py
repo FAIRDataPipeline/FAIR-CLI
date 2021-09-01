@@ -26,6 +26,7 @@ import sys
 import platform
 import typing
 import glob
+import logging
 import copy
 import hashlib
 import enum
@@ -93,7 +94,8 @@ SHELLS: typing.Dict[str, str] = {
 class CMD_MODE(enum.Enum):
     RUN = 1,
     PULL = 2,
-    PUSH = 3
+    PUSH = 3,
+    PASS = 4
 
 
 def run_command(
@@ -125,7 +127,8 @@ def run_command(
             job hash
     """
 
-    click.echo("Updating registry from config.yaml")
+    _logger = logging.getLogger("FAIRDataPipeline.Run")
+    click.echo(f"Updating registry from {config_yaml}", err = True)
 
     # Record the time the job was commenced, create a log and both
     # print output and write it to the log file
@@ -162,7 +165,12 @@ def run_command(
         yaml.dump(_cfg, open(config_yaml, 'w'))
 
     _run_executable = "script" in _cfg["run_metadata"] or "script_path" in _cfg["run_metadata"]
-    _run_executable = _run_executable and mode == CMD_MODE.RUN
+    _run_executable = _run_executable and mode in [CMD_MODE.RUN, CMD_MODE.PASS]
+
+    if mode == CMD_MODE.PASS:
+        _logger.debug(
+            "Run called in passive mode, no command will be executed"
+        )
 
     # Create a new timestamped directory for the job
     # use the key 'write_data_store' from the 'config.yaml' if
@@ -174,11 +182,15 @@ def run_command(
     else:
         _job_dir = fdp_com.default_jobs_dir()
 
+    _logger.debug("Using job directory: %s", _job_dir)
+
     _job_dir = os.path.join(_job_dir, _timestamp)
     os.makedirs(_job_dir, exist_ok=True)
 
     # Set location of working config.yaml to the job directory
     _work_cfg_yml = os.path.join(_job_dir, "config.yaml")
+
+    _logger.debug("Creating working config '%s'", _work_cfg_yml)
 
     # Create working config
     _work_cfg = create_working_config(
@@ -194,7 +206,8 @@ def run_command(
     _user = fdp_conf.get_current_user_name(repo_dir)
     _email = _glob_conf['user']['email']
 
-    if mode == CMD_MODE.RUN:
+    if mode in [CMD_MODE.RUN, CMD_MODE.PASS]:
+        _logger.debug("Performing 'register' substitutions")
         _conf_yaml = fdp_reg.subst_registrations(local_uri, _work_cfg)
     else:
         # If not a fair run then the log file will have less metadata
@@ -225,14 +238,21 @@ def run_command(
             "Failed to create working config.yaml in job folder"
         )
 
-    # Setup the registry storage location root
-    fdp_reg_store.store_working_config(
-        repo_dir,
-        local_uri,
-        _work_cfg_yml,
-    )
+    _logger.debug("Creating working configuration storage location")
+
+
+    if mode in [CMD_MODE.RUN, CMD_MODE.PASS]:
+        # Setup the registry storage location root
+        fdp_reg_store.store_working_config(
+            repo_dir,
+            local_uri,
+            _work_cfg_yml,
+        )
+    else:
+        os.remove(_work_cfg_yml)
 
     if _run_executable:
+
         # Create a run script if 'script' is specified instead of 'script_path'
         # else use the script
         _cmd_setup = setup_job_script(_work_cfg_yml, _job_dir)
@@ -298,37 +318,50 @@ def run_command(
 
         _run_dir = _cfg["run_metadata"]['local_repo']
 
-        # Run the submission script
-        _process = subprocess.Popen(
-            _cmd_list,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            universal_newlines=True,
-            bufsize=1,
-            text=True,
-            shell=False,
-            env=_cmd_setup["env"],
-            cwd=_run_dir
-        )
+        if mode == CMD_MODE.RUN:
+            _logger.debug("Executing command: %s", ' '.join(_cmd_list))
 
-        # Write any stdout to the job log
-        for line in iter(_process.stdout.readline, ""):
-            with open(_log_file, "a") as f:
-                f.writelines([line])
-            click.echo(line, nl=False)
-            sys.stdout.flush()
-        _process.wait()
-        _end_time = datetime.now()
-        with open(_log_file, "a") as f:
-            _duration = _end_time - _now
-            f.writelines([f"------- time taken {_duration} -------\n"])
-
-        # Exit the session if the job failed
-        if _process.returncode != 0:
-            raise fdp_exc.CommandExecutionError(
-                f"Run failed with exit code '{_process.returncode}'",
-                exit_code=_process.returncode
+            # Run the submission script
+            _process = subprocess.Popen(
+                _cmd_list,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                universal_newlines=True,
+                bufsize=1,
+                text=True,
+                shell=False,
+                env=_cmd_setup["env"],
+                cwd=_run_dir
             )
+
+            # Write any stdout to the job log
+            for line in iter(_process.stdout.readline, ""):
+                with open(_log_file, "a") as f:
+                    f.writelines([line])
+                click.echo(line, nl=False)
+                sys.stdout.flush()
+            _process.wait()
+            _end_time = datetime.now()
+            with open(_log_file, "a") as f:
+                _duration = _end_time - _now
+                f.writelines([f"------- time taken {_duration} -------\n"])
+
+            # Exit the session if the job failed
+            if _process.returncode != 0:
+                raise fdp_exc.CommandExecutionError(
+                    f"Run failed with exit code '{_process.returncode}'",
+                    exit_code=_process.returncode
+                )
+        else: # CMD_MODE.PASS
+            _end_time = datetime.now()
+            with open(_log_file, "a") as f:
+                _duration = _end_time - _now
+                f.writelines(
+                    [
+                        "Operating in ci mode without running script\n",
+                        f"------- time taken {_duration} -------\n"
+                    ]
+                )
     else:
         _end_time = datetime.now()
         with open(_log_file, "a") as f:

@@ -252,7 +252,7 @@ class FAIR:
         self,
         bash_cmd: str = "",
         mode: fdp_run.CMD_MODE = fdp_run.CMD_MODE.RUN
-    ) -> None:
+    ) -> str:
         """Execute a run using the given user configuration file"""
         self.check_is_repo()
         if not os.path.exists(self._session_config):
@@ -269,6 +269,8 @@ class FAIR:
 
         # Automatically add the run to tracking but unstaged
         self._stager.change_job_stage_status(_hash, False)
+
+        return _hash
 
     def check_is_repo(self) -> None:
         """Check that the current location is a FAIR repository"""

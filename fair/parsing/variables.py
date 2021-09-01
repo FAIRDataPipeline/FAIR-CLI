@@ -77,11 +77,6 @@ def subst_cli_vars(
         except fdp_exc.CLIConfigurationError:
             return fdp_conf.get_current_user_uuid(directory)
 
-    # Substitutes are defined as functions for which particular cases
-    # can be given as arguments, e.g. for DATE the format depends on if
-    # the key is a version key or not.
-    # Tags in config.yaml are specified as ${{ CLI.VAR }}
-
     _yaml_dict = yaml.safe_load(open(config_yaml))
 
     if 'local_repo' not in _yaml_dict['run_metadata']:
