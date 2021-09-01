@@ -207,7 +207,7 @@ def run_command(
     _user = fdp_conf.get_current_user_name(repo_dir)
     _email = _glob_conf['user']['email']
 
-    if mode == CMD_MODE.RUN:
+    if mode in [CMD_MODE.RUN, CMD_MODE.PASS]:
         _logger.debug("Performing 'register' substitutions")
         _conf_yaml = fdp_reg.subst_registrations(local_uri, _work_cfg)
     else:
