@@ -385,22 +385,16 @@ def store_data_file(
         "hash": _hash,
     }
 
-    try:
-        _post_store_loc = fdp_req.post(
-            uri,
-            "storage_location",
-            data=_storage_loc_data
-        )['url']
-    except fdp_exc.RegistryAPICallError as e:
-        if not e.error_code == 409:
-            raise e
-        else:
-            raise fdp_exc.RegistryAPICallError(
-                f"Cannot post storage_location "
-                f"'{_rel_path}' with hash"
-                f" '{_hash}', object already exists",
-                error_code=409
-            )
+    _search_data = {
+        'hash': _hash
+    }
+
+    _post_store_loc = fdp_req.post_else_get(
+        uri,
+        "storage_location",
+        data=_storage_loc_data,
+        params=_search_data
+    )
 
     _user = store_user(repo_dir, uri)
 
