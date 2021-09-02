@@ -46,9 +46,6 @@ __license__ = "BSD-2-Clause"
 __status__ = "Development"
 __copyright__ = "Copyright 2021, FAIR"
 
-import toml
 import logging
-from pathlib import Path
-import os
 
 logging.basicConfig()
