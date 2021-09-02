@@ -284,6 +284,9 @@ def subst_registrations(local_uri: str, input_config: typing.Dict):
                 )
             _data['external_object'] = _results[0]['url']
 
+        if 'namespace_name' in reg:
+            _data['namespace'] = reg['namespace_name'] 
+
         _results = fdp_req.get(
             local_uri,
             'data_product',

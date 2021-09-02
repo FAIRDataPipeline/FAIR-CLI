@@ -82,12 +82,24 @@ def glob_read_write(
 
         _key_glob, _globbable = _glob_vals[0]
 
+        _search_dict = {search_key: _globbable}
+
+        # Namespace can exist in and out of 'use'Where both exist, 'use'
+        # is prioritised
+        if 'namespace' in entry:
+            _search_dict['namespace'] = entry['namespace']
+
+        # If a 'use' statement is given make sure to apply all criteria
+        if 'use' in entry:
+            _search_dict.update(entry['use'])
+
+
         # Send a request to the relevant registry using the search string
         # and the selected search key
         _results = fdp_reg_req.get(
             _uri,
             _key_glob,
-            params = {search_key: _globbable}
+            params = _search_dict
         )
 
         # Iterate through all results, make a copy of the entry and swap
