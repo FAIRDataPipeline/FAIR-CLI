@@ -415,12 +415,6 @@ def create_working_config(
         )
 
     if 'write' in _conf_yaml:
-        _conf_yaml['write'] = fdp_glob.glob_read_write(
-            repo_dir,
-            _conf_yaml['write'],
-            local_glob = True
-        )
-
         # Ensure all entries without a 'version' keyword have one
         for entry in _conf_yaml['write']:
             if 'use' not in entry:
