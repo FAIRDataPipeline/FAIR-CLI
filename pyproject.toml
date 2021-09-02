@@ -1,11 +1,14 @@
 [tool.poetry]
-name = "fair"
+name = "fair-cli"
 version = "0.1.0"
 description = "Synchronization interface for the SCRC FAIR Data Pipeline registry"
 authors = [
     "Nathan Cummings <nathan.cummings@ukaea.uk>",
     "Dennis Reddyhoff <d.reddyhoff@sheffield.ac.uk>",
     "Kristian Zarebski <kristian.zarebski@ukaea.uk>"
+]
+packages = [
+    {include = "fair"}
 ]
 license = "BSD-2-Clause"
 
