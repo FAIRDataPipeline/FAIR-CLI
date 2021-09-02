@@ -42,6 +42,7 @@ import fair.common as fdp_com
 import fair.history as fdp_hist
 import fair.exceptions as fdp_exc
 import fair.registry.storage as fdp_reg_store
+import fair.registry.versioning as fdp_ver
 import fair.parsing.variables as fdp_varparse
 import fair.parsing.globbing as fdp_glob
 import fair.register as fdp_reg
@@ -190,8 +191,6 @@ def run_command(
     # Set location of working config.yaml to the job directory
     _work_cfg_yml = os.path.join(_job_dir, "config.yaml")
 
-    _logger.debug("Creating working config '%s'", _work_cfg_yml)
-
     # Create working config
     _work_cfg = create_working_config(
         local_uri, repo_dir, config_yaml, _job_dir, _now
@@ -248,8 +247,10 @@ def run_command(
             local_uri,
             _work_cfg_yml,
         )
-    else:
+    elif not _logger.getEffectiveLevel() == logging.DEBUG:
         os.remove(_work_cfg_yml)
+    
+    _logger.debug("Working configuration written to '%s'", _work_cfg_yml)
 
     if _run_executable:
 
@@ -405,20 +406,17 @@ def create_working_config(
         local_uri, job_dir, time, config_yaml
     )
 
-    if 'read' in _conf_yaml:
-        _conf_yaml['read'] = fdp_glob.glob_read_write(
-            repo_dir,
-            _conf_yaml['read'],
-            local_glob = True,
-            remove_wildcard = True
-        )
-
     if 'write' in _conf_yaml:
-        _conf_yaml['write'] = fdp_glob.glob_read_write(
-            repo_dir,
-            _conf_yaml['write'],
-            local_glob = True
-        )
+        # Ensure all entries without a 'version' keyword have one
+        for entry in _conf_yaml['write']:
+            if 'use' not in entry:
+                entry['use'] = {}
+            if 'version' not in entry['use']:
+                # Get starting version
+                _version = fdp_ver.default_bump(
+                    fdp_ver.get_latest_version()
+                )
+                entry['use']['version'] = str(_version)
 
     # If local_repo is not present in the user config assign it to the
     # the current git repository
