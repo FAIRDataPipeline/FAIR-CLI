@@ -259,22 +259,23 @@ def subst_registrations(local_uri: str, input_config: typing.Dict):
 
             )
 
-        _data = {
-            "version": reg['version']
-        }
-
         # If an external object fetch the relevant data_product first
         if 'external_object' in reg:
+            # TODO Not enough info to make unique
+            _ext_data = {
+                "version": reg['version'],
+                "title": reg['title']
+            }
             _results = fdp_req.get(
                 local_uri,
                 'external_object',
-                params={"version": reg['version'], "title": reg['title']}
+                params=_ext_data
             )
             
             if len(_results) > 1 or not _results:
                 raise fdp_exc.InternalError(
-                    f"Expected singular external_object for version '{reg['version']}' "
-                    f""
+                    f"Expected one external_object for '{_ext_data}', "
+                    f"got {len(_results)}"
                 )
 
             if 'data_product' not in _results[0]:
@@ -282,22 +283,27 @@ def subst_registrations(local_uri: str, input_config: typing.Dict):
                     f"Expected external_object '{reg['external_object']}' "
                     "to have a data_product"
                 )
-            _data['external_object'] = _results[0]['url']
+            _data_product_url = _results[0]['data_product']
+            _results[0] = fdp_req.url_get(_data_product_url)
+        else: # data product
+            # TODO Not enough info to make unique
+            _data = {
+                "version": reg['version'],
+                "name": reg['data_product']
+            }
 
-        _results = fdp_req.get(
-            local_uri,
-            'data_product',
-            params=_data
-        )
-
-        if len(_results) > 1 or not _results:
-            raise fdp_exc.InternalError(
-                f"Expected singular result for version '{reg['version']}' "
-                f""
+            _results = fdp_req.get(
+                local_uri,
+                'data_product',
+                params=_data
             )
 
-        _namespace_url = _results[0]['namespace']
+            if len(_results) > 1 or not _results:
+                raise fdp_exc.InternalError(
+                    f"Expected one result for {_data}, got {len(_results)}"
+                )
 
+        _namespace_url = _results[0]['namespace']
         _namespace_data = fdp_req.url_get(_namespace_url)
 
         _object_data = {

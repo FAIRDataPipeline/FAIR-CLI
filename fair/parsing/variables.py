@@ -158,20 +158,27 @@ def subst_cli_vars(
 
 
 def subst_versions(local_uri: str, config_yaml_dict: typing.Dict) -> typing.Dict:
-    # dynamic versionables only present in write statement
+    # Check if write block exists, if not return unaltered dict
     if 'write' not in config_yaml_dict:
         return config_yaml_dict
 
     _out_dict = copy.deepcopy(config_yaml_dict)
+    _out_dict['write'] = []
     _obj_type = 'data_product'
 
     _write_statements = config_yaml_dict['write']
 
-    for i, item in enumerate(_write_statements):
-        if _obj_type not in item:
+    for real_item in _write_statements:
+        if _obj_type not in real_item:
             raise fdp_exc.UserConfigError(
-                f"Expected '{_obj_type}' key in object '{item}'"
+                f"Expected '{_obj_type}' key in object '{real_item}'"
             )
+        
+        item = {_obj_type: real_item[_obj_type]}
+        item['use'] = real_item['use'] if 'use' in real_item else {}
+
+        if 'version' in real_item:
+            item['use']['version'] = real_item['version']
 
         _params = {"name": item[_obj_type]}
         _results = None
@@ -184,31 +191,42 @@ def subst_versions(local_uri: str, config_yaml_dict: typing.Dict) -> typing.Dict
             # Object does not yet exist on the local registry
             pass
 
-        _latest_version = fdp_ver.get_latest_version(_results)
+        # Capture wildcards
+        if '*' in _params['name']:
+            _glob_item = copy.deepcopy(item)
+            _latest_version = fdp_ver.get_latest_version()
 
-        # Check for whether format is ['use']['version'] or just ['version']
-        if 'use' in item and 'version' in item['use']:
-            _new_version = _bump_version(item['use']['version'], _latest_version)
-        elif 'version' in item:
-            _new_version = _bump_version(item['version'], _latest_version)
-            # Remove version entry and add back as use: version later
-            del item['version']
-        else:
-            _new_version = _latest_version.bump_patch()
+            if 'version' in _glob_item['use']:
+                _new_version = _bump_version(_glob_item['use']['version'], _latest_version)
+            else:
+                _new_version = fdp_ver.default_bump(_latest_version)
 
-        # Check write product/version not already in registry
-        _params['version'] = str(_new_version)
-        _write_product = fdp_reg_req.get(local_uri, _obj_type, params=_params)
-        if _write_product:
-            raise fdp_exc.UserConfigError(
-                f"Data product '{item[_obj_type]} v{str(_new_version)}' already exists in registry"
-            )
+            _glob_item['use']['version'] = str(_new_version)
+            _out_dict['write'].append(_glob_item)
 
-        if 'use' not in _write_statements[i]:
-            _write_statements[i]['use'] = {}
-        _write_statements[i]['use']['version'] = str(_new_version)
+        # Capture normal data and results of wildcard matches
+        for result in _results:
+            _new_item = copy.deepcopy(item)
+            _latest_version = fdp_ver.get_latest_version([result])
 
-    _out_dict['write'] = _write_statements
+            if 'version' in _new_item['use']:
+                _new_version = _bump_version(_new_item['use']['version'], _latest_version)
+            else:
+                _new_version = fdp_ver.default_bump(_latest_version)
+
+            # Check write product/version not already in registry
+            _params['version'] = str(_new_version)
+            _params['name'] = result['name']
+            _write_product = fdp_reg_req.get(local_uri, _obj_type, params=_params)
+            if _write_product:
+                raise fdp_exc.UserConfigError(
+                    f"Data product '{_new_item[_obj_type]} v{str(_new_version)}' already exists in registry"
+                )
+
+            _new_item['use']['version'] = str(_new_version)
+            _new_item[_obj_type] = result['name']
+
+            _out_dict['write'].append(_new_item)
 
     return _out_dict
 
@@ -222,49 +240,51 @@ def get_read_version(
         return config_yaml_dict
 
     _out_dict = copy.deepcopy(config_yaml_dict)
+    _out_dict['read'] = []
     _obj_type = 'data_product'
 
     _read_statements = config_yaml_dict['read']
 
-    for i, item in enumerate(_read_statements):
-        if _obj_type not in item:
+    for real_item in _read_statements:
+        if _obj_type not in real_item:
             raise fdp_exc.UserConfigError(
-                f"Expected '{_obj_type}' key in object '{item}'"
+                f"Expected '{_obj_type}' key in object '{real_item}'"
             )
+        
+        item = {_obj_type: real_item[_obj_type]}
+        item['use'] = real_item['use'] if 'use' in real_item else {}
+
+        if 'version' in real_item:
+            item['use']['version'] = real_item['version']
 
         _params = {"name": item[_obj_type]}
-
-        # If version is specified, add as parameter for API call
-        if 'use' in item and 'version' in item['use']:
+        if 'version' in item['use']:
             _params['version'] = item['use']['version']
-        elif 'version' in item:
-            _params['version'] = item['version']
-            # Remove version entry and add back as use: version later
-            del item['version']
-
         _results = None
 
         _results = fdp_reg_req.get(local_uri, _obj_type, params=_params)
-
         if not _results:
-            if 'version' in _params:
-                _msg = f"'{item[_obj_type]} v{_params['version']}' does not exist in local registry"
-            else:
-                _msg = f"'{item[_obj_type]}' does not exist in local registry"
-
-            raise fdp_exc.RegistryAPICallError(
-                _msg,
-                error_code = 400
+            raise fdp_exc.UserConfigError(
+                f"Data product {_params} does not already exist in registry"
             )
 
+        # Capture normal data and results of wildcard matches
+        for result in _results:
+            _new_item = copy.deepcopy(item)
 
-        _product_version = fdp_ver.get_latest_version(_results)
+            # Check read product/version not already in registry
+            _params['name'] = result['name']
+            _read_product = fdp_reg_req.get(local_uri, _obj_type, params=_params)
+            if not _read_product:
+                raise fdp_exc.UserConfigError(
+                    f"Data product '{_new_item[_obj_type]} v{str(_new_version)}' does not already exist in registry"
+                )
+            _latest_version = fdp_ver.get_latest_version(_read_product)
 
-        if 'use' not in _read_statements[i]:
-            _read_statements[i]['use'] = {}
-        _read_statements[i]['use']['version'] = str(_product_version)
+            _new_item['use']['version'] = str(_latest_version)
+            _new_item[_obj_type] = result['name']
 
-    _out_dict['read'] = _read_statements
+            _out_dict['read'].append(_new_item)
 
     return _out_dict
 
