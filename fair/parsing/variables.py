@@ -262,13 +262,11 @@ def get_read_version(
             _params['version'] = item['use']['version']
         _results = None
 
-        try:
-            _results = fdp_reg_req.get(local_uri, _obj_type, params=_params)
-            if not _results:
-                raise AssertionError
-        except (AssertionError, fdp_exc.RegistryAPICallError):
-            # Object does not yet exist on the local registry
-            pass
+        _results = fdp_reg_req.get(local_uri, _obj_type, params=_params)
+        if not _results:
+            raise fdp_exc.UserConfigError(
+                f"Data product {_params} does not already exist in registry"
+            )
 
         # Capture normal data and results of wildcard matches
         for result in _results:
