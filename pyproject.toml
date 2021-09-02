@@ -1,11 +1,14 @@
 [tool.poetry]
-name = "fair"
+name = "fair-cli"
 version = "0.1.0"
 description = "Synchronization interface for the SCRC FAIR Data Pipeline registry"
 authors = [
     "Nathan Cummings <nathan.cummings@ukaea.uk>",
     "Dennis Reddyhoff <d.reddyhoff@sheffield.ac.uk>",
     "Kristian Zarebski <kristian.zarebski@ukaea.uk>"
+]
+packages = [
+    {include = "fair"}
 ]
 license = "BSD-2-Clause"
 
@@ -14,10 +17,10 @@ python = "^3.7.1,<4.0"
 click = "^8.0.0"
 requests = "^2.23.0"
 toml = "^0.10.2"
-Jinja2 = "^2.11.1"
 rich = "^10.2.2"
 GitPython = "^3.1.18"
 semver = "^2.13.0"
+Jinja2 = "^3.0.1"
 
 [tool.poetry.dev-dependencies]
 pytest = "^6.2.4"

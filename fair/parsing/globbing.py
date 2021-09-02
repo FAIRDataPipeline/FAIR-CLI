@@ -27,6 +27,7 @@ import copy
 import fair.registry.requests as fdp_reg_req
 import fair.configuration as fdp_conf
 import fair.exceptions as fdp_exc
+import fair.registry.versioning as fdp_ver
 import fair.utilities as fdp_util
 
 def glob_read_write(
@@ -64,9 +65,13 @@ def glob_read_write(
     # key-value pairs that contain glob statements.
     for entry in config_dict_sub:
         # We still want to keep the wildcard version in case the
-        # user wants to write to this namespace
+        # user wants to write to this namespace.
+        # Wipe version info for this object to start from beginning
         if not remove_wildcard:
-            _parsed.append(entry)
+            _orig_entry = copy.deepcopy(entry)
+            if 'use' in _orig_entry and 'version' in _orig_entry['use']:
+                del _orig_entry['use']['version']
+            _parsed.append(_orig_entry)
 
         _glob_vals = [(k, v) for k, v in entry.items() if '*' in v]
         if len(_glob_vals) > 1:
