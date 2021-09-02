@@ -406,14 +406,6 @@ def create_working_config(
         local_uri, job_dir, time, config_yaml
     )
 
-    if 'read' in _conf_yaml:
-        _conf_yaml['read'] = fdp_glob.glob_read_write(
-            repo_dir,
-            _conf_yaml['read'],
-            local_glob = True,
-            remove_wildcard = True
-        )
-
     if 'write' in _conf_yaml:
         # Ensure all entries without a 'version' keyword have one
         for entry in _conf_yaml['write']:
