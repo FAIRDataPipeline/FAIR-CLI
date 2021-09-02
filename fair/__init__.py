@@ -36,7 +36,12 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 
 __author__ = "Scottish COVID Response Consortium"
-__credits__ = ["Nathan Cummings (UKAEA)", "Kristian Zarebski (UKAEA)"]
+__credits__ = [
+    "Nathan Cummings (UKAEA)",
+    "Kristian Zarebski (UKAEA)",
+    "Dennis Reddyhoff (University of Sheffield)",
+    "Richard Reeve (University of Glasgow)"
+]
 __license__ = "BSD-2-Clause"
 __status__ = "Development"
 __copyright__ = "Copyright 2021, FAIR"
