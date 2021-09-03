@@ -16,6 +16,7 @@ import typing
 import copy
 
 import fair.configuration as fdp_conf
+import fair.common as fdp_com
 
 
 def append_missing_info(config_dict: typing.Dict, repo_dir: str) -> typing.Dict:
@@ -48,7 +49,7 @@ def append_missing_info(config_dict: typing.Dict, repo_dir: str) -> typing.Dict:
         _metadata['remote_data_registry_url'] = fdp_conf.get_remote_uri(repo_dir)
 
     if 'write_data_store' not in _metadata:
-        _metadata['write_data_store'] = fdp_conf.get_local_uri()
+        _metadata['write_data_store'] = fdp_com.default_data_dir()
 
     if 'local_repo' not in _metadata:
         _metadata['local_repo'] = repo_dir
