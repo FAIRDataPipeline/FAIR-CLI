@@ -46,6 +46,7 @@ import fair.registry.versioning as fdp_ver
 import fair.parsing.variables as fdp_varparse
 import fair.parsing.globbing as fdp_glob
 import fair.register as fdp_reg
+import fair.parsing.autofill as fdp_autofill
 
 
 # Dictionary of recognised shell labels.
@@ -406,9 +407,9 @@ def create_working_config(
         local_uri, job_dir, time, config_yaml
     )
 
-    # Add in data store if it is not present in configuration
-    if 'write_data_store' not in _conf_yaml['run_metadata']:
-        _conf_yaml['run_metadata']['write_data_store'] = fdp_com.default_data_dir()
+    # If the user has specified a partial configuration, fill in the remaining
+    # information
+    _conf_yaml = fdp_autofill.append_missing_info(repo_dir)
 
     if 'write' in _conf_yaml:
         # Ensure all entries without a 'version' keyword have one

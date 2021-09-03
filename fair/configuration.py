@@ -601,3 +601,37 @@ def local_config_query(
     _local_config['user'] = _def_user
 
     return _local_config
+
+
+def get_input_namespace(repo_loc: str) -> str:
+    """Retrieve the default input namespace
+
+    Parameters
+    ----------
+    repo_loc : str
+        FAIR repository location
+
+    Returns
+    -------
+    str
+        default input namespace
+    """
+    _local_conf = read_local_fdpconfig(repo_loc)
+    return _local_conf['namespaces']['input']
+
+
+def get_output_namespace(repo_loc: str) -> str:
+    """Retrieve the default output namespace
+
+    Parameters
+    ----------
+    repo_loc : str
+        FAIR repository location
+
+    Returns
+    -------
+    str
+        default output namespace
+    """
+    _local_conf = read_local_fdpconfig(repo_loc)
+    return _local_conf['namespaces']['output']
