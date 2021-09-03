@@ -406,6 +406,10 @@ def create_working_config(
         local_uri, job_dir, time, config_yaml
     )
 
+    # Add in data store if it is not present in configuration
+    if 'write_data_store' not in _conf_yaml['run_metadata']:
+        _conf_yaml['run_metadata']['write_data_store'] = fdp_com.default_data_dir()
+
     if 'write' in _conf_yaml:
         # Ensure all entries without a 'version' keyword have one
         for entry in _conf_yaml['write']:

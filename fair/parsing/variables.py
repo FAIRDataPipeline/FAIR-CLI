@@ -277,7 +277,7 @@ def get_read_version(
             _read_product = fdp_reg_req.get(local_uri, _obj_type, params=_params)
             if not _read_product:
                 raise fdp_exc.UserConfigError(
-                    f"Data product '{_new_item[_obj_type]} v{str(_new_version)}' does not already exist in registry"
+                    f"Data product '{_new_item[_obj_type]} does not already exist in registry"
                 )
             _latest_version = fdp_ver.get_latest_version(_read_product)
 
