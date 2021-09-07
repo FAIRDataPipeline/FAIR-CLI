@@ -1,0 +1,16 @@
+abstract: "Command Line Interface for the FAIR Data Pipeline system, this software provides commands necessary for integrating analysis and data processing into the FAIR registry."
+authors: 
+  -
+    affiliation: "United Kingdom Atomic Energy Authority"
+    family-names: Zarebski
+    given-names: Kristian
+    orcid: "https://orcid.org/000-0002-6773-1049"
+cff-version: "1.1.0"
+date-released: 
+keywords: 
+  - "fair data pipeline"
+license: "BSD 2-Clause \"Simplified\" License"
+message: "If you use this software, please cite it using these metadata."
+repository-code: "https://github.com/FAIRDataPipeline/FAIR-CLI/releases/<release-version>"
+title: 
+version: 
