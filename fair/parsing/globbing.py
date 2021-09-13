@@ -70,9 +70,7 @@ def glob_read_write(
     remove_wildcard: bool, optional
         whether to delete wildcard from yaml file, default is False
     """
-
-    _logger = logging.getLogger("FAIRDataPipeline.Run")
-
+    
     _block_cfg = cfg[blocktype]
     _parsed: typing.List[typing.Dict] = []
 
