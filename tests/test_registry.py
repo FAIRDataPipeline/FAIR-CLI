@@ -21,7 +21,7 @@ def test_add_author(mocker):
 
 @pytest.mark.registry
 def test_create_file_type():
-    fdp_store.create_file_type(LOCALHOST, name="test file", extension="tst")
+    fdp_store.create_file_type(LOCALHOST, extension="tst")
     assert requests.get(LOCALHOST+'file_type', params={'name': 'test file', 'extension': 'tst'}).json()['results']
 
 
