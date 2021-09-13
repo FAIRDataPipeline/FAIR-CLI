@@ -23,11 +23,11 @@ Functions
 __date__ = "2021-07-02"
 
 import typing
-
-import yaml
 import os
 import hashlib
 import urllib.parse
+import logging
+import yaml
 
 import fair.registry.requests as fdp_req
 import fair.exceptions as fdp_exc
@@ -36,15 +36,14 @@ import fair.identifiers as fdp_id
 import fair.registry.file_types as fdp_file
 import fair.registry.versioning as fdp_ver
 
-
-def get_write_storage(uri: str, config_yaml: str) -> str:
+def get_write_storage(uri: str, cfg: typing.Dict) -> str:
     """Construct storage root if it does not exist
 
     Parameters
     ----------
     uri : str
         end point of the RestAPI
-    config_yaml : str
+    str : typing.Dict
         path of the config file
 
     Returns
@@ -55,27 +54,13 @@ def get_write_storage(uri: str, config_yaml: str) -> str:
     Raises
     ------
     fdp_exc.UserConfigError
-        If 'write_data_store' not present in the working config
+        If 'write_data_store' not present in the working config or global config
     """
 
-    _cfg = yaml.safe_load(open(config_yaml))
-
-    if not _cfg:
-        raise fdp_exc.UserConfigError(
-            f"Failed to read file '{config_yaml}' "
-            "file is empty"
-        )
-
-    _cfg_meta = _cfg["run_metadata"]
-
-    if "write_data_store" not in _cfg_meta:
-        raise fdp_exc.UserConfigError(
-            "Cannot create a storage location on the registry for writing,"
-            " no local file location specified."
-        )
+    _write_data_store = fdp_conf.write_data_store(cfg)
 
     # Convert local file path to a valid data store path
-    _write_store_root = f"file://{_cfg_meta['write_data_store']}/"
+    _write_store_root = f"file://{_write_data_store}/"
 
     # Check if the data store already exists by querying for it
     _search_root = fdp_req.get(
@@ -356,21 +341,84 @@ def store_namespace(uri: str, namespace_label: str, full_name: str = None, websi
     )
 
 
+def update_namespaces(cfg: typing.Dict) -> None:
+    """Ensure that the namespaces in the user config are created
+    """
+
+    _local_uri = fdp_conf.registry_url("local", cfg)
+
+    _namespaces = []
+    _new_block = []
+
+    if 'register' in cfg:
+        _block_cfg = cfg['register']
+
+        for item in _block_cfg:
+            if 'external_object' in item or 'data_product' in item:
+                if 'namespace_name' in item:
+                    _namespaces.append({
+                        'name': item['namespace_name'],
+                        'full_name': item.get('namespace_full_name', None),
+                        'website': item.get('namespace_website', None)
+                    })
+                elif 'namespace' in item and isinstance(item['namespace'], dict):
+                    _namespaces.append(item['namespace'])
+                _new_block.append(item)
+            elif 'namespace' in item:
+                _namespaces.append({
+                    'name': item['namespace'],
+                    'full_name': item.get('full_name', None),
+                    'website': item.get('website', None)
+                })
+            else:
+                _new_block.append(item)
+
+        for namespace in _namespaces:
+            store_namespace(
+                _local_uri,
+                namespace['name'],
+                namespace['full_name'],
+                namespace['website']
+            )
+        
+    store_namespace(
+        _local_uri,
+        fdp_conf.input_namespace(cfg)
+    )
+
+    store_namespace(
+        _local_uri,
+        fdp_conf.output_namespace(cfg)
+    )
+
+    if 'register' in cfg:
+        for item in _new_block:
+            if ('external_object' in item or 'data_product' in item) and 'namespace' in item:
+                if isinstance(item['namespace'], str):
+                    item['namespace_name'] = item['namespace']
+                elif isinstance(item['namespace'], dict):
+                    item['namespace_name'] = item['namespace']['name']
+                item['namespace_full_name'] = None
+                item['namespace_website'] = None
+                del item['namespace']
+        cfg['register'] = _new_block
+
+
 def store_data_file(
     uri: str,
     repo_dir: str,
     data: typing.Dict,
     local_file: str,
-    config_yaml: str,
+    cfg: typing.Dict,
     public: bool
     ) -> None:
-    _cfg = yaml.safe_load(open(config_yaml))
-    _root_store = get_write_storage(uri, config_yaml)
-    _data_store = _cfg["run_metadata"]["write_data_store"]
+
+    _root_store = get_write_storage(uri, cfg)
+    _data_store = fdp_conf.write_data_store(cfg)
 
     _rel_path = os.path.relpath(local_file, _data_store)
 
-    if 'version' not in data:
+    if 'version' not in data['use']:
         raise fdp_exc.InternalError(
             f"Expected version number for '{local_file}' "
             "registry submission but none found"
@@ -451,20 +499,23 @@ def store_data_file(
         )
 
     # Get the name of the entry
-    if 'data_product' in data:
-        _name = data['data_product']
-    elif 'external_object' in data:
+    if 'external_object' in data:
         _name = data['external_object']
+    elif 'data_product' in data:
+        _name = data['data_product']
     else:
         raise fdp_exc.UserConfigError(
             f"Failed to determine type while storing item '{local_file}'"
             "into registry"
         )
 
+    if 'data_product' in data['use']:
+        _name = data['use']['data_product']
+
     _data_prod_data = {
         "namespace": _namespace_url,
         "object": _obj_url,
-        "version": str(data['version']),
+        "version": str(data['use']['version']),
         "name": _name
     }
 
@@ -475,7 +526,7 @@ def store_data_file(
             raise e
         else:
             raise fdp_exc.RegistryAPICallError(
-                f"Cannot post data_product"
+                f"Cannot post data_product "
                 f"'{_name}', duplicate already exists",
                 error_code=409
             )
@@ -508,7 +559,7 @@ def store_data_file(
             )
 
     if not _identifier:
-        if 'unique_name' not in data or 'namespace_name' not in data:
+        if 'unique_name' not in data:
             raise fdp_exc.UserConfigError(
                 "No identifier/alternate_identifier given for "
                 f"item '{local_file}'",
@@ -516,8 +567,8 @@ def store_data_file(
                 "'unique_name' and 'source_name' keys"
             )
         else:
-            _alternate_identifier = f"{data['namespace_name']}/{data['unique_name']}"
-            if 'alternate_identifier_type' in  data:
+            _alternate_identifier = data['unique_name']
+            if 'alternate_identifier_type' in data:
                 _alternate_identifier_type = data['alternate_identifier_type']
             else:
                 _alternate_identifier_type = 'local source descriptor'
@@ -625,7 +676,7 @@ def check_match(input_object: str, results_list: typing.List[str]):
 
 
 def check_if_object_exists(
-    local_uri: str,
+    cfg: typing.Dict,
     file_loc: str,
     obj_type: str,
     search_data: typing.Dict,
@@ -634,16 +685,16 @@ def check_if_object_exists(
 
     Parameters
     ----------
-    local_uri : str
-        endpoint of the local registry
+    cfg : typing.Dict
+        config yaml
     file_loc : str
         path of file on system
     obj_type : str
         object type
     search_data : typing.Dict
         data for query
-    name : str
-        label for the data_product object
+    token : str
+        token for registry
 
     Returns
     -------
@@ -651,13 +702,32 @@ def check_if_object_exists(
         whether object is present with matching hash, present or absent
         if present but not hash matched return the latest version identifier
     """
+    _logger = logging.getLogger("FAIRDataPipeline.Run")
+
+    _local_uri = fdp_conf.registry_url("local", cfg)
+
+
+    _version = None
+    if 'version' in search_data:
+        _version = search_data['version']
+        if '${{' in _version:
+            del search_data['version']
+
     # Obtain list of storage_locations for the given data_product
     _results = fdp_req.get(
-        local_uri,
+        _local_uri,
         obj_type,
         params=search_data,
         token=token
     )
+
+    _logger.debug(search_data)
+    _logger.debug(_results)
+
+    try:
+        fdp_ver.get_correct_version(cfg, _results, False, _version)
+    except fdp_exc.UserConfigError:
+        return "absent"
 
     if not _results:
         return "absent"
@@ -681,4 +751,4 @@ def check_if_object_exists(
     if check_match(file_loc, _storage_objs):
         return "hash_match"
     else:
-        return fdp_ver.get_latest_version(_results)
+        return _results

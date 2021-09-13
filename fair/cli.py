@@ -10,12 +10,12 @@ interact with the synchronisation tool.
 
 __date__ = "2021-06-24"
 
-import click
 import typing
 import os
 import sys
-import yaml
 import pathlib
+import click
+import yaml
 
 import fair.session as fdp_session
 import fair.common as fdp_com
@@ -26,7 +26,7 @@ import fair.registry.server as fdp_svr
 import fair.run as fdp_run
 
 __author__ = "Scottish COVID Response Consortium"
-__credits__ = ["Nathan Cummings (UKAEA)", "Kristian Zarebski (UKAEA)"]
+__credits__ = ["Nathan Cummings (UKAEA)", "Kristian Zarebski (UKAEA)", "Richard Reeve (University of Glasgow)"]
 __license__ = "BSD-2-Clause"
 __status__ = "Development"
 __copyright__ = "Copyright 2021, FAIR Data Pipeline"
@@ -289,6 +289,8 @@ def rm(
     help="Calls run passively without executing any commands for a CI system",
     default=False
 )
+
+
 def run(config: str, script: str, debug: bool, ci: bool):
     """Initialises a job with the option to specify a bash command"""
     # Allow no config to be specified, if that is the case use default local
@@ -332,6 +334,8 @@ def remote(ctx, verbose: bool = False, debug: bool = False):
 @remote.command()
 @click.argument("options", nargs=-1)
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
+
+
 def add(options: typing.List[str], debug: bool) -> None:
     """Add a remote registry URL with option to give it a label if multiple
     remotes may be used.

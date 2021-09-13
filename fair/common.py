@@ -38,7 +38,6 @@ __date__ = "2021-06-28"
 
 import os
 import pathlib
-
 import yaml
 import git
 
@@ -110,7 +109,7 @@ def default_data_dir(location: str = 'local') -> str:
     """Location of the default data store"""
     if not os.path.exists(global_fdpconfig()):
         raise fdp_exc.InternalError(
-            f"Failed to read CLI global configuration file '{global_fdpconfig()}"
+            f"Failed to read CLI global config file '{global_fdpconfig()}'"
         )
     _glob_conf = yaml.safe_load(open(global_fdpconfig()))
     if 'data_store' in _glob_conf['registries'][location]:
@@ -118,12 +117,12 @@ def default_data_dir(location: str = 'local') -> str:
     return os.path.join(USER_FAIR_DIR, "data")
 
 
-def local_fdpconfig(user_loc: str) -> str:
+def local_fdpconfig(user_loc: str = os.getcwd()) -> str:
     """Location of the FAIR-CLI configuration file for the given repository"""
     return os.path.join(find_fair_root(user_loc), FAIR_FOLDER, FAIR_CLI_CONFIG)
 
 
-def local_user_config(user_loc: str) -> str:
+def local_user_config(user_loc: str = os.getcwd()) -> str:
     """Location of the FAIR-CLI configuration file for the given repository"""
     return os.path.join(find_fair_root(user_loc), "config.yaml")
 

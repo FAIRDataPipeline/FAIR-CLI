@@ -17,14 +17,13 @@ Functions
 __date__ = "2021-07-01"
 
 import urllib.parse
+import typing
 import requests
-from typing import Dict, Any
-
 
 ORCID_URL = "https://pub.orcid.org/v2.0/"
 
 
-def check_orcid(orcid: str) -> Dict:
+def check_orcid(orcid: str) -> typing.Dict:
     """Checks if valid ORCID using ORCID public api
 
     Parameters
@@ -42,7 +41,7 @@ def check_orcid(orcid: str) -> Dict:
     _url = urllib.parse.urljoin(ORCID_URL, orcid)
     _response = requests.get(_url, headers = _header)
 
-    _result_dict: Dict[str, Any] = {}
+    _result_dict: typing.Dict[str, typing.Any] = {}
 
     if _response.status_code != 200:
         return _result_dict

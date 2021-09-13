@@ -10,8 +10,8 @@ and user information displays.
 
 __date__ = "2021-06-24"
 
-import jinja2
 import os
+import jinja2
 
 templates_dir = os.path.dirname(__file__)
 

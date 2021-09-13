@@ -21,18 +21,25 @@ __date__ = "2021-07-02"
 
 import json
 import os
-import yaml
 import tempfile
 import typing
 import copy
 import urllib.parse
+import re
+import yaml
+import requests
 
 import fair.common as fdp_com
 import fair.exceptions as fdp_exc
 import fair.utilities as fdp_util
 
-import requests
-
+SEARCH_KEYS = {
+    "data_product": "name",
+    "namespace": "name",
+    "file_type": "extension",
+    "storage_root": "root",
+    "storage_location": "hash"
+}
 
 def split_api_url(request_url: str, splitter: str = 'api') -> typing.Tuple[str]:
     """Split a request URL into endpoint and path
@@ -295,9 +302,64 @@ def get(
 
     if not params:
         params = {}
+    else:
+        params = copy.deepcopy(params)
 
     if not token:
         token = local_token()
+
+    if "namespace" in params and isinstance(params['namespace'], str):
+        _namespaces = get(
+            uri,
+            'namespace',
+            params = {SEARCH_KEYS['namespace']: params['namespace']}
+        )
+    
+        if len(_namespaces) > 1:
+            raise fdp_exc.UserConfigError(
+                f"Multiple ({len(_namespaces)}) hits for namespace '{params['namespace']}'"
+            )
+        elif len(_namespaces) == 0:
+            raise fdp_exc.UserConfigError(
+                f"No hits for namespace '{params['namespace']}'"
+            )
+
+        _results = re.search(
+            r'^' + uri + r'/?namespace/(\d+)/$',
+            _namespaces[0]['url']
+        )
+                
+        params['namespace'] = int(_results.group(1))
+
+    if "data_product" in params:
+        _data_products = get(
+            uri,
+            'data_product',
+            params = {
+                SEARCH_KEYS['data_product']: params['data_product'],
+                'namespace': params['namespace']
+            }
+        )
+    
+        _results = [re.search(
+            r'^' + uri + r'/?data_product/(\d+)/$',
+            _data_product['url']) for _data_product in _data_products
+        ]
+        
+        _output = []
+        del params['namespace']
+        for data_product in _results:
+            params['data_product'] = int(data_product.group(1))
+            _output.extend(_access(
+                uri,
+                "get",
+                obj_path,
+                200,
+                headers=headers,
+                params=params,
+                token=token
+            ))
+        return _output
 
     return _access(
         uri,
@@ -309,6 +371,7 @@ def get(
         token=token
     )
 
+import logging
 
 def post_else_get(
     uri: str,
@@ -352,6 +415,7 @@ def post_else_get(
             _loc = get(uri, obj_path, params=params)
         else:
             raise e
+
     if isinstance(_loc, list):
         _loc = _loc[0]
     if isinstance(_loc, dict):
@@ -420,7 +484,7 @@ def get_filter_variables(uri: str, obj_path: str) -> typing.List[str]:
     except KeyError:
         # No 'filter_fields' key means no filters
         return []
-    return list(_filters.keys())
+    return [*_filters]
 
 
 def get_writable_fields(
@@ -525,7 +589,7 @@ def get_obj_type_from_url(request_url: str) -> str:
         object type if recognised else empty string
     """
     _uri, _ = split_api_url(request_url)
-    for obj_type in sorted(url_get(_uri).keys(), key=len, reverse=True):
+    for obj_type in sorted([*url_get(_uri)], key=len, reverse=True):
         if obj_type in request_url:
             return obj_type
     return ""

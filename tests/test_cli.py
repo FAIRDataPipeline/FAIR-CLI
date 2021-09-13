@@ -1,8 +1,8 @@
-import pytest
 import os
 import datetime
-import yaml
 import glob
+import pytest
+import yaml
 
 from click.testing import CliRunner
 

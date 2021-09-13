@@ -36,13 +36,12 @@ import pathlib
 import logging
 import shutil
 import copy
-
 import click
 import rich
 import git
 import yaml
 
-from fair.templates import config_template
+import fair.templates as fdp_tpl
 import fair.common as fdp_com
 import fair.run as fdp_run
 import fair.registry.server as fdp_serv
@@ -501,7 +500,7 @@ class FAIR:
             )
 
         with open(output_file_name, "w") as f:
-            _yaml_str = config_template.render(
+            _yaml_str = fdp_tpl.config_template.render(
                 instance=self,
                 data_dir=fdp_com.default_data_dir(),
                 local_repo=os.path.abspath(fdp_com.find_fair_root()),

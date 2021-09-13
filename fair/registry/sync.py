@@ -20,18 +20,16 @@ import typing
 import os
 import collections
 import urllib.parse
-import click
 import logging
+import click
 import yaml
+import semver
 
 import fair.exceptions as fdp_exc
 import fair.registry.requests as fdp_req
 import fair.registry.versioning as fdp_ver
-import semver
-
 
 _logger = logging.getLogger('FairDataPipeline.Sync')
-
 
 def get_new_version(
     uri: str,
@@ -69,11 +67,14 @@ def get_new_version(
         _latest = semver.VersionInfo.parse("0.0.0")
 
     if not version_fmt:
-        version_fmt = '${{ MINOR }}'
+        version_fmt = f"${{{{ {fdp_ver.DEFAULT_WRITE_VERSION} }}}}"
 
     _bump_func = fdp_ver.parse_incrementer(version_fmt)
     
-    return getattr(_latest, _bump_func)()
+    if _bump_func:
+        return getattr(_latest, _bump_func)()
+    else:
+        return(_latest)
 
 
 def get_dependency_chain(object_url: str) -> collections.deque:

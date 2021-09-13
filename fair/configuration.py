@@ -24,8 +24,8 @@ import pathlib
 import uuid
 import copy
 import re
-from typing import MutableMapping, Any, Dict, Tuple
-
+import logging
+import typing
 import yaml
 import click
 import git
@@ -35,9 +35,9 @@ import fair.exceptions as fdp_exc
 import fair.identifiers as fdp_id
 import fair.registry.server as fdp_serv
 import fair.registry.requests as fdp_req
+import fair.registry.versioning as fdp_ver
 
-
-def read_local_fdpconfig(repo_loc: str) -> MutableMapping:
+def read_local_fdpconfig(repo_loc: str) -> typing.MutableMapping:
     """Read contents of repository level FAIR-CLI configurations.
 
     Parameters
@@ -50,7 +50,7 @@ def read_local_fdpconfig(repo_loc: str) -> MutableMapping:
     MutableMapping
         configurations as a mapping
     """
-    _local_config: MutableMapping = {}
+    _local_config: typing.MutableMapping = {}
 
     # Retrieve the location of this repositories CLI config file
     _local_config_file_addr = fdp_com.local_fdpconfig(repo_loc)
@@ -60,7 +60,7 @@ def read_local_fdpconfig(repo_loc: str) -> MutableMapping:
     return _local_config
 
 
-def read_global_fdpconfig() -> MutableMapping:
+def read_global_fdpconfig() -> typing.MutableMapping:
     """Read contents of the global FAIR-CLI configurations.
 
     Returns
@@ -68,7 +68,7 @@ def read_global_fdpconfig() -> MutableMapping:
     MutableMapping
         configurations as a mapping
     """
-    _global_config: MutableMapping = {}
+    _global_config: typing.MutableMapping = {}
 
     # Retrieve the location of the global CLI config file
     _global_config_addr = fdp_com.global_fdpconfig()
@@ -121,7 +121,7 @@ def set_user(repo_loc: str, name: str, is_global: bool = False) -> None:
         yaml.dump(_glob_conf, open(fdp_com.global_fdpconfig(), "w"))
 
 
-def get_current_user_name(repo_loc: str) -> Tuple[str]:
+def get_current_user_name(repo_loc: str) -> typing.Tuple[str]:
     """Retrieves the name of the current session user as defined in the config
 
     Returns
@@ -161,23 +161,24 @@ def get_remote_uri(repo_loc: str, remote_label: str = 'origin') -> str:
     return _local_conf['registries'][remote_label]['uri']
 
 
-def get_session_git_repo(repo_loc: str) -> str:
+def get_session_git_repo(cfg: typing.Dict = None) -> str:
     """Retrieves the local repository git directory
 
     Parameters
     ----------
-    repo_loc : str
-        Location of session CLI config
+    cfg : Dict
+        Dict containing CLI config
 
     Returns
     -------
     str
         the root git repository directory
     """
-    _local_conf = read_local_fdpconfig(repo_loc)
 
     try:
-        return _local_conf['git']['local_repo']
+        return fdp_config_value(
+            cfg, "local_repo", ["git", "local_repo"]
+        )
     except KeyError:
         raise fdp_exc.InternalError(
             "Failed to retrieve project git repository directory"
@@ -305,7 +306,7 @@ def get_local_port(local_uri: str = None) -> str:
 
 
 
-def _get_user_info_and_namespaces() -> Dict[str, Dict]:
+def _get_user_info_and_namespaces() -> typing.Dict[str, typing.Dict]:
     _user_email = click.prompt("Email")
     _user_orcid = click.prompt("ORCID", default="None")
     _user_uuid = None
@@ -365,7 +366,7 @@ def _get_user_info_and_namespaces() -> Dict[str, Dict]:
     return {"user": _user_info, "namespaces": _namespaces}
 
 
-def global_config_query(registry: str = None) -> Dict[str, Any]:
+def global_config_query(registry: str = None) -> typing.Dict[str, typing.Any]:
     """Ask user question set for creating global FAIR config"""
 
     if not registry:
@@ -455,9 +456,9 @@ def global_config_query(registry: str = None) -> Dict[str, Any]:
 
 
 def local_config_query(
-    global_config: Dict[str, Any] = read_global_fdpconfig(),
+    global_config: typing.Dict[str, typing.Any] = read_global_fdpconfig(),
     first_time_setup: bool = False,
-) -> Dict[str, Any]:
+) -> typing.Dict[str, typing.Any]:
     """Ask user questions to create local user config
 
     Parameters
@@ -576,7 +577,7 @@ def local_config_query(
             "Default input namespace", default=_def_ispace
         )
 
-    _local_config: Dict[str, Any] = {}
+    _local_config: typing.Dict[str, typing.Any] = {}
 
     _local_config['namespaces'] = {
         "output": _def_ospace,
@@ -601,3 +602,170 @@ def local_config_query(
     _local_config['user'] = _def_user
 
     return _local_config
+
+def fdp_config_value(
+        cfg: typing.Dict,
+        user_key: str,
+        central_key: list,
+        default = None
+    ):
+    """configuration value from user config or local or global fair config"""
+    if cfg:
+        if "run_metadata" in cfg and user_key in cfg["run_metadata"]:
+            return cfg["run_metadata"][user_key]
+
+        for key in ["local", "global"]:
+            _conf = cfg['config_files'][key]
+            _found = True
+            for term in central_key:
+                if _found and term in _conf:
+                    _conf = _conf[term]
+                else:
+                    _found = False
+            if _found:
+                return _conf
+    elif not default:
+        fdp_exc.InternalError(
+            "No config yaml and no default provided"
+        )
+
+    if default != None:
+        return default
+
+    raise fdp_exc.CLIConfigurationError(
+            f"Failed to find key '{central_key}' in 'cli-config.yaml's"
+        )
+
+
+def write_data_store(cfg: typing.Dict) -> str:
+    """Location of the default data store"""
+    return fdp_config_value(
+        cfg, "write_data_store", ["registries", "local", "data_store"]
+    )
+
+
+def input_namespace(cfg: typing.Dict) -> str:
+    """input namespace"""
+    return fdp_config_value(
+        cfg, "default_input_namespace", ["namespaces", "input"]
+    )
+
+
+def output_namespace(cfg: typing.Dict) -> str:
+    """output namespace"""
+    return fdp_config_value(
+        cfg, "default_output_namespace", ["namespaces", "input"]
+    )
+
+
+def is_public(cfg: typing.Dict) -> str:
+    """default read version"""
+    return fdp_config_value(
+        cfg,
+        "public",
+        ["data", "public"],
+        True
+    )
+
+
+def read_version(cfg: typing.Dict) -> str:
+    """default read version"""
+    return fdp_config_value(
+        cfg,
+        "default_read_version",
+        ["version", "read"],
+        f"${{{{ {fdp_ver.DEFAULT_READ_VERSION} }}}}"
+    )
+
+
+def write_version(cfg: typing.Dict) -> str:
+    """default write version"""
+    return fdp_config_value(
+        cfg,
+        "default_write_version",
+        ["version", "write"],
+        f"${{{{ {fdp_ver.DEFAULT_WRITE_VERSION} }}}}"
+    )
+
+
+def registry_url(registry_type: str, cfg: typing.Dict) -> str:
+    """url of "local" or "remote" registry"""
+    target = "origin" if registry_type == "remote" else registry_type
+    return fdp_config_value(
+        cfg, f"{registry_type}_data_registry_url", ["registries", target, "uri"]
+    )
+
+
+def add_site_configs(cfg: typing.Dict, repo_dir: str) -> None:
+    cfg['config_files'] = {}
+
+    _local_conf_path = fdp_com.local_fdpconfig(repo_dir)
+    if not os.path.exists(_local_conf_path):
+        raise fdp_exc.InternalError(
+            f"Failed to read local CLI configuration '{_local_conf_path}'"
+        )
+    else:
+        with open(_local_conf_path) as f:
+            cfg['config_files']['local'] = yaml.safe_load(f)
+
+    _global_conf_path = fdp_com.global_fdpconfig()
+    if not os.path.exists(_global_conf_path):
+        raise fdp_exc.InternalError(
+            f"Failed to read global CLI configuration '{_global_conf_path}'"
+        )
+    else:
+        with open(_global_conf_path) as f:
+            cfg['config_files']['global'] = yaml.safe_load(f)
+
+def update_metadata(cfg: typing.Dict) -> None:
+    _logger = logging.getLogger("FAIRDataPipeline.Run")
+    _cfg_meta = cfg['run_metadata']
+
+    # Insert 'public: True' if absent from user config
+    if 'public' not in _cfg_meta:
+        _cfg_meta['public'] = is_public(cfg)
+        _modified_config = True
+
+    # Insert 'write_data_store' if absent from user config
+    if 'write_data_store' not in _cfg_meta:
+        _cfg_meta['write_data_store'] = write_data_store(cfg)
+        _modified_config = True
+
+    # Insert 'default_input_namespace' if absent from user config
+    if 'default_input_namespace' not in _cfg_meta:
+        _cfg_meta['default_input_namespace'] = input_namespace(cfg)
+        _modified_config = True
+
+    # Insert 'default_output_namespace' if absent from user config
+    if 'default_output_namespace' not in _cfg_meta:
+        _cfg_meta['default_output_namespace'] = output_namespace(cfg)
+        _modified_config = True
+
+    # Insert 'local_registry_url' if absent from user config
+    if 'local_data_registry_url' not in _cfg_meta:
+        _cfg_meta['local_data_registry_url'] = registry_url("local", cfg)
+        _modified_config = True
+
+    # Insert 'remote_registry_url' if absent from user config
+    if 'remote_data_registry_url' not in _cfg_meta:
+        _cfg_meta['remote_data_registry_url'] = registry_url("origin", cfg)
+        _modified_config = True
+
+    # Insert 'local_repo' if absent from user config
+    if 'local_repo' not in _cfg_meta:
+        _cfg_meta['local_repo'] = get_session_git_repo(cfg)
+        _modified_config = True
+
+    # Insert default read version if absent from user config
+    if 'default_read_version' not in _cfg_meta:
+        _cfg_meta['default_read_version'] = read_version(cfg)
+        _modified_config = True
+
+    # Insert default write version if absent from user config
+    if 'default_write_version' not in _cfg_meta:
+        _cfg_meta['default_write_version'] = write_version(cfg)
+        _modified_config = True
+
+    if _modified_config:
+        cfg['run_metadata'] = _cfg_meta
+        _logger.debug("New metadata, replacing user config")
