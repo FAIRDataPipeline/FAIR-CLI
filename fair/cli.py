@@ -26,7 +26,7 @@ import fair.registry.server as fdp_svr
 import fair.run as fdp_run
 
 __author__ = "Scottish COVID Response Consortium"
-__credits__ = ["Nathan Cummings (UKAEA)", "Kristian Zarebski (UKAEA)", "Richard Reeve (University of Glasgow)"]
+__credits__ = ["Nathan Cummings (UKAEA)", "Kristian Zarebski (UKAEA)", "Richard Reeve (University of Glasgow)", "Dennis Reddyhoff (University of Sheffield)"]
 __license__ = "BSD-2-Clause"
 __status__ = "Development"
 __copyright__ = "Copyright 2021, FAIR Data Pipeline"

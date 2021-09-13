@@ -5,7 +5,8 @@ description = "Synchronization interface for the SCRC FAIR Data Pipeline registr
 authors = [
     "Nathan Cummings <nathan.cummings@ukaea.uk>",
     "Dennis Reddyhoff <d.reddyhoff@sheffield.ac.uk>",
-    "Kristian Zarebski <kristian.zarebski@ukaea.uk>"
+    "Kristian Zarebski <kristian.zarebski@ukaea.uk>",
+    "Richard Reeve <richard.reeve@glasgow.ac.uk>"
 ]
 packages = [
     {include = "fair"}
