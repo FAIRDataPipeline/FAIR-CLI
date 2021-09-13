@@ -19,10 +19,12 @@ Functions
 
 __date__ = "2021-08-16"
 
+import copy
 import os
 import typing
 import urllib.parse
 import shutil
+import logging
 
 import click
 import semver
@@ -31,25 +33,24 @@ import yaml
 import fair.exceptions as fdp_exc
 import fair.registry.requests as fdp_req
 import fair.registry.storage as fdp_store
+import fair.registry.versioning as fdp_ver
 import fair.common as fdp_com
+import fair.configuration as fdp_conf
 import requests
 
 
 def fetch_registrations(
-    local_uri: str,
     repo_dir: str,
-    config_yaml: str,
+    cfg: typing.Dict,
     ) -> typing.Dict:
     """As part of running 'pull' fetch all items listed under 'register'
 
     Parameters
     ----------
-    local_uri : str
-        endpoint of local registry
     repo_dir : str
         FAIR project repository
-    config_yaml : str
-        Session/Job configuration file        
+    cfg : typing.Dict
+        Dict containing working config       
 
     Returns
     -------
@@ -57,32 +58,32 @@ def fetch_registrations(
         list of registered object URLs
     """
 
-    _config = yaml.safe_load(open(config_yaml))
+    _local_uri = fdp_conf.registry_url("local", cfg)
 
-    if 'register' not in _config:
-        return _config
+    if 'register' not in cfg:
+        return cfg
 
-    _registrations = _config['register']
+    _registrations = cfg['register']
 
     _expected_keys = [
         "root",
         "path",
         "file_type",
         "primary",
-        "version"
+        "version",
+        "public"
     ]
-
-    if 'public' in _config['run_metadata']:
-        _public = _config['run_metadata']['public']
+    _logger = logging.getLogger("FAIRDataPipeline.Run")
 
     _stored_objects: typing.List[str] = []
 
     for entry in _registrations:
         for key in _expected_keys:
             if key not in entry:
-                raise fdp_exc.UserConfigError(
-                    f"Expected key '{key}' in 'register' item"
-                )
+                if key not in entry['use']:
+                    raise fdp_exc.UserConfigError(
+                        f"Expected key '{key}' in 'register' item"
+                    )
         
         _identifier: str = entry['identifier'] if 'identifier' in entry else ''
         _unique_name: str = entry['unique_name'] if 'unique_name' in entry else ''
@@ -93,9 +94,9 @@ def fetch_registrations(
         _search_data = {}
 
         if 'data_product' in entry:
-            _data_product: str = entry['data_product']
+            _data_product: str = entry['use']['data_product']
         elif 'external_object' in entry:
-            _external_object: str = entry['external_object']
+            _external_object: str = entry['use']['data_product']
 
         if not _external_object and not _data_product:
             raise fdp_exc.UserConfigError(
@@ -107,56 +108,69 @@ def fetch_registrations(
                 "Only one type may be provided (data_product/external_object)"
             )
         elif _external_object:
-            _name = entry['external_object']
+            _name = entry['use']['data_product']
             _obj_type = 'external_object'
-            if 'unique_name' in entry and 'namespace_name' in entry:
-                _search_data['alternate_identifier'] = f"{entry['namespace_name']}/{entry['unique_name']}"
+            #TODO: This doesn't work because of a mismatch with spaces in alternate_identifier, perhaps?
+            if 'unique_name' in entry and 'alternate_identifier_type' in entry:
+#                _search_data['alternate_identifier'] = entry['unique_name']
+                _search_data['alternate_identifier_type'] = entry['alternate_identifier_type']
             elif 'identifier' in entry:
                 _search_data['identifier'] = entry['identifier']
             else:
                 raise fdp_exc.UserConfigError(
                     "Expected either 'identifier', or 'unique_name' and "
-                    f"'namespace_name' in external object '{_name}'"
+                    f"'alternate_identifier_type' in external object '{_name}'"
                 )
+            _search_data['namespace'] = entry['use']['namespace']
+            _search_data['data_product'] = entry['use']['data_product']
         else:
-            _name = entry['data_product']
+            _name = entry['use']['data_product']
             _obj_type = 'data_product'
             _search_data = {"name": _name}
 
+        _search_data['version'] = entry['use']['version']
+        _namespace = entry['use']['namespace']
+
         if not _identifier and not _unique_name:
             raise fdp_exc.UserConfigError(
-                f"Expected either 'unique_name' or 'doi' in 'register' item"
+                f"Expected either 'unique_name' or 'identifier' in 'register' item"
             )
         elif _identifier and _unique_name:
             raise fdp_exc.UserConfigError(
                 "Only one unique identifier may be provided (doi/unique_name)"
             )
+        
+        if 'cache' in entry: # Do we have a local cache already?
+            _temp_data_file = entry['cache']
+        else: # Need to download it
+            _root, _path = entry["root"], entry['path']
 
-        _root, _path = entry["root"], entry['path']
+            # Encode the path first
+            _path = urllib.parse.quote_plus(_path)
+            _url = f"{_root}{_path}"
+            try:
+                _temp_data_file = fdp_req.download_file(_url)
+            except requests.HTTPError as r_in:
+                raise fdp_exc.UserConfigError(
+                    f"Failed to fetch item '{_url}' with exit code "
+                    f"{r_in.response}"
+                )
 
-        # Encode the path first
-        _path = urllib.parse.quote_plus(_path)
-
-        _url = f"{_root}{_path}"
-
-        try:
-            _temp_data_file = fdp_req.download_file(_url)
-        except requests.HTTPError as r_in:
-            raise fdp_exc.UserConfigError(
-                f"Failed to fetch item '{_url}' with exit code "
-                f"{r_in.response}"
-            )
-
-        _local_dir = os.path.join(fdp_com.default_data_dir(), _name)
+        _local_dir = os.path.join(
+            fdp_conf.write_data_store(cfg), _namespace, _name
+        )
 
         # Check if the object is already present on the local registry
         _is_present = fdp_store.check_if_object_exists(
-            local_uri, _temp_data_file, _obj_type, _search_data
+            cfg, _temp_data_file, _obj_type, _search_data
         )
+
+        _logger.debug(_temp_data_file)
+        _logger.debug(str(_is_present))
 
         # Hash matched version already present
         if _is_present == "hash_match":
-            click.echo(
+            _logger.debug(
                 f"Skipping item '{_name}' as a hash matched entry is already"
                 " present with this name"
             )
@@ -165,23 +179,16 @@ def fetch_registrations(
         
         # Item found but not hash matched retrieve a version number
         elif _is_present != "absent":
-            _latest_version = _is_present
-            if 'version' in entry:
-                _user_version = semver.VersionInfo.parse(entry['version'])
-                if _user_version < _latest_version:
-                    raise fdp_exc.UserConfigError(
-                        f"Cannot add item '{_name}' to local registry "
-                        f"with version '{entry['version']}', "
-                        "item name already present with latest version "
-                        f"'{str(_latest_version)}'"
-                    )
-            else:
-                _user_version = _latest_version
+            _results = _is_present
+            _user_version = fdp_ver.get_correct_version(
+                cfg, _results, True, entry['use']['version']
+            )
+            _logger.debug("Found results for %s", str(_results))
         else:
-            if 'version' in entry:
-                _user_version = semver.VersionInfo.parse(entry['version'])
-            else:
-                _user_version = semver.VersionInfo.parse("0.1.0")
+            _user_version = fdp_ver.get_correct_version(
+                cfg, None, True, entry['use']['version']
+            )
+            _logger.debug("Found nothing for %s", str(_search_data))
         
         # Create object location directory, ignoring if already present
         # as multiple version files can exist
@@ -195,29 +202,27 @@ def fetch_registrations(
         # Copy the temporary file into the data store
         # then remove temporary file to save space
         shutil.copy(_temp_data_file, _local_file)
-        os.remove(_temp_data_file)
+        if 'cache' not in entry:
+            os.remove(_temp_data_file)
 
         if 'public' in entry:
             _public = entry['public']
 
         _file_url = fdp_store.store_data_file(
-            uri=local_uri,
+            uri=_local_uri,
             repo_dir=repo_dir,
-            data=entry,
+            data=copy.deepcopy(entry),
             local_file=_local_file,
-            config_yaml=config_yaml,
+            cfg=cfg,
             public=_public
         )
 
         _stored_objects.append(_file_url)
     
-    if 'read' in _config:
-        _config['read'] += _stored_objects
-    else:
-        _config['read'] = _stored_objects
-
-    return _config
-
+#    if 'read' in cfg:
+#        cfg['read'] += _stored_objects
+#    else:
+#        cfg['read'] = _stored_objects
             
 def subst_registrations(local_uri: str, input_config: typing.Dict):
     """As part of 'run' substitute listings in config for working configuration
