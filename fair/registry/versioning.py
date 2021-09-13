@@ -19,7 +19,6 @@ __date__ = "2021-08-05"
 
 import re
 import typing
-
 import semver
 
 import fair.exceptions as fdp_exc

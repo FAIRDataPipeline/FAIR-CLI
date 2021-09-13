@@ -35,7 +35,7 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 
-__author__ = "Scottish COVID Response Consortium"
+__author__ = "Scottish COVID-19 Response Consortium"
 __credits__ = [
     "Nathan Cummings (UKAEA)",
     "Kristian Zarebski (UKAEA)",
@@ -44,7 +44,7 @@ __credits__ = [
 ]
 __license__ = "BSD-2-Clause"
 __status__ = "Development"
-__copyright__ = "Copyright 2021, FAIR"
+__copyright__ = "Copyright 2021, SCRC"
 
 import logging
 

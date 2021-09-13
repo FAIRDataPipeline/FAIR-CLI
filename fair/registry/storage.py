@@ -23,12 +23,11 @@ Functions
 __date__ = "2021-07-02"
 
 import typing
-
-import yaml
 import os
 import hashlib
 import urllib.parse
 import logging
+import yaml
 
 import fair.registry.requests as fdp_req
 import fair.exceptions as fdp_exc
@@ -36,7 +35,6 @@ import fair.configuration as fdp_conf
 import fair.identifiers as fdp_id
 import fair.registry.file_types as fdp_file
 import fair.registry.versioning as fdp_ver
-
 
 def get_write_storage(uri: str, cfg: typing.Dict) -> str:
     """Construct storage root if it does not exist
@@ -363,9 +361,8 @@ def update_namespaces(cfg: typing.Dict) -> None:
                         'full_name': item.get('namespace_full_name', None),
                         'website': item.get('namespace_website', None)
                     })
-                elif 'namespace' in item:
-                    if isinstance(item['namespace'], dict):
-                        _namespaces.append(item['namespace'])
+                elif 'namespace' in item and isinstance(item['namespace'], dict):
+                    _namespaces.append(item['namespace'])
                 _new_block.append(item)
             elif 'namespace' in item:
                 _namespaces.append({
@@ -396,15 +393,14 @@ def update_namespaces(cfg: typing.Dict) -> None:
 
     if 'register' in cfg:
         for item in _new_block:
-            if 'external_object' in item or 'data_product' in item:
-                if 'namespace' in item:
-                    if isinstance(item['namespace'], str):
-                        item['namespace_name'] = item['namespace']
-                    elif isinstance(item['namespace'], dict):
-                        item['namespace_name'] = item['namespace']['name']
-                    item['namespace_full_name'] = None
-                    item['namespace_website'] = None
-                    del item['namespace']
+            if ('external_object' in item or 'data_product' in item) and 'namespace' in item:
+                if isinstance(item['namespace'], str):
+                    item['namespace_name'] = item['namespace']
+                elif isinstance(item['namespace'], dict):
+                    item['namespace_name'] = item['namespace']['name']
+                item['namespace_full_name'] = None
+                item['namespace_website'] = None
+                del item['namespace']
         cfg['register'] = _new_block
 
 

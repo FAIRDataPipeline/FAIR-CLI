@@ -25,7 +25,7 @@ import typing
 import urllib.parse
 import shutil
 import logging
-
+import requests
 import click
 import semver
 import yaml
@@ -34,9 +34,7 @@ import fair.exceptions as fdp_exc
 import fair.registry.requests as fdp_req
 import fair.registry.storage as fdp_store
 import fair.registry.versioning as fdp_ver
-import fair.common as fdp_com
 import fair.configuration as fdp_conf
-import requests
 
 
 def fetch_registrations(
@@ -79,11 +77,10 @@ def fetch_registrations(
 
     for entry in _registrations:
         for key in _expected_keys:
-            if key not in entry:
-                if key not in entry['use']:
-                    raise fdp_exc.UserConfigError(
-                        f"Expected key '{key}' in 'register' item"
-                    )
+            if key not in entry and key not in entry['use']:
+                raise fdp_exc.UserConfigError(
+                    f"Expected key '{key}' in 'register' item"
+                )
         
         _identifier: str = entry['identifier'] if 'identifier' in entry else ''
         _unique_name: str = entry['unique_name'] if 'unique_name' in entry else ''

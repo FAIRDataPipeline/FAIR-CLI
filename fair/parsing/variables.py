@@ -25,17 +25,17 @@ import copy
 import typing
 import collections.abc
 import re
-
+import logging
 import git
 import yaml
-import semver
-import logging
 
 import fair.common as fdp_com
 import fair.registry.versioning as fdp_ver
 import fair.exceptions as fdp_exc
 import fair.configuration as fdp_conf
-import fair.registry.requests as fdp_reg_req
+import fair.registry.requests as fdp_req
+
+LOG: str = "FAIRDataPipeline.Parsing"
 
 def subst_cli_vars(
     job_dir: str,
@@ -92,7 +92,6 @@ def subst_cli_vars(
         "USER_ID": lambda : _get_id(job_dir),
         "REPO_DIR": lambda : _fair_head,
         "CONFIG_DIR": lambda : job_dir,
-        "SOURCE_CONFIG": lambda : config_yaml,
         "GIT_BRANCH": lambda : git.Repo(
                 fdp_conf.get_session_git_repo(_local_repo)
             ).active_branch.name,
@@ -154,7 +153,7 @@ def fill_block(cfg: typing.Dict, blocktype: str) -> bool:
         whether any of the names of entries had wildcards in them
   
     """
-    _logger = logging.getLogger("FAIRDataPipeline.Run")
+    _logger = logging.getLogger(LOG)
     _logger.debug("Filling a '%s' block", blocktype)
     _modified_configs = 0
     _found_wildcard = False
@@ -168,10 +167,9 @@ def fill_block(cfg: typing.Dict, blocktype: str) -> bool:
             item['use'] = {}
             _modified_item = True
 
-        if blocktype == 'register' and 'external_object' in item:
-            if 'data_product' not in item:
-                item['data_product'] = item['external_object']
-                _modified_item = True
+        if blocktype == 'register' and 'external_object' in item and 'data_product' not in item:
+            item['data_product'] = item['external_object']
+            _modified_item = True
 
         if 'data_product' in item:
             if '*' in item['data_product']:
@@ -206,25 +204,22 @@ def fill_block(cfg: typing.Dict, blocktype: str) -> bool:
                         item['use']['version'] = fdp_conf.write_version(cfg)
                 _modified_item = True
 
-            if 'data_product' not in item['use']:
-                if '*' not in item['data_product']:
-                    item['use']['data_product'] = item['data_product']
-                    _modified_item = True
+            if 'data_product' not in item['use'] and '*' not in item['data_product']:
+                item['use']['data_product'] = item['data_product']
+                _modified_item = True
 
             if blocktype == 'register' and 'external_object' in item:
                 item.pop('data_product', None)
                 _modified_item = True
 
-        if blocktype == 'write' or blocktype == 'register':
-            if 'public' not in item:
-                item['public'] = fdp_conf.is_public(cfg)
-                _modified_item = True
+        if blocktype == 'write' or blocktype == 'register' and 'public' not in item:
+            item['public'] = fdp_conf.is_public(cfg)
+            _modified_item = True
 
         if _modified_item:
             _block_cfg[i] = item
             _modified_item = False
             _modified_configs += 1
-            _logger.debug("New '%s' block", blocktype)
 
     if _modified_configs > 0:
         _logger.debug(
@@ -248,7 +243,7 @@ def clean_config(cfg: typing.Dict) -> None:
         user config yaml
   
     """
-    _logger = logging.getLogger("FAIRDataPipeline.Run")
+    _logger = logging.getLogger(LOG)
 
     _modified_configs = 0
     _modified_item = False
@@ -289,7 +284,6 @@ def clean_config(cfg: typing.Dict) -> None:
                 _block_cfg[i] = item
                 _modified_item = False
                 _modified_configs += 1
-                _logger.debug("New '%s' block", _blocktype)
 
         if _modified_configs > 0:
             _logger.debug(
@@ -312,20 +306,20 @@ def clean_config(cfg: typing.Dict) -> None:
 
 
 def pull_metadata(cfg: typing.Dict, blocktype: str) -> None:
-    _logger = logging.getLogger("FAIRDataPipeline.Run")
+    _logger = logging.getLogger(LOG)
     _logger.warning(
         "Cannot currently pull from remote registry"
     )
 
 def pull_data(cfg: typing.Dict, blocktype: str = "read") -> None:
     if blocktype == "read":
-        _logger = logging.getLogger("FAIRDataPipeline.Run")
+        _logger = logging.getLogger(LOG)
         _logger.warning(
             "Cannot currently pull from remote registry"
         )
 
 def register_to_read(cfg: typing.Dict) -> None:
-    _logger = logging.getLogger("FAIRDataPipeline.Run")
+    _logger = logging.getLogger(LOG)
 
     if 'register' in cfg:
         if 'read' not in cfg:
@@ -354,7 +348,7 @@ def register_to_read(cfg: typing.Dict) -> None:
 
 def fill_versions(cfg: typing.Dict, blocktype: str) -> typing.Dict:
     """Fill in version numbers, returning Dict of failures if failed"""
-    _logger = logging.getLogger("FAIRDataPipeline.Run")
+    _logger = logging.getLogger(LOG)
 
     _modified_configs = 0
     _block_cfg = cfg[blocktype]
@@ -380,11 +374,11 @@ def fill_versions(cfg: typing.Dict, blocktype: str) -> typing.Dict:
         _namespace = item['use']['namespace']
         _local_uri = fdp_conf.registry_url("local", cfg)
         if '${{' in _version:
-            _results = fdp_reg_req.get(_local_uri, 'data_product', params = {
+            _results = fdp_req.get(_local_uri, 'data_product', params = {
                 'name': _name, 'namespace': _namespace
             })
         else:
-            _results = fdp_reg_req.get(_local_uri, 'data_product', params = {
+            _results = fdp_req.get(_local_uri, 'data_product', params = {
                 'name': _name, 'namespace': _namespace, 'version': _version
             })
 
@@ -411,7 +405,6 @@ def fill_versions(cfg: typing.Dict, blocktype: str) -> typing.Dict:
             item['use']['version'] = str(_version)
             _block_cfg[i] = item
             _modified_configs += 1
-            _logger.debug("New '%s' block", blocktype)
 
     if _modified_configs > 0:
         _logger.debug(
@@ -422,175 +415,3 @@ def fill_versions(cfg: typing.Dict, blocktype: str) -> typing.Dict:
         return None
     else:
         return _failures
-    
-
-
-def expand_wildcards(cfg: typing.Dict, blocktype: str) -> typing.Dict:
-    """Expand the wildcards in the config yaml from the local registry
-
-    Parameters
-    ----------
-    cfg : typing.Dict
-        user config yaml
-
-    blocktype : str
-        key name of block to fill in entries for ('read', 'write' or 'register')
-
-    """
-    _logger = logging.getLogger("FAIRDataPipeline.Run")
-
-    # Check if write block exists, if not return unaltered dict
-    _local_uri = fdp_conf.registry_url("local", cfg)
-
-    _modified_configs = 0
-    _found_wildcard = False
-    _modified_item = False
-    _block_cfg = cfg[blocktype]
-
-    for i, item in enumerate(_block_cfg):
-        _modified_item = False
-
-        _out_dict = copy.deepcopy(item)
-        
-    _out_dict['write'] = []
-    _obj_type = 'data_product'
-
-    _write_statements = cfg['write']
-
-    for real_item in _write_statements:
-        if _obj_type not in real_item:
-            raise fdp_exc.UserConfigError(
-                f"Expected '{_obj_type}' key in object '{real_item}'"
-            )
-        
-        item = {_obj_type: real_item[_obj_type]}
-        item['use'] = real_item['use'] if 'use' in real_item else {}
-
-        if 'version' in real_item:
-            item['use']['version'] = real_item['version']
-
-        _params = {"name": item[_obj_type]}
-        _results = None
-
-        try:
-            _results = fdp_reg_req.get(_local_uri, _obj_type, params=_params)
-            if not _results:
-                raise AssertionError
-        except (AssertionError, fdp_exc.RegistryAPICallError):
-            # Object does not yet exist on the local registry
-            pass
-
-        # Capture wildcards
-        if '*' in _params['name']:
-            _glob_item = copy.deepcopy(item)
-            _latest_version = fdp_ver.get_latest_version()
-
-            if 'version' in _glob_item['use']:
-                _new_version = _bump_version(_glob_item['use']['version'], _latest_version)
-            else:
-                _new_version = fdp_ver.default_bump(_latest_version)
-
-            _glob_item['use']['version'] = str(_new_version)
-            _out_dict['write'].append(_glob_item)
-
-        # Capture normal data and results of wildcard matches
-        for result in _results:
-            _new_item = copy.deepcopy(item)
-            _latest_version = fdp_ver.get_latest_version([result])
-
-            if 'version' in _new_item['use']:
-                _new_version = _bump_version(_new_item['use']['version'], _latest_version)
-            else:
-                _new_version = fdp_ver.default_bump(_latest_version)
-
-            # Check write product/version not already in registry
-            _params['version'] = str(_new_version)
-            _params['name'] = result['name']
-            _write_product = fdp_reg_req.get(_local_uri, _obj_type, params=_params)
-            if _write_product:
-                raise fdp_exc.UserConfigError(
-                    f"Data product '{_new_item[_obj_type]} v{str(_new_version)}' already exists in registry"
-                )
-
-            _new_item['use']['version'] = str(_new_version)
-            _new_item[_obj_type] = result['name']
-
-            _out_dict['write'].append(_new_item)
-
-    return _out_dict
-
-# TODO: This should probably be merged as one function with subst_versions
-def get_read_version(
-    local_uri: str,
-    cfg: typing.Dict
-) -> typing.Dict:
-    # Check if read block exists, if not return unaltered dict
-    if 'read' not in cfg:
-        return cfg
-
-    _out_dict = copy.deepcopy(cfg)
-    _out_dict['read'] = []
-    _obj_type = 'data_product'
-
-    _read_statements = cfg['read']
-
-    for real_item in _read_statements:
-        if _obj_type not in real_item:
-            raise fdp_exc.UserConfigError(
-                f"Expected '{_obj_type}' key in object '{real_item}'"
-            )
-        
-        item = {_obj_type: real_item[_obj_type]}
-        item['use'] = real_item['use'] if 'use' in real_item else {}
-
-        if 'version' in real_item:
-            item['use']['version'] = real_item['version']
-
-        _params = {"name": item[_obj_type]}
-        if 'version' in item['use']:
-            _params['version'] = item['use']['version']
-        _results = None
-
-        _results = fdp_reg_req.get(local_uri, _obj_type, params=_params)
-        if not _results:
-            raise fdp_exc.UserConfigError(
-                f"Data product {_params} does not already exist in registry"
-            )
-
-        # Capture normal data and results of wildcard matches
-        for result in _results:
-            _new_item = copy.deepcopy(item)
-
-            # Check read product/version not already in registry
-            _params['name'] = result['name']
-            _read_product = fdp_reg_req.get(local_uri, _obj_type, params=_params)
-            if not _read_product:
-                raise fdp_exc.UserConfigError(
-                    f"Data product '{_new_item[_obj_type]} v{str(_new_version)}' does not already exist in registry"
-                )
-            _latest_version = fdp_ver.get_latest_version(_read_product)
-
-            _new_item['use']['version'] = str(_latest_version)
-            _new_item[_obj_type] = result['name']
-
-            _out_dict['read'].append(_new_item)
-
-    return _out_dict
-
-def _bump_version(
-    item_version: str,
-    latest_version: semver.VersionInfo
-) -> semver.VersionInfo:
-    # Check if 'version' is an incrementer definition
-    # if not then try using it as a hard set version
-
-    try:
-        _bump_func = fdp_ver.parse_incrementer(item_version)
-        if _bump_func:
-            _new_version = getattr(latest_version, _bump_func)()
-        else:
-            _new_version = latest_version
-    except fdp_exc.UserConfigError:
-        _new_version = semver.VersionInfo.parse(item_version)
-
-    return _new_version

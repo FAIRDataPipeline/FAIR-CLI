@@ -21,18 +21,17 @@ __date__ = "2021-07-02"
 
 import json
 import os
-import yaml
 import tempfile
 import typing
 import copy
 import urllib.parse
 import re
+import yaml
+import requests
 
 import fair.common as fdp_com
 import fair.exceptions as fdp_exc
 import fair.utilities as fdp_util
-
-import requests
 
 SEARCH_KEYS = {
     "data_product": "name",
@@ -417,7 +416,6 @@ def post_else_get(
         else:
             raise e
 
-    _logger = logging.getLogger("FAIRDataPipeline.Run")
     if isinstance(_loc, list):
         _loc = _loc[0]
     if isinstance(_loc, dict):

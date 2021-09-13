@@ -31,7 +31,6 @@ import typing
 import json
 import datetime
 
-
 def flatten_dict(
     in_dict: typing.Dict,
     separator: str = ".",

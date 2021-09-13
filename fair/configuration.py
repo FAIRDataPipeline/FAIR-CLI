@@ -25,12 +25,10 @@ import uuid
 import copy
 import re
 import logging
-from typing import MutableMapping, Any, Dict, Tuple
-
+import typing
 import yaml
 import click
 import git
-import typing
 
 import fair.common as fdp_com
 import fair.exceptions as fdp_exc
@@ -39,7 +37,7 @@ import fair.registry.server as fdp_serv
 import fair.registry.requests as fdp_req
 import fair.registry.versioning as fdp_ver
 
-def read_local_fdpconfig(repo_loc: str) -> MutableMapping:
+def read_local_fdpconfig(repo_loc: str) -> typing.MutableMapping:
     """Read contents of repository level FAIR-CLI configurations.
 
     Parameters
@@ -52,7 +50,7 @@ def read_local_fdpconfig(repo_loc: str) -> MutableMapping:
     MutableMapping
         configurations as a mapping
     """
-    _local_config: MutableMapping = {}
+    _local_config: typing.MutableMapping = {}
 
     # Retrieve the location of this repositories CLI config file
     _local_config_file_addr = fdp_com.local_fdpconfig(repo_loc)
@@ -62,7 +60,7 @@ def read_local_fdpconfig(repo_loc: str) -> MutableMapping:
     return _local_config
 
 
-def read_global_fdpconfig() -> MutableMapping:
+def read_global_fdpconfig() -> typing.MutableMapping:
     """Read contents of the global FAIR-CLI configurations.
 
     Returns
@@ -70,7 +68,7 @@ def read_global_fdpconfig() -> MutableMapping:
     MutableMapping
         configurations as a mapping
     """
-    _global_config: MutableMapping = {}
+    _global_config: typing.MutableMapping = {}
 
     # Retrieve the location of the global CLI config file
     _global_config_addr = fdp_com.global_fdpconfig()
@@ -123,7 +121,7 @@ def set_user(repo_loc: str, name: str, is_global: bool = False) -> None:
         yaml.dump(_glob_conf, open(fdp_com.global_fdpconfig(), "w"))
 
 
-def get_current_user_name(repo_loc: str) -> Tuple[str]:
+def get_current_user_name(repo_loc: str) -> typing.Tuple[str]:
     """Retrieves the name of the current session user as defined in the config
 
     Returns
@@ -308,7 +306,7 @@ def get_local_port(local_uri: str = None) -> str:
 
 
 
-def _get_user_info_and_namespaces() -> Dict[str, Dict]:
+def _get_user_info_and_namespaces() -> typing.Dict[str, typing.Dict]:
     _user_email = click.prompt("Email")
     _user_orcid = click.prompt("ORCID", default="None")
     _user_uuid = None
@@ -368,7 +366,7 @@ def _get_user_info_and_namespaces() -> Dict[str, Dict]:
     return {"user": _user_info, "namespaces": _namespaces}
 
 
-def global_config_query(registry: str = None) -> Dict[str, Any]:
+def global_config_query(registry: str = None) -> typing.Dict[str, typing.Any]:
     """Ask user question set for creating global FAIR config"""
 
     if not registry:
@@ -458,9 +456,9 @@ def global_config_query(registry: str = None) -> Dict[str, Any]:
 
 
 def local_config_query(
-    global_config: Dict[str, Any] = read_global_fdpconfig(),
+    global_config: typing.Dict[str, typing.Any] = read_global_fdpconfig(),
     first_time_setup: bool = False,
-) -> Dict[str, Any]:
+) -> typing.Dict[str, typing.Any]:
     """Ask user questions to create local user config
 
     Parameters
@@ -579,7 +577,7 @@ def local_config_query(
             "Default input namespace", default=_def_ispace
         )
 
-    _local_config: Dict[str, Any] = {}
+    _local_config: typing.Dict[str, typing.Any] = {}
 
     _local_config['namespaces'] = {
         "output": _def_ospace,

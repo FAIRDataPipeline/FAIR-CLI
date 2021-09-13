@@ -24,9 +24,8 @@ __date__ = "2021-08-16"
 import typing
 import copy
 import logging
-import re
 
-import fair.registry.requests as fdp_reg_req
+import fair.registry.requests as fdp_req
 import fair.configuration as fdp_conf
 import fair.exceptions as fdp_exc
 import fair.registry.versioning as fdp_ver
@@ -111,7 +110,7 @@ def glob_read_write(
         _key_glob, _globbable = _glob_vals[0]
 
         if not search_key:
-            search_key = fdp_reg_req.SEARCH_KEYS[_key_glob]
+            search_key = fdp_req.SEARCH_KEYS[_key_glob]
 
         _search_dict = {search_key: _globbable}
 
@@ -127,7 +126,7 @@ def glob_read_write(
 
         # Send a request to the relevant registry using the search string
         # and the selected search key        
-        _results = fdp_reg_req.get(
+        _results = fdp_req.get(
             _uri,
             _key_glob,
             params = _search_dict

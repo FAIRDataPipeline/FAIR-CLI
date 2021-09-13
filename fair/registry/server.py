@@ -22,10 +22,10 @@ __date__ = "2021-06-28"
 import os
 import re
 import subprocess
-import requests
 import glob
 import sys
 import enum
+import requests
 
 import fair.common as fdp_com
 import fair.exceptions as fdp_exc

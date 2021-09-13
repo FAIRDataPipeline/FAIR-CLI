@@ -20,18 +20,16 @@ import typing
 import os
 import collections
 import urllib.parse
-import click
 import logging
+import click
 import yaml
+import semver
 
 import fair.exceptions as fdp_exc
 import fair.registry.requests as fdp_req
 import fair.registry.versioning as fdp_ver
-import semver
-
 
 _logger = logging.getLogger('FairDataPipeline.Sync')
-
 
 def get_new_version(
     uri: str,

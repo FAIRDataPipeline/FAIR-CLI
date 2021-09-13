@@ -18,14 +18,13 @@ Functions
 """
 import os
 import glob
-
 import click
 import rich
 
 import fair.common as fdp_com
 import fair.run as fdp_run
 import fair.exceptions as fdp_exc
-from fair.templates import hist_template
+import fair.templates as fdp_tpl
 
 
 def history_directory(repo_loc: str) -> str:
@@ -162,7 +161,7 @@ def show_history(repo_loc: str, length: int = 10) -> None:
             "user_email": _email,
             "datetime": _date,
         }
-        rich.print(hist_template.render(**_meta))
+        rich.print(fdp_tpl.hist_template.render(**_meta))
 
         if i == length:
             return

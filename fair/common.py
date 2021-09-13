@@ -38,7 +38,6 @@ __date__ = "2021-06-28"
 
 import os
 import pathlib
-
 import yaml
 import git
 

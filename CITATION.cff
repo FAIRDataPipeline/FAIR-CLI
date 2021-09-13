@@ -8,6 +8,13 @@ authors:
     given-names: Richard
     affiliation: "University of Glasgow"
     orcid: "https://orcid.org/0000-0003-2589-8091"
+  - family-names: Reddyhoff
+    given-names: Dennis
+    affiliation: "University of Sheffield"
+    orcid: "https://orcid.org/0000-0002-4971-2346"
+  - family-names: Cummings
+    given-names: Nathan
+    affiliation: "United Kingdom Atomic Energy Authority"
 cff-version: "1.2.0"
 date-released: 2021-09-13
 keywords: 

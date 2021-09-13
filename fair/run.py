@@ -30,24 +30,24 @@ import logging
 import copy
 import hashlib
 import enum
-from datetime import datetime
-
+import datetime
+import subprocess
+import tempfile
 import yaml
 import click
 import git
-import subprocess
-import tempfile
 
 import fair.configuration as fdp_conf
 import fair.common as fdp_com
 import fair.history as fdp_hist
 import fair.exceptions as fdp_exc
-import fair.registry.storage as fdp_reg_store
 import fair.registry.requests as fdp_req
 import fair.parsing.variables as fdp_varparse
 import fair.parsing.globbing as fdp_glob
 import fair.register as fdp_reg
 import fair.registry.storage as fdp_store
+
+LOG = "FAIRDataPipeline.Run"
 
 # Dictionary of recognised shell labels.
 SHELLS: typing.Dict[str, str] = {
@@ -129,12 +129,12 @@ def run_command(
             job hash
     """
 
-    _logger = logging.getLogger("FAIRDataPipeline.Run")
+    _logger = logging.getLogger(LOG)
     click.echo(f"Updating registry from {config_yaml}", err = True)
 
     # Record the time the job was commenced, create a log and both
     # print output and write it to the log file
-    _now = datetime.now()
+    _now = datetime.datetime.now()
     _timestamp = _now.strftime("%Y-%m-%d_%H_%M_%S_%f")
     _logs_dir = fdp_hist.history_directory(repo_dir)
     if not os.path.exists(_logs_dir):
@@ -383,7 +383,7 @@ def run_command(
                 click.echo(line, nl=False)
                 sys.stdout.flush()
             _process.wait()
-            _end_time = datetime.now()
+            _end_time = datetime.datetime.now()
             with open(_log_file, "a") as f:
                 _duration = _end_time - _now
                 f.writelines([f"------- time taken {_duration} -------\n"])
@@ -395,7 +395,7 @@ def run_command(
                     exit_code=_process.returncode
                 )
         else: # CMD_MODE.PASS
-            _end_time = datetime.now()
+            _end_time = datetime.datetime.now()
             with open(_log_file, "a") as f:
                 _duration = _end_time - _now
                 f.writelines(
@@ -405,7 +405,7 @@ def run_command(
                     ]
                 )
     else:
-        _end_time = datetime.now()
+        _end_time = datetime.datetime.now()
         with open(_log_file, "a") as f:
             _duration = _end_time - _now
             f.writelines([f"------- time taken {_duration} -------\n"])
@@ -419,7 +419,7 @@ def create_working_config(
     cfg: typing.Dict,
     repo_dir: str,
     job_dir: str,
-    time: datetime
+    time: datetime.datetime
 ) -> typing.Dict:
     """Generate a working configuration file used during jobs
 
