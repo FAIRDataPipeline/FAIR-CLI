@@ -1,20 +1,20 @@
 abstract: "Command Line Interface for the FAIR Data Pipeline system, this software provides commands necessary for integrating analysis and data processing into the FAIR registry."
 authors: 
-  - family-names: Zarebski
-    given-names: Kristian
-    affiliation: "United Kingdom Atomic Energy Authority"
-    orcid: "https://orcid.org/000-0002-6773-1049"
-  - family-names: Reeve
-    given-names: Richard
-    affiliation: "University of Glasgow"
-    orcid: "https://orcid.org/0000-0003-2589-8091"
-  - family-names: Reddyhoff
-    given-names: Dennis
-    affiliation: "University of Sheffield"
-    orcid: "https://orcid.org/0000-0002-4971-2346"
-  - family-names: Cummings
-    given-names: Nathan
-    affiliation: "United Kingdom Atomic Energy Authority"
+- family-names: Zarebski
+  given-names: Kristian
+  affiliation: "United Kingdom Atomic Energy Authority"
+  orcid: "https://orcid.org/000-0002-6773-1049"
+- family-names: Reeve
+  given-names: Richard
+  affiliation: "University of Glasgow"
+  orcid: "https://orcid.org/0000-0003-2589-8091"
+- family-names: Reddyhoff
+  given-names: Dennis
+  affiliation: "University of Sheffield"
+  orcid: "https://orcid.org/0000-0002-4971-2346"
+- family-names: Cummings
+  given-names: Nathan
+  affiliation: "United Kingdom Atomic Energy Authority"
 cff-version: "1.2.0"
 date-released: 2021-09-13
 keywords: 
