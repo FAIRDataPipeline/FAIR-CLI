@@ -123,7 +123,7 @@ def test_run_config_cmd(mocker, no_init_session):
     assert len(_before) + 1 == len(_after)
     _run_dir = [i for i in _after if i not in _before][0]
     assert os.path.exists(os.path.join(_run_dir, "config.yaml"))
-    assert os.path.exists(os.path.join(_run_dir, "run_script"))
+    assert os.path.exists(os.path.join(_run_dir, "script.sh"))
 
 
 def test_run_bash_cmd(mocker, no_init_session):
@@ -152,4 +152,4 @@ def test_run_bash_cmd(mocker, no_init_session):
     assert len(_before) + 1 == len(_after)
     _run_dir = [i for i in _after if i not in _before][0]
     assert os.path.exists(os.path.join(_run_dir, "config.yaml"))
-    assert os.path.exists(os.path.join(_run_dir, "run_script"))
+    assert os.path.exists(os.path.join(_run_dir, "script.sh"))

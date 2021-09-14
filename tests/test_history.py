@@ -11,7 +11,7 @@ TEST_LOG = """
  Commenced = Mon Jun 28 10:14:25 2021 
  Author    = Joe Bloggs <jbloggs@nowhere>
  Namespace = jbloggs
- Command   = bash -eo pipefail /home/jbloggs/.fair/data/coderun/2021-06-28_10_14_25/run_script
+ Command   = bash -eo pipefail /home/jbloggs/.fair/data/coderun/2021-06-28_10_14_25/script.sh
 --------------------------------
 Hello World!
 ------- time taken 0:00:00.018649 -------

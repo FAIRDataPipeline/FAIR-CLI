@@ -403,7 +403,7 @@ you do not need to specify the full SHA but rather the first few characters:
  Commenced = Wed Jun 30 09:09:30 2021 
  Author    = Joe Bloggs <jbloggs@noreply.uk>
  Namespace = jbloggs
- Command   = bash -eo pipefail /home/jbloggs/.fair/data/coderun/2021-06-30_09_09_30_721358/run_script
+ Command   = bash -eo pipefail /home/jbloggs/.fair/data/coderun/2021-06-30_09_09_30_721358/script.sh
 --------------------------------
 0
 1

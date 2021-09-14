@@ -548,7 +548,7 @@ def setup_job_script(
     if "script" in _conf_yaml["run_metadata"]:
         _cmd = _conf_yaml["run_metadata"]['script']
         _ext = SHELLS[_shell]["extension"]
-        _out_file = os.path.join(output_dir, f"run_script.{_ext}")
+        _out_file = os.path.join(output_dir, f"script.{_ext}")
         if _cmd:
             with open(_out_file, "w") as f:
                 f.write(_cmd)
