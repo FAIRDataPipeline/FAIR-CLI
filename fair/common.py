@@ -114,7 +114,10 @@ def default_data_dir(location: str = 'local') -> str:
     _glob_conf = yaml.safe_load(open(global_fdpconfig()))
     if 'data_store' in _glob_conf['registries'][location]:
         return _glob_conf['registries'][location]['data_store']
-    return os.path.join(USER_FAIR_DIR, "data")
+    if location == 'local':
+        return os.path.join(USER_FAIR_DIR, f"data{os.path.sep}")
+    else:
+        raise fdp_exc.UserConfigError('Cannot guess remote data store location')
 
 
 def local_fdpconfig(user_loc: str = os.getcwd()) -> str:

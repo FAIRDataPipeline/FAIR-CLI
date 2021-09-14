@@ -31,7 +31,7 @@ def test_store_wkg_config(mocker):
     mocker.patch.object(fdp_conf, "get_current_user_orcid", lambda *args, **kwargs: "0000000000")
     _wkg_config = {
         'run_metadata': {
-            'write_data_store': '/fake/path/address'
+            'write_data_store': '/fake/path/address/'
         }
     }
     _file, _name = tempfile.mkstemp(suffix='.yaml')
