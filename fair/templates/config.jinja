@@ -3,7 +3,7 @@ run_metadata:
   remote_data_registry_url: {{instance._global_config['registries']['origin']['uri']}}
   write_data_store: {{data_dir}}
   local_repo: {{local_repo}}
-  remote_repo: {{instance._local_config['git']['remote_repo']}}
+  remote: {{instance._local_config['git']['remote']}}
   default_input_namespace: {{instance._local_config['namespaces']['input'] if instance._local_config['namespaces']['input'] else 'null'}}
   default_output_namespace: {{instance._local_config['namespaces']['output']}}
   description: Project description
