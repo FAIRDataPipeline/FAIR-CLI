@@ -26,6 +26,7 @@ import typing
 import collections.abc
 import re
 import logging
+import os
 import git
 import yaml
 
@@ -91,7 +92,7 @@ def subst_cli_vars(
         "USER": lambda : fdp_conf.get_current_user_name(_local_repo),
         "USER_ID": lambda : _get_id(job_dir),
         "REPO_DIR": lambda : _fair_head,
-        "CONFIG_DIR": lambda : job_dir,
+        "CONFIG_DIR": lambda : job_dir + os.path.sep,
         "GIT_BRANCH": lambda : git.Repo(
                 fdp_conf.local_git_repo(_local_repo)
             ).active_branch.name,
