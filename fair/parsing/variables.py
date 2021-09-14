@@ -78,7 +78,7 @@ def subst_cli_vars(
     _fair_head = fdp_com.find_fair_root(_local_repo)
 
     def _tag_check(*args, **kwargs):
-        _repo = git.Repo(fdp_conf.get_session_git_repo(_local_repo))
+        _repo = git.Repo(fdp_conf.local_git_repo(_local_repo))
         if len(_repo.tags) < 1:
             fdp_exc.UserConfigError(
                 "Cannot use GIT_TAG variable, no git tags found."
@@ -93,11 +93,9 @@ def subst_cli_vars(
         "REPO_DIR": lambda : _fair_head,
         "CONFIG_DIR": lambda : job_dir,
         "GIT_BRANCH": lambda : git.Repo(
-                fdp_conf.get_session_git_repo(_local_repo)
+                fdp_conf.local_git_repo(_local_repo)
             ).active_branch.name,
-        "GIT_REMOTE": lambda : git.Repo(
-            fdp_conf.get_session_git_repo(_local_repo)
-        ).refs[fdp_conf.get_session_git_remote(_local_repo)].url,
+        "GIT_REMOTE": lambda : fdp_conf.remote_git_repo(_local_repo),
         "GIT_TAG": _tag_check,
     }
 
