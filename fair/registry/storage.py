@@ -312,7 +312,12 @@ def store_working_script(
     )
 
 
-def store_namespace(uri: str, namespace_label: str, full_name: str = None, website: str = None) -> str:
+def store_namespace(
+    uri: str,
+    namespace_label: str,
+    full_name: str = None,
+    website: str = None
+) -> str:
     """Create a namespace on the
 
     Parameters
