@@ -36,6 +36,7 @@ import pathlib
 import logging
 import shutil
 import copy
+import sys
 import click
 import rich
 import git
@@ -50,6 +51,8 @@ import fair.exceptions as fdp_exc
 import fair.history as fdp_hist
 import fair.staging as fdp_stage
 import fair.testing as fdp_test
+import fair.session as fdp_session
+import fair.registry.server as fdp_svr
 import fair.registry.sync as fdp_sync
 import fair.registry.storage as fdp_store
 import fair.registry.requests as fdp_req
@@ -522,7 +525,7 @@ class FAIR:
         using: typing.Dict = None,
         registry: str = None,
         export_as: str = None
-        ) -> None:
+    ) -> None:
         """Initialise an fair repository within the current location
 
         Parameters
@@ -581,6 +584,30 @@ class FAIR:
             self._export_cli_configuration(export_as)
 
         click.echo(f"Initialised empty fair repository in {_fair_dir}")
+
+        _local_uri = self._global_config['registries']['local']['uri']
+        _stop_server = not fdp_serv.check_server_running(self._global_config['registries']['local']['uri'])
+
+        if _stop_server:
+            fdp_serv.launch_server(_local_uri)
+
+        if 'ror' in self._local_config['user']:
+            _uri = 'https://ror.org/' + self._local_config['user']['ror']
+        elif 'orcid' in self._local_config['user']:
+            _uri = 'https://orcid.org/' + self._local_config['user']['orcid']
+        else:
+            _uri = None
+
+        fdp_store.store_namespace(
+            _local_uri,
+            self._local_config['namespaces']['input'],
+            self._local_config['user']['given_names'] + ' ' + self._local_config['user']['family_name'],
+            _uri
+        )
+
+        if _stop_server:
+            fdp_serv.stop_server(_local_uri)
+
 
     def close_session(self) -> None:
         """Upon exiting, dump all configurations to file"""
