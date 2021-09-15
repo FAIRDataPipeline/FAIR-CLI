@@ -20,9 +20,8 @@ def test_create_work_cfg(no_init_session):
     _out = os.path.join(fdp_com.default_jobs_dir(), _ts, "config.yaml")
     os.makedirs(os.path.dirname(_out), exist_ok=True)
     fdp_run.create_working_config(
-        "",
-        no_init_session._session_loc,
         no_init_session._session_config,
+        no_init_session._session_loc,
         _out,
         _now,
     )
