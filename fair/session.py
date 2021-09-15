@@ -618,7 +618,7 @@ class FAIR:
 
         #TODO Kristian decide where this code should go and whether there is a better way of identifying _local_uri
         # Populate file type table
-        _local_uri = fdp_conf.get_local_uri()
+        _local_uri = self._global_config['registries']['local']['uri']
         if not fdp_serv.check_server_running(_local_uri):
             fdp_serv.launch_server(_local_uri)
         fdp_store.populate_file_type(_local_uri)
