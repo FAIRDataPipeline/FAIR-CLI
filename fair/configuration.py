@@ -758,8 +758,9 @@ def update_metadata(cfg: typing.Dict) -> None:
         _modified_config = True
 
     # Insert 'write_data_store' if absent from user config
-    if 'write_data_store' not in _cfg_meta:
-        _cfg_meta['write_data_store'] = write_data_store(cfg)
+    _wds = write_data_store(cfg)
+    if 'write_data_store' not in _cfg_meta or _cfg_meta['write_data_store'] != _wds:
+        _cfg_meta['write_data_store'] = _wds
         _modified_config = True
 
     # Insert 'default_input_namespace' if absent from user config
