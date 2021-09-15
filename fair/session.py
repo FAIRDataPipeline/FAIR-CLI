@@ -700,7 +700,7 @@ class FAIR:
                 )
             if name == 'local' and 'directory' not in reg:
                 raise fdp_exc.CLIConfigurationError(
-                    f"Expected key 'directory' for remote '{name}' "
+                    f"Expected key 'directory' for local registry "
                     "in CLI configuration"
                 )
 

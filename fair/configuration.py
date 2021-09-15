@@ -397,7 +397,7 @@ def global_config_query(registry: str = None) -> typing.Dict[str, typing.Any]:
 
     if not registry:
         registry = os.path.join(
-            pathlib.Path().home(), fdp_com.FAIR_FOLDER, 'registries'
+            pathlib.Path().home(), fdp_com.FAIR_FOLDER, 'registry'
         )
 
     click.echo("Checking for local registry")
