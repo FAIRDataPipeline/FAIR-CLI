@@ -185,7 +185,7 @@ run_metadata:
   description: Test Project
   local_data_registry: http://localhost:8000/api/
   local_repo: /home/joebloggs/Documents/AnalysisProject
-  write_data_store: /home/joebloggs/.fair/data
+  write_data_store: /home/joebloggs/.fair/data/
 ```
 
 the user then only needs to add a `script` or `script_path` entry to execute a code run. This is only required for `run`.
@@ -200,11 +200,11 @@ namespaces:
   output: testing
 registries:
   local:
-    data_store: /path/to/local/data_store,
+    data_store: /path/to/local/data_store/,
     directory: /local/registry/install/directory
     uri: http://localhost:8000/api/
   origin:
-    data_store: /remote/registry/data/store/path
+    data_store: /remote/registry/data/store/path/
     token: /path/to/remote/token
     uri: https://data.scrc.uk/api/'
 user:
@@ -266,7 +266,7 @@ run_metadata:
   description: Test project
   local_data_registry: http://localhost:8000/api/
   local_repo: /home/joebloggs/Documents/SCRC/FAIR-CLI
-  write_data_store: /home/joebloggs/.fair/data
+  write_data_store: /home/joebloggs/.fair/data/
 register:
 - external_object: records/SARS-CoV-2/scotland/human-mortality
   namespace_name: Scottish Government Open Data Repository

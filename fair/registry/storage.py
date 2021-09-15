@@ -123,7 +123,9 @@ def populate_file_type(uri:str):
     for _extension, _name in fdp_file.FILE_TYPES.items():
         # Use post_else_get in case some file types exist already
         fdp_req.post_else_get(
-            uri, "file_type", data={"name": _name, "extension": _extension.lower()}
+            uri, "file_type",
+            data={"name": _name, "extension": _extension.lower()},
+            params={"extension": _extension.lower()}
         )
 
 def create_file_type(uri: str, extension: str) -> str:
@@ -133,7 +135,7 @@ def create_file_type(uri: str, extension: str) -> str:
     ----------
     uri : str
         registry RestAPI end point
-    ftype : str
+    extension : str
         file extension
 
     Returns
@@ -143,7 +145,9 @@ def create_file_type(uri: str, extension: str) -> str:
     """
     _name = fdp_file.FILE_TYPES[extension]
     return fdp_req.post_else_get(
-        uri, "file_type", data={"name": _name, "extension": extension.lower()}
+        uri, "file_type",
+        data={"name": _name, "extension": extension.lower()},
+        params={"extension": extension.lower()}
     )
 
 
@@ -312,7 +316,12 @@ def store_working_script(
     )
 
 
-def store_namespace(uri: str, namespace_label: str, full_name: str = None, website: str = None) -> str:
+def store_namespace(
+    uri: str,
+    namespace_label: str,
+    full_name: str = None,
+    website: str = None
+) -> str:
     """Create a namespace on the
 
     Parameters
@@ -411,7 +420,7 @@ def store_data_file(
     local_file: str,
     cfg: typing.Dict,
     public: bool
-    ) -> None:
+) -> None:
 
     _root_store = get_write_storage(uri, cfg)
     _data_store = fdp_conf.write_data_store(cfg)

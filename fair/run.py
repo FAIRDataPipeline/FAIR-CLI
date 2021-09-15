@@ -531,7 +531,7 @@ def setup_job_script(
     # Create environment variable which users can refer to in their
     # submission scripts
     _run_env["FDP_LOCAL_REPO"] = _conf_yaml["run_metadata"]['local_repo']
-    _run_env["FDP_CONFIG_DIR"] = os.path.dirname(config_yaml)
+    _run_env["FDP_CONFIG_DIR"] = os.path.dirname(config_yaml) + os.path.sep
 
     # Check if a specific shell has been defined for the script
     _shell = None

@@ -161,7 +161,7 @@ def get_remote_uri(repo_loc: str, remote_label: str = 'origin') -> str:
     return _local_conf['registries'][remote_label]['uri']
 
 
-def get_session_git_repo(cfg: typing.Dict = None) -> str:
+def local_git_repo(cfg: typing.Dict = None) -> str:
     """Retrieves the local repository git directory
 
     Parameters
@@ -181,9 +181,34 @@ def get_session_git_repo(cfg: typing.Dict = None) -> str:
         )
     except KeyError:
         raise fdp_exc.InternalError(
-            "Failed to retrieve project git repository directory"
+            "Failed to retrieve local project git repository directory"
         )
 
+def remote_git_repo(cfg: typing.Dict = None) -> str:
+    """Retrieves the remote repository git directory
+
+    Parameters
+    ----------
+    cfg : Dict
+        Dict containing CLI config
+
+    Returns
+    -------
+    str
+        the root git repository directory
+    """
+
+    try:
+        _remote = fdp_config_value(
+            cfg, "remote", ["git", "remote"]
+        )
+        _local = local_git_repo(cfg)
+        return git.Repo(_local).remote(_remote).url
+
+    except KeyError:
+        raise fdp_exc.InternalError(
+            "Failed to retrieve remote project git repository directory"
+        )
 
 def get_remote_token(repo_dir: str, remote: str = 'origin') -> str:
     _local_config = read_local_fdpconfig(repo_dir)
@@ -290,7 +315,7 @@ def get_local_uri() -> str:
         return _cfg['registries']['local']['uri']
     except KeyError:
         raise fdp_exc.CLIConfigurationError(
-            f"Expected key 'registries:local:uri' in local CLI configuration"
+            f"Expected key 'registries:local:uri' in global CLI configuration"
         )
 
 
@@ -332,6 +357,7 @@ def _get_user_info_and_namespaces() -> typing.Dict[str, typing.Dict]:
             _def_ospace += _user_info['family_name']
 
     else:
+        #TODO Add in ROR management here
         _user_orcid = None
         _user_uuid = str(uuid.uuid4())
         _full_name = click.prompt("Full Name")
@@ -371,7 +397,7 @@ def global_config_query(registry: str = None) -> typing.Dict[str, typing.Any]:
 
     if not registry:
         registry = os.path.join(
-            pathlib.Path().home(), fdp_com.FAIR_FOLDER, 'registries'
+            pathlib.Path().home(), fdp_com.FAIR_FOLDER, 'registry'
         )
 
     click.echo("Checking for local registry")
@@ -387,20 +413,27 @@ def global_config_query(registry: str = None) -> typing.Dict[str, typing.Any]:
     _default_url = 'http://localhost:8000/api/'
     _local_uri = click.prompt("Local Registry URL", default=_default_url)
 
-    _remote_url = click.prompt("Remote API URL")
+    _default_rem = 'https://data.scrc.uk/api/'
+    _remote_url = click.prompt("Remote API URL", default=_default_rem)
 
     _rem_data_store = click.prompt(
         "Remote Data Storage Root",
         default=_remote_url.replace("api", "data")
     )
 
-    _rem_key_file = click.prompt("Remote API Token File")
+    _default_token = os.path.join(registry, "remote-token")
+    _rem_key_file = click.prompt(
+        "Remote API Token File",
+        default=_default_token
+    )
     _rem_key_file = os.path.expandvars(_rem_key_file)
 
+    #TODO fix search for valid token
     while (
-        not os.path.exists(_rem_key_file)
+        False and
+        (not os.path.exists(_rem_key_file)
         or not open(_rem_key_file).read().strip()
-        ):
+        )):
         click.echo(
             f"Token file '{_rem_key_file}' does not exist or is empty, "
             "please provide a valid token file."
@@ -435,8 +468,10 @@ def global_config_query(registry: str = None) -> typing.Dict[str, typing.Any]:
 
     _loc_data_store = click.prompt(
         "Default Data Store: ",
-        default=os.path.join(fdp_com.USER_FAIR_DIR, 'data')
+        default=os.path.join(fdp_com.USER_FAIR_DIR, 'data/')
     )
+    if _loc_data_store[-1] != os.path.sep:
+        _loc_data_store += os.path.sep
 
     _glob_conf_dict = _get_user_info_and_namespaces()
     _glob_conf_dict['registries']  = {
@@ -639,9 +674,12 @@ def fdp_config_value(
 
 def write_data_store(cfg: typing.Dict) -> str:
     """Location of the default data store"""
-    return fdp_config_value(
+    _store = fdp_config_value(
         cfg, "write_data_store", ["registries", "local", "data_store"]
     )
+    if _store[-1] != os.path.sep:
+        _store += os.path.sep
+    return _store
 
 
 def input_namespace(cfg: typing.Dict) -> str:
@@ -727,8 +765,9 @@ def update_metadata(cfg: typing.Dict) -> None:
         _modified_config = True
 
     # Insert 'write_data_store' if absent from user config
-    if 'write_data_store' not in _cfg_meta:
-        _cfg_meta['write_data_store'] = write_data_store(cfg)
+    _wds = write_data_store(cfg)
+    if 'write_data_store' not in _cfg_meta or _cfg_meta['write_data_store'] != _wds:
+        _cfg_meta['write_data_store'] = _wds
         _modified_config = True
 
     # Insert 'default_input_namespace' if absent from user config
@@ -753,7 +792,12 @@ def update_metadata(cfg: typing.Dict) -> None:
 
     # Insert 'local_repo' if absent from user config
     if 'local_repo' not in _cfg_meta:
-        _cfg_meta['local_repo'] = get_session_git_repo(cfg)
+        _cfg_meta['local_repo'] = local_git_repo(cfg)
+        _modified_config = True
+
+    # Insert 'remote_repo' if absent from user config
+    if 'remote_repo' not in _cfg_meta:
+        _cfg_meta['remote_repo'] = remote_git_repo(cfg)
         _modified_config = True
 
     # Insert default read version if absent from user config

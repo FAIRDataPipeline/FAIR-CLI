@@ -8,7 +8,7 @@ import fair.common as fdp_com
 
 def create_configurations(registry_dir: str) -> typing.Dict:
     _test_directory = tempfile.mkdtemp()
-    _loc_data_store = os.path.join(_test_directory, 'data_store')
+    _loc_data_store = os.path.join(_test_directory, 'data_store') + os.path.sep
 
     _git = fdp_com.find_git_root(os.getcwd())
 

@@ -26,9 +26,6 @@ import urllib.parse
 import shutil
 import logging
 import requests
-import click
-import semver
-import yaml
 
 import fair.exceptions as fdp_exc
 import fair.registry.requests as fdp_req
@@ -152,6 +149,10 @@ def fetch_registrations(
                     f"Failed to fetch item '{_url}' with exit code "
                     f"{r_in.response}"
                 )
+
+        # Need to fix the path for Windows
+        if os.path.sep != '/':
+            _name = _name.replace('/', os.path.sep)
 
         _local_dir = os.path.join(
             fdp_conf.write_data_store(cfg), _namespace, _name

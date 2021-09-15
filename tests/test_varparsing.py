@@ -42,7 +42,6 @@ def test_parse_vars(mocker, git_mock):
     ).remotes['other'].url
 
     _u_config = fdp_varparse.subst_cli_vars(
-        "http://localhost:3333",
         os.getcwd(),
         _now,
         _dummy_file

@@ -114,7 +114,11 @@ def init(
                         "file does not exist."
                     )
                 _use_dict = yaml.safe_load(open(using))
-            fair_session.initialise(using=_use_dict, registry=registry, export_as=export)
+            fair_session.initialise(
+                using=_use_dict,
+                registry=registry,
+                export_as=export
+            )
     except fdp_exc.FAIRCLIException as e:
         if debug:
             raise e
