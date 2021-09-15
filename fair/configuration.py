@@ -413,20 +413,27 @@ def global_config_query(registry: str = None) -> typing.Dict[str, typing.Any]:
     _default_url = 'http://localhost:8000/api/'
     _local_uri = click.prompt("Local Registry URL", default=_default_url)
 
-    _remote_url = click.prompt("Remote API URL")
+    _default_rem = 'https://data.scrc.uk/api/'
+    _remote_url = click.prompt("Remote API URL", default=_default_rem)
 
     _rem_data_store = click.prompt(
         "Remote Data Storage Root",
         default=_remote_url.replace("api", "data")
     )
 
-    _rem_key_file = click.prompt("Remote API Token File")
+    _default_token = os.path.join(registry, "remote-token")
+    _rem_key_file = click.prompt(
+        "Remote API Token File",
+        default=_default_token
+    )
     _rem_key_file = os.path.expandvars(_rem_key_file)
 
+    #TODO fix search for valid token
     while (
-        not os.path.exists(_rem_key_file)
+        False and
+        (not os.path.exists(_rem_key_file)
         or not open(_rem_key_file).read().strip()
-        ):
+        )):
         click.echo(
             f"Token file '{_rem_key_file}' does not exist or is empty, "
             "please provide a valid token file."
