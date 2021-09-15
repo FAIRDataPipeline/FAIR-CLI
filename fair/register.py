@@ -150,6 +150,10 @@ def fetch_registrations(
                     f"{r_in.response}"
                 )
 
+        # Need to fix the path for Windows
+        if os.path.sep != '/':
+            _name = _name.replace('/', os.path.sep)
+
         _local_dir = os.path.join(
             fdp_conf.write_data_store(cfg), _namespace, _name
         )
