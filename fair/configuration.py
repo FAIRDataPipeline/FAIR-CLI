@@ -315,7 +315,7 @@ def get_local_uri() -> str:
         return _cfg['registries']['local']['uri']
     except KeyError:
         raise fdp_exc.CLIConfigurationError(
-            f"Expected key 'registries:local:uri' in local CLI configuration"
+            f"Expected key 'registries:local:uri' in global CLI configuration"
         )
 
 
