@@ -357,6 +357,7 @@ def _get_user_info_and_namespaces() -> typing.Dict[str, typing.Dict]:
             _def_ospace += _user_info['family_name']
 
     else:
+        #TODO Add in ROR management here
         _user_orcid = None
         _user_uuid = str(uuid.uuid4())
         _full_name = click.prompt("Full Name")

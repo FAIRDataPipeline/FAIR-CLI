@@ -591,9 +591,9 @@ class FAIR:
         if _stop_server:
             fdp_serv.launch_server(_local_uri)
 
-        if 'ror' in self._local_config['user']:
+        if 'ror' in self._local_config['user'] and self._local_config['user']['ror']:
             _uri = 'https://ror.org/' + self._local_config['user']['ror']
-        elif 'orcid' in self._local_config['user']:
+        elif 'orcid' in self._local_config['user'] and self._local_config['user']['orcid']:
             _uri = 'https://orcid.org/' + self._local_config['user']['orcid']
         else:
             _uri = None

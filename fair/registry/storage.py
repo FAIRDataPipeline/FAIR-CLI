@@ -416,7 +416,7 @@ def store_data_file(
     local_file: str,
     cfg: typing.Dict,
     public: bool
-    ) -> None:
+) -> None:
 
     _root_store = get_write_storage(uri, cfg)
     _data_store = fdp_conf.write_data_store(cfg)
