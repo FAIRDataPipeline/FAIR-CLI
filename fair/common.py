@@ -57,7 +57,7 @@ def registry_home() -> str:
         )
     if 'local' not in _glob_conf['registries']:
         raise fdp_exc.CLIConfigurationError(
-            f"Expected remote 'local' in global CLI configuration registries"
+            f"Expected 'local' registry in global CLI configuration registries"
         )
     if 'directory' not in _glob_conf['registries']['local']:
         raise fdp_exc.CLIConfigurationError(

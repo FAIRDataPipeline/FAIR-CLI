@@ -586,27 +586,13 @@ class FAIR:
         click.echo(f"Initialised empty fair repository in {_fair_dir}")
 
         _local_uri = self._global_config['registries']['local']['uri']
-        _stop_server = not fdp_serv.check_server_running(self._global_config['registries']['local']['uri'])
-
-        if _stop_server:
-            fdp_serv.launch_server(_local_uri)
 
         if 'ror' in self._local_config['user'] and self._local_config['user']['ror']:
-            _uri = 'https://ror.org/' + self._local_config['user']['ror']
+            self._uri = 'https://ror.org/' + self._local_config['user']['ror']
         elif 'orcid' in self._local_config['user'] and self._local_config['user']['orcid']:
-            _uri = 'https://orcid.org/' + self._local_config['user']['orcid']
+            self._uri = 'https://orcid.org/' + self._local_config['user']['orcid']
         else:
-            _uri = None
-
-        fdp_store.store_namespace(
-            _local_uri,
-            self._local_config['namespaces']['input'],
-            self._local_config['user']['given_names'] + ' ' + self._local_config['user']['family_name'],
-            _uri
-        )
-
-        if _stop_server:
-            fdp_serv.stop_server(_local_uri)
+            self._uri = None
 
 
     def close_session(self) -> None:
@@ -640,6 +626,12 @@ class FAIR:
             fdp_serv.launch_server(_local_uri)
         fdp_store.populate_file_type(_local_uri)
 
+        fdp_store.store_namespace(
+            _local_uri,
+            self._local_config['namespaces']['input'],
+            self._local_config['user']['given_names'] + ' ' + self._local_config['user']['family_name'],
+            self._uri
+        )
 
         # Add author and UserAuthor
         _author_url = fdp_store.store_user(self._session_loc, _local_uri)
