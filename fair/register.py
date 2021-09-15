@@ -26,9 +26,6 @@ import urllib.parse
 import shutil
 import logging
 import requests
-import click
-import semver
-import yaml
 
 import fair.exceptions as fdp_exc
 import fair.registry.requests as fdp_req
