@@ -93,6 +93,7 @@ def subst_cli_vars(
         "USER_ID": lambda : _get_id(job_dir),
         "REPO_DIR": lambda : _fair_head,
         "CONFIG_DIR": lambda : job_dir + os.path.sep,
+        "LOCAL_TOKEN": lambda : fdp_req.local_token(),
         "GIT_BRANCH": lambda : git.Repo(
                 fdp_conf.local_git_repo(_local_repo)
             ).active_branch.name,

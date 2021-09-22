@@ -425,13 +425,14 @@ Within the `config.yaml` file, template variables can be specified by using the 
 
 | **Variable**        | **Description**                                                                  |
 | ------------------- | -------------------------------------------------------------------------------- |
-| `DATE`              | Date in the form `%Y%m%d` |
+| `DATE`              | Date in the form `%Y%m%d`                                                        |
 | `DATETIME`          | Date and time in the form `%Y-%m-%sT%H:%M:S`                                     |
-| `DATETIME-%Y%H%M`   | Date and time in custom format (where `%Y%H%M` can be any valid form) |
+| `DATETIME-%Y%H%M`   | Date and time in custom format (where `%Y%H%M` can be any valid form)            |
 | `USER`              | The current user as defined in the CLI                                           |
 | `REPO_DIR`          | The FAIR repository root directory                                               |
 | `CONFIG_DIR`        | The directory containing the `config.yaml` after template substitution           |
+| `LOCAL_TOKEN`       | The token for access to the local registry                                       |
 | `SOURCE_CONFIG`     | Path of the user defined `config.yaml`                                           |
 | `GIT_BRANCH`        | Current branch of the `git` repository                                           |
-| `GIT_REMOTE` | The URI of the git repository specified during setup |
+| `GIT_REMOTE`        | The URI of the git repository specified during setup                             |
 | `GIT_TAG`           | The latest tag on `git`                                                          |

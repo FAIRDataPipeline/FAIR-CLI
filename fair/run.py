@@ -270,7 +270,6 @@ def run_command(
     _git_repo = git.Repo(_cfg["run_metadata"]['local_repo'])
 
     _cfg["run_metadata"]["latest_commit"] = _git_repo.head.commit.hexsha
-    _cfg["run_metadata"]["token"] = fdp_req.local_token()
 
     # Fetch the CLI configurations for logging information
     _user = fdp_conf.get_current_user_name(repo_dir)
