@@ -60,7 +60,9 @@ def get_write_storage(uri: str, cfg: typing.Dict) -> str:
     _write_data_store = fdp_conf.write_data_store(cfg)
 
     # Convert local file path to a valid data store path
-    _write_store_root = f"file://{_write_data_store}/"
+    _write_store_root = f"file://{_write_data_store}"
+    if _write_store_root[-1] != os.path.sep:
+        _write_store_root += os.path.sep
 
     # Check if the data store already exists by querying for it
     _search_root = fdp_req.get(
