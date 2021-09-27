@@ -531,6 +531,7 @@ def setup_job_script(
     # submission scripts
     _run_env["FDP_LOCAL_REPO"] = _conf_yaml["run_metadata"]['local_repo']
     _run_env["FDP_CONFIG_DIR"] = os.path.dirname(config_yaml) + os.path.sep
+    _run_env["FDP_LOCAL_TOKEN"] = fdp_req.local_token()
 
     # Check if a specific shell has been defined for the script
     _shell = None
