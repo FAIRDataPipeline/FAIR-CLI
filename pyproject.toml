@@ -1,0 +1,47 @@
+[tool.poetry]
+name = "fair-cli"
+version = "0.1.0"
+description = "Synchronization interface for the SCRC FAIR Data Pipeline registry"
+authors = [
+    "Nathan Cummings <nathan.cummings@ukaea.uk>",
+    "Dennis Reddyhoff <d.reddyhoff@sheffield.ac.uk>",
+    "Kristian Zarebski <kristian.zarebski@ukaea.uk>",
+    "Richard Reeve <richard.reeve@glasgow.ac.uk>"
+]
+packages = [
+    {include = "fair"}
+]
+license = "BSD-2-Clause"
+
+[tool.poetry.dependencies]
+python = "^3.7.1,<4.0"
+click = "^8.0.0"
+requests = "^2.23.0"
+toml = "^0.10.2"
+rich = "^10.2.2"
+GitPython = "^3.1.18"
+semver = "^2.13.0"
+Jinja2 = "^3.0.1"
+PyYAML = "^5.4.1"
+
+[tool.poetry.dev-dependencies]
+pytest = "^6.2.4"
+black = "^21.5b1"
+mypy = "^0.812"
+bandit = "^1.7.0"
+pycodestyle = "^2.7.0"
+flake8 = "^3.9.2"
+pydocstyle = "^6.0.0"
+pylama = "^7.7.1"
+poetry = "^1.1.6"
+pytest-mock = "^3.6.1"
+pytest-dependency = "^0.5.1"
+pytest-cov = "^2.12.1"
+requests-mock = "^1.9.3"
+
+[tool.poetry.scripts]
+fair = 'fair.cli:cli'
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
