@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "fair-cli"
-version = "0.2.0"
+version = "0.2.1"
 description = "Synchronization interface for the SCRC FAIR Data Pipeline registry"
 authors = [
     "Nathan Cummings <nathan.cummings@ukaea.uk>",
