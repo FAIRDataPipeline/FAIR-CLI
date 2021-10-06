@@ -26,12 +26,19 @@ jobs:
         run: python -m pip install poetry
       - name: Check PyProject Module Version
         run: |
-          python -m pip install toml
+          python -m pip install toml PyYAML
           MODULE_TAG=$(python -c "import toml; meta=toml.load('pyproject.toml');print(meta['tool']['poetry']['version'])" | xargs)
+          CITATION_TAG=$(python -c "import yaml; meta=yaml.safe_load(open('CITATION.cff'));print(meta['version'])" | xargs)
           if [ "$MODULE_TAG" != "${{ steps.tagName.outputs.tag }}" ]
           then 
-            echo "Tag mismatch between git and Python module, aborting.";
+            echo "Tag mismatch between git and Python module, aborting: $MODULE_TAG != ${{ steps.tagName.outputs.tag }}";
             echo "Update the module version either using 'poetry version' command or edit the 'pyproject.toml' file."
+            exit 1;
+          fi
+          if [ "$CITATION_TAG" != "${{ steps.tagName.outputs.tag }}" ]
+          then 
+            echo "Tag mismatch between git and CITATION file, aborting: $CITATION_TAG != ${{ steps.tagName.outputs.tag }}";
+            echo "Update the 'version' tag in the CITATION file."
             exit 1;
           fi
       - name: Build Module
