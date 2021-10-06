@@ -307,15 +307,15 @@ def clean_config(cfg: typing.Dict) -> None:
 
 def pull_metadata(cfg: typing.Dict, blocktype: str) -> None:
     _logger = logging.getLogger(LOG)
-    _logger.warning(
-        "Cannot currently pull from remote registry"
+    _logger.info(
+        "Not currently pulling from remote registry"
     )
 
 def pull_data(cfg: typing.Dict, blocktype: str = "read") -> None:
     if blocktype == "read":
         _logger = logging.getLogger(LOG)
-        _logger.warning(
-            "Cannot currently pull from remote registry"
+        _logger.info(
+            "Not currently pulling from remote registry"
         )
 
 def register_to_read(cfg: typing.Dict) -> None:
