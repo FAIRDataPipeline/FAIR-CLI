@@ -1,5 +1,5 @@
 # Publishes any tag which does not have a suffix
-# i.e. 0.1.0 would be published but not 0.1.0-rc1, 0.1.0-beta etc.
+# i.e. v0.1.0 would be published but not v0.1.0-rc1, v0.1.0-beta etc.
 # in addition, if the version number in the pyproject.toml has not been
 # updated as it should have been then this will terminate the CI
 
@@ -46,10 +46,10 @@ jobs:
           poetry install
           poetry build
           ls dist/
-      # - name: Publish Module to PyPi
-      #   uses: pypa/gh-action-pypi-publish@release/v1
-      #   with:
-      #     user: __token__
-      #     password: ${{ secrets.PYPI_API_TOKEN }}
+      - name: Publish Module to PyPi
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          user: __token__
+          password: ${{ secrets.PYPI_API_TOKEN }}
 
 
