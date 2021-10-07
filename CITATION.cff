@@ -16,6 +16,7 @@ authors:
 - family-names: Cummings
   given-names: Nathan
   affiliation: United Kingdom Atomic Energy Authority
+  orcid: https://orcid.org/0000-0003-4359-6337
 date-released: 2021-09-13
 keywords: 
 - FAIR Data Pipeline
