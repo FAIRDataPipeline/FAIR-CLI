@@ -3,10 +3,10 @@ name = "fair-cli"
 version = "0.2.2"
 description = "Synchronization interface for the SCRC FAIR Data Pipeline registry"
 authors = [
+    "Richard Reeve <richard.reeve@glasgow.ac.uk>",
     "Nathan Cummings <nathan.cummings@ukaea.uk>",
     "Dennis Reddyhoff <d.reddyhoff@sheffield.ac.uk>",
-    "Kristian Zarebski <kristian.zarebski@ukaea.uk>",
-    "Richard Reeve <richard.reeve@glasgow.ac.uk>"
+    "Kristian Zarebski <kristian.zarebski@ukaea.uk>"
 ]
 classifiers = [
     "License :: OSI Approved :: BSD License",
