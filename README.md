@@ -1,100 +1,19 @@
 # FAIR Data Pipeline Command Line Interface
 
-[![FAIR Data Pipeline CLI](https://github.com/FAIRDataPipeline/FAIR-CLI/actions/workflows/fair-cli.yaml/badge.svg?branch=dev)](https://github.com/FAIRDataPipeline/FAIR-CLI/actions/workflows/fair-cli.yaml)
-[![codecov](https://codecov.io/gh/FAIRDataPipeline/FAIR-CLI/branch/dev/graph/badge.svg?token=h93TkTiiWf)](https://codecov.io/gh/FAIRDataPipeline/FAIR-CLI)
-[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=FAIRDataPipeline_FAIR-CLI&metric=alert_status)](https://sonarcloud.io/dashboard?id=FAIRDataPipeline_FAIR-CLI)
-
-| **DISCLAIMER:**                                                                                                                                                                                                                                                                                                                                                                    |
-| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| The following document is largely conceptual and therefore does *not* represent a manual for the final interface. Statements within the following are likely to change, further details of possible changes are given throughout. Please either open an issue or pull request on the [source repository](https://github.com/FAIRDataPipeline/FAIR-CLI) raising any changes/issues. |
-
-FAIR-CLI forms the main interface for synchronising changes between your local and shared remote FAIR Data Pipeline registries, it is also used to instantiate model runs/data submissions to the pipeline.
-
-The project is still under development with many features still to be implemented and checked. Available commands are summarised below along with their usage.
+FAIR-CLI forms the main interface for synchronising changes between local and shared remote FAIR Data Pipeline registries, it is also used to instantiate model runs/data submissions to the pipeline. Full documentation of the FAIR Data Pipeline can be found on the project [website](https://www.fairdatapipeline.org/).
 
 ## Installation
 
-The project makes use of [Poetry](https://python-poetry.org/) for development which allows quick and easy mangement of dependencies, and provides a virtual environment exclusive to the project. Ultimately the project will be built into a pip installable module (using `poetry build`) meaning users will not need Poetry. You can access this environment by installing poetry:
+The package is installed using Pip:
 
 ```sh
-pip install poetry
+pip install fair-cli
 ```
 
-and, ensuring you are in the project repository, running:
+## The User Configuration File
+Job runs are configured via `config.yaml` files. Upon initialisation of a project, FAIR-CLI automatically generates a starter configuration file with all requirements in place. To execute a process (e.g. perform a model run from a compiled binary/script) an additional key of either `script` or `script_path` must be provided. Alternatively the command `fair run bash` can be used to append the key and run a command directly.
 
-```sh
-poetry install
-```
-
-which will setup the virtual environment and install requirements. You can then either launch the environment as a shell using:
-
-```sh
-poetry shell
-```
-
-or run commands within it externally using:
-
-```sh
-poetry run <command>
-```
-
-## Structure
-
-The layout of FAIR-CLI on a simplified system looks like this:
-
-```sh
-$HOME
-├── .fair
-│   ├── cli
-│   │   ├── cli-config.yaml
-│   │   └── sessions
-│   ├── data
-│   │   └── jobs
-│   └── $REGISTRY_HOME
-│
-└─ Documents
-   └─ my_project
-      ├── config.yaml
-      └── .fair
-          ├── cli-config.yaml
-          ├── logs
-          └── staging
-```
-
-### Global and Local Directories
-
-FAIR-CLI stores information for projects in two locations. The first is a *global* directory stored in the user's home folder in the same location as the registry itself `$HOME/.fair/cli`, and the second is a *local* directory which exists within the model project itself `$PROJECT_HOME/.fair`.
-
-The CLI holds metadata for the user in it's own configuration file (not to be confused with the user modifiable `config.yaml`), `cli-config.yaml`, the *global* version of which is initialised during first use. In a manner similar to `git`, FAIR-CLI has repositories which allow the user to override these *global* configurations, this then forming a *local* variant.
-
-### Data Directory
-
-The directory `$HOME/.fair/data` is the default data store initialised by FAIR-CLI. During setup an alternative can be provided and this can be later changed on a per-run basis if the user so desires. The subdirectory `$HOME/data/jobs` contains timestamped directories of jobs.
-
-### Sessions Directory
-
-The directory `$HOME/.fair/sessions` is used to keep track of ongoing queries to the registry as a safety mechanism to ensure the registry is not shutdown whilst processes are still occuring.
-
-### Logs Directory
-
-The directory `$PROJECT/.fair/logs` stores `stdout` logs for jobs also giving information on who launched the job and how long it lasted.
-
-### Staging File
-
-The staging file, `$PROJECT/.fair/staging`, contains information of what jobs are being tracked, by default all jobs are added to this file after completion and are set to "unstaged". Simply contains a dictionary of booleans where items for sync (staged) are marked true `True` and those to be held only locally `False`. The file uses paths relative to the *local* `.fair` folder as keys, to behave in a manner identical to `git` staging.
-
-### `config.yaml`
-
-This is the main file the user will interact with to customise their run. FAIR-CLI automatically generates a starter version of this file with everything in place. The only addition required is setting of either `script` or `script_path` (with the exception of running using `fair run bash` - see [below](#run)) under `run_metadata`.
-|                                                                                                                                                      |
-| ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **`script`**                                                                                                                                         |
-| This should be a command callable by a shell for running a model/submitting data to the registry. This script is saved to a file prior to execution. |
-|                                                                                                                                                      |
-| **`script_path`**                                                                                                                                    |
-| This is a direct path to an existing script to use for submission.                                                                                   |
-
-By default the shell used will be `sh` or `pwsh` for UNIX and Windows systems respectively, however this can be overwritten with the optional `shell` key which recognises the following values (where `{0}` is the script file):
+By default the shell used to execute a process is `sh` or `pwsh` for UNIX and Windows systems respectively. This can be overwritten by assigning the optional `shell` key with one of the following values (where `{0}` is the script file):
 
 | **Shell**    | **Command**                     |
 | ------------ | ------------------------------- |
@@ -109,90 +28,21 @@ By default the shell used will be `sh` or `pwsh` for UNIX and Windows systems re
 | `R`          | `R -f {0}`                      |
 | `sh`         | `sh -e {0}`                     |
 
-| **NOTE**                                                                                                                                                                                                                                            |
-| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| This layout is subject to possible change depending on whether or not multiple aliases for the same user will be allowed in the registry itself. The main reason for having a *local* version is to support separate handling of multiple projects. |
+A full description of `config.yaml` files can be found [here](https://www.fairdatapipeline.org/docs/interface/config/).
 
-## Registry Interaction
 
-Currently `FAIR-CLI` sets up the write data storage location on the local registry if it does not exist. Entries are created for the YAML file type, current user as an author, and object for a given run.
-
-## Command Line Usage
-
-As mentioned, all of the subcommands within FAIR-CLI are still under review with many still serving as placeholders for future features. Running `fair` without arguments or `fair --help` will show all of these.
+## Available Commands
 
 ### `init`
 
-Initialises a new FAIR repository within the given directory. This should ideally be the same location as the `.git` folder for the current project, although setup will ask if you want to use an alternative location. The command will ask the user a series of questions which will provide metadata for tracking run authors, and also allow for the creation of a starter `config.yaml`.
+Initialises a new FAIR repository within the given directory. This should ideally be the same location as the `.git` folder for the current project, however during setup an option is given to specify an alternative. The command will ask the user a series of questions which will provide metadata for tracking run authors, and also allow for the creation of a starter `config.yaml` file. Initialisation will also configure the CLI itself.
 
-The first time this command is launched the *global* CLI configuration will be populated. In subsequent calls the *global* will provide default suggestions towards creating the CLI configuration for the repository (*local*).
-
-A repository directory matching the structure above will be placed in the current location and a starter `config.yaml` file will be generated (see below).
-
-#### Example: First call to `fair init`
-
-This example shows the process of setting up for the first time. Note the default suggestions for each prompt, in the case of `Full name` and `Default output namespace` this is the hostname of the system and an abbreviated version of this name.
-
-```sh
-$ fair init
-Initialising FAIR repository, setup will now ask for basic info:
-
-Checking for local registry
-Local registry found
-Remote Data Storage Root [http://data.scrc.uk/data/]: 
-Remote API Token File: $HOME/scrc_token.txt
-Local API URL [http://localhost:8000/api/]: 
-Local registry is offline, would you like to start it? [y/N]: y
-Default Data Store:  [/home/joebloggs/.fair/data]: 
-Email: jbloggs@noreply.uk
-ORCID [None]: 
-Full Name: Joe Bloggs
-Default input namespace [None]: SCRC
-Default output namespace [jbloggs]: 
-Project description: Test project
-Local Git repository [/home/joebloggs/Documents/AnalysisProject]: 
-Git remote name [origin]: 
-Using git repository remote 'origin': git@notagit.com:jbloggs/AnalysisProject.git
-Initialised empty fair repository in /home/joebloggs/Documents/AnalysisProject/.fair
+#### Custom CLI Configuration
+After setup is complete, the current CLI configuration can also be saved using the command:
 ```
-
-#### Example: Subsequent runs
-
-In subsequent runs the first time setup will provide further defaults.
-
-```sh
-$ fair init
-Initialising FAIR repository, setup will now ask for basic info:
-
-Project description: Test Project
-Local Git repository [/home/joebloggs/Documents/AnalysisProject]: 
-Git remote name [origin]: 
-Using git repository remote 'origin': git@nogit.com:joebloggs/AnalysisProject.git
-Remote API URL [http://data.scrc.uk/api/]: 
-Remote API Token File [/home/kristian/scrc_token.txt]: 
-Local API URL [http://localhost:8000/api/]: 
-Default output namespace [jbloggs]: 
-Default input namespace [SCRC]: 
-Initialised empty fair repository in /home/joebloggs/Documents/AnalysisProject/.fair
+fair init --export
 ```
-
-#### Generated `config.yaml`
-
-```yaml
-run_metadata:
-  default_input_namespace: SCRC
-  default_output_namespace: jbloggs
-  description: Test Project
-  local_data_registry: http://localhost:8000/api/
-  local_repo: /home/joebloggs/Documents/AnalysisProject
-  write_data_store: /home/joebloggs/.fair/data/
-```
-
-the user then only needs to add a `script` or `script_path` entry to execute a code run. This is only required for `run`.
-
-#### Advanced usage
-
-CLI configuration can be read directly from a file which should contain the following:
+the created file can then be re-read at a later point during setup. Alternatively, if creating a configuration from scratch the YAML file should contain the following information:
 
 ```yaml
 namespaces: 
@@ -218,24 +68,24 @@ git:
   remote: origin
 description: Testing Project
 ```
-
-this file is then read during initialisation:
+this file is then read during the initialisation:
 
 ```sh
 fair init --using <cli-config.yaml file>
 ```
 
-For the purposes of CI runs, the initialisation can be "skipped" by running:
+For integration into a CI workflow, the setup can be skipped by running:
 
 ```sh
 fair init --ci
 ```
 
-which will create temporary directories for some locations.
+which will create temporary directories for some of the required location paths.
+
 
 ### `run`
 
-The purpose of `run` is to execute a model/submission run to the local registry. The command fills any specified template variables of the form `${{ VAR }}` to match those outlined [below](#template-variables). Outputs of a run will be stored within the `coderun` folder in the directory specified under the `data_store` tag in the `config.yaml`, by default this is `$HOME/.fair/data/coderun`.
+The purpose of `run` is to execute a model/submission run and submit results to the local registry. Outputs of a run will be stored within the `coderun` folder in the directory specified under the `data_store` tag in the `config.yaml`, by default this is `$HOME/.fair/data/coderun`.
 
 ```sh
 fair run
@@ -247,7 +97,7 @@ If you wish to use an alternative `config.yaml` then specify it as an additional
 fair run /path/to/config.yaml
 ```
 
-You can also launch a bash command directly which will then be automatically written into the `config.yaml` for you:
+You can also launch a bash command directly, this will be automatically written into the `config.yaml`:
 
 ```sh
 fair run --script "echo \"Hello World\""
@@ -257,84 +107,23 @@ note the command itself must be quoted as it is a single argument.
 
 ### `pull`
 
-Currently `pull` will update any entries within the `config.yaml` under the `register` heading creating `external_object` and `data_product` objects on the registry and downloading the data to the local data storage. For example:
-
-```yaml
-run_metadata:
-  default_input_namespace: SCRC
-  default_output_namespace: jbloggs
-  description: Test project
-  local_data_registry: http://localhost:8000/api/
-  local_repo: /home/joebloggs/Documents/SCRC/FAIR-CLI
-  write_data_store: /home/joebloggs/.fair/data/
-register:
-- external_object: records/SARS-CoV-2/scotland/human-mortality
-  namespace_name: Scottish Government Open Data Repository
-  namespace_full_name: Scottish Government Open Data Repository
-  namespace_website: https://statistics.gov.scot/
-  root: https://statistics.gov.scot/sparql.csv?query=
-  path: |-
-    PREFIX qb: <http://purl.org/linked-data/cube#>
-    PREFIX data: <http://statistics.gov.scot/data/>
-    PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
-    PREFIX dim: <http://purl.org/linked-data/sdmx/2009/dimension#>
-    PREFIX sdim: <http://statistics.gov.scot/def/dimension/>
-    PREFIX stat: <http://statistics.data.gov.uk/def/statistical-entity#>
-    PREFIX mp: <http://statistics.gov.scot/def/measure-properties/>
-    SELECT ?featurecode ?featurename ?areatypename ?date ?cause ?location ?gender ?age ?type ?count
-    WHERE {
-     ?indicator qb:dataSet data:deaths-involving-coronavirus-covid-19;
-       mp:count ?count;
-       qb:measureType ?measType;
-       sdim:age ?value;
-       sdim:causeOfDeath ?causeDeath;
-       sdim:locationOfDeath ?locDeath;
-       sdim:sex ?sex;
-       dim:refArea ?featurecode;
-       dim:refPeriod ?period.
-
-       ?measType rdfs:label ?type.
-       ?value rdfs:label ?age.
-       ?causeDeath rdfs:label ?cause.
-       ?locDeath rdfs:label ?location.
-       ?sex rdfs:label ?gender.
-       ?featurecode stat:code ?areatype;
-         rdfs:label ?featurename.
-       ?areatype rdfs:label ?areatypename.
-       ?period rdfs:label ?date.
-    }
-  title: Deaths involving COVID19
-  description: Nice description of the dataset
-  unique_name: Scottish deaths involving COVID19
-  file_type: csv
-  release_date: ${{DATETIME}}
-  version: 0.${{DATE}}.0       
-  primary: True
-```
-
-if run on `10/10/2021` would download the data from the given `root`/`path` URL and store in a file:
-
-```sh
-/home/joebloggs/.fair/data/records/SARS-CoV-2/scotland/human-mortality/0.20211010.0.csv
-```
-
-and register all required objects into the local registry.
+Currently `pull` will update any entries within the `config.yaml` under the `register` heading creating `external_object` and `data_product` objects on the registry and downloading the data to the local data storage. Any data required for a run is downloaded  and stored within the local registry.
 
 ### `purge`
 
-Removes the local `.fair` (FAIR repository) folder by default so the user can reinitialise:
+The `purge` command removes setup of the current project so it can bereinitialised:
 
 ```sh
 fair purge
 ```
 
-You can remove the global configuration and start again entirely by running:
+To remove all configurations entirely (including those global to all projects) run:
 
 ```sh
 fair purge --global
 ```
 
-and also the data directory by running:
+Finally the data directory itself can be removed by running:
 
 ```sh
 fair purge --data
@@ -386,7 +175,7 @@ Date:   Wed Jun 30 09:09:30 2021
 
 | **NOTE**                                                                                                                            |
 | ----------------------------------------------------------------------------------------------------------------------------------- |
-| The SHA for a job is *not* yet related to a registry code run identifier as multiple code runs can be executed within a single job. |
+| The SHA for a job is *not* related to a registry code run identifier as multiple code runs can be executed within a single job. |
 
 ### `view`
 
@@ -396,28 +185,7 @@ To view the `stdout` of a run given its SHA as shown by running `fair log` use t
 fair view <sha>
 ```
 
-you do not need to specify the full SHA but rather the first few characters:
-
-```text
---------------------------------
- Commenced = Wed Jun 30 09:09:30 2021 
- Author    = Joe Bloggs <jbloggs@noreply.uk>
- Namespace = jbloggs
- Command   = bash -eo pipefail /home/jbloggs/.fair/data/coderun/2021-06-30_09_09_30_721358/script.sh
---------------------------------
-0
-1
-2
-3
-4
-5
-6
-7
-8
-9
-10
-------- time taken 0:00:00.011910 -------
-```
+you do not need to specify the full SHA but rather the first few unique characters.
 
 ## Template Variables
 
