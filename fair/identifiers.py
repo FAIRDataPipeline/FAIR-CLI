@@ -21,6 +21,7 @@ __date__ = "2021-07-01"
 import urllib.parse
 import typing
 import requests
+import requests.exceptions
 
 ID_URIS = {
     'orcid': 'https://orcid.org/',
@@ -95,7 +96,7 @@ def check_ror(ror: str) -> typing.Dict:
     
     if _response.json()['number_of_results'] == 0:
         return _result_dict
-    
+        
     _name = _response.json()['items'][0]['name']
     _result_dict['name'] = _name
     _result_dict['family_name'] = _name
@@ -154,5 +155,8 @@ def check_id_permitted(identifier: str) -> bool:
     try:
         requests.get(identifier).raise_for_status()
         return True
-    except requests.HTTPError:
+    except (
+        requests.exceptions.MissingSchema,
+        requests.exceptions.HTTPError,
+        requests.exceptions.ConnectionError):
         return False

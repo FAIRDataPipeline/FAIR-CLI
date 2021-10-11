@@ -1,50 +1,32 @@
 import pytest
-import tempfile
-import hashlib
 import os
+import hashlib
 
 import fair.history as fdp_hist
 
-
-TEST_LOG = """
---------------------------------
- Commenced = Mon Jun 28 10:14:25 2021 
- Author    = Joe Bloggs <jbloggs@nowhere>
- Namespace = jbloggs
- Command   = bash -eo pipefail /home/jbloggs/.fair/data/coderun/2021-06-28_10_14_25/script.sh
---------------------------------
-Hello World!
-------- time taken 0:00:00.018649 -------
-"""
-
-
-@pytest.fixture
-def dummy_log(mocker):
-    _hist_dir = tempfile.mkdtemp()
-    mocker.patch.object(fdp_hist, "history_directory", lambda *args: _hist_dir)
-    with open(
-        os.path.join(_hist_dir, "run_2021-06-28_10_14_25.log"), "w"
-    ) as f:
-        f.write(TEST_LOG)
-    return _hist_dir
+from fair.common import FAIR_FOLDER
 
 
 @pytest.mark.history
-def test_show_hist_log(capfd, dummy_log):
-    fdp_hist.show_run_log(
-        dummy_log, hashlib.sha1(TEST_LOG.encode("utf-8")).hexdigest()
-    )
-    out, _ = capfd.readouterr()
-    assert out.strip() == TEST_LOG.strip()
+def test_history_directory(job_directory: str):
+    os.makedirs(os.path.join(os.path.dirname(job_directory), FAIR_FOLDER))
+    _expected = os.path.join(os.path.dirname(job_directory), FAIR_FOLDER, 'logs')
+    assert fdp_hist.history_directory(job_directory) == _expected
 
 
 @pytest.mark.history
-def test_show_history(capfd, dummy_log):
-    _expt = """
-run 876e9247944b6487dbf6b5a2777cbf1c5249e22b
-Author: Joe Bloggs <jbloggs@nowhere>
-Date:   Mon Jun 28 10:14:25 2021
-    """
-    fdp_hist.show_history(dummy_log, 1)
-    out, _ = capfd.readouterr()
-    assert out.strip() == _expt.strip()
+def test_show_history(capsys: pytest.CaptureFixture, job_directory: str, job_log: str):
+    fdp_hist.show_history(os.getcwd())
+    _captured = capsys.readouterr()
+    _job = _captured.out.split('\n')[0].split()[-1]
+    assert _job == hashlib.sha1(job_directory.encode('utf-8')).hexdigest()
+    assert _captured.out.split('\n')[1].split(': ')[1].strip() == 'Interface Test <test@noreply>'
+    assert _captured.out.split('\n')[2].split(': ')[1].strip() == 'Fri Oct 08 14:45:43 2021'
+
+
+@pytest.mark.history
+def test_job_log_show(capsys: pytest.CaptureFixture, job_directory: str, job_log: str):
+    fdp_hist.show_job_log(os.getcwd(), hashlib.sha1(job_directory.encode('utf-8')).hexdigest())
+    _captured = capsys.readouterr()
+    _command = _captured.out.split('\n')[3].split('=')[-1].strip()
+    assert _command == 'fair pull'

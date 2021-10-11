@@ -171,6 +171,7 @@ def find_git_root(start_directory: str = os.getcwd()) -> str:
         )
     except git.InvalidGitRepositoryError:
         raise fdp_exc.UserConfigError(
-            f"Failed to retrieve git repository for current configuration"
+            "Failed to retrieve git repository for current configuration"
+            f" in location '{start_directory}'"
         )
     return _repository.git.rev_parse("--show-toplevel").strip()

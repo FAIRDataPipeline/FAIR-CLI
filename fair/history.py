@@ -41,7 +41,7 @@ def history_directory(repo_loc: str) -> str:
         location of the job logs directory
     """
     return os.path.join(
-        fdp_com.USER_FAIR_DIR, "logs"
+        fdp_com.find_fair_root(repo_loc), fdp_com.FAIR_FOLDER, "logs"
     )
 
 
