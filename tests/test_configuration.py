@@ -271,7 +271,3 @@ def test_local_config_query(local_config: typing.Tuple[str, str], mocker: pytest
     del _glob_conf['registries']['local']
 
     assert not deepdiff.DeepDiff(_glob_conf, _usr_config)
-    
-
-@pytest.mark.configuration
-
