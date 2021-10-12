@@ -70,6 +70,7 @@ pytest-mock = "^3.6.1"
 pytest-dependency = "^0.5.1"
 pytest-cov = "^2.12.1"
 requests-mock = "^1.9.3"
+deepdiff = "^5.5.0"
 
 [tool.poetry.scripts]
 fair = 'fair.cli:cli'
