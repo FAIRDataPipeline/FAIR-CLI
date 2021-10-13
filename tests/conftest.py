@@ -2,8 +2,7 @@ import os
 import pytest
 import pytest_mock
 import tempfile
-import datetime
-import pathlib
+import subprocess
 
 
 from fair.common import default_jobs_dir
@@ -38,3 +37,8 @@ def job_log(mocker: pytest_mock.MockerFixture) -> str:
 ------- time taken 0:00:00.791088 -------''')
 
         yield tempd
+
+
+@pytest.fixture(scope="module")
+def local_registry():
+    pass
