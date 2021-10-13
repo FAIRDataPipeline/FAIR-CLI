@@ -27,6 +27,7 @@ import sys
 import pathlib
 import enum
 import tempfile
+import typing
 import requests
 import stat
 import logging
@@ -203,13 +204,13 @@ def install_registry() -> None:
             f"Registry installation failed with exit code {_install.returncode}"
         )
 
-    if (os.path.exists(fdp_com.global_fdpconfig())
-        and not os.path.exists(fdp_com.registry_home())):
-        raise fdp_exc.RegistryError(
-            "Failed to find local registry directory after install."
-        )
+    _install_failed: typing.List[bool] = [
+        os.path.exists(fdp_com.global_fdpconfig())
+        and not os.path.exists(fdp_com.registry_home()),
+        not os.path.exists(DEFAULT_REGISTRY_LOCATION)
+    ]
 
-    elif not os.path.exists(DEFAULT_REGISTRY_LOCATION):
+    if any(_install_failed):
         raise fdp_exc.RegistryError(
             "Failed to find local registry directory after install."
         )
