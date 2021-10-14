@@ -55,6 +55,7 @@ GitPython = "^3.1.18"
 semver = "^2.13.0"
 Jinja2 = "^3.0.1"
 PyYAML = "^5.4.1"
+simplejson = "^3.17.5"
 
 [tool.poetry.dev-dependencies]
 pytest = "^6.2.4"
