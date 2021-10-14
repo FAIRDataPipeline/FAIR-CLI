@@ -17,7 +17,7 @@ jobs:
           python-version: ${{ matrix.python }}
           architecture: "x64"
       - name: Install Required
-        run: apt install libmemcached-dev
+        run: sudo apt install libmemcached-dev
       - name: Install Poetry
         run: python -m pip install poetry
       - name: Install Module
