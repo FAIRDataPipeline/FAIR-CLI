@@ -50,10 +50,6 @@ def create_configurations(registry_dir: str, testing_dir: str = tempfile.mkdtemp
                 'data_store': None,
                 'token': os.path.join(registry_dir, 'token.txt'),
                 'uri': 'http://localhost:8001/api/'
-            },
-            'alternate': {
-                'data_store': None,
-                'uri': 'http://localhost:8007/api/'
             }
         },
         'user': {

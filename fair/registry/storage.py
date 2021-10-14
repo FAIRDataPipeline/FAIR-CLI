@@ -620,9 +620,7 @@ def calculate_file_hash(file_name: str, buffer_size: int = 64*1024) -> str:
             _input_hasher.update(_buffer)
             _buffer = in_f.read(buffer_size)
 
-    _hash = _input_hasher.hexdigest()
-
-    return _hash
+    return _input_hasher.hexdigest()
 
 
 def get_storage_root_obj_address(

@@ -2,30 +2,12 @@ import os
 import typing
 import pytest
 import pytest_mock
-import tempfile
-import yaml
 import deepdiff
 
 import fair.testing as fdp_test
 import fair.configuration as fdp_conf
 import fair.common as fdp_com
 import fair.exceptions as fdp_exc
-
-
-@pytest.fixture
-def local_config(mocker: pytest_mock.MockerFixture):
-    with tempfile.TemporaryDirectory() as tempg:
-        with tempfile.TemporaryDirectory() as templ:
-            os.makedirs(os.path.join(templ, fdp_com.FAIR_FOLDER))
-            os.makedirs(os.path.join(tempg, fdp_com.FAIR_FOLDER, 'registry'))
-            _lconfig_path = os.path.join(templ, fdp_com.FAIR_FOLDER, 'cli-config.yaml')
-            _gconfig_path = os.path.join(tempg, fdp_com.FAIR_FOLDER, 'cli-config.yaml')
-            _cfgl = fdp_test.create_configurations(templ, templ, True)
-            _cfgg = fdp_test.create_configurations(tempg, tempg, True)
-            yaml.dump(_cfgl, open(_lconfig_path, 'w'))
-            yaml.dump(_cfgg, open(_gconfig_path, 'w'))
-            mocker.patch('fair.common.global_fdpconfig', lambda: _gconfig_path)
-            yield (tempg, templ)
 
 
 @pytest.mark.configuration
@@ -78,14 +60,10 @@ def test_get_user(local_config: typing.Tuple[str, str]):
 @pytest.mark.configuration
 def test_get_remote_uri(local_config: typing.Tuple[str, str]):
     assert fdp_conf.get_remote_uri(local_config[1]) == 'http://localhost:8001/api/'
-    assert fdp_conf.get_remote_uri(local_config[1], 'alternate') == 'http://localhost:8007/api/'
-
 
 @pytest.mark.configuration
 def test_get_remote_token(local_config: typing.Tuple[str, str]):
     assert fdp_conf.get_remote_token(local_config[0]) == 't35tt0k3n'
-    with pytest.raises(fdp_exc.CLIConfigurationError):
-        fdp_conf.get_remote_token(local_config[0], 'alternate')
 
 
 @pytest.mark.configuration
@@ -221,7 +199,7 @@ def test_local_config_query(local_config: typing.Tuple[str, str], mocker: pytest
     mock_gc = mocker.patch('fair.configuration.global_config_query')
     mocker.patch('click.prompt', lambda x, default=None: None)
     try:
-        fdp_conf.local_config_query()
+        fdp_conf.local_config_query({})
     except AssertionError:
         mock_gc.assert_called_with()
 

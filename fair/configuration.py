@@ -781,7 +781,7 @@ def local_config_query(
     _git_remote = click.prompt("Git remote name", default=_def_rem)
     _invalid_rem = True
 
-    while _invalid_rem:
+    while _invalid_rem and _def_rem:
         try:
             git.Repo(_git_repo).remotes[_git_remote]
             _invalid_rem = False
