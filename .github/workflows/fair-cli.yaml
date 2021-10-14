@@ -20,6 +20,9 @@ jobs:
       - name: Install Required
         run: sudo apt install libmemcached-dev
         if: matrix.os == 'ubuntu-latest'
+      - name: Install Required
+        run: brew install memcached
+        if: matrix.os == 'macos-latest'
       - name: Install Poetry
         run: python -m pip install poetry
       - name: Install Module
