@@ -1,4 +1,4 @@
-import py
+import urllib.parse
 import pytest
 import tempfile
 import os
@@ -8,6 +8,7 @@ import fair.registry.requests as fdp_req
 import fair.exceptions as fdp_exc
 
 from . import conftest as conf
+from functools import reduce
 
 
 LOCAL_URL = 'http://localhost:8000/api'
@@ -95,3 +96,42 @@ def test_post_else_get(local_registry: conf.TestRegistry, mocker: pytest_mock.Mo
 
         mock_get.assert_called_once()
 
+
+@pytest.mark.requests
+def test_filter_variables(local_registry: conf.TestRegistry, mocker: pytest_mock.MockerFixture):
+    mocker.patch('fair.common.registry_home', lambda: local_registry._install)
+    with local_registry:
+        assert fdp_req.get_filter_variables(LOCAL_URL, 'data_product')
+
+
+@pytest.mark.requests
+def test_writable_fields(local_registry: conf.TestRegistry, mocker: pytest_mock.MockerFixture):
+    mocker.patch('fair.common.registry_home', lambda: local_registry._install)
+    with local_registry:
+        fdp_req.filter_object_dependencies(LOCAL_URL, 'data_product', {'read_only': True})
+
+
+@pytest.mark.requests
+def test_download(local_registry: conf.TestRegistry, mocker: pytest_mock.MockerFixture):
+    mocker.patch('fair.common.registry_home', lambda: local_registry._install)
+    with local_registry:
+        _example_file = 'https://data.scrc.uk/static/localregistry.sh'
+        _out_file = fdp_req.download_file(_example_file)
+        assert os.path.exists(_out_file)
+
+
+@pytest.mark.requests
+def test_dependency_list(local_registry: conf.TestRegistry, mocker: pytest_mock.MockerFixture):
+    mocker.patch('fair.common.registry_home', lambda: local_registry._install)
+    with local_registry:
+        _reqs = fdp_req.get_dependency_listing(LOCAL_URL)
+        assert _reqs['data_product'] == ['object', 'namespace']
+
+
+@pytest.mark.requests
+def test_object_type_fetch(local_registry: conf.TestRegistry, mocker: pytest_mock.MockerFixture):
+    mocker.patch('fair.common.registry_home', lambda: local_registry._install)
+    with local_registry:
+        for obj in ['object', 'data_product', 'author', 'file_type']:
+            assert fdp_req.get_obj_type_from_url(f'{LOCAL_URL}/{obj}') == obj
+    

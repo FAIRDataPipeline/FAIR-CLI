@@ -217,6 +217,11 @@ def launch(install_dir: str = None, port: int = 8000, silent: bool = False, venv
             shell=False,
         )
 
+    if not os.path.exists(os.path.join(install_dir, 'token')):
+        raise FileNotFoundError(
+            "Expected token file, but none created."
+        )
+
     if not silent:
         print(
             "An access token for the REST API is available in the file"
