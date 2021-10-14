@@ -108,7 +108,7 @@ def store_user(repo_dir: str, uri: str) -> str:
             uri, "author", data=_data, params={"uuid": _uuid}
         )
 
-def populate_file_type(uri:str):
+def populate_file_type(uri:str) -> typing.List[typing.Dict]:
     """Populates file_type table with common file file_types
 
     Parameters
@@ -116,14 +116,17 @@ def populate_file_type(uri:str):
     uri: str
         registry RestAPI end point
     """
+    _type_objs = []
 
     for _extension, _name in fdp_file.FILE_TYPES.items():
         # Use post_else_get in case some file types exist already
-        fdp_req.post_else_get(
+        _result = fdp_req.post_else_get(
             uri, "file_type",
             data={"name": _name, "extension": _extension.lower()},
             params={"extension": _extension.lower()}
         )
+        _type_objs.append(_result)
+    return _type_objs
 
 def create_file_type(uri: str, extension: str) -> str:
     """Creates a new file type on the registry
