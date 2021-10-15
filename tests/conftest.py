@@ -86,6 +86,10 @@ def job_log(mocker: pytest_mock.MockerFixture) -> str:
         yield tempd
 
 
+@pytest.fixture(scope="module")
+def store_cache():
+    return {}
+
 class TestRegistry:
     def __init__(self, install_loc: str, venv_dir: str):
         self._install = install_loc
