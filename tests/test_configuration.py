@@ -108,13 +108,13 @@ def test_user_info(mocker: pytest_mock.MockerFixture):
         "Full Name": "Joseph Bloggs",
         "Default input namespace": _namepaces['input'],
         "Default output namespace": _namepaces['output'],
-        "ORCID": "None"
+        "Use ID (ORCID/ROR/GRID)": "None"
     }
 
     _orcid_override = {
         'family_name': 'Bloggs',
         'given_names': 'Joseph',
-        'orcid': _override['ORCID'],
+        'orcid': "None",
         'uuid': None,
         'email': _override['Email']
     }

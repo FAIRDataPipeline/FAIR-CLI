@@ -960,10 +960,6 @@ def add_site_configs(cfg: typing.Dict, repo_dir: str) -> None:
         )
     with open(_global_conf_path) as f:
         cfg['config_files']['global'] = yaml.safe_load(f)
-<<<<<<< HEAD
-=======
-
->>>>>>> 07624a6 (Added configuration tests)
 
 def update_metadata(cfg: typing.Dict) -> None:
     _logger = logging.getLogger("FAIRDataPipeline.Run")
