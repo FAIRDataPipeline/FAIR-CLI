@@ -85,7 +85,7 @@ def check_ror(ror: str) -> typing.Dict:
         metadata from the given ID
     """
 
-    _url = urllib.parse.urljoin(QUERY_URLS['ror'], ror)
+    _url = f"{QUERY_URLS['ror']}{ror}"
     _response = requests.get(_url)
 
     _result_dict: typing.Dict[str, typing.Any] = {}
