@@ -197,7 +197,10 @@ def install_registry() -> None:
         shell=False
     ) as _install:
         for b in _install.stdout:
-            _logger.info(b.strip())
+            if b.strip():
+                print(b.strip())
+
+    _install.wait()
 
     if _install.returncode != 0:
         raise fdp_exc.RegistryError(
