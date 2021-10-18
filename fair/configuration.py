@@ -261,7 +261,7 @@ def get_session_git_remote(repo_loc: str) -> str:
 
 
 def get_current_user_orcid(repo_loc: str) -> str:
-    """Retrieves the ORCID of the current session user as defined in the config
+    """Retrieves the ORCID of the current session user if defined in the config
 
     Parameters
     ----------
@@ -284,15 +284,39 @@ def get_current_user_orcid(repo_loc: str) -> str:
 
 
 def get_current_user_uuid(repo_loc: str) -> str:
-    """Retrieves the UUID of the current session user as defined in the config
+    """Retrieves the UUID of the current session user if defined in the config
 
     Returns
     -------
     str
-        user ORCID
+        user UUID
     """
     _local_conf = read_local_fdpconfig(repo_loc)
-    return _local_conf['user']['uuid']
+    try:
+        _uuid = _local_conf['user']['uuid']
+    except KeyError:
+        _uuid = None
+    if not _uuid or _uuid == "None":
+        raise fdp_exc.CLIConfigurationError("No UUID defined.")
+    return _uuid
+
+
+def get_current_user_rorid(repo_loc: str) -> str:
+    """Retrieves the ROR ID of the current session user if defined in the config
+
+    Returns
+    -------
+    str
+        user ROR ID
+    """
+    _local_conf = read_local_fdpconfig(repo_loc)
+    try:
+        _rorid = _local_conf['user']['ror']
+    except KeyError:
+        _rorid = None
+    if not _rorid or _rorid == "None":
+        raise fdp_exc.CLIConfigurationError("No ROR ID defined.")
+    return _rorid
 
 
 def check_registry_exists(registry: str = None) -> bool:
@@ -330,54 +354,155 @@ def get_local_port(local_uri: str = None) -> str:
     return _port_res[0]
 
 
+def _handle_orcid(orcid: str) -> typing.Tuple[typing.Dict, str]:
+    """Extract the name information from an ORCID selection
+
+    Parameters
+    ----------
+    orcid : str
+        ORCID to search
+
+    Returns
+    -------
+    user_info : typing.Dict
+        dictionary of extracted name metadata
+    str
+        default output namespace
+    """
+    _user_info = fdp_id.check_orcid(orcid.strip())
+
+    while not _user_info:
+        click.echo("Invalid ORCID given.")
+        user_orcid = click.prompt("ORCID")
+        _user_info = fdp_id.check_orcid(user_orcid)
+    
+    _user_info['orcid'] = user_orcid
+
+    click.echo(
+        f"Found entry: {_user_info['given_names']} "
+        f"{_user_info['family_name']}"
+    )
+
+    _def_ospace = _user_info['given_names'][0]
+
+    if len(_user_info['family_name'].split()) > 1:
+        _def_ospace += _user_info['family_name'].split()[-1]
+    else:
+        _def_ospace += _user_info['family_name']
+
+    return _user_info, _def_ospace
+
+
+def _handle_ror(user_ror: str) -> typing.Tuple[typing.Dict, str]:
+    """Extract institution name information from an ROR ID
+
+    Parameters
+    ----------
+    user_ror : str
+        ROR ID for an institution
+
+    Returns
+    -------
+    user_info : typing.Dict
+        dictionary of extracted name metadata
+    str
+        default output namespace
+    """
+    _user_info = fdp_id.check_ror(user_ror)
+
+    while not _user_info:
+        click.echo("Invalid ROR ID given.")
+        user_ror = click.prompt("ROR ID")
+        _user_info = fdp_id.check_ror(user_ror)
+
+    _user_info['ror'] = user_ror
+
+    click.echo(
+        f"Found entry: {_user_info['family_name']} "
+    )
+
+    _def_ospace = _user_info['family_name'].lower().replace(' ', '_')
+
+    return _user_info, _def_ospace
+
+
+def _handle_grid(user_grid: str) -> typing.Tuple[typing.Dict, str]:
+    """Extract institution name information from an GRID ID
+
+    Parameters
+    ----------
+    user_grid : str
+        GRID ID for an institution
+
+    Returns
+    -------
+    user_info : typing.Dict
+        dictionary of extracted name metadata
+    str
+        default output namespace
+    """
+    _user_info = fdp_id.check_grid(user_grid)
+
+    while not _user_info:
+        click.echo("Invalid GRID ID given.")
+        user_grid = click.prompt("GRID ID")
+        _user_info = fdp_id.check_grid(user_grid)
+
+    _user_info['grid'] = user_grid
+
+    click.echo(
+        f"Found entry: {_user_info['family_name']} "
+    )
+
+    _def_ospace = _user_info['family_name'].lower().replace(' ', '_')
+
+    return _user_info, _def_ospace
+
+
+def _handle_uuid() -> typing.Tuple[typing.Dict, str]:
+    """Obtain metadata for user where no ID provided
+
+    Returns
+    -------
+    user_info : typing.Dict
+        dictionary of extracted name metadata
+    str
+        default output namespace
+    """
+    _full_name = click.prompt("Full Name")
+    _def_ospace = ""
+    _user_info = {}
+    if len(_full_name.split()) > 1:
+        _given_name, _family_name = _full_name.split(" ", 1)
+        _def_ospace = _full_name.lower().strip()[0]
+        _def_ospace += _full_name.lower().split()[-1]
+        _user_info['given_names'] = _given_name.strip()
+        _user_info['family_name'] = _family_name.strip()
+    else:
+        _def_ospace += _full_name
+        _user_info['given_names'] = _full_name
+        _user_info['family_name'] = None
+
 
 def _get_user_info_and_namespaces() -> typing.Dict[str, typing.Dict]:
     _user_email = click.prompt("Email")
-    _user_orcid = click.prompt("ORCID", default="None")
-    _user_uuid = None
+    _id_type = click.prompt("Use ID [ORCID/ROR/GRID]", default="None")
 
-    if _user_orcid != "None":
-        _user_info = fdp_id.check_orcid(_user_orcid.strip())
-
-        while not _user_info:
-            click.echo("Invalid ORCID given.")
-            _user_orcid = click.prompt("ORCID")
-            _user_info = fdp_id.check_orcid(_user_orcid)
-
-        click.echo(
-            f"Found entry: {_user_info['given_names']} "
-            f"{_user_info['family_name']}"
-        )
-
-        _def_ospace = _user_info['given_names'][0]
-
-        if len(_user_info['family_name'].split()) > 1:
-            _def_ospace += _user_info['family_name'].split()[-1]
-        else:
-            _def_ospace += _user_info['family_name']
-
+    if _id_type == "ORCID":
+        _user_orcid = click.prompt("ORCID")
+        _user_info, _def_ospace = _handle_orcid(_user_orcid)
+    elif _id_type == "ROR":
+        _user_ror = click.prompt("ROR ID")
+        _user_info, _def_ospace = _handle_ror(_user_ror)
+    elif _id_type == "GRID ID":
+        _user_grid = click.prompt("GRID ID")
+        _user_info, _def_ospace = _handle_grid(_user_grid)
     else:
-        #TODO Add in ROR management here
-        _user_orcid = None
+        _user_info, _def_ospace = _handle_uuid()
         _user_uuid = str(uuid.uuid4())
-        _full_name = click.prompt("Full Name")
-        _def_ospace = ""
-        _user_info = {}
-        if len(_full_name.split()) > 1:
-            _given_name, _family_name = _full_name.split(" ", 1)
-            _def_ospace = _full_name.lower().strip()[0]
-            _def_ospace += _full_name.lower().split()[-1]
-            _user_info['given_names'] = _given_name.strip()
-            _user_info['family_name'] = _family_name.strip()
-        else:
-            _def_ospace += _full_name
-            _user_info['given_names'] = _full_name
-            _user_info['family_name'] = None
-
-    _user_info['uuid'] = _user_uuid
+        _user_info['uuid'] = _user_uuid
 
     _user_info['email'] = _user_email
-    _user_info['orcid'] = _user_orcid
 
     _def_ospace = _def_ospace.lower().replace(" ", "").strip()
 
@@ -739,18 +864,16 @@ def add_site_configs(cfg: typing.Dict, repo_dir: str) -> None:
         raise fdp_exc.InternalError(
             f"Failed to read local CLI configuration '{_local_conf_path}'"
         )
-    else:
-        with open(_local_conf_path) as f:
-            cfg['config_files']['local'] = yaml.safe_load(f)
+    with open(_local_conf_path) as f:
+        cfg['config_files']['local'] = yaml.safe_load(f)
 
     _global_conf_path = fdp_com.global_fdpconfig()
     if not os.path.exists(_global_conf_path):
         raise fdp_exc.InternalError(
             f"Failed to read global CLI configuration '{_global_conf_path}'"
         )
-    else:
-        with open(_global_conf_path) as f:
-            cfg['config_files']['global'] = yaml.safe_load(f)
+    with open(_global_conf_path) as f:
+        cfg['config_files']['global'] = yaml.safe_load(f)
 
 def update_metadata(cfg: typing.Dict) -> None:
     _logger = logging.getLogger("FAIRDataPipeline.Run")
