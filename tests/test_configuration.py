@@ -114,18 +114,17 @@ def test_user_info(mocker: pytest_mock.MockerFixture):
     _orcid_override = {
         'family_name': 'Bloggs',
         'given_names': 'Joseph',
-        'orcid': "None",
         'uuid': None,
         'email': _override['Email']
     }
     _uuid_override = _orcid_override.copy()
-    _uuid_override['orcid'] = None
     _uuid_override['uuid'] = 'f45sasd832j234gjk'
 
     mocker.patch('click.prompt', lambda x, default=None: _override[x] or default)
     mocker.patch('uuid.uuid4', lambda: _uuid_override['uuid'])
     _noorc = fdp_conf._get_user_info_and_namespaces()
 
+    _override["Use ID (ORCID/ROR/GRID)"] = "ORCID"
     _override["ORCID"] = "0000-0000-0000"
  
     mocker.patch('click.prompt', lambda x, default=None: _override[x] or default)
@@ -164,7 +163,7 @@ def test_global_config_query(mocker: pytest_mock.MockerFixture, local_config: ty
     }
     mocker.patch('fair.registry.server.launch_server', lambda *args, **kwargs: None)
     mocker.patch('fair.registry.server.stop_server', lambda *args, **kwargs: None)
-    mocker.patch('fair.registry.requests.local_token', lambda: '92342343243224')
+    mocker.patch('fair.registry.requests.local_token', lambda *args, **kwargs: '92342343243224')
     mocker.patch('click.prompt', lambda x, default=None: _override[x] or default)
     mocker.patch('click.confirm', lambda *args, **kwargs: False)
     mocker.patch('fair.configuration._get_user_info_and_namespaces', lambda: _default_user)
