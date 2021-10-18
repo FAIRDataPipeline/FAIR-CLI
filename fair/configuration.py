@@ -304,7 +304,7 @@ def check_registry_exists(registry: str = None) -> bool:
         True if registry exists, else False
     """
     if not registry:
-        registry = os.path.join(pathlib.Path.home(), fdp_com.FAIR_FOLDER, 'registry')
+        registry = fdp_serv.DEFAULT_REGISTRY_LOCATION
     return os.path.isdir(registry)
 
 
@@ -394,12 +394,8 @@ def _get_user_info_and_namespaces() -> typing.Dict[str, typing.Dict]:
 
 def global_config_query(registry: str = None) -> typing.Dict[str, typing.Any]:
     """Ask user question set for creating global FAIR config"""
-
     if not registry:
-        registry = os.path.join(
-            pathlib.Path().home(), fdp_com.FAIR_FOLDER, 'registry'
-        )
-
+        registry = fdp_serv.DEFAULT_REGISTRY_LOCATION
     click.echo("Checking for local registry")
     if check_registry_exists(registry):
         click.echo("Local registry found")

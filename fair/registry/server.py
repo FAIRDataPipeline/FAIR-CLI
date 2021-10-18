@@ -20,17 +20,25 @@ Functions
 __date__ = "2021-06-28"
 
 import os
-import re
 import subprocess
 import glob
+import shutil
 import sys
+import pathlib
 import enum
+import tempfile
+import typing
 import requests
+import stat
+import logging
 
 import fair.common as fdp_com
 import fair.exceptions as fdp_exc
 import fair.configuration as fdp_conf
 
+
+REGISTRY_INSTALL_URL = "https://data.scrc.uk/static/localregistry.sh"
+DEFAULT_REGISTRY_LOCATION = os.path.join(pathlib.Path().home(), fdp_com.FAIR_FOLDER, 'registry')
 
 class SwitchMode(enum.Enum):
     """Server access mode
@@ -99,7 +107,7 @@ def launch_server(local_uri: str = None, registry_dir: str = None, verbose: bool
     _start = subprocess.Popen(
         _cmd,
         stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
         shell=False,
     )
 
@@ -153,7 +161,7 @@ def stop_server(
     _stop = subprocess.Popen(
         _server_stop_script,
         stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
         shell=False,
     )
 
@@ -167,6 +175,58 @@ def stop_server(
         raise fdp_exc.RegistryError("Failed to stop registry server.")
 
 def install_registry() -> None:
-    os.system(
-    "/bin/bash -c \"$(curl -fsSL https://data.scrc.uk/static/localregistry.sh)\""
-    )
+    """Install the local registry"""
+    _logger = logging.getLogger('FAIRDataPipeline.Registry.Install')
+    _logger.setLevel(logging.INFO)
+
+    with tempfile.NamedTemporaryFile('w+', suffix='.sh', delete=False) as install_script:
+        install_script.write(requests.get(REGISTRY_INSTALL_URL).text)
+
+    os.chmod(install_script.name, os.stat(install_script.name).st_mode | stat.S_IREAD)
+
+    _command = [
+        shutil.which('bash'),
+        install_script.name
+    ]
+
+    with subprocess.Popen(
+        _command,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        universal_newlines=True,
+        shell=False
+    ) as _install:
+        for b in _install.stdout:
+            if b.strip():
+                print(b.strip())
+
+    _install.wait()
+
+    if _install.returncode != 0:
+        raise fdp_exc.RegistryError(
+            f"Registry installation failed with exit code {_install.returncode}"
+        )
+
+    _install_failed: typing.List[bool] = [
+        os.path.exists(fdp_com.global_fdpconfig())
+        and not os.path.exists(fdp_com.registry_home()),
+        not os.path.exists(DEFAULT_REGISTRY_LOCATION)
+    ]
+
+    if any(_install_failed):
+        raise fdp_exc.RegistryError(
+            "Failed to find local registry directory after install."
+        )
+
+    _logger.info("Registry installed successfully.")
+
+def uninstall_registry() -> None:
+    """Uninstall the local registry from the default location"""
+
+    # First check if the location can be retrieved from a CLI configuration
+    # else check the default install location
+    if (os.path.exists(fdp_com.global_fdpconfig())
+        and os.path.exists(fdp_com.registry_home())):
+        shutil.rmtree(fdp_com.registry_home())
+    elif os.path.exists(DEFAULT_REGISTRY_LOCATION):
+        shutil.rmtree(DEFAULT_REGISTRY_LOCATION)

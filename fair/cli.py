@@ -88,7 +88,7 @@ def create(debug, output: str) -> None:
 @click.option(
     "--registry",
     help="Specify registry directory",
-    default=os.path.join(pathlib.Path().home(), fdp_com.FAIR_FOLDER, 'registry'),
+    default=fdp_svr.DEFAULT_REGISTRY_LOCATION,
     show_default=True
 )
 @click.option(
@@ -179,6 +179,44 @@ def purge(glob: bool, debug: bool, yes: bool, data: bool) -> None:
 def registry() -> None:
     """Commands relating to control of the local registry server"""
     pass
+
+@registry.command()
+@click.option("--debug/--no-debug", help="Run in debug mode", default=False)
+def uninstall(debug: bool):
+    """Uninstall the local registry from the system"""
+    _confirm = click.confirm(
+        "Are you sure you want to remove the local registry and its components?",
+        default=False
+    )
+    if not _confirm:
+        return
+    try:
+        fdp_svr.uninstall_registry()
+    except fdp_exc.FAIRCLIException as e:
+        if debug:
+            raise e
+        e.err_print()
+        if e.level.lower() == "error":
+            sys.exit(e.exit_code)
+
+@registry.command()
+@click.option("--force/--no-force", help="Force a reinstall", default=False)
+@click.option("--debug/--no-debug", help="Run in debug mode", default=False)
+def install(debug: bool, force: bool):
+    """Install the local registry on the system"""
+    try:
+        if force:
+            fdp_svr.uninstall_registry()
+        elif (os.path.exists(fdp_com.global_fdpconfig())
+            and os.path.exists(fdp_svr.DEFAULT_REGISTRY_LOCATION)):
+            raise fdp_exc.RegistryError("Local registry is already installed")
+        fdp_svr.install_registry()
+    except fdp_exc.FAIRCLIException as e:
+        if debug:
+            raise e
+        e.err_print()
+        if e.level.lower() == "error":
+            sys.exit(e.exit_code)
 
 
 @registry.command()
