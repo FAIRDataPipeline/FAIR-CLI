@@ -55,6 +55,7 @@ GitPython = "^3.1.18"
 semver = "^2.13.0"
 Jinja2 = "^3.0.1"
 PyYAML = "^5.4.1"
+simplejson = "^3.17.5"
 
 [tool.poetry.dev-dependencies]
 pytest = "^6.2.4"
@@ -70,6 +71,8 @@ pytest-mock = "^3.6.1"
 pytest-dependency = "^0.5.1"
 pytest-cov = "^2.12.1"
 requests-mock = "^1.9.3"
+deepdiff = "^5.5.0"
+pytest-virtualenv = "^1.7.0"
 
 [tool.poetry.scripts]
 fair = 'fair.cli:cli'

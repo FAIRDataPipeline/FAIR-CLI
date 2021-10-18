@@ -15,13 +15,12 @@ Contents
 Members
 -------
     USER_FAIR_DIR   - user FAIR directory
-    REGISTRY_HOME   - location of local registry
     FAIR_CLI_CONFIG - name of the FAIR-CLI configuration file
     FAIR_FOLDER     - name for FAIR local repository directory
 
 Functions
 -------
-
+    registry_home       - returns the location of the local data registry
     find_fair_root      - returns the closest '.fair' directory in the upper hierarchy
     find_git_root       - returns the closest '.git' directory
     staging_cache       - returns the current repository staging cache directory
@@ -53,16 +52,19 @@ def registry_home() -> str:
     _glob_conf = yaml.safe_load(open(global_fdpconfig()))
     if 'registries' not in _glob_conf:
         raise fdp_exc.CLIConfigurationError(
-            f"Expected key 'registries' in global CLI configuration"
+            "Expected key 'registries' in global CLI configuration"
         )
+
     if 'local' not in _glob_conf['registries']:
         raise fdp_exc.CLIConfigurationError(
-            f"Expected 'local' registry in global CLI configuration registries"
+            "Expected 'local' registry in global CLI configuration registries"
         )
+
     if 'directory' not in _glob_conf['registries']['local']:
         raise fdp_exc.CLIConfigurationError(
-            f"Expected directory of local registry in global CLI configuration"
+            'Expected directory of local registry in global CLI configuration'
         )
+
     return _glob_conf['registries']['local']['directory']
 
 
@@ -171,6 +173,7 @@ def find_git_root(start_directory: str = os.getcwd()) -> str:
         )
     except git.InvalidGitRepositoryError:
         raise fdp_exc.UserConfigError(
-            f"Failed to retrieve git repository for current configuration"
+            "Failed to retrieve git repository for current configuration"
+            f" in location '{start_directory}'"
         )
     return _repository.git.rev_parse("--show-toplevel").strip()

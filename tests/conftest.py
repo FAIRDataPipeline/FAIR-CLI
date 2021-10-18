@@ -1,167 +1,115 @@
-import tempfile
-
-import pytest
-import logging
 import os
+import pytest
+import pytest_mock
+import pytest_fixture_config
+import pytest_virtualenv
+import tempfile
 import yaml
-import click
-import uuid
-import subprocess
-import pathlib
-import git
-
+import fair.testing as fdp_test
 import fair.common as fdp_com
-import fair.session as fdp_s
-import fair.registry.server as fdp_svr
-import fair.configuration as fdp_conf
-import fair.registry.storage as fdp_store
-import fair.registry.requests as fdp_req
 
-@pytest.fixture(scope="module")
-def global_test(module_mocker):
-    _tempdir = tempfile.mkdtemp()
-    module_mocker.patch.object(fdp_com, "USER_FAIR_DIR", _tempdir)
+from fair.common import FAIR_FOLDER
+from . import registry_install as test_reg
 
-    module_mocker.patch.object(
-        fdp_com,
-        "global_fdpconfig",
-        lambda: os.path.join(_tempdir, "cli-config.yaml"),
-    )
-
-    return _tempdir
+TEST_JOB_FILE_TIMESTAMP = '2021-10-11_10_0_0_100000'
+REGISTRY_INSTALL_URL = "https://data.scrc.uk/static/localregistry.sh"
 
 
-@pytest.fixture(scope="module")
-def repo_root(module_mocker):
-    _tempdir = tempfile.mkdtemp()
-    module_mocker.patch("fair.common.find_fair_root", lambda *args: _tempdir)
-    return _tempdir
+@pytest.fixture(scope='session')
+@pytest_fixture_config.yield_requires_config(pytest_virtualenv.FixtureConfig(
+    virtualenv_executable='venv',
+), ['virtualenv_executable'])
+def session_virtualenv():
+    """ Function-scoped virtualenv in a temporary workspace.
 
-@pytest.fixture
-def subprocess_do_nothing(mocker):
-    class _stdout:
-        def __init__(self):
-            pass
+        Methods
+        -------
+        run()                : run a command using this virtualenv's shell environment
+        run_with_coverage()  : run a command in this virtualenv, collecting coverage
+        install_package()    : install a package in this virtualenv
+        installed_packages() : return a dict of installed packages
 
-    class dummy_popen:
-        def __init__(self, *args, **kwargs):
-            self.stdout = _stdout()
-        def wait(self):
-            pass
-
-    mocker.patch.object(subprocess, 'Popen', dummy_popen)
-
-@pytest.fixture
-def fake_token(mocker):
-    mocker.patch.object(fdp_req, 'local_token', lambda: '000000')
-
-@pytest.fixture
-def file_always_exists(mocker):
-    mocker.patch.object(os.path, 'exists', lambda *args, **kwargs: True)
-
-@pytest.fixture
-def no_prompt(mocker):
-    def _func(msg, **kwargs):
-        if msg == "Full Name":
-            return "Joe Bloggs"
-        elif msg == "Remote API URL":
-            return "http://noserver/api/"
-        elif msg == "Local API URL":
-            return "http://localhost:8000/api/"
-        elif msg == "Email":
-            return "jbloggs@nowhere"
-        elif msg == "ORCID":
-            return "None"
-        elif msg == "Default input namespace":
-            return "SCRC"
-        else:
-            return kwargs["default"]
-
-    mocker.patch.object(
-        click, "prompt", lambda msg, **kwargs: _func(msg, **kwargs)
-    )
-    mocker.patch.object(
-        click, "confirm", lambda *arg, **kwargs: False
-    )
-
-@pytest.fixture
-def git_mock(mocker):
-    _repo_root = pathlib.Path(os.path.dirname(__file__)).parent
-    _git_repo = git.Repo(_repo_root)
-    mocker.patch.object(fdp_conf, "local_git_repo", lambda : _repo_root)
-    mocker.patch.object(git, "Repo", lambda *args, **kwargs: _git_repo)
-
-
-@pytest.fixture
-def no_registry_edits(mocker):
-    mocker.patch.object(fdp_store, "store_working_config", lambda *args: "")
-
-@pytest.fixture
-def no_registry_autoinstall(mocker):
-    mocker.patch.object(fdp_svr, 'install_registry', lambda: None)
-
-@pytest.fixture
-def no_init_session(
-    fake_token,
-    global_test,
-    repo_root,
-    git_mock,
-    mocker,
-    no_prompt,
-    no_registry_edits,
-):
-    """Creates a session without any calls to setup
-
-    This requires mocking a few features of the FAIR class:
-
-    - Setting the __init__ method to be "return None"
-    - Make local config setup function return a premade dictionary
-    - Point the global folder to '/tmp' which always exists
-    - Set the generated user config to be also within this temp folder
+        Attributes
+        ----------
+        virtualenv (`path.path`)    : Path to this virtualenv's base directory
+        python (`path.path`)        : Path to this virtualenv's Python executable
+        easy_install (`path.path`)  : Path to this virtualenv's easy_install executable
+        .. also inherits all attributes from the `workspace` fixture
     """
-    _glob_conf = {
-        "namespaces": {"input": "SCRC", "output": "test"},
-        "registries": {
-            "local": "http://localhost:8000/api/",
-            "origin": "http://noserver/api",
-        },
-        "tokens": {
-            "origin": "rem_token"
-        },
-        "user": {
-            "email": "jbloggs@nowhere",
-            "given_names": "Joe Emmanuel",
-            "family_name": "Bloggs",
-            "uuid": str(uuid.uuid4()),
-            "orcid": "000"
-        },
-    }
-    with open(fdp_com.global_fdpconfig(), "w") as f:
-        yaml.dump(_glob_conf, f)
-    _loc_conf = _glob_conf
-    _loc_conf["description"] = "Test"
-    mocker.patch.object(
-        fdp_conf, "local_config_query", lambda *args: _loc_conf
-    )
-    mocker.patch.object(
-        fdp_conf, "read_local_fdpconfig", lambda *args: _loc_conf
-    )
-    os.makedirs(os.path.join(repo_root, '.fair'), exist_ok=True)
+    venv = pytest_virtualenv.VirtualEnv()
+    yield venv
+    venv.teardown()
 
-    _fdp_session = fdp_s.FAIR(repo_root)
-    _fdp_session._session_loc = repo_root
-    _fdp_session._global_config = _glob_conf
-    _fdp_session._local_config = _loc_conf
-    _fdp_session._stage_status = {}
-    _fdp_session._logger = logging.getLogger("FAIR-CLI.TestFAIR")
-    _fdp_session._logger.setLevel(logging.DEBUG)
-    _fdp_session._session_id = None
-    _fdp_session._run_mode = fdp_svr.SwitchMode.NO_SERVER
-    _fdp_session._session_config = os.path.join(repo_root, "config.yaml")
 
-    mocker.patch.object(fdp_s, "FAIR", lambda *args, **kwargs: _fdp_session)
+@pytest.fixture
+def local_config(mocker: pytest_mock.MockerFixture):
+    with tempfile.TemporaryDirectory() as tempg:
+        with tempfile.TemporaryDirectory() as templ:
+            os.makedirs(os.path.join(templ, fdp_com.FAIR_FOLDER))
+            os.makedirs(os.path.join(tempg, fdp_com.FAIR_FOLDER, 'registry'))
+            _lconfig_path = os.path.join(templ, fdp_com.FAIR_FOLDER, 'cli-config.yaml')
+            _gconfig_path = os.path.join(tempg, fdp_com.FAIR_FOLDER, 'cli-config.yaml')
+            _cfgl = fdp_test.create_configurations(templ, templ, True)
+            _cfgg = fdp_test.create_configurations(tempg, tempg, True)
+            yaml.dump(_cfgl, open(_lconfig_path, 'w'))
+            yaml.dump(_cfgg, open(_gconfig_path, 'w'))
+            mocker.patch('fair.common.global_fdpconfig', lambda: _gconfig_path)
+            yield (tempg, templ)
 
-    yield _fdp_session
 
-    _fdp_session.close_session()
+@pytest.fixture
+def job_directory(mocker: pytest_mock.MockerFixture) -> str:
+    with tempfile.TemporaryDirectory() as tempd:
+        # Set default to point to temporary
+        mocker.patch('fair.common.default_jobs_dir', lambda: tempd)
 
+        # Create a mock job directory
+        os.makedirs(os.path.join(tempd, TEST_JOB_FILE_TIMESTAMP))
+        yield os.path.join(tempd, TEST_JOB_FILE_TIMESTAMP)
+
+
+@pytest.fixture
+def job_log(mocker: pytest_mock.MockerFixture) -> str:
+    with tempfile.TemporaryDirectory() as tempd:
+        # Set the log directory
+        mocker.patch('fair.history.history_directory', lambda *args: tempd)
+
+        # Create mock job log
+        with open(os.path.join(tempd, f'job_{TEST_JOB_FILE_TIMESTAMP}.log'), 'w') as out_f:
+            out_f.write('''--------------------------------
+ Commenced = Fri Oct 08 14:45:43 2021 
+ Author    = Interface Test <test@noreply>
+ Command   = fair pull
+--------------------------------
+------- time taken 0:00:00.791088 -------''')
+
+        yield tempd
+
+
+class TestRegistry:
+    def __init__(self, install_loc: str, venv_dir: str):
+        self._install = install_loc
+        self._venv = os.path.join(venv_dir, '.env')
+        self._process = None
+        if not os.path.exists(os.path.join(install_loc, 'manage.py')):
+            test_reg.install_registry(install_dir=install_loc, silent=True, venv_dir=self._venv)
+
+    def __enter__(self):
+        try:
+            self._process = test_reg.launch(self._install, silent=True, venv_dir=self._venv)
+        except KeyboardInterrupt as e:
+            self._process.kill()
+            self._process.wait()
+            raise e
+
+    def __exit__(self, type, value, tb):
+        self._process.kill()
+        self._process.wait()
+        self._process = None
+
+
+@pytest.fixture(scope="session")
+def local_registry(session_virtualenv: pytest_virtualenv.VirtualEnv):
+    with tempfile.TemporaryDirectory() as tempd:
+        session_virtualenv.env = test_reg.django_environ(session_virtualenv.env)
+        yield TestRegistry(tempd, session_virtualenv.workspace)

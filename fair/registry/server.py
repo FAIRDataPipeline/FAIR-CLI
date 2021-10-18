@@ -104,7 +104,7 @@ def launch_server(local_uri: str = None, registry_dir: str = None, verbose: bool
             " is the FAIR data pipeline properly installed on this system?"
         )
 
-    _cmd = [_server_start_script, '-p', fdp_conf.get_local_port(local_uri)]
+    _cmd = [_server_start_script, '-p', f'{fdp_conf.get_local_port(local_uri)}']
 
     _start = subprocess.Popen(
         _cmd,

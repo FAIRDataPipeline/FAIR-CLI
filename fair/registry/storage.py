@@ -108,7 +108,8 @@ def store_user(repo_dir: str, uri: str) -> str:
             uri, "author", data=_data, params={"uuid": _uuid}
         )
 
-def populate_file_type(uri:str):
+
+def populate_file_type(uri:str) -> typing.List[typing.Dict]:
     """Populates file_type table with common file file_types
 
     Parameters
@@ -116,14 +117,14 @@ def populate_file_type(uri:str):
     uri: str
         registry RestAPI end point
     """
+    _type_objs = []
 
-    for _extension, _name in fdp_file.FILE_TYPES.items():
+    for _extension in fdp_file.FILE_TYPES:
         # Use post_else_get in case some file types exist already
-        fdp_req.post_else_get(
-            uri, "file_type",
-            data={"name": _name, "extension": _extension.lower()},
-            params={"extension": _extension.lower()}
-        )
+        _result = create_file_type(uri, _extension)
+        _type_objs.append(_result)
+    return _type_objs
+
 
 def create_file_type(uri: str, extension: str) -> str:
     """Creates a new file type on the registry
@@ -319,7 +320,7 @@ def store_namespace(
     full_name: str = None,
     website: str = None
 ) -> str:
-    """Create a namespace on the
+    """Create a namespace on the registry
 
     Parameters
     ----------
@@ -347,19 +348,24 @@ def store_namespace(
     )
 
 
-def update_namespaces(cfg: typing.Dict) -> None:
+def update_namespaces(user_cfg: typing.Dict) -> None:
     """Ensure that the namespaces in the user config are created
+    
+    Parameters
+    ----------
+    user_cfg : typing.Dict
+        job specification from a user 'config.yaml' file
     """
 
-    _local_uri = fdp_conf.registry_url("local", cfg)
+    _local_uri = fdp_conf.registry_url("local", user_cfg)
 
-    _namespaces = []
+    _namespaces: typing.List[str] = []
     _new_block = []
 
-    if 'register' in cfg:
-        _block_cfg = cfg['register']
+    if 'register' in user_cfg:
+        _registration_items = user_cfg['register']
 
-        for item in _block_cfg:
+        for item in _registration_items:
             if 'external_object' in item or 'data_product' in item:
                 if 'namespace_name' in item:
                     _namespaces.append({
@@ -389,15 +395,15 @@ def update_namespaces(cfg: typing.Dict) -> None:
         
     store_namespace(
         _local_uri,
-        fdp_conf.input_namespace(cfg)
+        fdp_conf.input_namespace(user_cfg)
     )
 
     store_namespace(
         _local_uri,
-        fdp_conf.output_namespace(cfg)
+        fdp_conf.output_namespace(user_cfg)
     )
 
-    if 'register' in cfg:
+    if 'register' in user_cfg:
         for item in _new_block:
             if ('external_object' in item or 'data_product' in item) and 'namespace' in item:
                 if isinstance(item['namespace'], str):
@@ -407,7 +413,7 @@ def update_namespaces(cfg: typing.Dict) -> None:
                 item['namespace_full_name'] = None
                 item['namespace_website'] = None
                 del item['namespace']
-        cfg['register'] = _new_block
+        user_cfg['register'] = _new_block
 
 
 def store_data_file(
@@ -619,10 +625,9 @@ def calculate_file_hash(file_name: str, buffer_size: int = 64*1024) -> str:
         while len(_buffer) > 0:
             _input_hasher.update(_buffer)
             _buffer = in_f.read(buffer_size)
+    print(_input_hasher.hexdigest())
 
-    _hash = _input_hasher.hexdigest()
-
-    return _hash
+    return _input_hasher.hexdigest()
 
 
 def get_storage_root_obj_address(

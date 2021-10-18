@@ -14,7 +14,31 @@ Functions
 ---------
 
     read_local_fdpconfig - read the contents of the local CLI config file
-
+    read_global_fdpconfig - read the contents of the global CLI config file
+    set_email - set the user's email in the configuration
+    set_user - set the user's name in the configuration
+    get_current_user_name - retrieve name of the current user
+    get_remote_uri - retrieve URL for the remote registry
+    local_git_repo - retrieve path for the current project Git repository
+    remote_git_repo - retrieve URL for the remote Git repository
+    get_remote_token - retrieve the token for the remote registry
+    get_session_git_remote - get the current git remote label or URL
+    get_current_user_orcid - retrieve the ORCID of the current user if specified
+    get_current_user_uuid - retrieve the uuid of the current user if specified
+    check_registry_exists - check that the specified local registry directory exists
+    get_local_uri - retrieve the URL of the local registry
+    get_local_port - retrieve the port number of the local registry
+    global_config_query - setup the global configuration using prompts
+    local_config_query - setup the local configuration using prompts
+    fdp_config_value - retrieve a value from either local or global configurations
+    write_data_store - retrieve the current write data store
+    input_namespace - retrieve current input namespace
+    output_namespace - retrieve current output namespace
+    is_public - retrieve the current data is_public label
+    read_version - retrieve the current data read version
+    write_version - retrieve the current data write
+    registry_url - retrieves either local or remote registry URL
+    update_metadata - updates the metadata within a use configuration file
 """
 
 __date__ = "2021-07-02"
@@ -23,12 +47,13 @@ import os
 import pathlib
 import uuid
 import copy
-import re
 import logging
 import typing
 import yaml
 import click
 import git
+
+from urllib.parse import urlparse
 
 import fair.common as fdp_com
 import fair.exceptions as fdp_exc
@@ -36,6 +61,7 @@ import fair.identifiers as fdp_id
 import fair.registry.server as fdp_serv
 import fair.registry.requests as fdp_req
 import fair.registry.versioning as fdp_ver
+
 
 def read_local_fdpconfig(repo_loc: str) -> typing.MutableMapping:
     """Read contents of repository level FAIR-CLI configurations.
@@ -113,7 +139,23 @@ def set_user(repo_loc: str, name: str, is_global: bool = False) -> None:
         whether to also override the global settings, by default False
     """
     _loc_conf = read_local_fdpconfig(repo_loc)
-    _loc_conf['user']['name'] = name
+    if len(name.split()) > 1:
+        _given_name, _family_name = name.rsplit(" ", 1)
+        _loc_conf['user']['given_names'] = _given_name.title().strip()
+        _loc_conf['user']['family_name'] = _family_name.title().strip()
+        if is_global:
+            _glob_conf = read_global_fdpconfig()
+            _glob_conf['user']['given_names'] = _given_name.title().strip()
+            _glob_conf['user']['family_name'] = _family_name.title().strip()
+            yaml.dump(_glob_conf, open(fdp_com.global_fdpconfig(), "w"))
+    else:
+        _loc_conf['user']['given_names'] = name.title().strip()
+        _loc_conf['user']['family_name'] = None
+        if is_global:
+            _glob_conf = read_global_fdpconfig()
+            _glob_conf['user']['given_names'] = name.title().strip()
+            _glob_conf['user']['family_name'] = None
+            yaml.dump(_glob_conf, open(fdp_com.global_fdpconfig(), "w"))
     yaml.dump(_loc_conf, open(fdp_com.local_fdpconfig(repo_loc), "w"))
     if is_global:
         _glob_conf = read_global_fdpconfig()
@@ -184,6 +226,7 @@ def local_git_repo(cfg: typing.Dict = None) -> str:
             "Failed to retrieve local project git repository directory"
         )
 
+
 def remote_git_repo(cfg: typing.Dict = None) -> str:
     """Retrieves the remote repository git directory
 
@@ -237,26 +280,40 @@ def get_remote_token(repo_dir: str, remote: str = 'origin') -> str:
     return _token
 
 
-def get_session_git_remote(repo_loc: str) -> str:
+def get_session_git_remote(repo_loc: str, url: bool = False) -> str:
     """Retrieves the local repository git remote
 
     Parameters
     ----------
     repo_loc : str
         Location of session CLI config
+    url : optional, bool
+        If True return the URL for the remote instead
 
     Returns
     -------
     str
-        the remote of the git repository
+        the remote label or URL of the git repository
     """
     _local_conf = read_local_fdpconfig(repo_loc)
 
     try:
-        return _local_conf['git']['remote']
+        _remote_label = _local_conf['git']['remote']
     except KeyError:
         raise fdp_exc.InternalError(
             "Failed to retrieve project git repository remote"
+        )
+    
+    if not url:
+        return _remote_label
+    
+    _repo_root = fdp_com.find_git_root(repo_loc)
+
+    try:
+        return git.Repo(_repo_root).remote(_remote_label).url
+    except ValueError:
+        raise fdp_exc.CLIConfigurationError(
+            f"Failed to retrieve URL for git remote '{_remote_label}'"
         )
 
 
@@ -351,6 +408,7 @@ def check_registry_exists(registry: str = None) -> bool:
 
 
 def get_local_uri() -> str:
+    """Retrieve the local registry URI"""
     _cfg = read_global_fdpconfig()
 
     try:
@@ -361,16 +419,16 @@ def get_local_uri() -> str:
         )
 
 
-def get_local_port(local_uri: str = None) -> str:
+def get_local_port(local_uri: str = None) -> int:
+    """Retrieve the local port from the local URI"""
     if not local_uri:
         local_uri = get_local_uri()
-    _port_res = re.findall(r'localhost:([0-9]+)', local_uri)
-    if not _port_res:
+    _port = urlparse(local_uri).port
+    if not _port:
         raise fdp_exc.InternalError(
             "Failed to determine port number from local registry URL"
         )
-    return _port_res[0]
-
+    return _port
 
 def _handle_orcid(user_orcid: str) -> typing.Tuple[typing.Dict, str]:
     """Extract the name information from an ORCID selection
@@ -617,7 +675,7 @@ def global_config_query(registry: str = None) -> typing.Dict[str, typing.Any]:
                 )
 
     _loc_data_store = click.prompt(
-        "Default Data Store: ",
+        "Default Data Store",
         default=os.path.join(fdp_com.USER_FAIR_DIR, 'data/')
     )
     if _loc_data_store[-1] != os.path.sep:
@@ -723,7 +781,7 @@ def local_config_query(
     _git_remote = click.prompt("Git remote name", default=_def_rem)
     _invalid_rem = True
 
-    while _invalid_rem:
+    while _invalid_rem and _def_rem:
         try:
             git.Repo(_git_repo).remotes[_git_remote]
             _invalid_rem = False
