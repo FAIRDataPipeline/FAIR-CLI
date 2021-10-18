@@ -501,6 +501,8 @@ def _handle_uuid() -> typing.Tuple[typing.Dict, str]:
         _user_info['given_names'] = _full_name
         _user_info['family_name'] = None
 
+    return _user_info, _def_ospace
+
 
 def _get_user_info_and_namespaces() -> typing.Dict[str, typing.Dict]:
     _user_email = click.prompt("Email")
