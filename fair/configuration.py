@@ -315,7 +315,7 @@ def get_local_uri() -> str:
         return _cfg['registries']['local']['uri']
     except KeyError:
         raise fdp_exc.CLIConfigurationError(
-            f"Expected key 'registries:local:uri' in global CLI configuration"
+            "Expected key 'registries:local:uri' in global CLI configuration"
         )
 
 
@@ -400,14 +400,17 @@ def global_config_query(registry: str = None) -> typing.Dict[str, typing.Any]:
     if check_registry_exists(registry):
         click.echo("Local registry found")
     else:
-        click.confirm(
+        _install_reg = click.confirm(
             "Local registry not found, would you like to install now?",
-            abort = True
+            default=True
         )
+        if not _install_reg:
+            raise fdp_exc.CLIConfigurationError(
+                "FAIR repository initialisation requires a local registry installation, aborting."
+            )
         fdp_serv.install_registry()
 
-    _default_url = 'http://localhost:8000/api/'
-    _local_uri = click.prompt("Local Registry URL", default=_default_url)
+    _local_uri = click.prompt("Local Registry URL", default=fdp_serv.DEFAULT_LOCAL_REGISTRY_URL)
 
     _default_rem = 'https://data.scrc.uk/api/'
     _remote_url = click.prompt("Remote API URL", default=_default_rem)
@@ -446,17 +449,15 @@ def global_config_query(registry: str = None) -> typing.Dict[str, typing.Any]:
             fdp_serv.launch_server(_local_uri, registry_dir=registry)
 
             # Keep server running by creating user run cache file
-            _cache_addr = os.path.join(
-                fdp_com.session_cache_dir(), f"user.run"
-            )
+            _cache_addr = os.path.join(fdp_com.session_cache_dir(), 'user.run')
             pathlib.Path(_cache_addr).touch()
 
         else:
             click.echo("Temporarily launching server to retrieve API token.")
             fdp_serv.launch_server(_local_uri, registry_dir=registry)
-            fdp_serv.stop_server()
+            fdp_serv.stop_server(registry_dir=registry, local_uri=_local_uri)
             try:
-                fdp_req.local_token()
+                fdp_req.local_token(registry_dir=registry)
             except fdp_exc.FileNotFoundError:
                 raise fdp_exc.RegistryError(
                     "Failed to retrieve local API token from registry."

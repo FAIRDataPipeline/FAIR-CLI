@@ -35,6 +35,10 @@ import logging
 import fair.common as fdp_com
 import fair.exceptions as fdp_exc
 import fair.configuration as fdp_conf
+import fair.registry.storage as fdp_store
+import fair.registry.requests as fdp_req
+
+DEFAULT_LOCAL_REGISTRY_URL = 'http://localhost:8000/api/'
 
 
 REGISTRY_INSTALL_URL = "https://data.scrc.uk/static/localregistry.sh"
@@ -124,6 +128,7 @@ def launch_server(local_uri: str = None, registry_dir: str = None, verbose: bool
 
 
 def stop_server(
+    registry_dir: str = None, local_uri: str = None,
     force: bool = False, verbose: bool = False
 ) -> None:
     """Stops the FAIR Data Pipeline local server
@@ -133,7 +138,8 @@ def stop_server(
     force : bool, optional
         whether to force server shutdown if it is being used
     """
-    _session_port_file = os.path.join(fdp_com.registry_home(), 'session_port.log')
+    registry_dir = registry_dir or fdp_com.registry_home()
+    _session_port_file = os.path.join(registry_dir, 'session_port.log')
 
     if not os.path.exists(_session_port_file):
         raise fdp_exc.FileNotFoundError(
@@ -149,7 +155,7 @@ def stop_server(
         )
 
     _server_stop_script = os.path.join(
-        fdp_com.registry_home(), "scripts", "stop_fair_registry"
+        registry_dir, "scripts", "stop_fair_registry"
     )
 
     if not os.path.exists(_server_stop_script):
@@ -171,7 +177,7 @@ def stop_server(
 
     _stop.wait()
 
-    if check_server_running():
+    if check_server_running(local_uri):
         raise fdp_exc.RegistryError("Failed to stop registry server.")
 
 def install_registry() -> None:
@@ -230,3 +236,51 @@ def uninstall_registry() -> None:
         shutil.rmtree(fdp_com.registry_home())
     elif os.path.exists(DEFAULT_REGISTRY_LOCATION):
         shutil.rmtree(DEFAULT_REGISTRY_LOCATION)
+
+
+def update_registry_post_setup(repo_dir: str, global_setup: bool = False) -> None:
+    """Add user namespace and file types after CLI setup
+
+    Parameters
+    ----------
+    repo_dir : str
+        current FAIR repository location
+    global_setup : bool, optional
+        whether this is the first (global) setup or local for a new repository
+    """
+    _is_running = check_server_running(fdp_conf.get_local_uri())
+    # Populate file type table
+    if not _is_running:
+        launch_server(fdp_conf.get_local_uri())
+    
+    if global_setup:
+        fdp_store.populate_file_type(fdp_conf.get_local_uri())
+
+    # Add author and UserAuthor
+    _author_url = fdp_store.store_user(repo_dir, fdp_conf.get_local_uri())
+
+    try:
+        _admin_url = fdp_req.get(
+            fdp_conf.get_local_uri(),
+            'users',
+            params = {
+                'username': 'admin'
+            }
+        )[0]['url']
+    except (KeyError, IndexError):
+        raise fdp_exc.RegistryAPICallError(
+            "Failed to retrieve 'admin' user from registry database"
+        )
+
+    fdp_req.post_else_get(
+        fdp_conf.get_local_uri(),
+        'user_author',
+        data = {
+            'user': _admin_url,
+            'author': _author_url
+        }
+    )
+
+    # Only stop the server if it was not running initially
+    if not _is_running:
+        stop_server()

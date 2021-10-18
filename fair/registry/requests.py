@@ -60,9 +60,10 @@ def split_api_url(request_url: str, splitter: str = 'api') -> typing.Tuple[str]:
     return f'{_root}{splitter}', _path
 
 
-def local_token() -> str:
+def local_token(registry_dir: str = None) -> str:
     """Read the local registry token from the relevant file"""
-    _local_token_file = os.path.join(fdp_com.registry_home(), "token")
+    registry_dir = registry_dir or fdp_com.registry_home()
+    _local_token_file = os.path.join(registry_dir, "token")
     if not os.path.exists(_local_token_file):
         raise fdp_exc.FileNotFoundError(
             f"Failed to find local registry token, file '{_local_token_file}'"

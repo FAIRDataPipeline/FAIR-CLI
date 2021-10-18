@@ -77,8 +77,8 @@ class RegistryError(FAIRCLIException):
 class CLIConfigurationError(FAIRCLIException):
     """Errors relating to CLI configuration"""
 
-    def __init__(self, msg, hint=""):
-        super().__init__(msg, hint=hint)
+    def __init__(self, msg, hint="", level='Error'):
+        super().__init__(msg, hint=hint, level=level)
 
 
 class UserConfigError(FAIRCLIException):
