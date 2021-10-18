@@ -372,12 +372,12 @@ def get_local_port(local_uri: str = None) -> str:
     return _port_res[0]
 
 
-def _handle_orcid(orcid: str) -> typing.Tuple[typing.Dict, str]:
+def _handle_orcid(user_orcid: str) -> typing.Tuple[typing.Dict, str]:
     """Extract the name information from an ORCID selection
 
     Parameters
     ----------
-    orcid : str
+    user_orcid : str
         ORCID to search
 
     Returns
@@ -387,12 +387,12 @@ def _handle_orcid(orcid: str) -> typing.Tuple[typing.Dict, str]:
     str
         default output namespace
     """
-    _user_info = fdp_id.check_orcid(orcid.strip())
+    _user_info = fdp_id.check_orcid(user_orcid.strip())
 
     while not _user_info:
         click.echo("Invalid ORCID given.")
         user_orcid = click.prompt("ORCID")
-        _user_info = fdp_id.check_orcid(user_orcid)
+        _user_info = fdp_id.check_orcid(user_orcid.strip())
     
     _user_info['orcid'] = user_orcid
 
@@ -426,12 +426,12 @@ def _handle_ror(user_ror: str) -> typing.Tuple[typing.Dict, str]:
     str
         default output namespace
     """
-    _user_info = fdp_id.check_ror(user_ror)
+    _user_info = fdp_id.check_ror(user_ror.strip())
 
     while not _user_info:
         click.echo("Invalid ROR ID given.")
         user_ror = click.prompt("ROR ID")
-        _user_info = fdp_id.check_ror(user_ror)
+        _user_info = fdp_id.check_ror(user_ror.strip())
 
     _user_info['ror'] = user_ror
 
@@ -459,12 +459,12 @@ def _handle_grid(user_grid: str) -> typing.Tuple[typing.Dict, str]:
     str
         default output namespace
     """
-    _user_info = fdp_id.check_grid(user_grid)
+    _user_info = fdp_id.check_grid(user_grid.strip())
 
     while not _user_info:
         click.echo("Invalid GRID ID given.")
         user_grid = click.prompt("GRID ID")
-        _user_info = fdp_id.check_grid(user_grid)
+        _user_info = fdp_id.check_grid(user_grid.strip())
 
     _user_info['grid'] = user_grid
 
