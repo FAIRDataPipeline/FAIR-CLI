@@ -14,7 +14,7 @@ LOCAL_REGISTRY_URL = 'http://localhost:8000/api'
 
 
 @pytest.mark.storage
-@pytest.mark.dependency(name=['store_author'])
+@pytest.mark.dependency(name='store_author')
 def test_store_user(local_config: typing.Tuple[str, str], local_registry: conf.TestRegistry, mocker: pytest_mock.MockerFixture):
     mocker.patch('fair.common.registry_home', lambda: local_registry._install)
     with local_registry:

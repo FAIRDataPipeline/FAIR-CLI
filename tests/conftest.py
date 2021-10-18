@@ -15,7 +15,7 @@ TEST_JOB_FILE_TIMESTAMP = '2021-10-11_10_0_0_100000'
 REGISTRY_INSTALL_URL = "https://data.scrc.uk/static/localregistry.sh"
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope='session')
 @pytest_fixture_config.yield_requires_config(pytest_virtualenv.FixtureConfig(
     virtualenv_executable='venv',
 ), ['virtualenv_executable'])
@@ -108,7 +108,7 @@ class TestRegistry:
         self._process = None
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def local_registry(session_virtualenv: pytest_virtualenv.VirtualEnv):
     with tempfile.TemporaryDirectory() as tempd:
         session_virtualenv.env = test_reg.django_environ(session_virtualenv.env)

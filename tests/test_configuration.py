@@ -1,4 +1,5 @@
 import os
+import pathlib
 import typing
 import pytest
 import pytest_mock
@@ -85,7 +86,7 @@ def test_get_uuid(local_config: typing.Tuple[str, str]):
 
 @pytest.mark.configuration
 def test_registry_exists(mocker: pytest_mock.MockerFixture, local_config: typing.Tuple[str, str]):
-    mocker.patch('pathlib.Path.home', lambda: local_config[0])
+    mocker.patch('fair.registry.server.DEFAULT_REGISTRY_LOCATION', local_config[0])
     assert fdp_conf.check_registry_exists()
     assert fdp_conf.check_registry_exists(local_config[0])
 
