@@ -38,9 +38,6 @@ import fair.configuration as fdp_conf
 import fair.registry.storage as fdp_store
 import fair.registry.requests as fdp_req
 
-DEFAULT_LOCAL_REGISTRY_URL = 'http://localhost:8000/api/'
-
-
 REGISTRY_INSTALL_URL = "https://data.scrc.uk/static/localregistry.sh"
 DEFAULT_REGISTRY_LOCATION = os.path.join(pathlib.Path().home(), fdp_com.FAIR_FOLDER, 'registry')
 DEFAULT_LOCAL_REGISTRY_URL = "http://localhost:8000/api/"

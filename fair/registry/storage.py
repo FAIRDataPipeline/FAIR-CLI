@@ -71,12 +71,12 @@ def get_write_storage(uri: str, cfg: typing.Dict) -> str:
 
     # If the data store already exists just return the URI else create it
     # and then do the same
-    if not _search_root:
-        _post_data = {"root": _write_store_root, "local": True}
-        _storage_root = fdp_req.post(uri, "storage_root", data=_post_data)
-        return _storage_root["url"]
-    else:
+    if _search_root:
         return _search_root[0]["url"]
+
+    _post_data = {"root": _write_store_root, "local": True}
+    _storage_root = fdp_req.post(uri, "storage_root", data=_post_data)
+    return _storage_root["url"]
 
 
 def store_user(repo_dir: str, uri: str) -> str:
@@ -93,18 +93,13 @@ def store_user(repo_dir: str, uri: str) -> str:
         URI for created author
     """
     _user = fdp_conf.get_current_user_name(repo_dir)
-    _data = {}
-    if len(_user) > 1:
-        _data['name'] = ' '.join(_user)
-    else:
-        _data['name'] = _user[0]
+    _data = {'name': ' '.join(_user) if _user[0] else _user[1]}
 
     try:
-        _orcid = fdp_conf.get_current_user_orcid(repo_dir)
-        _orcid = urllib.parse.urljoin(fdp_id.ORCID_URL, _orcid)
-        _data["identifier"] = _orcid
+        _id = fdp_conf.get_current_user_uri(repo_dir)
+        _data['identifier'] = _id
         return fdp_req.post_else_get(
-            uri, "author", data=_data, params={"identifier": _orcid}
+            uri, "author", data=_data, params={"identifier": _id}
         )
     except fdp_exc.CLIConfigurationError:
         _uuid = fdp_conf.get_current_user_uuid(repo_dir)

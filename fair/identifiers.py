@@ -22,9 +22,17 @@ import urllib.parse
 import typing
 import requests
 
-ORCID_URL = "https://pub.orcid.org/v2.0/"
-ROR_URL = "https://api.ror.org/organizations?query="
-GRID_URL = "https://www.grid.ac/institutes/"
+ID_URIS = {
+    'orcid': 'https://orcid.org/',
+    'ror': 'https://ror.org/',
+    'grid': 'https://www.grid.ac/institutes/'
+}
+
+QUERY_URLS = {
+    'orcid': "https://pub.orcid.org/v2.0/",
+    'ror': "https://api.ror.org/organizations?query=",
+    'grid': "https://www.grid.ac/institutes/"
+}
 
 
 def check_orcid(orcid: str) -> typing.Dict:
@@ -42,7 +50,7 @@ def check_orcid(orcid: str) -> typing.Dict:
     """
 
     _header = {'Accept': 'application/json'}
-    _url = urllib.parse.urljoin(ORCID_URL, orcid)
+    _url = urllib.parse.urljoin(QUERY_URLS['orcid'], orcid)
     _response = requests.get(_url, headers = _header)
 
     _result_dict: typing.Dict[str, typing.Any] = {}
@@ -59,6 +67,7 @@ def check_orcid(orcid: str) -> typing.Dict:
     _result_dict['family_name'] = _family
     _result_dict['given_names'] = _given
     _result_dict['orcid'] = orcid
+    _result_dict['uri'] = f'{ID_URIS["orcid"]}{orcid}'
 
     return _result_dict
 
@@ -76,7 +85,7 @@ def check_ror(ror: str) -> typing.Dict:
         metadata from the given ID
     """
 
-    _url = urllib.parse.urljoin(ROR_URL, ror)
+    _url = urllib.parse.urljoin(QUERY_URLS['ror'], ror)
     _response = requests.get(_url)
 
     _result_dict: typing.Dict[str, typing.Any] = {}
@@ -92,6 +101,7 @@ def check_ror(ror: str) -> typing.Dict:
     _result_dict['family_name'] = _name
     _result_dict['given_names'] = None
     _result_dict['ror'] = ror
+    _result_dict['uri'] = f'{ID_URIS["ror"]}{ror}'
 
     return _result_dict
 
@@ -108,7 +118,7 @@ def check_grid(grid_id: str) -> typing.Dict:
         metadata from the given ID
     """
     _header = {'Accept': 'application/json'}
-    _response = requests.get(f'{GRID_URL}{grid_id}', headers=_header)
+    _response = requests.get(f'{QUERY_URLS["grid"]}{grid_id}', headers=_header)
 
     _result_dict: typing.Dict[str, typing.Any] = {}
 
@@ -121,9 +131,9 @@ def check_grid(grid_id: str) -> typing.Dict:
     _result_dict['family_name'] = _name
     _result_dict['given_names'] = None
     _result_dict['grid'] = grid_id
+    _result_dict['uri'] = f'{ID_URIS["grid"]}{grid_id}'
 
     return _result_dict
-
 
 
 def check_id_permitted(identifier: str) -> bool:

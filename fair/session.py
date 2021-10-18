@@ -563,19 +563,18 @@ class FAIR:
                 self._global_config = fdp_conf.global_config_query(
                     registry
                 )
-            except fdp_exc.CLIConfigurationError as e:
-                shutil.rmtree(fdp_com.session_cache_dir(), ignore_errors=True)
-                shutil.rmtree(fdp_com.global_config_dir(), ignore_errors=True)
-                shutil.rmtree(_fair_dir)
-                raise e
-            self._local_config = fdp_conf.local_config_query(
-                self._global_config, first_time_setup=_first_time
-            )
+                self._local_config = fdp_conf.local_config_query(
+                    self._global_config, first_time_setup=_first_time
+                )
+            except (fdp_exc.CLIConfigurationError, click.Abort) as e:
+                self._clean_reset(_fair_dir, e)
         elif not using:
-            self._local_config = fdp_conf.local_config_query(
-                self._global_config
-            )
-
+            try:
+                self._local_config = fdp_conf.local_config_query(
+                    self._global_config
+                )
+            except (fdp_exc.CLIConfigurationError, click.Abort) as e:
+                self._clean_reset(_fair_dir, e)
         if not using:
             with open(fdp_com.local_fdpconfig(self._session_loc), "w") as f:
                 yaml.dump(self._local_config, f)
@@ -585,17 +584,18 @@ class FAIR:
             self._global_config = fdp_conf.read_global_fdpconfig()
             self._local_config = fdp_conf.read_local_fdpconfig(self._session_loc)
 
-        if 'ror' in self._local_config['user'] and self._local_config['user']['ror']:
-            self._local_config['user']['uri'] = 'https://ror.org/' + self._local_config['user']['ror']
-        elif 'orcid' in self._local_config['user'] and self._local_config['user']['orcid']:
-            self._local_config['user']['uri'] = 'https://orcid.org/' + self._local_config['user']['orcid']
-
         if export_as:
             self._export_cli_configuration(export_as)
 
         fdp_serv.update_registry_post_setup(self._session_loc, _first_time)
 
         click.echo(f"Initialised empty fair repository in {_fair_dir}")
+
+    def _clean_reset(self, _fair_dir, e):
+        shutil.rmtree(fdp_com.session_cache_dir(), ignore_errors=True)
+        shutil.rmtree(fdp_com.global_config_dir(), ignore_errors=True)
+        shutil.rmtree(_fair_dir)
+        raise e
 
     def close_session(self) -> None:
         """Upon exiting, dump all configurations to file"""

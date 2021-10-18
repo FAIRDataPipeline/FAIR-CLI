@@ -118,7 +118,7 @@ def set_user(repo_loc: str, name: str, is_global: bool = False) -> None:
     if is_global:
         _glob_conf = read_global_fdpconfig()
         _glob_conf['user']['name'] = name
-        yaml.dump(_glob_conf, open(fdp_com.global_fdpconfig(), "w"))
+        yaml.dump(_glob_conf, open(fdp_com.global_fdpconfig(), "w"))          
 
 
 def get_current_user_name(repo_loc: str) -> typing.Tuple[str]:
@@ -319,6 +319,24 @@ def get_current_user_rorid(repo_loc: str) -> str:
     return _rorid
 
 
+def get_current_user_uri(repo_loc: str) -> str:
+    """Retrieves the URI identifier for the current user
+
+    Returns
+    -------
+    str
+        user URI identifier
+    """
+    _local_conf = read_local_fdpconfig(repo_loc)
+    try:
+        _uri = _local_conf['user']['uri']
+    except KeyError:
+        _uri = None
+    if not _uri or _uri == "None":
+        raise fdp_exc.CLIConfigurationError("No user URI identifier defined.")
+    return _uri
+
+
 def check_registry_exists(registry: str = None) -> bool:
     """Checks if fair registry is set up on users machine
 
@@ -486,21 +504,29 @@ def _handle_uuid() -> typing.Tuple[typing.Dict, str]:
 
 def _get_user_info_and_namespaces() -> typing.Dict[str, typing.Dict]:
     _user_email = click.prompt("Email")
-    _id_type = click.prompt("Use ID [ORCID/ROR/GRID]", default="None")
 
-    if _id_type == "ORCID":
-        _user_orcid = click.prompt("ORCID")
-        _user_info, _def_ospace = _handle_orcid(_user_orcid)
-    elif _id_type == "ROR":
-        _user_ror = click.prompt("ROR ID")
-        _user_info, _def_ospace = _handle_ror(_user_ror)
-    elif _id_type == "GRID ID":
-        _user_grid = click.prompt("GRID ID")
-        _user_info, _def_ospace = _handle_grid(_user_grid)
-    else:
-        _user_info, _def_ospace = _handle_uuid()
-        _user_uuid = str(uuid.uuid4())
-        _user_info['uuid'] = _user_uuid
+    _invalid_input = True
+
+    while _invalid_input:
+        _id_type = click.prompt("Use ID (ORCID/ROR/GRID)", default="None")
+
+        if _id_type.upper() == "ORCID":
+            _user_orcid = click.prompt("ORCID")
+            _user_info, _def_ospace = _handle_orcid(_user_orcid)
+            _invalid_input = False
+        elif _id_type.upper() == "ROR":
+            _user_ror = click.prompt("ROR ID")
+            _user_info, _def_ospace = _handle_ror(_user_ror)
+            _invalid_input = False
+        elif _id_type.upper() == "GRID":
+            _user_grid = click.prompt("GRID ID")
+            _user_info, _def_ospace = _handle_grid(_user_grid)
+            _invalid_input = False
+        elif _id_type.upper() == "NONE":
+            _user_info, _def_ospace = _handle_uuid()
+            _user_uuid = str(uuid.uuid4())
+            _user_info['uuid'] = _user_uuid
+            _invalid_input = False
 
     _user_info['email'] = _user_email
 
