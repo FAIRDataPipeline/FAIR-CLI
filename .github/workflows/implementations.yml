@@ -9,7 +9,7 @@ jobs:
     - name: Clone Java Implementation
       uses: actions/checkout@v2
       with:
-        repository: https://github.com/FAIRDataPipeline/javaDataPipeline
+        repository: FAIRDataPipeline/javaDataPipeline
         path: java_api
         ref: 'v1.0.0-beta'
     - name: Set up JDK 11
