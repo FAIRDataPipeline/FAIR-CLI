@@ -4,7 +4,11 @@ import os
 import git
 
 
-def create_configurations(registry_dir: str, testing_dir: str = tempfile.mkdtemp(), tokenless: bool = False) -> typing.Dict:
+def create_configurations(
+    registry_dir: str,
+    local_git_dir: str = os.getcwd(),
+    testing_dir: str = tempfile.mkdtemp(),
+    tokenless: bool = False) -> typing.Dict:
     """
     Setup CLI for testing
 
@@ -34,8 +38,12 @@ def create_configurations(registry_dir: str, testing_dir: str = tempfile.mkdtemp
         with open(_token_file, 'w') as out_f:
             out_f.write(_token)
 
-    _repo = git.Repo.init(_proj_dir)
-    _repo.create_remote('origin', url='git@notagit.com/nope')
+    if local_git_dir:
+        _repo = git.Repo(local_git_dir)
+    else:
+        _repo = git.Repo.init(_proj_dir)
+        _repo.create_remote('origin', url='git@notagit.com/nope')
+        local_git_dir = _proj_dir
 
     os.makedirs(_loc_data_store)
     return {
@@ -60,7 +68,7 @@ def create_configurations(registry_dir: str, testing_dir: str = tempfile.mkdtemp
             'uuid': '2ddb2358-84bf-43ff-b2aa-3ac7dc3b49f1'
         },
         'git': {
-            'local_repo': _proj_dir,
+            'local_repo': local_git_dir,
             'remote': 'origin'
         },
     }
