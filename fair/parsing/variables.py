@@ -65,7 +65,7 @@ def subst_cli_vars(
 
     def _get_id(directory):
         try:
-            return fdp_conf.get_current_user_id(directory)
+            return fdp_conf.get_current_user_uri(directory)
         except fdp_exc.CLIConfigurationError:
             return fdp_conf.get_current_user_uuid(directory)
 

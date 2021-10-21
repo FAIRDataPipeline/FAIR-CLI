@@ -9,6 +9,7 @@ import fair.testing as fdp_test
 import fair.configuration as fdp_conf
 import fair.common as fdp_com
 import fair.exceptions as fdp_exc
+import fair.identifiers as fdp_id
 
 
 @pytest.mark.configuration
@@ -76,7 +77,7 @@ def test_get_git_remote(local_config: typing.Tuple[str, str]):
 
 @pytest.mark.configuration
 def test_get_orcid(local_config: typing.Tuple[str, str]):
-    assert fdp_conf.get_current_user_orcid(local_config[0]) == '000-0000-0000-0000'
+    assert fdp_conf.get_current_user_uri(local_config[0]) == f'{fdp_id.ID_URIS["orcid"]}000-0000-0000-0000'
 
 
 @pytest.mark.configuration

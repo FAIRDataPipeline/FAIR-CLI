@@ -160,6 +160,9 @@ def purge(glob: bool, debug: bool, yes: bool, data: bool) -> None:
     else:
         _purge = True
 
+    if not _purge:
+        return
+
     try:
         with fdp_session.FAIR(os.getcwd()) as fair_session:
             fair_session.purge(

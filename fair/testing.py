@@ -3,6 +3,8 @@ import tempfile
 import os
 import git
 
+import fair.identifiers as fdp_id
+
 
 def create_configurations(
     registry_dir: str,
@@ -65,6 +67,7 @@ def create_configurations(
             'family_name': 'Test',
             'given_names': 'Interface',
             'orcid': '000-0000-0000-0000',
+            'uri': f'{fdp_id.ID_URIS["orcid"]}000-0000-0000-0000',
             'uuid': '2ddb2358-84bf-43ff-b2aa-3ac7dc3b49f1'
         },
         'git': {

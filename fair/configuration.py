@@ -23,7 +23,7 @@ Functions
     remote_git_repo - retrieve URL for the remote Git repository
     get_remote_token - retrieve the token for the remote registry
     get_session_git_remote - get the current git remote label or URL
-    get_current_user_orcid - retrieve the ORCID of the current user if specified
+    get_current_user_uri - retrieve the full URL identifier for the current user
     get_current_user_uuid - retrieve the uuid of the current user if specified
     check_registry_exists - check that the specified local registry directory exists
     get_local_uri - retrieve the URL of the local registry
@@ -317,29 +317,6 @@ def get_session_git_remote(repo_loc: str, url: bool = False) -> str:
         )
 
 
-def get_current_user_orcid(repo_loc: str) -> str:
-    """Retrieves the ORCID of the current session user if defined in the config
-
-    Parameters
-    ----------
-    repo_loc : str
-        Location of session CLI config
-
-    Returns
-    -------
-    str
-        user ORCID
-    """
-    _local_conf = read_local_fdpconfig(repo_loc)
-    try:
-        _orcid =_local_conf['user']['orcid']
-    except KeyError:
-        _orcid = None
-    if not _orcid or _orcid == "None":
-        raise fdp_exc.CLIConfigurationError("No ORCID defined.")
-    return _orcid
-
-
 def get_current_user_uuid(repo_loc: str) -> str:
     """Retrieves the UUID of the current session user if defined in the config
 
@@ -356,25 +333,6 @@ def get_current_user_uuid(repo_loc: str) -> str:
     if not _uuid or _uuid == "None":
         raise fdp_exc.CLIConfigurationError("No UUID defined.")
     return _uuid
-
-
-def get_current_user_rorid(repo_loc: str) -> str:
-    """Retrieves the ROR ID of the current session user if defined in the config
-
-    Returns
-    -------
-    str
-        user ROR ID
-    """
-    _local_conf = read_local_fdpconfig(repo_loc)
-    try:
-        _rorid = _local_conf['user']['ror']
-    except KeyError:
-        _rorid = None
-    if not _rorid or _rorid == "None":
-        raise fdp_exc.CLIConfigurationError("No ROR ID defined.")
-    return _rorid
-
 
 def get_current_user_uri(repo_loc: str) -> str:
     """Retrieves the URI identifier for the current user
