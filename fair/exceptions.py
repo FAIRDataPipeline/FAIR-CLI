@@ -17,6 +17,7 @@ Exceptions
     FAIRCLIException
     RegistryErrorException
     CLIConfigurationError
+    KeyPathError
     UnexpectedRegistryServerState
     FDPRepositoryError
     FileNotFoundError
@@ -79,6 +80,14 @@ class CLIConfigurationError(FAIRCLIException):
 
     def __init__(self, msg, hint="", level='Error'):
         super().__init__(msg, hint=hint, level=level)
+
+
+class KeyPathError(FAIRCLIException):
+    """Errors relating to key path within a nested mapping"""
+
+    def __init__(self, key, parent_label):
+        _msg = f"Failed to retrieve item at address '{key}' from mapping '{parent_label}', no such address"
+        super().__init__(_msg, level='Error')
 
 
 class UserConfigError(FAIRCLIException):

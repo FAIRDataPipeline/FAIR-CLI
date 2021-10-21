@@ -23,7 +23,6 @@ __date__ = "2021-08-16"
 
 import typing
 import copy
-import logging
 
 import fair.registry.requests as fdp_req
 import fair.configuration as fdp_conf

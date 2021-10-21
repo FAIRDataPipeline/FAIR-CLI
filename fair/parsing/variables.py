@@ -136,6 +136,7 @@ def subst_cli_vars(
     # Load the YAML (this also verifies the write was successful) and return it
     return yaml.safe_load(_conf_str)
 
+
 def fill_block(cfg: typing.Dict, blocktype: str) -> bool:
     """Fill in all of elements of the blocks that are present in the local and global config files
 
