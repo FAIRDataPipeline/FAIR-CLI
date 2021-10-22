@@ -367,7 +367,7 @@ def run_command(
             _process = subprocess.Popen(
                 _cmd_list,
                 stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
                 universal_newlines=True,
                 bufsize=1,
                 text=True,
