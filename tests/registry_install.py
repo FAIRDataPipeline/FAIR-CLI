@@ -9,7 +9,6 @@ import shutil
 import subprocess
 import pathlib
 import glob
-import signal
 import time
 
 from fair.common import FAIR_FOLDER
@@ -223,13 +222,13 @@ def launch(install_dir: str = None, port: int = 8000, silent: bool = False, venv
         )
 
     if not silent:
-        print(
+        click.echo(
             "An access token for the REST API is available in the file"
             f"'{os.path.join(install_dir, 'token')}'"
         )
     
     if not shutil.which('dot') and not silent:
-        print("WARNING: Graphviz is not installed, so provenance report images are not available")
+        click.echo("WARNING: Graphviz is not installed, so provenance report images are not available")
 
     return _process
 

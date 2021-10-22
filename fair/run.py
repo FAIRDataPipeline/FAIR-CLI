@@ -156,7 +156,7 @@ def run_command(
 
     _remote_access = mode in [CMD_MODE.PULL, CMD_MODE.PUSH]
 
-    _job_cfg.prepare(_job_dir, _timestamp, _remote_access)
+    _job_cfg.prepare(_job_dir, _timestamp, mode)
 
     _run_executable = "script" in _job_cfg["run_metadata"] or "script_path" in _job_cfg["run_metadata"]
     _run_executable = _run_executable and mode in [CMD_MODE.RUN, CMD_MODE.PASS]

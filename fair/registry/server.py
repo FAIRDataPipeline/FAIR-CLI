@@ -31,6 +31,7 @@ import typing
 import requests
 import platform
 import stat
+import click
 import logging
 
 import fair.common as fdp_com
@@ -216,7 +217,7 @@ def install_registry() -> None:
     ) as _install:
         for b in _install.stdout:
             if b.strip():
-                print(b.strip())
+                click.echo(b.strip())
 
     _install.wait()
 

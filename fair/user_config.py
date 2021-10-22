@@ -285,11 +285,11 @@ class JobConfiguration(MutableMapping):
             _other_key = JOB2CLI_MAPPINGS[_key].replace('origin', remote_label)
             self[_key] = _fdpconfig[_other_key]
 
-        if fair_repo_dir and 'run_metadata.remote' not in self:
+        if fair_repo_dir and 'run_metadata.remote_repo' not in self:
             _remote = _fdpconfig['git.remote']
             _git_repo = git.Repo(fair_repo_dir)
             _url = _git_repo.remotes[_remote].url
-            self['run_metadata.remote'] = _url
+            self['run_metadata.remote_repo'] = _url
 
     def pop(self, key: str, default: typing.Optional[typing.Any] = None) -> typing.Any:
         """Remove item from configuration"""
@@ -505,17 +505,15 @@ class JobConfiguration(MutableMapping):
 
     def _pull_metadata(self) -> None:
         self._logger.debug("Pulling metadata from remote registry")
-        for block in self._block_types:
-            self._logger.warning(
-                "Remote registry pulls are not yet implemented"
-            )
+        self._logger.warning(
+            "Remote registry pulls are not yet implemented"
+        )
 
     def _pull_data(self) -> None:
         self._logger.debug("Pulling data from remote registry")
-        for block in self._block_types:
-            self._logger.warning(
-                "Remote registry pulls are not yet implemented"
-            )
+        self._logger.warning(
+            "Remote registry pulls are not yet implemented"
+        )
 
     def _fill_block_data_product(self, block_type: str, item: typing.Dict) -> typing.Dict:
         _new_item = copy.deepcopy(item)

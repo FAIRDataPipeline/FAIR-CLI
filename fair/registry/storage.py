@@ -427,8 +427,6 @@ def store_data_file(
 
     _rel_path = os.path.relpath(local_file, write_data_store)
 
-    print("DAMN", data)
-
     if 'version' not in data['use']:
         raise fdp_exc.InternalError(
             f"Expected version number for '{local_file}' "
@@ -624,7 +622,6 @@ def calculate_file_hash(file_name: str, buffer_size: int = 64*1024) -> str:
         while len(_buffer) > 0:
             _input_hasher.update(_buffer)
             _buffer = in_f.read(buffer_size)
-    print(_input_hasher.hexdigest())
 
     return _input_hasher.hexdigest()
 
