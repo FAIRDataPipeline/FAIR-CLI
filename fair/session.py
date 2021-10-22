@@ -259,7 +259,6 @@ class FAIR:
         self._logger.debug("Setting up command execution")
 
         _hash = fdp_run.run_command(
-            local_uri=fdp_conf.get_local_uri(),
             repo_dir=self._session_loc,
             config_yaml=self._session_config,
             bash_cmd=bash_cmd,

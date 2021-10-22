@@ -3,6 +3,7 @@ import pytest
 import pytest_mock
 import pytest_fixture_config
 import pytest_virtualenv
+import logging
 import tempfile
 import yaml
 import fair.testing as fdp_test
@@ -14,6 +15,8 @@ from . import registry_install as test_reg
 TEST_JOB_FILE_TIMESTAMP = '2021-10-11_10_0_0_100000'
 REGISTRY_INSTALL_URL = "https://data.scrc.uk/static/localregistry.sh"
 
+
+logging.getLogger('FAIRDataPipeline').setLevel(logging.DEBUG)
 
 @pytest.fixture(scope='session')
 @pytest_fixture_config.yield_requires_config(pytest_virtualenv.FixtureConfig(

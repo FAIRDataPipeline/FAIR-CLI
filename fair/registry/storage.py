@@ -36,15 +36,15 @@ import fair.identifiers as fdp_id
 import fair.registry.file_types as fdp_file
 import fair.registry.versioning as fdp_ver
 
-def get_write_storage(uri: str, cfg: typing.Dict) -> str:
+def get_write_storage(uri: str, write_data_store: str) -> str:
     """Construct storage root if it does not exist
 
     Parameters
     ----------
     uri : str
         end point of the RestAPI
-    str : typing.Dict
-        path of the config file
+    write_data_store : str
+        path of the write data store
 
     Returns
     -------
@@ -57,10 +57,8 @@ def get_write_storage(uri: str, cfg: typing.Dict) -> str:
         If 'write_data_store' not present in the working config or global config
     """
 
-    _write_data_store = fdp_conf.write_data_store(cfg)
-
     # Convert local file path to a valid data store path
-    _write_store_root = f"file://{_write_data_store}"
+    _write_store_root = f"file://{write_data_store}"
     if _write_store_root[-1] != os.path.sep:
         _write_store_root += os.path.sep
 
@@ -421,14 +419,13 @@ def store_data_file(
     repo_dir: str,
     data: typing.Dict,
     local_file: str,
-    cfg: typing.Dict,
+    write_data_store: str,
     public: bool
 ) -> None:
 
-    _root_store = get_write_storage(uri, cfg)
-    _data_store = fdp_conf.write_data_store(cfg)
+    _root_store = get_write_storage(uri, write_data_store)
 
-    _rel_path = os.path.relpath(local_file, _data_store)
+    _rel_path = os.path.relpath(local_file, write_data_store)
 
     if 'version' not in data['use']:
         raise fdp_exc.InternalError(
@@ -687,7 +684,7 @@ def check_match(input_object: str, results_list: typing.List[str]):
 
 
 def check_if_object_exists(
-    cfg: typing.Dict,
+    local_uri: str,
     file_loc: str,
     obj_type: str,
     search_data: typing.Dict,
@@ -696,8 +693,8 @@ def check_if_object_exists(
 
     Parameters
     ----------
-    cfg : typing.Dict
-        config yaml
+    local_uri : str
+        local registry endpoint
     file_loc : str
         path of file on system
     obj_type : str
@@ -713,12 +710,8 @@ def check_if_object_exists(
         whether object is present with matching hash, present or absent
         if present but not hash matched return the latest version identifier
     """
-    _logger = logging.getLogger("FAIRDataPipeline.Run")
-
-    _local_uri = fdp_conf.registry_url("local", cfg)
-
-
     _version = None
+
     if 'version' in search_data:
         _version = search_data['version']
         if '${{' in _version:
@@ -726,17 +719,18 @@ def check_if_object_exists(
 
     # Obtain list of storage_locations for the given data_product
     _results = fdp_req.get(
-        _local_uri,
+        local_uri,
         obj_type,
         params=search_data,
         token=token
     )
 
-    _logger.debug(search_data)
-    _logger.debug(_results)
-
     try:
-        fdp_ver.get_correct_version(cfg, _results, False, _version)
+        fdp_ver.get_correct_version(
+            version=_version,
+            results_list=_results,
+            free_write=True
+        )
     except fdp_exc.UserConfigError:
         return "absent"
 

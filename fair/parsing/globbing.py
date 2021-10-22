@@ -31,25 +31,10 @@ import fair.registry.versioning as fdp_ver
 import fair.utilities as fdp_util
 
 
-def expand_wildcards(cfg: typing.Dict, blocktype: str) -> None:
-    """Expand the wildcards in the config yaml from the local registry
-
-    Parameters
-    ----------
-    cfg : typing.Dict
-        user config yaml
-
-    blocktype : str
-        key name of block to fill in entries for ('read' or 'write')
-
-    """
-    glob_read_write(
-        cfg, blocktype, None, True, blocktype=='read'
-    )
-
 def glob_read_write(
-    cfg: typing.Dict,
+    user_config: typing.Dict,
     blocktype: str,
+    version: str,
     search_key: str = None,
     local_glob: bool = False,
     remove_wildcard: bool = False) -> typing.List:
@@ -57,7 +42,7 @@ def glob_read_write(
 
     Parameters
     ----------
-    cfg : typing.Dict
+    user_config : typing.Dict
         config yaml
     blocktype : str
         block type to process
@@ -70,15 +55,15 @@ def glob_read_write(
         whether to delete wildcard from yaml file, default is False
     """
     
-    _block_cfg = cfg[blocktype]
+    _block_cfg = user_config[blocktype]
     _parsed: typing.List[typing.Dict] = []
 
     # Check whether to glob the local or remote registry
     # retrieve the URI from the repository CLI config
     if local_glob:
-        _uri = fdp_conf.registry_url("local", cfg)
+        _uri = fdp_conf.registry_url("local", user_config)
     else:
-        _uri = fdp_conf.registry_url("global", cfg)
+        _uri = fdp_conf.registry_url("global", user_config)
 
     # Iterate through all entries in the section looking for any
     # key-value pairs that contain glob statements.
@@ -87,7 +72,8 @@ def glob_read_write(
         # user wants to write to this namespace.
         # Wipe version info for this object to start from beginning
         _orig_entry = copy.deepcopy(entry)
-        _orig_entry['use']['version'] = str(fdp_ver.get_correct_version(cfg))
+
+        _orig_entry['use']['version'] = str(fdp_ver.get_correct_version(version, free_write=blocktype!='read'))
 
         _glob_vals = [(k, v) for k, v in entry.items() if isinstance(v, str) and '*' in v]
         if len(_glob_vals) > 1:
@@ -141,4 +127,4 @@ def glob_read_write(
             _parsed.append(_entry_dict)
 
     # Before returning the list of dictionaries remove any duplicates
-    cfg[blocktype] = fdp_util.remove_dictlist_dupes(_parsed)
+    user_config[blocktype] = fdp_util.remove_dictlist_dupes(_parsed)

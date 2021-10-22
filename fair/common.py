@@ -38,6 +38,7 @@ __date__ = "2021-06-28"
 import os
 import pathlib
 import yaml
+import enum
 import git
 
 import fair.exceptions as fdp_exc
@@ -46,6 +47,12 @@ USER_FAIR_DIR = os.path.join(pathlib.Path.home(), ".fair")
 FAIR_CLI_CONFIG = "cli-config.yaml"
 FAIR_FOLDER = ".fair"
 JOBS_DIR = "jobs"
+
+class CMD_MODE(enum.Enum):
+    RUN = 1,
+    PULL = 2,
+    PUSH = 3,
+    PASS = 4
 
 
 def registry_home() -> str:

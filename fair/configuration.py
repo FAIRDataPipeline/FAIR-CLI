@@ -18,6 +18,7 @@ Functions
     set_email - set the user's email in the configuration
     set_user - set the user's name in the configuration
     get_current_user_name - retrieve name of the current user
+    get_current_user_email - retrieve email of the current user
     get_remote_uri - retrieve URL for the remote registry
     local_git_repo - retrieve path for the current project Git repository
     remote_git_repo - retrieve URL for the remote Git repository
@@ -183,6 +184,22 @@ def get_current_user_name(repo_loc: str) -> typing.Tuple[str]:
     else:
         _family = ""
     return (_given, _family)
+
+
+def get_current_user_email(repo_loc: str) -> typing.Tuple[str]:
+    """Retrieves the email of the current session user as defined in the config
+
+    Returns
+    -------
+    str
+        user email
+    """
+    _local_conf = read_local_fdpconfig(repo_loc)
+
+    if not _local_conf:
+        raise fdp_exc.CLIConfigurationError("Cannot retrieve current user from empty CLI config")
+
+    return _local_conf['user']['email']
 
 
 def get_remote_uri(repo_loc: str, remote_label: str = 'origin') -> str:

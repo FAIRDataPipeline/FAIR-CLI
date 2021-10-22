@@ -35,13 +35,15 @@ import fair.registry.versioning as fdp_ver
 import fair.exceptions as fdp_exc
 import fair.configuration as fdp_conf
 import fair.registry.requests as fdp_req
+import fair.registry.storage as fdp_store
 
 LOG: str = "FAIRDataPipeline.Parsing"
 
 def subst_cli_vars(
     job_dir: str,
+    local_repo: str,
     job_time: datetime.datetime,
-    cfg: typing.Dict
+    user_config_str: str
     ) -> typing.Dict:
     """Lake configuration and substitute recognised FAIR CLI variables
 
@@ -51,11 +53,14 @@ def subst_cli_vars(
         location of code job directory (not to be confused with
         local FAIR project repository)
 
+    local_repo : str
+        location of FAIR repository
+
     job_time : datetime.datetime
         time of job commencement
 
-    cfg : typing.Dict
-        current config.yaml Dict
+    user_config_str : str
+        user configurations from config.yaml file
 
     Returns
     -------
@@ -69,17 +74,10 @@ def subst_cli_vars(
         except fdp_exc.CLIConfigurationError:
             return fdp_conf.get_current_user_uuid(directory)
 
-    if 'local_repo' not in cfg['run_metadata']:
-        raise fdp_exc.InternalError(
-            "Expected 'local_repo' definition in user configuration file"
-        )
-
-    _local_repo = cfg['run_metadata']['local_repo']
-
-    _fair_head = fdp_com.find_fair_root(_local_repo)
+    _fair_head = fdp_com.find_fair_root(local_repo)
 
     def _tag_check(*args, **kwargs):
-        _repo = git.Repo(fdp_conf.local_git_repo(_local_repo))
+        _repo = git.Repo(fdp_conf.local_git_repo(local_repo))
         if len(_repo.tags) < 1:
             fdp_exc.UserConfigError(
                 "Cannot use GIT_TAG variable, no git tags found."
@@ -89,27 +87,24 @@ def subst_cli_vars(
     _substitutes: collections.abc.Mapping = {
         "DATE": lambda : job_time.strftime("%Y%m%d"),
         "DATETIME": lambda : job_time.strftime("%Y-%m-%dT%H:%M:%S%Z"),
-        "USER": lambda : fdp_conf.get_current_user_name(_local_repo),
+        "USER": lambda : fdp_conf.get_current_user_name(local_repo),
         "USER_ID": lambda : _get_id(job_dir),
         "REPO_DIR": lambda : _fair_head,
         "CONFIG_DIR": lambda : job_dir + os.path.sep,
         "LOCAL_TOKEN": lambda : fdp_req.local_token(),
         "GIT_BRANCH": lambda : git.Repo(
-                fdp_conf.local_git_repo(_local_repo)
+                fdp_conf.local_git_repo(local_repo)
             ).active_branch.name,
-        "GIT_REMOTE": lambda : fdp_conf.remote_git_repo(_local_repo),
+        "GIT_REMOTE": lambda : fdp_conf.remote_git_repo(local_repo),
         "GIT_TAG": _tag_check,
     }
-
-    # Quickest to substitute all in one go by editing config as a string
-    _conf_str = yaml.dump(cfg)
 
     # Additional parser for formatted datetime
     _regex_dt_fmt = re.compile(r'\$\{\{\s*DATETIME\-[^}${\s]]+\s*\}\}')
     _regex_fmt = re.compile(r'\$\{\{\s*DATETIME\-([^}${\s]+)\s*\}\}')
 
-    _dt_fmt_res = _regex_dt_fmt.findall(_conf_str)
-    _fmt_res = _regex_fmt.findall(_conf_str)
+    _dt_fmt_res = _regex_dt_fmt.findall(user_config_str)
+    _fmt_res = _regex_fmt.findall(user_config_str)
 
     # The two regex searches should match lengths
     if len(_dt_fmt_res) != len(_fmt_res):
@@ -120,7 +115,7 @@ def subst_cli_vars(
     if _dt_fmt_res:
         for i, _ in enumerate(_dt_fmt_res):
             _time_str = job_time.strftime(_fmt_res[i].strip())
-            _conf_str = _conf_str.replace(_dt_fmt_res[i], _time_str)
+            user_config_str = user_config_str.replace(_dt_fmt_res[i], _time_str)
 
     _regex_dict = {
         var: r'\$\{\{\s*'+f'{var}'+r'\s*\}\}'
@@ -130,11 +125,11 @@ def subst_cli_vars(
     # Perform string substitutions
     for var, subst in _regex_dict.items():
         # Only execute functions in var substitutions that are required
-        if re.findall(subst, _conf_str):
-            _conf_str = re.sub(subst, str(_substitutes[var]()), _conf_str)
+        if re.findall(subst, user_config_str):
+            user_config_str = re.sub(subst, str(_substitutes[var]()), user_config_str)
     
     # Load the YAML (this also verifies the write was successful) and return it
-    return yaml.safe_load(_conf_str)
+    return user_config_str
 
 
 def fill_block(cfg: typing.Dict, blocktype: str) -> bool:
@@ -319,32 +314,41 @@ def pull_data(cfg: typing.Dict, blocktype: str = "read") -> None:
             "Not currently pulling from remote registry"
         )
 
-def register_to_read(cfg: typing.Dict) -> None:
-    _logger = logging.getLogger(LOG)
 
-    if 'register' in cfg:
-        if 'read' not in cfg:
-            cfg['read'] = []
-        _read_cfg = cfg['read']
-        for item in cfg['register']:
-            _readable = {}
-            _new_item = False
-            if 'use' in item:
-                _readable['use'] = copy.deepcopy(item['use'])
-            if 'external_object' in item:
-                _readable['data_product'] = item['external_object']
-                _new_item = True
-            elif 'data_product' in item:
-                _readable['data_product'] = item['data_product']
-                _new_item = True
-            else: # unknown
-                _logger.debug(
-                    f"Found registration for unknown item with keys {[*item]}"
-                )
-            _readable['use']['version'] = fdp_ver.undo_incrementer(_readable['use']['version'])
-            
-            if _new_item:
-                _read_cfg.append(_readable)
+def register_to_read(register_block: typing.Dict) -> typing.Dict:
+    """Construct 'read' block entries from 'register' block entries
+    
+    Parameters
+    ----------
+    register_block : typing.Dict
+        register type entries within a config.yaml
+    
+    Returns
+    -------
+    typing.Dict
+        new read entries extract from register statements
+    """
+    _read_block: typing.List[typing.Dict] = []
+
+    for item in register_block:
+        _readable = {}
+        if 'use' in item:
+            _readable['use'] = copy.deepcopy(item['use'])
+        if 'external_object' in item:
+            _readable['data_product'] = item['external_object']
+        elif 'data_product' in item:
+            _readable['data_product'] = item['data_product']
+        elif 'namespace' in item:
+            fdp_store.store_namespace(**item)
+        else: # unknown
+            raise fdp_exc.UserConfigError(
+                f"Found registration for unknown item with keys {[*item]}"
+            )
+        _readable['use']['version'] = fdp_ver.undo_incrementer(_readable['use']['version'])
+        
+        _read_block.append(_readable)
+
+    return _read_block
 
 
 def fill_versions(cfg: typing.Dict, blocktype: str) -> typing.Dict:

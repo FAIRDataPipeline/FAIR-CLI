@@ -142,6 +142,25 @@ def remove_dictlist_dupes(
     ]
 
 
+def get_nested_key(search_dict: typing.Dict, key_addr: str, separator: str = '.') -> typing.Any:
+    """Retrieve a value from a multi-level dictionary
+
+    Parameters
+    ----------
+    search_dict : typing.Dict
+        dictionary to retrieve from
+    key_addr : str
+        key address of value to recover
+
+    Returns
+    -------
+    typing.Any
+        value at the specified address
+    """
+    _flattened_dict = flatten_dict(search_dict, separator=separator)
+    return _flattened_dict[key_addr]
+
+
 class JSONDateTimeEncoder(json.JSONEncoder):
     def default(self, date_time_candidate):
         if isinstance(date_time_candidate, datetime.datetime):
