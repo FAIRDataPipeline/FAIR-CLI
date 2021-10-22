@@ -427,6 +427,8 @@ def store_data_file(
 
     _rel_path = os.path.relpath(local_file, write_data_store)
 
+    print("DAMN", data)
+
     if 'version' not in data['use']:
         raise fdp_exc.InternalError(
             f"Expected version number for '{local_file}' "

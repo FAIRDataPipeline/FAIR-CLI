@@ -86,7 +86,7 @@ class JobConfiguration(MutableMapping):
 
     def _fill_missing(self) -> None:
         self._logger.debug("Filling missing metadata")
-        if 'run_metadata' not in self:
+        if 'run_metadata' not in self._config:
             self._logger.debug("Failed to find 'run_metadata' in configuration, creating")
             self['run_metadata'] = {}
 
