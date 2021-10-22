@@ -221,7 +221,7 @@ class JobConfiguration(MutableMapping):
         )
 
     def _fetch_latest_commit(self, allow_dirty: bool = False) -> None:
-        self._logger.debug(f"Retrieving latest commit SHA with {allow_dirty=}")
+        self._logger.debug(f"Retrieving latest commit SHA with allow_dirty={allow_dirty}")
         _repository = git.Repo(fdp_com.find_git_root(self.local_repository))
         
         try:

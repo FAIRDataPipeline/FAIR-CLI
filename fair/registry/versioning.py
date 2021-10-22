@@ -133,7 +133,7 @@ def get_correct_version(
 
         if not _versions:
             raise fdp_exc.InternalError(
-                f"Version parsing failed for {version=}, {free_write=}"
+                f"Version parsing failed for version={version}, free_write={free_write}"
             )
         _max_ver = max(_versions)
 
