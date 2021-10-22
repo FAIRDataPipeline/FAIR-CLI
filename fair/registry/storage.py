@@ -186,7 +186,7 @@ def store_working_config(repo_dir: str, uri: str, work_cfg_yml: str) -> str:
     _storage_loc_data = {
         "path": _rel_path,
         "storage_root": _root_store,
-        "public": _work_cfg['run_metadata']['public'],
+        "public": _work_cfg['run_metadata'].get('public', True),
         "hash": _hash,
     }
 
@@ -271,7 +271,7 @@ def store_working_script(
     _storage_loc_data = {
         "path": _rel_path,
         "storage_root": _root_store,
-        "public": _work_cfg['run_metadata']['public'],
+        "public": _work_cfg['run_metadata'].get('public', True),
         "hash": _hash,
     }
 

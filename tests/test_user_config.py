@@ -28,9 +28,9 @@ def make_config(local_config: typing.Tuple[str, str]):
 
 
 @pytest.mark.user_config
-def test_get_value(make_config: fdp_user.JobConfiguration):
-    assert make_config['run_metadata.description'] == 'A simple analysis'
-    assert make_config['run_metadata.local_repo'] == '/Users/johnsmith/git/myproject/'
+def test_get_value(local_config: typing.Tuple[str, str], make_config: fdp_user.JobConfiguration):
+    assert make_config['run_metadata.description'] == 'SEIRS Model R'
+    assert make_config['run_metadata.local_repo'] == os.path.join(local_config[1], 'project')
 
 
 @pytest.mark.user_config
@@ -41,19 +41,19 @@ def test_set_value(make_config: fdp_user.JobConfiguration):
 
 @pytest.mark.user_config
 def test_is_public(make_config: fdp_user.JobConfiguration):
-    assert not make_config.is_public_global
-    make_config._config['run_metadata']['public'] = True
     assert make_config.is_public_global
+    make_config['run_metadata.public'] = False
+    assert not make_config.is_public_global
 
 
 @pytest.mark.user_config
 def test_default_input_namespace(make_config: fdp_user.JobConfiguration):
-    assert make_config.default_input_namespace == 'SCRC'
+    assert make_config.default_input_namespace == 'unit_testing'
 
 
 @pytest.mark.user_config
 def test_default_output_namespace(make_config: fdp_user.JobConfiguration):
-    assert make_config.default_output_namespace == 'johnsmith'
+    assert make_config.default_output_namespace == 'testing'
 
 
 @pytest.mark.user_config
