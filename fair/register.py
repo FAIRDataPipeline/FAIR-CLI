@@ -174,7 +174,6 @@ def fetch_registrations(
         elif _is_present != "absent":
             _results = _is_present
             _user_version = fdp_ver.get_correct_version(
-                local_uri=local_uri,
                 results_list=_results,
                 free_write=True,
                 version=entry['use']['version']

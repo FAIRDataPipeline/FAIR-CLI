@@ -628,7 +628,10 @@ class JobConfiguration(MutableMapping):
     @property
     def remote_uri(self) -> str:
         """Retrieves the remote URI for registry for this session"""
-        return self.get('run_metadata.remote_data_registry_url', fdp_conf.get_remote_uri())
+        return self.get(
+            'run_metadata.remote_data_registry_url',
+            fdp_conf.get_remote_uri(self.local_repository)
+        )
 
     @property
     def command(self) -> typing.Optional[str]:
