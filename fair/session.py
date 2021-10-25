@@ -36,6 +36,7 @@ import pathlib
 import logging
 import shutil
 import copy
+import sys
 import click
 import rich
 import git
@@ -50,6 +51,8 @@ import fair.exceptions as fdp_exc
 import fair.history as fdp_hist
 import fair.staging as fdp_stage
 import fair.testing as fdp_test
+import fair.session as fdp_session
+import fair.registry.server as fdp_svr
 import fair.registry.sync as fdp_sync
 import fair.registry.storage as fdp_store
 import fair.registry.requests as fdp_req
@@ -514,6 +517,7 @@ class FAIR:
         _loc_config = fdp_conf.read_local_fdpconfig(self._session_loc)
         _cli_config['git'] = _loc_config['git']
         _cli_config['registries'].update(_loc_config['registries'])
+        _cli_config['user'].update(_loc_config['user'])
         with open(output_file, 'w') as f:
             yaml.dump(_cli_config, f)
 
@@ -522,7 +526,7 @@ class FAIR:
         using: typing.Dict = None,
         registry: str = None,
         export_as: str = None
-        ) -> None:
+    ) -> None:
         """Initialise an fair repository within the current location
 
         Parameters
@@ -577,10 +581,16 @@ class FAIR:
             self._global_config = yaml.safe_load(open(fdp_com.global_fdpconfig()))
             self._local_config = yaml.safe_load(open(fdp_com.local_fdpconfig(self._session_loc)))
 
+        if 'ror' in self._local_config['user'] and self._local_config['user']['ror']:
+            self._local_config['user']['uri'] = 'https://ror.org/' + self._local_config['user']['ror']
+        elif 'orcid' in self._local_config['user'] and self._local_config['user']['orcid']:
+            self._local_config['user']['uri'] = 'https://orcid.org/' + self._local_config['user']['orcid']
+
         if export_as:
             self._export_cli_configuration(export_as)
 
         click.echo(f"Initialised empty fair repository in {_fair_dir}")
+
 
     def close_session(self) -> None:
         """Upon exiting, dump all configurations to file"""
@@ -608,11 +618,21 @@ class FAIR:
 
         #TODO Kristian decide where this code should go and whether there is a better way of identifying _local_uri
         # Populate file type table
-        _local_uri = fdp_conf.get_local_uri()
+        _local_uri = self._global_config['registries']['local']['uri']
         if not fdp_serv.check_server_running(_local_uri):
             fdp_serv.launch_server(_local_uri)
         fdp_store.populate_file_type(_local_uri)
 
+        _uri = None
+        if 'uri' in self._local_config['user']:
+            _uri = self._local_config['user']['uri']
+
+        fdp_store.store_namespace(
+            _local_uri,
+            self._local_config['namespaces']['input'],
+            self._local_config['user']['given_names'] + ' ' + self._local_config['user']['family_name'],
+            _uri
+        )
 
         # Add author and UserAuthor
         _author_url = fdp_store.store_user(self._session_loc, _local_uri)
@@ -673,7 +693,7 @@ class FAIR:
                 )
             if name == 'local' and 'directory' not in reg:
                 raise fdp_exc.CLIConfigurationError(
-                    f"Expected key 'directory' for remote '{name}' "
+                    f"Expected key 'directory' for local registry "
                     "in CLI configuration"
                 )
 

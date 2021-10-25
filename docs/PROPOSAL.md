@@ -47,7 +47,7 @@ Assuming a data_store is constructed always relative to a `config.yaml`, allow t
 ```
 fair add ./my_data/a_data_file.txt
 ```
-this would copy the version into `.fair/data_store` and add it to tracking.
+this would copy the version into `.fair/data_store/` and add it to tracking.
 
 ## Configuration
 Configure the user in a manner again alike to `git`:

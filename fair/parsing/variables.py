@@ -26,6 +26,7 @@ import typing
 import collections.abc
 import re
 import logging
+import os
 import git
 import yaml
 
@@ -78,7 +79,7 @@ def subst_cli_vars(
     _fair_head = fdp_com.find_fair_root(_local_repo)
 
     def _tag_check(*args, **kwargs):
-        _repo = git.Repo(fdp_conf.get_session_git_repo(_local_repo))
+        _repo = git.Repo(fdp_conf.local_git_repo(_local_repo))
         if len(_repo.tags) < 1:
             fdp_exc.UserConfigError(
                 "Cannot use GIT_TAG variable, no git tags found."
@@ -91,13 +92,12 @@ def subst_cli_vars(
         "USER": lambda : fdp_conf.get_current_user_name(_local_repo),
         "USER_ID": lambda : _get_id(job_dir),
         "REPO_DIR": lambda : _fair_head,
-        "CONFIG_DIR": lambda : job_dir,
+        "CONFIG_DIR": lambda : job_dir + os.path.sep,
+        "LOCAL_TOKEN": lambda : fdp_req.local_token(),
         "GIT_BRANCH": lambda : git.Repo(
-                fdp_conf.get_session_git_repo(_local_repo)
+                fdp_conf.local_git_repo(_local_repo)
             ).active_branch.name,
-        "GIT_REMOTE": lambda : git.Repo(
-            fdp_conf.get_session_git_repo(_local_repo)
-        ).refs[fdp_conf.get_session_git_remote(_local_repo)].url,
+        "GIT_REMOTE": lambda : fdp_conf.remote_git_repo(_local_repo),
         "GIT_TAG": _tag_check,
     }
 
@@ -307,15 +307,15 @@ def clean_config(cfg: typing.Dict) -> None:
 
 def pull_metadata(cfg: typing.Dict, blocktype: str) -> None:
     _logger = logging.getLogger(LOG)
-    _logger.warning(
-        "Cannot currently pull from remote registry"
+    _logger.info(
+        "Not currently pulling from remote registry"
     )
 
 def pull_data(cfg: typing.Dict, blocktype: str = "read") -> None:
     if blocktype == "read":
         _logger = logging.getLogger(LOG)
-        _logger.warning(
-            "Cannot currently pull from remote registry"
+        _logger.info(
+            "Not currently pulling from remote registry"
         )
 
 def register_to_read(cfg: typing.Dict) -> None:

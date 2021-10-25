@@ -88,7 +88,7 @@ def no_prompt(mocker):
 def git_mock(mocker):
     _repo_root = pathlib.Path(os.path.dirname(__file__)).parent
     _git_repo = git.Repo(_repo_root)
-    mocker.patch.object(fdp_conf, "get_session_git_repo", lambda : _repo_root)
+    mocker.patch.object(fdp_conf, "local_git_repo", lambda : _repo_root)
     mocker.patch.object(git, "Repo", lambda *args, **kwargs: _git_repo)
 
 

@@ -26,7 +26,7 @@ import fair.registry.server as fdp_svr
 import fair.run as fdp_run
 
 __author__ = "Scottish COVID Response Consortium"
-__credits__ = ["Nathan Cummings (UKAEA)", "Kristian Zarebski (UKAEA)", "Richard Reeve (University of Glasgow)", "Dennis Reddyhoff (University of Sheffield)"]
+__credits__ = ["Richard Reeve (University of Glasgow)", "Nathan Cummings (UKAEA)", "Kristian Zarebski (UKAEA)", "Dennis Reddyhoff (University of Sheffield)"]
 __license__ = "BSD-2-Clause"
 __status__ = "Development"
 __copyright__ = "Copyright 2021, FAIR Data Pipeline"
@@ -114,7 +114,11 @@ def init(
                         "file does not exist."
                     )
                 _use_dict = yaml.safe_load(open(using))
-            fair_session.initialise(using=_use_dict, registry=registry, export_as=export)
+            fair_session.initialise(
+                using=_use_dict,
+                registry=registry,
+                export_as=export
+            )
     except fdp_exc.FAIRCLIException as e:
         if debug:
             raise e
