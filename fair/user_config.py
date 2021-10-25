@@ -366,7 +366,7 @@ class JobConfiguration(MutableMapping):
         if 'register' in self:
             if 'read' not in self:
                 self['read'] = []
-            self['read'] += fdp_var.register_to_read(self['register'])
+            self['read'] += self._register_to_read()
         
         if job_mode in [CMD_MODE.PULL, CMD_MODE.PUSH]:
             self._pull_data()
@@ -399,6 +399,41 @@ class JobConfiguration(MutableMapping):
         _regex_fmt = re.compile(r'\$\{\{\s*([^}${\s]+)\s*\}\}')
 
         return _regex_fmt.findall(_conf_str)
+
+    def _register_to_read(self) -> typing.Dict:
+        """Construct 'read' block entries from 'register' block entries
+        
+        Parameters
+        ----------
+        register_block : typing.Dict
+            register type entries within a config.yaml
+        
+        Returns
+        -------
+        typing.Dict
+            new read entries extract from register statements
+        """
+        _read_block: typing.List[typing.Dict] = []
+
+        for item in self._config['register']:
+            _readable = {}
+            if 'use' in item:
+                _readable['use'] = copy.deepcopy(item['use'])
+            if 'external_object' in item:
+                _readable['data_product'] = item['external_object']
+            elif 'data_product' in item:
+                _readable['data_product'] = item['data_product']
+            elif 'namespace' in item:
+                fdp_store.store_namespace(**item)
+            else: # unknown
+                raise fdp_exc.UserConfigError(
+                    f"Found registration for unknown item with keys {[*item]}"
+                )
+            _readable['use']['version'] = fdp_ver.undo_incrementer(_readable['use']['version'])
+            
+            _read_block.append(_readable)
+
+        return _read_block
 
     def _clean(self) -> typing.Dict:
         self._logger.debug("Cleaning configuration")
