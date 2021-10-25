@@ -4,6 +4,7 @@ import yaml
 import os.path
 import logging
 import copy
+import os
 import re
 import git
 import datetime
@@ -44,6 +45,7 @@ class JobConfiguration(MutableMapping):
 
         self._config: typing.Dict = yaml.safe_load(open(config_yaml))
         self._fill_missing()
+        self.env = None
 
     def __contains__(self, key_addr: str) -> bool:
         return key_addr in fdp_util.flatten_dict(self._config)
@@ -306,11 +308,26 @@ class JobConfiguration(MutableMapping):
         except fdp_exc.KeyPathError:
             return default
 
-    def set_command(self, bash_cmd: str) -> None:
+    def set_command(self, cmd: str, shell: str='bash') -> None:
         """Set a BASH command to be executed"""
-        self._logger.debug(f"Setting BASH command to '{bash_cmd}'")
-        self['run_metadata.script'] = bash_cmd
+        self._logger.debug(f"Setting {shell} command to '{cmd}'")
+        self['run_metadata.script'] = cmd
+        self['run_metadata.shell'] = shell
         self.pop('run_metadata.script_path')
+
+    def _create_environment(self, output_dir: str) -> None:
+        """Create the environment for running a job"""
+        _environment = os.environ.copy()
+        _environment["FDP_LOCAL_REPO"] = self.local_repository
+        _environment["FDP_CONFIG_DIR"] = output_dir
+        _environment["FDP_LOCAL_TOKEN"] = fdp_req.local_token()
+        return _environment
+
+    def set_script(self, command_script: str) -> None:
+        """Set a BASH command to be executed"""
+        self._logger.debug(f"Setting command script to '{command_script}'")
+        self['run_metadata.script_path'] = command_script
+        self.pop('run_metadata.script')
 
     def _substitute_variables(self, job_dir: str, time_stamp: datetime.datetime) -> None:
         self._logger.debug("Performing variable substitution")
@@ -586,6 +603,16 @@ class JobConfiguration(MutableMapping):
             self._config[block_type] = _new_block
 
     @property
+    def content(self) -> typing.Dict:
+        """Return a copy of the internal dictionary"""
+        return copy.deepcopy(self._config)
+
+    @property
+    def shell(self) -> str:
+        """Retrieve the shell choice"""
+        return self.get('shell', 'bash')
+
+    @property
     def local_repository(self) -> str:
         """Retrieves the local project repository"""
         return self['run_metadata.local_repo']
@@ -641,9 +668,16 @@ class JobConfiguration(MutableMapping):
                 return self[f'run_metadata.{key}']
         return None
 
+    @property
+    def environment(self) -> typing.Dict:
+        """Returns the job execution environment"""
+        return self.env
+
     def write(self, output_file: str) -> None:
         """Write job configuration to file"""
         with open(output_file, 'w') as out_f:
             yaml.dump(self._config, out_f)
+        
+        self.env = self._create_environment(os.path.dirname(output_file))
         
         self._logger.debug(f"Configuration written to '{output_file}'")

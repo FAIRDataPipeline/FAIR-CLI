@@ -154,8 +154,6 @@ def run_command(
     _logger.debug("Using job directory: %s", _job_dir)
     os.makedirs(_job_dir, exist_ok=True)
 
-    _remote_access = mode in [CMD_MODE.PULL, CMD_MODE.PUSH]
-
     _job_cfg.prepare(_job_dir, _timestamp, mode)
 
     _run_executable = "script" in _job_cfg["run_metadata"] or "script_path" in _job_cfg["run_metadata"]
@@ -197,15 +195,21 @@ def run_command(
 
         # Create a run script if 'script' is specified instead of 'script_path'
         # else use the script
-        _cmd_setup = setup_job_script(_work_cfg_yml, _job_dir)
-        _shell = _cmd_setup["shell"]
+        _cmd_setup = setup_job_script(
+            _job_cfg.content,
+            _job_cfg.env['FDP_CONFIG_DIR'],
+            _job_dir
+        )
 
-        if _shell not in SHELLS:
+        _job_cfg.set_script(_cmd_setup['script'])
+        _job_cfg.write(_work_cfg_yml)
+
+        if _job_cfg.shell not in SHELLS:
             raise fdp_exc.UserConfigError(
-                f"Unrecognised shell '{_shell}' specified."
+                f"Unrecognised shell '{_job_cfg.shell}' specified."
             )
 
-        _exec = SHELLS[_shell]["exec"]
+        _exec = SHELLS[_job_cfg.shell]["exec"]
         _cmd_list = _exec.format(_cmd_setup['script']).split()
 
         if not _job_cfg.command:
@@ -241,8 +245,13 @@ def run_command(
                 universal_newlines=True,
                 bufsize=1,
                 text=True,
+<<<<<<< HEAD
                 shell=_shell,
                 env=_cmd_setup["env"],
+=======
+                shell=False,
+                env=_job_cfg.environment,
+>>>>>>> 29c53fd (Start testing Python 3.10)
                 cwd=_job_cfg.local_repository
             )
 
@@ -369,7 +378,8 @@ def get_job_dir(job_hash: str) -> str:
 
 
 def setup_job_script(
-    config_yaml: str,
+    user_config: typing.Dict,
+    config_dir: str,
     output_dir: str
     ) -> typing.Dict[str, typing.Any]:
     """Setup a job script from the given configuration.
@@ -380,8 +390,12 @@ def setup_job_script(
 
     Parameters
     ----------
-    config_yaml : str
-        job configuration file
+    local_repo : str
+        local FAIR repository
+    script : str
+        script to write to file
+    config_dir : str
+        final location of output config.yaml
     output_dir : str
         location to store submission/job script
 
@@ -391,35 +405,29 @@ def setup_job_script(
         a dictionary containing information on the command to execute,
         which shell to run it in and the environment to use
     """
-    _conf_yaml = yaml.safe_load(open(config_yaml))
     _cmd = None
-    _run_env = copy.deepcopy(os.environ)
 
-    # Create environment variable which users can refer to in their
-    # submission scripts
-    _run_env["FDP_LOCAL_REPO"] = _conf_yaml["run_metadata"]['local_repo']
-    _run_env["FDP_CONFIG_DIR"] = os.path.dirname(config_yaml) + os.path.sep
-    _run_env["FDP_LOCAL_TOKEN"] = fdp_req.local_token()
+    if config_dir[-1] != os.path.sep:
+        config_dir += os.path.sep
 
     # Check if a specific shell has been defined for the script
     _shell = None
     _out_file = None
 
-    if "shell" in _conf_yaml["run_metadata"]:
-        _shell = _conf_yaml["run_metadata"]["shell"]
+    if "shell" in user_config["run_metadata"]:
+        _shell = user_config["run_metadata"]["shell"]
     else:
         _shell = "batch" if platform.system() == "Windows" else "sh"
-    if "script" in _conf_yaml["run_metadata"]:
-        _cmd = _conf_yaml["run_metadata"]['script']
+    if "script" in user_config["run_metadata"]:
+        _cmd = user_config["run_metadata"]['script']
         _ext = SHELLS[_shell]["extension"]
         _out_file = os.path.join(output_dir, f"script.{_ext}")
         if _cmd:
             with open(_out_file, "w") as f:
                 f.write(_cmd)
-        del _conf_yaml["run_metadata"]['script']
 
-    elif "script_path" in _conf_yaml["run_metadata"]:
-        _path = _conf_yaml["run_metadata"]["script_path"]
+    elif "script_path" in user_config["run_metadata"]:
+        _path = user_config["run_metadata"]["script_path"]
         if not os.path.exists(_path):
             raise fdp_exc.CommandExecutionError(
                 f"Failed to execute run, script '{_path}' was not found, or"
@@ -438,9 +446,4 @@ def setup_job_script(
             "'script' or 'script_path' entry under 'run_metadata'"
         )
 
-    _conf_yaml["run_metadata"]["script_path"] = _out_file
-
-    with open(config_yaml, 'w') as f:
-        yaml.dump(_conf_yaml, f)
-
-    return {"shell": _shell, "script": _out_file, "env": _run_env}
+    return {"shell": _shell, "script": _out_file}

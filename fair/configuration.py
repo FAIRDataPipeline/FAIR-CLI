@@ -162,7 +162,7 @@ def set_user(repo_loc: str, name: str, is_global: bool = False) -> None:
     if is_global:
         _glob_conf = read_global_fdpconfig()
         _glob_conf['user']['name'] = name
-        yaml.dump(_glob_conf, open(fdp_com.global_fdpconfig(), "w"))          
+        yaml.dump(_glob_conf, open(fdp_com.global_fdpconfig(), "w"))         
 
 
 def get_current_user_name(repo_loc: str) -> typing.Tuple[str]:
