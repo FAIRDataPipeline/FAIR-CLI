@@ -97,6 +97,9 @@ class TestRegistry:
         if not os.path.exists(os.path.join(install_loc, 'manage.py')):
             test_reg.install_registry(install_dir=install_loc, silent=True, venv_dir=self._venv)
 
+    def rebuild(self):
+        test_reg.rebuild_local(os.path.join(self._venv, 'bin', 'python'), self._install)
+
     def __enter__(self):
         try:
             self._process = test_reg.launch(self._install, silent=True, venv_dir=self._venv)

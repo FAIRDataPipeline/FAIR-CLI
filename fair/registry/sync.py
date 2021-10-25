@@ -23,58 +23,11 @@ import urllib.parse
 import logging
 import click
 import yaml
-import semver
 
 import fair.exceptions as fdp_exc
 import fair.registry.requests as fdp_req
-import fair.registry.versioning as fdp_ver
 
 _logger = logging.getLogger('FairDataPipeline.Sync')
-
-def get_new_version(
-    uri: str,
-    obj_path: str,
-    version_fmt: str = None,
-    **kwargs) -> semver.VersionInfo:
-    """Determine the next release version for an object
-    
-    Parameters
-    ----------
-    uri : str
-        end point of the registry
-    obj_path : str
-        path of object type, e.g. 'code_run'
-    version_fmt : str
-        a formatting string which determines how the version is incremented
-    
-    Returns
-    -------
-    semver.VersionInfo
-        new version allocation
-    """
-    _existing = fdp_req.get(uri, obj_path, params=kwargs)
-
-    if _existing:
-        if 'version' not in _existing[0]:
-            raise fdp_exc.RegistryError(
-                "Expected 'version' in RestAPI call object."
-            )
-
-        _versions = [semver.VersionInfo.parse(i['version']) for i in _existing]
-        _versions = sorted(_versions)
-        _latest = _versions[-1]
-    else:
-        _latest = semver.VersionInfo.parse("0.0.0")
-
-    if not version_fmt:
-        version_fmt = f"${{{{ {fdp_ver.DEFAULT_WRITE_VERSION} }}}}"
-
-    _bump_func = fdp_ver.parse_incrementer(version_fmt)
-    
-    if _bump_func:
-        return getattr(_latest, _bump_func)()
-    else:
-        return(_latest)
 
 
 def get_dependency_chain(object_url: str) -> collections.deque:

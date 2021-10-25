@@ -122,7 +122,7 @@ def _access(
 
     _info = f'\turl = {_url}'
     _info += f'\tparameters = {kwargs["params"]}' if 'params' in kwargs else ''
-    _info += f'\data = {kwargs["data"]}' if 'data' in kwargs else ''
+    _info += f'\tdata = {kwargs["data"]}' if 'data' in kwargs else ''
 
     # Case of unrecognised object
     if _request.status_code == 404:

@@ -13,7 +13,6 @@ __date__ = "2021-06-24"
 import typing
 import os
 import sys
-import pathlib
 import click
 import yaml
 

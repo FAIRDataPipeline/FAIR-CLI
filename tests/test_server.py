@@ -2,6 +2,8 @@ import tempfile
 import pytest
 import pytest_mock
 import time
+import requests
+import typing
 import os
 
 from . import conftest as conf
@@ -26,6 +28,10 @@ def test_launch_stop_server(local_registry: conf.TestRegistry, mocker: pytest_mo
         fdp_serv.stop_server(force=True)
 
 @pytest.mark.server
-def test_registry_install():
+def test_registry_install_uninstall(mocker: pytest_mock.MockerFixture):
     with tempfile.TemporaryDirectory() as tempd:
-        fdp_serv.install_registry()
+        mocker.patch('fair.registry.server.DEFAULT_REGISTRY_LOCATION', tempd)
+        fdp_serv.install_registry(install_dir=tempd)
+        assert os.path.exists(os.path.join(tempd, 'db.sqlite3'))
+        fdp_serv.uninstall_registry()
+

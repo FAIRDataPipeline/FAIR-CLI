@@ -26,13 +26,11 @@ import shutil
 import sys
 import pathlib
 import enum
-import tempfile
+import venv
 import typing
 import requests
 import platform
-import stat
-import click
-import logging
+import git
 
 import fair.common as fdp_com
 import fair.exceptions as fdp_exc
@@ -40,11 +38,22 @@ import fair.configuration as fdp_conf
 import fair.registry.storage as fdp_store
 import fair.registry.requests as fdp_req
 
+FAIR_REGISTRY_REPO = "https://github.com/FAIRDataPipeline/data-registry.git"
+
 REGISTRY_INSTALL_URL = "https://data.scrc.uk/static/localregistry.sh"
 DEFAULT_REGISTRY_LOCATION = os.path.join(pathlib.Path().home(), fdp_com.FAIR_FOLDER, 'registry')
 DEFAULT_LOCAL_REGISTRY_URL = "http://localhost:8000/api/"
 if platform.system() == "Windows":
     DEFAULT_LOCAL_REGISTRY_URL = 'http://127.0.0.1:8000/api/'
+
+
+def django_environ(environ: typing.Dict = os.environ):
+    _environ = environ.copy()
+    _environ['DJANGO_SETTINGS_MODULE'] = 'drams.local-settings'
+    _environ['DJANGO_SUPERUSER_USERNAME'] = 'admin'
+    _environ['DJANGO_SUPERUSER_PASSWORD'] = 'admin'
+    return _environ
+
 
 class SwitchMode(enum.Enum):
     """Server access mode
@@ -193,53 +202,128 @@ def stop_server(
     if check_server_running(local_uri):
         raise fdp_exc.RegistryError("Failed to stop registry server.")
 
-def install_registry() -> None:
-    """Install the local registry"""
-    _logger = logging.getLogger('FAIRDataPipeline.Registry.Install')
-    _logger.setLevel(logging.INFO)
 
-    with tempfile.NamedTemporaryFile('w+', suffix='.sh', delete=False) as install_script:
-        install_script.write(requests.get(REGISTRY_INSTALL_URL).text)
+def rebuild_local(python: str, install_dir: str = None, silent: bool = False):
+    if not install_dir:
+        install_dir = DEFAULT_REGISTRY_LOCATION
+    
+    _migration_files = glob.glob(os.path.join(install_dir, '*', 'migrations', '*.py*'))
 
-    os.chmod(install_script.name, os.stat(install_script.name).st_mode | stat.S_IREAD)
+    for mf in _migration_files:
+        os.remove(mf)
 
-    _command = [
-        shutil.which('bash'),
-        install_script.name
+    _db_file = os.path.join(install_dir, 'db.sqlite3')
+
+    if os.path.exists(_db_file):
+        os.remove(_db_file)
+
+    _manage = os.path.join(install_dir, 'manage.py')
+
+    _sub_cmds = [
+        ('makemigrations', 'custom_user'),
+        ('makemigrations', 'data_management'),
+        ('migrate',),
+        (
+            'graph_models',
+            'data_management',
+            '--arrow-shape',
+            'crow',
+            '-x',
+            '"BaseModel,DataObject,DataObjectVersion"',
+            '-E',
+            '-o',
+            os.path.join(install_dir, 'schema.dot')
+        ),
+        ('collectstatic', '--noinput'),
+        ('createsuperuser', '--noinput')
     ]
 
-    with subprocess.Popen(
-        _command,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        universal_newlines=True,
-        shell=False
-    ) as _install:
-        for b in _install.stdout:
-            if b.strip():
-                click.echo(b.strip())
-
-    _install.wait()
-
-    if _install.returncode != 0:
-        raise fdp_exc.RegistryError(
-            f"Registry installation failed with exit code {_install.returncode}"
+    for sub in _sub_cmds:
+        subprocess.check_call(
+            [python, _manage, *sub],
+            shell=False,
+            stdout=subprocess.DEVNULL if silent else None,
+            env=django_environ()
         )
 
-    _install_failed: typing.List[bool] = [
-        os.path.exists(fdp_com.global_fdpconfig())
-        and not os.path.exists(fdp_com.registry_home()),
-        not os.path.exists(DEFAULT_REGISTRY_LOCATION)
-    ]
-
-    if any(_install_failed):
-        raise fdp_exc.RegistryError(
-            "Failed to find local registry directory after install."
+    if shutil.which('dot'):
+        subprocess.check_call(
+            [
+                shutil.which('dot'),
+                os.path.join(install_dir, 'schema.dot'),
+                '-Tsvg',
+                '-o',
+                os.path.join(install_dir, 'static', 'images', 'schema.svg')
+            ],
+            shell=False,
+            stdout=subprocess.DEVNULL if silent else None
         )
 
-    _logger.info("Registry installed successfully.")
 
-def uninstall_registry() -> None:
+def install_registry(
+    repository: str = FAIR_REGISTRY_REPO,
+    head: str = 'main',
+    install_dir: str = None,
+    silent: bool = False,
+    force: bool = False,
+    venv_dir: str = None) -> None:
+
+    if not install_dir:
+        install_dir = DEFAULT_REGISTRY_LOCATION
+
+    if force:
+        shutil.rmtree(install_dir, ignore_errors=True)
+
+    os.makedirs(os.path.dirname(install_dir), exist_ok=True)
+
+    _repo = git.Repo.clone_from(repository, install_dir)
+
+    if head not in _repo.heads:
+        raise FileNotFoundError(f"No such HEAD '{head}' in registry repository")
+    else:
+        _repo.heads[head].checkout()
+
+    if not venv_dir:
+        venv_dir = os.path.join(install_dir, 'venv')
+
+        venv.create(venv_dir, with_pip=True, prompt='TestRegistry',)
+
+    _venv_python = shutil.which('python', path=os.path.join(venv_dir, 'bin'))
+
+    if not _venv_python:
+        raise FileNotFoundError(
+            f"Failed to find 'python' in location '{venv_dir}"
+        )
+
+    subprocess.check_call(
+        [_venv_python, '-m', 'pip', 'install', '--upgrade', 'pip', 'wheel'],
+        shell=False,
+        stdout=subprocess.DEVNULL if silent else None
+    )
+
+    subprocess.check_call(
+        [_venv_python, '-m', 'pip', 'install', 'whitenoise'],
+        shell=False,
+        stdout=subprocess.DEVNULL if silent else None
+    )
+
+    _requirements = os.path.join(install_dir, 'requirements.txt')
+
+    if not os.path.exists(_requirements):
+        raise FileNotFoundError(
+            f"Expected file '{_requirements}'"
+        )
+
+    subprocess.check_call(
+        [_venv_python, '-m', 'pip', 'install', '-r', _requirements],
+        shell=False,
+        stdout=subprocess.DEVNULL if silent else None
+    )
+
+    rebuild_local(_venv_python, install_dir, silent)
+
+
+def uninstall_registry(install_dir: str = None) -> None:
     """Uninstall the local registry from the default location"""
 
     # First check if the location can be retrieved from a CLI configuration

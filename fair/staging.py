@@ -197,7 +197,7 @@ class Stager:
         _config_yaml = os.path.join(_directory, "config.yaml")
         if not os.path.exists(_config_yaml):
             raise fdp_exc.FileNotFoundError(
-                f"Cannot stage job '{identifier}'"
+                f"Cannot stage job '{identifier}' "
                 f"Expected config.yaml in '{_directory}'"
             )
 
@@ -215,7 +215,7 @@ class Stager:
         _config_yaml = os.path.join(_directory, "config.yaml")
         if not os.path.exists(_config_yaml):
             raise fdp_exc.FileNotFoundError(
-                f"Cannot stage job '{identifier}'"
+                f"Cannot stage job '{identifier}' "
                 f"Expected config.yaml in '{_directory}'"
             )
 
