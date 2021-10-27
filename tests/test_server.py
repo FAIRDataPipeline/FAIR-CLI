@@ -20,7 +20,7 @@ def test_check_server_running(local_registry: conf.TestRegistry, mocker: pytest_
         assert fdp_serv.check_server_running(LOCAL_REGISTRY_URL)
 
 @pytest.mark.server
-def test_launch_stop_server(local_registry: conf.TestRegistry, mocker: pytest_mock.MockerFixture):
+def test_launch_stop_server(local_config: typing.Tuple[str, str], local_registry: conf.TestRegistry, mocker: pytest_mock.MockerFixture):
     mocker.patch('fair.common.registry_home', lambda: local_registry._install)
     with local_registry:
         fdp_serv.launch_server()
