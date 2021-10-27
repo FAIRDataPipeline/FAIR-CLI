@@ -55,7 +55,7 @@ import yaml
 import click
 import git
 
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urljoin
 
 import fair.common as fdp_com
 import fair.exceptions as fdp_exc
@@ -63,6 +63,8 @@ import fair.identifiers as fdp_id
 import fair.registry.server as fdp_serv
 import fair.registry.requests as fdp_req
 import fair.registry.versioning as fdp_ver
+
+logger = logging.getLogger('FAIRDataPipeline.Configuration')
 
 
 def read_local_fdpconfig(repo_loc: str) -> typing.MutableMapping:
@@ -583,6 +585,7 @@ def global_config_query(registry: str = None) -> typing.Dict[str, typing.Any]:
     """Ask user question set for creating global FAIR config"""
     if not registry:
         registry = fdp_serv.DEFAULT_REGISTRY_LOCATION
+    logger.debug("Running global configuration query with registry at '%s'", registry)
     click.echo("Checking for local registry")
     if check_registry_exists(registry):
         click.echo("Local registry found")
@@ -599,7 +602,7 @@ def global_config_query(registry: str = None) -> typing.Dict[str, typing.Any]:
 
     _local_uri = click.prompt("Local Registry URL", default=fdp_serv.DEFAULT_LOCAL_REGISTRY_URL)
 
-    _default_rem = 'https://data.scrc.uk/api/'
+    _default_rem = urljoin(fdp_serv.DEFAULT_REGISTRY_DOMAIN, 'api/')
     _remote_url = click.prompt("Remote API URL", default=_default_rem)
 
     _rem_data_store = click.prompt(

@@ -104,6 +104,7 @@ class FAIR:
         self._logger.debug("Starting new session.")
         self._testing = testing
         self._session_loc = repo_loc
+        self._logger.debug(f"Session location: {self._session_loc}")
         self._run_mode = server_mode
         self._stager = fdp_stage.Stager(self._session_loc)
         self._session_id = (

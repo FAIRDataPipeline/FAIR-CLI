@@ -40,6 +40,7 @@ import fair.registry.requests as fdp_req
 
 FAIR_REGISTRY_REPO = "https://github.com/FAIRDataPipeline/data-registry.git"
 
+DEFAULT_REGISTRY_DOMAIN = "https://data.scrc.uk/"
 REGISTRY_INSTALL_URL = "https://data.scrc.uk/static/localregistry.sh"
 DEFAULT_REGISTRY_LOCATION = os.path.join(pathlib.Path().home(), fdp_com.FAIR_FOLDER, 'registry')
 DEFAULT_LOCAL_REGISTRY_URL = "http://localhost:8000/api/"

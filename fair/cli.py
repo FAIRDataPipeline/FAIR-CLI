@@ -61,10 +61,7 @@ def status(verbose, debug) -> None:
 @click.argument("output", nargs=-1)
 def create(debug, output: str) -> None:
     """Generate a new FAIR repository user YAML config file"""
-    if not output:
-        output = os.path.join(os.getcwd(), 'config.yaml')
-    else:
-        output = output[0]
+    output = os.path.join(os.getcwd(), 'config.yaml') if not output else output[0]
     click.echo(
         f"Generating new user configuration file"
         f" '{output}'"
@@ -450,10 +447,7 @@ def modify(ctx, label: str, url: str, debug: bool) -> None:
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
 def push(remote: str, debug: bool):
     """Push data between the local and remote registry"""
-    if len(remote) == 0:
-        remote = 'origin'
-    else:
-        remote = remote[0]
+    remote = 'origin' if len(remote) == 0 else remote[0]
     try:
         with fdp_session.FAIR(os.getcwd(), debug=debug) as fair_session:
             fair_session.push(remote)

@@ -4,13 +4,11 @@ import pytest_mock
 import uuid
 import tempfile
 import yaml
-import pathlib
 import shutil
 import os
 
 import fair.staging as fdp_stage
 import fair.exceptions as fdp_exc
-import fair.common as fdp_com
 
 LOCAL_REGISTRY_URL = 'http://localhost:8000/api'
 
