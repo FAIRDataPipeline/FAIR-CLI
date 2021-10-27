@@ -35,53 +35,60 @@ def click_test():
 
 
 @pytest.mark.cli
-def test_status(click_test: click.testing.CliRunner):
-    _result = click_test.invoke(cli, ['status', '--debug', '--verbose'])
-    assert _result.exit_code == 0
+def test_status(local_registry: conf.TestRegistry, click_test: click.testing.CliRunner, mocker: pytest_mock.MockerFixture):
+    with local_registry:
+        mocker.patch('fair.common.registry_home', lambda: local_registry._install)
+        _result = click_test.invoke(cli, ['status', '--debug', '--verbose'])
+        assert _result.exit_code == 0
 
 
 @pytest.mark.cli
-def test_create(click_test: click.testing.CliRunner, local_config: typing.Tuple[str, str]):
-    _out_config = os.path.join(os.getcwd(), 'config.yaml')
-    _result = click_test.invoke(cli, ['create', '--debug', _out_config])
-    assert _result.exit_code == 0
-    assert os.path.exists(_out_config)
+def test_create(local_registry: conf.TestRegistry, click_test: click.testing.CliRunner, local_config: typing.Tuple[str, str], mocker: pytest_mock.MockerFixture):
+    with local_registry:
+        mocker.patch('fair.common.registry_home', lambda: local_registry._install)
+        _out_config = os.path.join(os.getcwd(), 'config.yaml')
+        _result = click_test.invoke(cli, ['create', '--debug', _out_config])
+        assert _result.exit_code == 0
+        assert os.path.exists(_out_config)
 
 
 @pytest.mark.cli
-def test_init_from_existing(click_test: click.testing.CliRunner):
+def test_init_from_existing(local_registry: conf.TestRegistry, click_test: click.testing.CliRunner, mocker: pytest_mock.MockerFixture):
+    mocker.patch('fair.common.registry_home', lambda: local_registry._install)
+    
     _out_config = os.path.join(os.getcwd(), 'config.yaml')
     
     with tempfile.TemporaryDirectory() as tempd:
         _out_cli_config = os.path.join(tempd, 'cli-config.yaml')
-        _result = click_test.invoke(
-            cli,
-            [
-                'init',
-                '--debug',
-                '--ci',
-                '--config',
-                _out_config,
-                '--export',
-                _out_cli_config
-            ]
-        )
-        assert _result.exit_code == 0
-        assert os.path.exists(_out_cli_config)
-        assert os.path.exists(os.path.join(os.getcwd(), fdp_com.FAIR_FOLDER))
+        with local_registry:
+            _result = click_test.invoke(
+                cli,
+                [
+                    'init',
+                    '--debug',
+                    '--ci',
+                    '--config',
+                    _out_config,
+                    '--export',
+                    _out_cli_config
+                ]
+            )
+            assert _result.exit_code == 0
+            assert os.path.exists(_out_cli_config)
+            assert os.path.exists(os.path.join(os.getcwd(), fdp_com.FAIR_FOLDER))
 
-        click_test = click.testing.CliRunner()
-        click_test.isolated_filesystem()
+            click_test = click.testing.CliRunner()
+            click_test.isolated_filesystem()
 
-        _result = click_test.invoke(
-            cli,
-            [
-                'init',
-                '--debug',
-                '--using',
-                _out_cli_config
-            ]
-        )
+            _result = click_test.invoke(
+                cli,
+                [
+                    'init',
+                    '--debug',
+                    '--using',
+                    _out_cli_config
+                ]
+            )
 
         assert _result.exit_code == 0
         
