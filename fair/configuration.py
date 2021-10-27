@@ -20,6 +20,7 @@ Functions
 __date__ = "2021-07-02"
 
 import os
+import platform
 import pathlib
 import uuid
 import copy
@@ -324,6 +325,8 @@ def get_local_port(local_uri: str = None) -> str:
         local_uri = get_local_uri()
     _port_res = re.findall(r'localhost:([0-9]+)', local_uri)
     if not _port_res:
+        _port_res = re.findall(r'127.0.0.1:([0-9]+)', local_uri)
+    if not _port_res:
         raise fdp_exc.InternalError(
             "Failed to determine port number from local registry URL"
         )
@@ -411,6 +414,8 @@ def global_config_query(registry: str = None) -> typing.Dict[str, typing.Any]:
         fdp_serv.install_registry()
 
     _default_url = 'http://localhost:8000/api/'
+    if platform.system() == "Windows":
+        _default_url = 'http://127.0.0.1:8000/api/'
     _local_uri = click.prompt("Local Registry URL", default=_default_url)
 
     _default_rem = 'https://data.scrc.uk/api/'

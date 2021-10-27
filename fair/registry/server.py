@@ -26,6 +26,7 @@ import glob
 import sys
 import enum
 import requests
+import platform
 
 import fair.common as fdp_com
 import fair.exceptions as fdp_exc
@@ -88,6 +89,12 @@ def launch_server(local_uri: str = None, registry_dir: str = None, verbose: bool
         registry_dir, "scripts", "start_fair_registry"
     )
 
+    if platform.system() == "Windows":
+        registry_dir = fdp_com.registry_home()
+        _server_start_script = os.path.join(
+            registry_dir, "scripts", "start_fair_registry_windows.bat"
+        )
+
     if not os.path.exists(_server_start_script):
         raise fdp_exc.RegistryError(
             f"Failed to find local registry executable '{_server_start_script}',"
@@ -103,7 +110,7 @@ def launch_server(local_uri: str = None, registry_dir: str = None, verbose: bool
         shell=False,
     )
 
-    if verbose:
+    if verbose and platform.system() != "Windows":
         for c in iter(lambda: _start.stdout.read(1), b""):
             sys.stdout.buffer.write(c)
 
@@ -143,6 +150,11 @@ def stop_server(
     _server_stop_script = os.path.join(
         fdp_com.registry_home(), "scripts", "stop_fair_registry"
     )
+
+    if platform.system() == "Windows":
+        _server_stop_script = os.path.join(
+            fdp_com.registry_home(), "scripts", "stop_fair_registry_windows.bat"
+            )
 
     if not os.path.exists(_server_stop_script):
         raise fdp_exc.RegistryError(

@@ -1,6 +1,7 @@
 import typing
 import tempfile
 import os
+import platform
 import git
 
 import fair.common as fdp_com
@@ -43,4 +44,7 @@ def create_configurations(registry_dir: str) -> typing.Dict:
             'remote': 'origin'
         },
     }
+    if platform.system() == "Windows":
+        _config_dict['registries']['local']['uri'] = 'http://127.0.0.1:8000/api/'
+        _config_dict['registries']['origin']['uri'] = 'http://127.0.0.1:8001/api/'
     return _config_dict
