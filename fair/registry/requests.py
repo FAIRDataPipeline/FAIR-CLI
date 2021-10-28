@@ -314,9 +314,8 @@ def get(
         )
 
         if not _results:
-            raise fdp_exc.RegistryAPICallError(
-                f"Failed to find namespace for object of type {obj_path} and parameters {params}"
-                f" in registry {uri}"
+            raise fdp_exc.InternalError(
+                "Failed to parse namespace identifiers"
             )
 
         params['namespace'] = int(_results.group(1))
@@ -335,11 +334,6 @@ def get(
             r'^' + uri + r'/?data_product/(\d+)/$',
             _data_product['url']) for _data_product in _data_products
         ]
-
-        if not _results:
-            raise fdp_exc.RegistryAPICallError(
-                f"Failed to find data product matching {params} in registry {uri}"
-            )
 
         _output = []
         del params['namespace']
