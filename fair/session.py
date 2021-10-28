@@ -36,7 +36,6 @@ import pathlib
 import logging
 import shutil
 import copy
-import sys
 import click
 import rich
 import git
@@ -51,11 +50,7 @@ import fair.exceptions as fdp_exc
 import fair.history as fdp_hist
 import fair.staging as fdp_stage
 import fair.testing as fdp_test
-import fair.session as fdp_session
-import fair.registry.server as fdp_svr
 import fair.registry.sync as fdp_sync
-import fair.registry.storage as fdp_store
-import fair.registry.requests as fdp_req
 
 
 class FAIR:

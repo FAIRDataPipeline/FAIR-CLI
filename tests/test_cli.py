@@ -16,12 +16,16 @@ from urllib.parse import urljoin
 import click.testing
 import fair.common as fdp_com
 import git
+import shutil
 import pytest
+import uuid
 import pytest_mock
 
 from tests import conftest as conf
 import yaml
 from fair.cli import cli
+import fair.exceptions as fdp_exc
+import fair.staging
 from fair.registry.server import DEFAULT_REGISTRY_DOMAIN
 
 
@@ -36,15 +40,45 @@ def click_test():
 
 @pytest.mark.cli
 def test_status(local_registry: conf.TestRegistry, click_test: click.testing.CliRunner, mocker: pytest_mock.MockerFixture):
+    os.makedirs(os.path.join(os.getcwd(), fdp_com.FAIR_FOLDER))
+    os.makedirs(os.path.join(os.getcwd(), 'jobs'))
+    mocker.patch('fair.run.get_job_dir', lambda x: os.path.join(os.getcwd(), 'jobs', x))
+    _dummy_config = {
+        'run_metadata': {
+            'script': 'echo "Hello World!"'
+        }
+    }
+    _dummy_job_staging = {
+        'job': { 
+            str(uuid.uuid4()): True,
+            str(uuid.uuid4()): True,
+            str(uuid.uuid4()): True,
+            str(uuid.uuid4()): False,
+            str(uuid.uuid4()): False
+        },
+        'file': {}
+    }
+
+    _urls_list = {i: 'http://dummyurl.com' for i in _dummy_job_staging['job']}
+    mocker.patch.object(fair.staging.Stager, 'get_job_data', lambda *args: _urls_list)
+
+    mocker.patch('fair.registry.requests.local_token', lambda: str(uuid.uuid4()))
+    for identifier in _dummy_job_staging['job']:
+        os.makedirs(os.path.join(os.getcwd(), 'jobs', identifier))
+        yaml.dump(_dummy_config, open(os.path.join(os.getcwd(), 'jobs', identifier, 'config.yaml'), 'w'))
+    yaml.dump(_dummy_job_staging, open(os.path.join(os.getcwd(), fdp_com.FAIR_FOLDER, "staging"), 'w'))
     with local_registry:
         mocker.patch('fair.common.registry_home', lambda: local_registry._install)
         _result = click_test.invoke(cli, ['status', '--debug', '--verbose'])
+
         assert _result.exit_code == 0
 
 
 @pytest.mark.cli
 def test_create(local_registry: conf.TestRegistry, click_test: click.testing.CliRunner, local_config: typing.Tuple[str, str], mocker: pytest_mock.MockerFixture):
     with local_registry:
+        os.makedirs(os.path.join(os.getcwd(), fdp_com.FAIR_FOLDER))
+        shutil.copy(os.path.join(local_config[1], fdp_com.FAIR_FOLDER, 'cli-config.yaml'), os.path.join(os.getcwd(), fdp_com.FAIR_FOLDER, 'cli-config.yaml'))
         mocker.patch('fair.common.registry_home', lambda: local_registry._install)
         _out_config = os.path.join(os.getcwd(), 'config.yaml')
         _result = click_test.invoke(cli, ['create', '--debug', _out_config])

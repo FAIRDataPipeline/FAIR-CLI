@@ -23,6 +23,7 @@ import json
 import os
 import tempfile
 import typing
+import logging
 import copy
 import urllib.parse
 import re
@@ -40,6 +41,8 @@ SEARCH_KEYS = {
     "storage_root": "root",
     "storage_location": "hash"
 }
+
+logger = logging.getLogger('FAIRDataPipeline.Requests')
 
 def split_api_url(request_url: str, splitter: str = 'api') -> typing.Tuple[str]:
     """Split a request URL into endpoint and path
@@ -71,7 +74,14 @@ def local_token(registry_dir: str = None) -> str:
             hint="Try creating the file by manually starting the registry "
             "by running 'fair registry start'"
         )
-    return open(_local_token_file).readlines()[0].strip()
+    _file_lines = open(_local_token_file).readlines()
+
+    if not _file_lines:
+        raise fdp_exc.FileNotFoundError(
+            f"Expected token in file {_local_token_file}, but file is empty"
+        )
+
+    return _file_lines[0].strip()
 
 
 def _access(
@@ -110,6 +120,9 @@ def _access(
         _url += "&".join(_param_strs)
     _headers = copy.deepcopy(headers)
     _headers["Authorization"] = f"token {token}"
+
+    logger.debug("Sending request of type %s: %s", method, _url)
+
     try:
         _request = getattr(requests, method)(
             _url, headers=_headers, *args, **kwargs
@@ -266,6 +279,11 @@ def get(
     typing.Dict
         returned data for the given request
     """
+    logger.debug(
+        "Retrieving object of type '%s' from registry at '%s' with parameters: %s",
+        obj_path, uri, params
+    )
+
     if not headers:
         headers = {}
 
@@ -295,6 +313,12 @@ def get(
             _namespaces[0]['url']
         )
 
+        if not _results:
+            raise fdp_exc.RegistryAPICallError(
+                f"Failed to find namespace for object of type {obj_path} and parameters {params}"
+                f" in registry {uri}"
+            )
+
         params['namespace'] = int(_results.group(1))
 
     if "data_product" in params:
@@ -311,6 +335,11 @@ def get(
             r'^' + uri + r'/?data_product/(\d+)/$',
             _data_product['url']) for _data_product in _data_products
         ]
+
+        if not _results:
+            raise fdp_exc.RegistryAPICallError(
+                f"Failed to find data product matching {params} in registry {uri}"
+            )
 
         _output = []
         del params['namespace']
