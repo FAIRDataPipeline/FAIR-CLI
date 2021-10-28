@@ -101,7 +101,7 @@ class FAIR:
         self._session_loc = repo_loc
         self._logger.debug(f"Session location: {self._session_loc}")
         self._run_mode = server_mode
-        self._stager = fdp_stage.Stager(self._session_loc)
+        self._stager: fdp_stage.Stager = fdp_stage.Stager(self._session_loc)
         self._session_id = (
             uuid.uuid4() if server_mode == fdp_serv.SwitchMode.CLI else None
         )
@@ -163,7 +163,7 @@ class FAIR:
         clear_data : bool, optional
             remove the data directory (potentially dangerous), default is False
         """
-        _root_dir = os.path.join(fdp_com.find_fair_root(), fdp_com.FAIR_FOLDER)
+        _root_dir = os.path.join(fdp_com.find_fair_root(self._session_loc), fdp_com.FAIR_FOLDER)
         if local_cfg and os.path.exists(_root_dir):
             if verbose:
                 click.echo(f"Removing directory '{_root_dir}'")
@@ -266,11 +266,13 @@ class FAIR:
 
         return _hash
 
-    def check_is_repo(self) -> None:
+    def check_is_repo(self, location: str = None) -> None:
         """Check that the current location is a FAIR repository"""
-        if not fdp_com.find_fair_root():
+        if not location:
+            location = self._session_loc
+        if not fdp_com.find_fair_root(location):
             raise fdp_exc.FDPRepositoryError(
-                "Not a FAIR repository", hint="Run 'fair init' to initialise."
+                f"'{location}' is not a FAIR repository", hint="Run 'fair init' to initialise."
             )
 
     def check_git_repo_state(self, git_repo: str, remote_label: str = 'origin') -> bool:
@@ -309,19 +311,19 @@ class FAIR:
             )
 
     def change_staging_state(
-        self, run_to_stage: str, stage: bool = True
+        self, job_to_stage: str, stage: bool = True
     ) -> None:
         """Change the staging status of a given run
 
         Parameters
         ----------
-        run_to_stage : str
+        job_to_stage : str
             uuid of run to add to staging
         stage : bool, optional
             whether to stage/unstage run, by default True (staged)
         """
         self.check_is_repo()
-        self._stager.change_run_stage_status(run_to_stage, stage)
+        self._stager.change_job_stage_status(job_to_stage, stage)
 
     def remove_job(self, job_id: str, cached: bool = False) -> None:
         """Remove a job from tracking
@@ -497,7 +499,7 @@ class FAIR:
             _yaml_str = fdp_tpl.config_template.render(
                 instance=self,
                 data_dir=fdp_com.default_data_dir(),
-                local_repo=os.path.abspath(fdp_com.find_fair_root()),
+                local_repo=os.path.abspath(fdp_com.find_fair_root(self._session_loc)),
             )
             _yaml_dict = yaml.safe_load(_yaml_str)
 

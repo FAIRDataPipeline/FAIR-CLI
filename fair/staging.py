@@ -38,7 +38,7 @@ class Stager:
     or has issues.
     """
     _logger = logging.getLogger('FAIRDataPipeline.Staging')
-    def __init__(self, repo_root: str = fdp_com.find_fair_root(os.getcwd())) -> None:
+    def __init__(self, repo_root: str) -> None:
         """Create a new stager instance for a given FAIR repository
 
         Parameters

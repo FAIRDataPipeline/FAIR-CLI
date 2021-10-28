@@ -63,6 +63,7 @@ def test_status(local_registry: conf.TestRegistry, click_test: click.testing.Cli
     mocker.patch.object(fair.staging.Stager, 'get_job_data', lambda *args: _urls_list)
 
     mocker.patch('fair.registry.requests.local_token', lambda: str(uuid.uuid4()))
+    mocker.patch('fair.registry.server.stop_server', lambda *args: None)
     for identifier in _dummy_job_staging['job']:
         os.makedirs(os.path.join(os.getcwd(), 'jobs', identifier))
         yaml.dump(_dummy_config, open(os.path.join(os.getcwd(), 'jobs', identifier, 'config.yaml'), 'w'))
