@@ -39,8 +39,9 @@ def click_test():
 
 
 @pytest.mark.cli
-def test_status(local_registry: conf.TestRegistry, click_test: click.testing.CliRunner, mocker: pytest_mock.MockerFixture):
-    os.makedirs(os.path.join(os.getcwd(), fdp_com.FAIR_FOLDER))
+def test_status(local_config: typing.Tuple[str, str], local_registry: conf.TestRegistry, click_test: click.testing.CliRunner, mocker: pytest_mock.MockerFixture):
+    os.makedirs(os.path.join(local_config[0], fdp_com.FAIR_FOLDER, 'sessions'), exist_ok=True)
+    os.makedirs(os.path.join(os.getcwd(), fdp_com.FAIR_FOLDER), exist_ok=True)
     os.makedirs(os.path.join(os.getcwd(), 'jobs'))
     mocker.patch('fair.run.get_job_dir', lambda x: os.path.join(os.getcwd(), 'jobs', x))
     _dummy_config = {

@@ -62,6 +62,7 @@ class FAIR:
     being determined relative to the closest FAIR repository root folder (i.e.
     the closest location in the upper hierarchy containing a '.fair' folder).
     """
+    _logger = logging.getLogger("FAIRDataPipeline.Session")
 
     def __init__(
         self,
@@ -93,7 +94,6 @@ class FAIR:
         testing : bool
             run in testing mode
         """
-        self._logger = logging.getLogger("FAIRDataPipeline")
         if debug:
             self._logger.setLevel(logging.DEBUG)
         self._logger.debug("Starting new session.")
@@ -194,20 +194,9 @@ class FAIR:
         # If a session ID has been specified this means the server is auto
         # started as opposed to being started explcitly by the user
         # this means it will be shut down on completion
+        self._logger.debug(f"Running server setup for run mode {self._run_mode}")
         if self._run_mode == fdp_serv.SwitchMode.CLI:
-            self.check_is_repo()
-            _cache_addr = os.path.join(
-                fdp_com.session_cache_dir(), f"{self._session_id}.run"
-            )
-
-            # If there are no session cache files start the server
-            if not glob.glob(
-                os.path.join(fdp_com.session_cache_dir(), "*.run")
-            ):
-                fdp_serv.launch_server()
-
-            # Create new session cache file
-            pathlib.Path(_cache_addr).touch()
+            self._extracted_from__setup_server_9()
         elif self._run_mode == fdp_serv.SwitchMode.USER_START:
             self._setup_server_user_start()
         elif self._run_mode in [
@@ -225,6 +214,32 @@ class FAIR:
             fdp_serv.stop_server(
                 force=self._run_mode == fdp_serv.SwitchMode.FORCE_STOP,
             )
+
+    # TODO Rename this here and in `_setup_server`
+    def _extracted_from__setup_server_9(self):
+        self.check_is_repo()
+        _cache_addr = os.path.join(
+            fdp_com.session_cache_dir(), f"{self._session_id}.run"
+        )
+
+        self._logger.debug("Checking for existing sessions")
+        # If there are no session cache files start the server
+        if not glob.glob(
+            os.path.join(fdp_com.session_cache_dir(), "*.run")
+        ):
+            self._logger.debug("No sessions found, launching server")
+            fdp_serv.launch_server()
+
+        self._logger.debug(f"Creating new session #{self._session_id}")
+
+        if not os.path.exists(fdp_com.session_cache_dir()):
+            raise fdp_exc.InternalError(
+                "Failed to create session cache file, "
+                f"expected cache directory '{fdp_com.session_cache_dir()}' to exist"
+            )
+
+        # Create new session cache file
+        pathlib.Path(_cache_addr).touch()
 
     def _setup_server_user_start(self):
         _cache_addr = os.path.join(fdp_com.session_cache_dir(), 'user.run')
@@ -302,6 +317,7 @@ class FAIR:
         """This ensures all configurations are read at the
         start of every session.
         """
+        self._logger.debug("Loading CLI configurations.")
 
         if os.path.exists(fdp_com.global_fdpconfig()):
             self._global_config = fdp_conf.read_global_fdpconfig()
@@ -410,6 +426,7 @@ class FAIR:
 
     def status(self, verbose: bool = False) -> None:
         """Get the status of staging"""
+        self._logger.debug("Updating staging status")
         self.check_is_repo()
 
         _staged_jobs = self._stager.get_item_list(True, "job")

@@ -56,6 +56,7 @@ def local_config(mocker: pytest_mock.MockerFixture):
             _cfgg = fdp_test.create_configurations(tempg, None, tempg, True)
             yaml.dump(_cfgl, open(_lconfig_path, 'w'))
             yaml.dump(_cfgg, open(_gconfig_path, 'w'))
+            mocker.patch('fair.common.global_config_dir', lambda: os.path.dirname(_gconfig_path))
             mocker.patch('fair.common.global_fdpconfig', lambda: _gconfig_path)
             yield (tempg, templ)
 
