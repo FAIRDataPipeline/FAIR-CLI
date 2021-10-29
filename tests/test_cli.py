@@ -17,16 +17,19 @@ import click.testing
 import fair.common as fdp_com
 import git
 import shutil
+import glob
 import pytest
 import uuid
+import requests
 import pytest_mock
 
 from tests import conftest as conf
 import yaml
 from fair.cli import cli
-import fair.exceptions as fdp_exc
 import fair.staging
 from fair.registry.server import DEFAULT_REGISTRY_DOMAIN
+
+LOCAL_REGISTRY_URL = 'http://localhost:8000/api'
 
 
 @pytest.fixture
@@ -176,3 +179,74 @@ def test_init_full(local_registry: conf.TestRegistry, click_test: click.testing.
             assert _cli_cfg['user']['family_name'] == 'Bloggs'
             assert _cli_cfg['user']['given_names'] == 'Joseph'
             assert _cli_cfg['user']['uuid']
+
+
+@pytest.mark.cli
+def test_purge(local_config: typing.Tuple[str, str], click_test: click.testing.CliRunner, mocker: pytest_mock.MockerFixture):
+    mocker.patch('fair.common.global_config_dir', lambda *args: local_config[0])
+    mocker.patch('fair.common.find_fair_root', lambda *args: local_config[1])
+    assert os.path.exists(os.path.join(local_config[0], fdp_com.FAIR_FOLDER))
+    assert os.path.exists(os.path.join(local_config[1], fdp_com.FAIR_FOLDER))
+
+    _result = click_test.invoke(cli, ['purge', '--debug'], input='Y')
+    assert _result.exit_code == 0
+    assert os.path.exists(os.path.join(local_config[0], fdp_com.FAIR_FOLDER))
+    assert not os.path.exists(os.path.join(local_config[1], fdp_com.FAIR_FOLDER))
+
+    _result = click_test.invoke(cli, ['purge', '--debug', '--global'], input='Y')
+    assert _result.exit_code == 0
+    assert not os.path.exists(os.path.join(local_config[0], fdp_com.FAIR_FOLDER))
+
+
+@pytest.mark.cli
+def test_registry_cli(local_config: typing.Tuple[str, str], click_test: click.testing.CliRunner, mocker: pytest_mock.MockerFixture):
+    mocker.patch('fair.common.global_config_dir', lambda *args: local_config[0])
+    with tempfile.TemporaryDirectory() as tempd:
+        _result = click_test.invoke(
+            cli,
+            [
+                'registry',
+                'install',
+                '--directory',
+                tempd,
+                '--debug'
+            ]
+        )
+
+        assert _result.exit_code == 0
+
+        _result = click_test.invoke(
+            cli,
+            [
+                'registry',
+                'start'
+            ]
+        )
+
+        assert _result.exit_code == 0
+        assert requests.get(LOCAL_REGISTRY_URL).status_code == 200
+
+        _result = click_test.invoke(
+            cli,
+            [
+                'registry',
+                'stop'
+            ]
+        )
+
+        assert _result.exit_code == 0
+        with pytest.raises(requests.ConnectionError):
+            requests.get(LOCAL_REGISTRY_URL)
+
+        _result = click_test.invoke(
+            cli,
+            [
+                'registry',
+                'uninstall',
+                '--debug'
+            ],
+            input='Y'
+        )
+
+        assert _result.exit_code == 0
+        assert not glob.glob(os.path.join(tempd, '*'))

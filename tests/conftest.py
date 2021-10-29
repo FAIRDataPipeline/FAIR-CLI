@@ -9,11 +9,9 @@ import yaml
 import fair.testing as fdp_test
 import fair.common as fdp_com
 
-from fair.common import FAIR_FOLDER
 from . import registry_install as test_reg
 
 TEST_JOB_FILE_TIMESTAMP = '2021-10-11_10_0_0_100000'
-REGISTRY_INSTALL_URL = "https://data.scrc.uk/static/localregistry.sh"
 
 
 logging.getLogger('FAIRDataPipeline').setLevel(logging.DEBUG)

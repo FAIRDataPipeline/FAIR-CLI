@@ -26,17 +26,20 @@ import shutil
 import sys
 import pathlib
 import enum
+import logging
 import venv
 import typing
 import requests
 import platform
 import git
+import yaml
 
 import fair.common as fdp_com
 import fair.exceptions as fdp_exc
 import fair.configuration as fdp_conf
 import fair.registry.storage as fdp_store
 import fair.registry.requests as fdp_req
+import fair.utilities as fdp_util
 
 FAIR_REGISTRY_REPO = "https://github.com/FAIRDataPipeline/data-registry.git"
 
@@ -47,6 +50,7 @@ DEFAULT_LOCAL_REGISTRY_URL = "http://localhost:8000/api/"
 if platform.system() == "Windows":
     DEFAULT_LOCAL_REGISTRY_URL = 'http://127.0.0.1:8000/api/'
 
+logger = logging.getLogger('FAIRDataPipeline.Server')
 
 def django_environ(environ: typing.Dict = os.environ):
     _environ = environ.copy()
@@ -272,6 +276,22 @@ def install_registry(
     if not install_dir:
         install_dir = DEFAULT_REGISTRY_LOCATION
 
+    logger.debug("Installing registry to '%s'", install_dir)
+    
+    # In case registry installation occurs before setup
+    os.makedirs(fdp_com.global_config_dir(), exist_ok=True) 
+
+    logger.debug("Updating registry path in global CLI configuration")
+    if os.path.exists(fdp_com.global_fdpconfig()):
+        _glob_conf = fdp_util.flatten_dict(fdp_conf.read_global_fdpconfig())
+    else:
+        _glob_conf = {}
+
+    _glob_conf['registries.local.directory'] = install_dir
+
+    with open(fdp_com.global_fdpconfig(), 'w') as out_conf:
+        yaml.dump(fdp_util.expand_dict(_glob_conf), out_conf)
+    
     if force:
         shutil.rmtree(install_dir, ignore_errors=True)
 
@@ -324,16 +344,21 @@ def install_registry(
     rebuild_local(_venv_python, install_dir, silent)
 
 
-def uninstall_registry(install_dir: str = None) -> None:
+def uninstall_registry() -> None:
     """Uninstall the local registry from the default location"""
-
     # First check if the location can be retrieved from a CLI configuration
     # else check the default install location
     if (os.path.exists(fdp_com.global_fdpconfig())
         and os.path.exists(fdp_com.registry_home())):
+        logger.debug("Uninstalling registry, removing '%s'", fdp_com.registry_home())
         shutil.rmtree(fdp_com.registry_home())
     elif os.path.exists(DEFAULT_REGISTRY_LOCATION):
+        logger.debug("Uninstalling registry, removing '%s'", DEFAULT_REGISTRY_LOCATION)
         shutil.rmtree(DEFAULT_REGISTRY_LOCATION)
+    else:
+        raise fdp_exc.RegistryError(
+            "Cannot uninstall registry, no local installation identified"
+        )
 
 
 def update_registry_post_setup(repo_dir: str, global_setup: bool = False) -> None:

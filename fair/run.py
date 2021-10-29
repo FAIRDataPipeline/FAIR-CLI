@@ -99,7 +99,7 @@ SHELLS: typing.Dict[str, str] = {
 
 def run_command(
     repo_dir: str,
-    config_yaml: str = os.path.join(fdp_com.find_fair_root(), "config.yaml"),
+    config_yaml: str = None,
     mode: CMD_MODE = CMD_MODE.RUN,
     bash_cmd: str = "",
 ) -> str:
@@ -118,12 +118,10 @@ def run_command(
         run from a given config.yaml file
     bash_cmd : str, optional
         override execution command with a bash command
-
-    Returns
-    -------
-        str
-            job hash
     """
+
+    if not config_yaml:
+        config_yaml = os.path.join(fdp_com.find_fair_root(), "config.yaml")
 
     _logger = logging.getLogger(LOG)
     click.echo(f"Updating registry from {config_yaml}", err = True)

@@ -159,7 +159,7 @@ class FAIR:
         global_cfg : bool, optional
             remove global directories, default is False
         verbose : bool, optional
-            run in verbose mode, default is Trye
+            run in verbose mode, default is True
         clear_data : bool, optional
             remove the data directory (potentially dangerous), default is False
         """
@@ -196,7 +196,7 @@ class FAIR:
         # this means it will be shut down on completion
         self._logger.debug(f"Running server setup for run mode {self._run_mode}")
         if self._run_mode == fdp_serv.SwitchMode.CLI:
-            self._extracted_from__setup_server_9()
+            self._setup_server_cli_mode()
         elif self._run_mode == fdp_serv.SwitchMode.USER_START:
             self._setup_server_user_start()
         elif self._run_mode in [
@@ -215,8 +215,7 @@ class FAIR:
                 force=self._run_mode == fdp_serv.SwitchMode.FORCE_STOP,
             )
 
-    # TODO Rename this here and in `_setup_server`
-    def _extracted_from__setup_server_9(self):
+    def _setup_server_cli_mode(self):
         self.check_is_repo()
         _cache_addr = os.path.join(
             fdp_com.session_cache_dir(), f"{self._session_id}.run"
@@ -242,9 +241,12 @@ class FAIR:
         pathlib.Path(_cache_addr).touch()
 
     def _setup_server_user_start(self):
+        if not os.path.exists(fdp_com.session_cache_dir()):
+            os.makedirs(fdp_com.session_cache_dir())
+
         _cache_addr = os.path.join(fdp_com.session_cache_dir(), 'user.run')
 
-        if "registries" not in self._local_config:
+        if "registries" not in self._global_config:
             raise fdp_exc.CLIConfigurationError(
                 "Cannot find server address in current configuration",
                 hint="Is the current location a FAIR repository?"
