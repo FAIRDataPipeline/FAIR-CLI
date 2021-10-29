@@ -205,9 +205,6 @@ def uninstall(debug: bool):
 def install(debug: bool, force: bool, directory: str):
     """Install the local registry on the system"""
     try:
-        if (os.path.exists(fdp_com.global_fdpconfig())
-            and os.path.exists(fdp_svr.DEFAULT_REGISTRY_LOCATION)):
-            raise fdp_exc.RegistryError("Local registry is already installed")
         fdp_svr.install_registry(install_dir=directory, force=force)
     except fdp_exc.FAIRCLIException as e:
         if debug:
