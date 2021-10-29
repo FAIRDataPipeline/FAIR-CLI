@@ -598,7 +598,7 @@ def global_config_query(registry: str = None) -> typing.Dict[str, typing.Any]:
             raise fdp_exc.CLIConfigurationError(
                 "FAIR repository initialisation requires a local registry installation, aborting."
             )
-        fdp_serv.install_registry(registry)
+        fdp_serv.install_registry(install_dir=registry)
 
     _local_uri = click.prompt("Local Registry URL", default=fdp_serv.DEFAULT_LOCAL_REGISTRY_URL)
 
