@@ -30,8 +30,9 @@ def test_launch_stop_server(local_config: typing.Tuple[str, str], local_registry
 @pytest.mark.server
 def test_registry_install_uninstall(mocker: pytest_mock.MockerFixture):
     with tempfile.TemporaryDirectory() as tempd:
-        mocker.patch('fair.registry.server.DEFAULT_REGISTRY_LOCATION', tempd)
-        fdp_serv.install_registry(install_dir=tempd)
-        assert os.path.exists(os.path.join(tempd, 'db.sqlite3'))
+        reg_dir = os.path.join(tempd, 'regostry')
+        mocker.patch('fair.registry.server.DEFAULT_REGISTRY_LOCATION', reg_dir)
+        fdp_serv.install_registry(install_dir=reg_dir)
+        assert os.path.exists(os.path.join(reg_dir, 'db.sqlite3'))
         fdp_serv.uninstall_registry()
 

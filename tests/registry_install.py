@@ -233,7 +233,7 @@ def launch(install_dir: str = None, port: int = 8000, silent: bool = False, venv
     return _process
 
     
-def stop(install_dir: str = None, silent: bool = False):
+def stop(install_dir: str = None, port: int = 8000, silent: bool = False):
     if not install_dir:
         install_dir = os.path.join(pathlib.Path.home(), FAIR_FOLDER, 'registry')
 
@@ -244,6 +244,11 @@ def stop(install_dir: str = None, silent: bool = False):
         env=django_environ(),
         shell=False
     )
+    try:
+        requests.get(f'http://localhost:{port}/api')
+        raise AssertionError("Expected registry termination")
+    except requests.ConnectionError:
+        pass
 
 
 @click.group()

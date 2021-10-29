@@ -5,6 +5,7 @@ import pytest_fixture_config
 import pytest_virtualenv
 import logging
 import tempfile
+import signal
 import yaml
 import fair.testing as fdp_test
 import fair.common as fdp_com
@@ -103,13 +104,11 @@ class TestRegistry:
         try:
             self._process = test_reg.launch(self._install, silent=True, venv_dir=self._venv)
         except KeyboardInterrupt as e:
-            self._process.kill()
-            self._process.wait()
+            os.kill(self._process.pid, signal.SIGTERM)
             raise e
 
     def __exit__(self, type, value, tb):
-        self._process.kill()
-        self._process.wait()
+        os.kill(self._process.pid, signal.SIGTERM)
         self._process = None
 
 

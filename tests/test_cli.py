@@ -202,13 +202,14 @@ def test_purge(local_config: typing.Tuple[str, str], click_test: click.testing.C
 def test_registry_cli(local_config: typing.Tuple[str, str], click_test: click.testing.CliRunner, mocker: pytest_mock.MockerFixture):
     mocker.patch('fair.common.global_config_dir', lambda *args: local_config[0])
     with tempfile.TemporaryDirectory() as tempd:
+        _reg_dir = os.path.join(tempd, 'registry')
         _result = click_test.invoke(
             cli,
             [
                 'registry',
                 'install',
                 '--directory',
-                tempd,
+                _reg_dir,
                 '--debug'
             ]
         )
@@ -219,7 +220,8 @@ def test_registry_cli(local_config: typing.Tuple[str, str], click_test: click.te
             cli,
             [
                 'registry',
-                'start'
+                'start',
+                '--debug'
             ]
         )
 
@@ -230,7 +232,8 @@ def test_registry_cli(local_config: typing.Tuple[str, str], click_test: click.te
             cli,
             [
                 'registry',
-                'stop'
+                'stop',
+                '--debug'
             ]
         )
 
