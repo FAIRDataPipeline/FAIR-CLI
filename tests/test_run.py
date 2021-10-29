@@ -77,7 +77,7 @@ def test_run_setup_default_windows(mocker, setup_with_opts, no_registry_autoinst
     mocker.patch.object(platform, "system", lambda *args: "Windows")
     _cmd = 'Write-Host "Test Run"'
     _out, _cfg = setup_with_opts({"script": _cmd})
-    assert _out["shell"] == "pwsh"
+    assert _out["shell"] == "batch"
     assert open(_out['script']).read() == _cmd
     assert _out["env"]["FDP_LOCAL_REPO"] == _cfg["run_metadata"]['local_repo']
 

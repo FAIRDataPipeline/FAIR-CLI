@@ -55,9 +55,9 @@ SHELLS: typing.Dict[str, str] = {
         "exec": "pwsh -command \". '{0}'\"",
         "extension": "ps1"
     },
-    "powershell": {
-        "powershell": "-command \". '{0}'\".",
-        "extension": "ps1"
+    "batch": {
+        "exec": "{0}",
+        "extension": "bat"
     },
     "python2": {
         "exec": "python2 {0}",
@@ -361,7 +361,9 @@ def run_command(
 
         if mode == CMD_MODE.RUN:
             _logger.debug("Executing command: %s", ' '.join(_cmd_list))
-
+            _shell = False
+            if platform.system() == "Windows":
+                _shell = True
             # Run the submission script
             _process = subprocess.Popen(
                 _cmd_list,
@@ -370,7 +372,7 @@ def run_command(
                 universal_newlines=True,
                 bufsize=1,
                 text=True,
-                shell=False,
+                shell=_shell,
                 env=_cmd_setup["env"],
                 cwd=_run_dir
             )
@@ -541,7 +543,7 @@ def setup_job_script(
         _shell = _conf_yaml["run_metadata"]["shell"]
     else:
         if platform.system() == "Windows":
-            _shell = "pwsh"
+            _shell = "batch"
         else:
             _shell = "sh"
 

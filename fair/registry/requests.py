@@ -26,6 +26,7 @@ import typing
 import copy
 import urllib.parse
 import re
+from requests.api import request
 import yaml
 import requests
 
