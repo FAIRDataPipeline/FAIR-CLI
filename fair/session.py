@@ -109,14 +109,12 @@ class FAIR:
         self._session_id = (
             uuid.uuid4() if server_mode == fdp_serv.SwitchMode.CLI else None
         )
-        self._session_config = (
-            user_config
-            if user_config
-            else fdp_com.local_user_config(self._session_loc)
+        self._session_config = user_config or fdp_com.local_user_config(
+            self._session_loc
         )
 
-        if (not server_mode == fdp_serv.SwitchMode.NO_SERVER
-            and not os.path.exists(fdp_com.registry_home())
+        if server_mode != fdp_serv.SwitchMode.NO_SERVER and not os.path.exists(
+            fdp_com.registry_home()
         ):
             raise fdp_exc.RegistryError(
                 "User registry directory was not found, this could "
@@ -215,30 +213,12 @@ class FAIR:
             # Create new session cache file
             pathlib.Path(_cache_addr).touch()
         elif self._run_mode == fdp_serv.SwitchMode.USER_START:
-            _cache_addr = os.path.join(
-                fdp_com.session_cache_dir(), f"user.run"
-            )
-
-            if "registries" not in self._local_config:
-                raise fdp_exc.CLIConfigurationError(
-                    "Cannot find server address in current configuration",
-                    hint="Is the current location a FAIR repository?"
-                )
-
-            if fdp_serv.check_server_running():
-                raise fdp_exc.UnexpectedRegistryServerState(
-                    "Server already running."
-                )
-            click.echo("Starting local registry server")
-            pathlib.Path(_cache_addr).touch()
-            fdp_serv.launch_server(fdp_conf.get_local_uri(), verbose=True)
+            self._setup_server_user_start()
         elif self._run_mode in [
             fdp_serv.SwitchMode.USER_STOP,
             fdp_serv.SwitchMode.FORCE_STOP,
         ]:
-            _cache_addr = os.path.join(
-                fdp_com.session_cache_dir(), f"user.run"
-            )
+            _cache_addr = os.path.join(fdp_com.session_cache_dir(), 'user.run')
             if not fdp_serv.check_server_running():
                 raise fdp_exc.UnexpectedRegistryServerState(
                     "Server is not running."
@@ -249,6 +229,23 @@ class FAIR:
             fdp_serv.stop_server(
                 force=self._run_mode == fdp_serv.SwitchMode.FORCE_STOP,
             )
+
+    def _setup_server_user_start(self):
+        _cache_addr = os.path.join(fdp_com.session_cache_dir(), 'user.run')
+
+        if "registries" not in self._local_config:
+            raise fdp_exc.CLIConfigurationError(
+                "Cannot find server address in current configuration",
+                hint="Is the current location a FAIR repository?"
+            )
+
+        if fdp_serv.check_server_running():
+            raise fdp_exc.UnexpectedRegistryServerState(
+                "Server already running."
+            )
+        click.echo("Starting local registry server")
+        pathlib.Path(_cache_addr).touch()
+        fdp_serv.launch_server(fdp_conf.get_local_uri(), verbose=True)
 
     def run_job(
         self,
@@ -405,14 +402,13 @@ class FAIR:
         self.check_is_repo()
         if "registries" not in self._local_config:
             return []
-        else:
-            _remote_print = []
-            for remote, data in self._local_config['registries'].items():
-                _out_str = f"[bold white]{remote}[/bold white]"
-                if verbose:
-                    _out_str += f"\t[yellow]{data['uri']}[/yellow]"
-                _remote_print.append(_out_str)
-            rich.print("\n".join(_remote_print))
+        _remote_print = []
+        for remote, data in self._local_config['registries'].items():
+            _out_str = f"[bold white]{remote}[/bold white]"
+            if verbose:
+                _out_str += f"\t[yellow]{data['uri']}[/yellow]"
+            _remote_print.append(_out_str)
+        rich.print("\n".join(_remote_print))
         return _remote_print
 
     def status(self, verbose: bool = False) -> None:
@@ -449,7 +445,7 @@ class FAIR:
 
         if _unstaged_jobs:
             click.echo("Changes not staged for synchronization:")
-            click.echo(f'\t(use "fair add <job>..." to stage jobs)')
+            click.echo('\t(use "fair add <job>..." to stage jobs)')
 
             click.echo("\tJobs:")
 
@@ -538,6 +534,8 @@ class FAIR:
             os.path.join(self._session_loc, fdp_com.FAIR_FOLDER)
         )
 
+        _first_time = not os.path.exists(fdp_com.global_fdpconfig())
+
         if self._testing:
             using = fdp_test.create_configurations(registry)
 
@@ -545,9 +543,7 @@ class FAIR:
             if export_as:
                 self._export_cli_configuration(export_as)
                 return
-            click.echo(
-                f"FAIR repository is already initialised."
-            )
+            click.echo('FAIR repository is already initialised.')
             return
 
         if not using:
@@ -563,34 +559,43 @@ class FAIR:
             self._stager.initialise()
 
         if not os.path.exists(fdp_com.global_fdpconfig()):
-            self._global_config = fdp_conf.global_config_query(
-                registry
-            )
-            self._local_config = fdp_conf.local_config_query(
-                self._global_config, first_time_setup=True
-            )
+            try:
+                self._global_config = fdp_conf.global_config_query(
+                    registry
+                )
+                self._local_config = fdp_conf.local_config_query(
+                    self._global_config, first_time_setup=_first_time
+                )
+            except (fdp_exc.CLIConfigurationError, click.Abort) as e:
+                self._clean_reset(_fair_dir, e)
         elif not using:
-            self._local_config = fdp_conf.local_config_query(
-                self._global_config
-            )
-
+            try:
+                self._local_config = fdp_conf.local_config_query(
+                    self._global_config
+                )
+            except (fdp_exc.CLIConfigurationError, click.Abort) as e:
+                self._clean_reset(_fair_dir, e)
         if not using:
             with open(fdp_com.local_fdpconfig(self._session_loc), "w") as f:
                 yaml.dump(self._local_config, f)
+            with open(fdp_com.global_fdpconfig(), "w") as f:
+                yaml.dump(self._global_config, f)
         else:
-            self._global_config = yaml.safe_load(open(fdp_com.global_fdpconfig()))
-            self._local_config = yaml.safe_load(open(fdp_com.local_fdpconfig(self._session_loc)))
-
-        if 'ror' in self._local_config['user'] and self._local_config['user']['ror']:
-            self._local_config['user']['uri'] = 'https://ror.org/' + self._local_config['user']['ror']
-        elif 'orcid' in self._local_config['user'] and self._local_config['user']['orcid']:
-            self._local_config['user']['uri'] = 'https://orcid.org/' + self._local_config['user']['orcid']
+            self._global_config = fdp_conf.read_global_fdpconfig()
+            self._local_config = fdp_conf.read_local_fdpconfig(self._session_loc)
 
         if export_as:
             self._export_cli_configuration(export_as)
 
+        fdp_serv.update_registry_post_setup(self._session_loc, _first_time)
+
         click.echo(f"Initialised empty fair repository in {_fair_dir}")
 
+    def _clean_reset(self, _fair_dir, e):
+        shutil.rmtree(fdp_com.session_cache_dir(), ignore_errors=True)
+        shutil.rmtree(fdp_com.global_config_dir(), ignore_errors=True)
+        shutil.rmtree(_fair_dir)
+        raise e
 
     def close_session(self) -> None:
         """Upon exiting, dump all configurations to file"""
@@ -615,43 +620,6 @@ class FAIR:
             yaml.dump(self._global_config, f)
         with open(fdp_com.local_fdpconfig(self._session_loc), "w") as f:
             yaml.dump(self._local_config, f)
-
-        #TODO Kristian decide where this code should go and whether there is a better way of identifying _local_uri
-        # Populate file type table
-        _local_uri = self._global_config['registries']['local']['uri']
-        if not fdp_serv.check_server_running(_local_uri):
-            fdp_serv.launch_server(_local_uri)
-        fdp_store.populate_file_type(_local_uri)
-
-        _uri = None
-        if 'uri' in self._local_config['user']:
-            _uri = self._local_config['user']['uri']
-
-        fdp_store.store_namespace(
-            _local_uri,
-            self._local_config['namespaces']['input'],
-            self._local_config['user']['given_names'] + ' ' + self._local_config['user']['family_name'],
-            _uri
-        )
-
-        # Add author and UserAuthor
-        _author_url = fdp_store.store_user(self._session_loc, _local_uri)
-        _user_url = fdp_req.get(
-            _local_uri,
-            'users',
-            params = {
-                'username': 'admin'
-            }
-        )[0]['url']
-
-        fdp_req.post_else_get(
-            _local_uri,
-            'user_author',
-            data = {
-                'user': _user_url,
-                'author': _author_url
-            }
-        )
 
     def _validate_and_load_cli_config(self, cli_config: typing.Dict):
         _exp_keys = [
@@ -693,9 +661,9 @@ class FAIR:
                 )
             if name == 'local' and 'directory' not in reg:
                 raise fdp_exc.CLIConfigurationError(
-                    f"Expected key 'directory' for local registry "
-                    "in CLI configuration"
+                    "Expected key 'directory' for local registry in CLI configuration"
                 )
+
 
         _user_keys = ['email', 'family_name', 'given_names', 'orcid', 'uuid']
 

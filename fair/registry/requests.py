@@ -26,9 +26,8 @@ import typing
 import copy
 import urllib.parse
 import re
-from requests.api import request
-import yaml
 import requests
+import simplejson.errors
 
 import fair.common as fdp_com
 import fair.exceptions as fdp_exc
@@ -61,9 +60,10 @@ def split_api_url(request_url: str, splitter: str = 'api') -> typing.Tuple[str]:
     return f'{_root}{splitter}', _path
 
 
-def local_token() -> str:
+def local_token(registry_dir: str = None) -> str:
     """Read the local registry token from the relevant file"""
-    _local_token_file = os.path.join(fdp_com.registry_home(), "token")
+    registry_dir = registry_dir or fdp_com.registry_home()
+    _local_token_file = os.path.join(registry_dir, "token")
     if not os.path.exists(_local_token_file):
         raise fdp_exc.FileNotFoundError(
             f"Failed to find local registry token, file '{_local_token_file}'"
@@ -72,45 +72,6 @@ def local_token() -> str:
             "by running 'fair registry start'"
         )
     return open(_local_token_file).readlines()[0].strip()
-
-
-def remote_token(remote: str = "origin") -> str:
-    """Read the registry token for the given remote
-
-    Parameters
-    ----------
-    remote : str, optional
-        remote endpoint label, by default "origin"
-
-    Returns
-    -------
-    str
-        remote token
-    """
-    _glob_yaml = yaml.safe_load(open(fdp_com.global_fdpconfig()))
-
-    if 'tokens' not in _glob_yaml or remote not in _glob_yaml['tokens']:
-        raise fdp_exc.CLIConfigurationError(
-            f"Failed to retrieve token location for remote '{remote}' "
-        )
-
-    _token_file = _glob_yaml['tokens'][remote]
-
-    if not os.path.exists(_token_file):
-        raise fdp_exc.FileNotFoundError(
-            f"Cannot open token file '{_token_file}', "
-            "file does not exist."
-        )
-
-    _token = open(_token_file).read()
-
-    if not _token.strip():
-        raise fdp_exc.FAIRCLIException(
-            f"Cannot load token for registry '{remote}', "
-            f"file '{_glob_yaml['tokens'][remote]} is empty."
-        )
-
-    return _token.strip()
 
 
 def _access(
@@ -171,9 +132,6 @@ def _access(
             error_code=404
         )
 
-    _json_req = _request.json()
-    _result = _json_req["results"] if "results" in _json_req else _json_req
-
     # Case of unrecognised object
 
     #TODO: fix _searchable as for 403 error, shouldnt need join()
@@ -193,7 +151,17 @@ def _access(
             error_code=409,
 
         )
-    elif _request.status_code != response_code:
+
+    try:
+        _json_req = _request.json()
+        _result = _json_req["results"] if "results" in _json_req else _json_req
+    except (json.JSONDecodeError, simplejson.errors.JSONDecodeError):
+        raise fdp_exc.RegistryAPICallError(
+            f"Failed to retrieve JSON data from request to '{_url}'",
+            error_code=_request.status_code
+        )
+
+    if _request.status_code != response_code:
         _info = ""
         if isinstance(_result, dict) and "detail" in _result:
             _info = _result["detail"]
@@ -301,10 +269,7 @@ def get(
     if not headers:
         headers = {}
 
-    if not params:
-        params = {}
-    else:
-        params = copy.deepcopy(params)
+    params = {} if not params else copy.deepcopy(params)
 
     if not token:
         token = local_token()
@@ -315,7 +280,7 @@ def get(
             'namespace',
             params = {SEARCH_KEYS['namespace']: params['namespace']}
         )
-    
+
         if len(_namespaces) > 1:
             raise fdp_exc.UserConfigError(
                 f"Multiple ({len(_namespaces)}) hits for namespace '{params['namespace']}'"
@@ -329,7 +294,7 @@ def get(
             r'^' + uri + r'/?namespace/(\d+)/$',
             _namespaces[0]['url']
         )
-                
+
         params['namespace'] = int(_results.group(1))
 
     if "data_product" in params:
@@ -341,12 +306,12 @@ def get(
                 'namespace': params['namespace']
             }
         )
-    
+
         _results = [re.search(
             r'^' + uri + r'/?data_product/(\d+)/$',
             _data_product['url']) for _data_product in _data_products
         ]
-        
+
         _output = []
         del params['namespace']
         for data_product in _results:
@@ -372,7 +337,6 @@ def get(
         token=token
     )
 
-import logging
 
 def post_else_get(
     uri: str,
@@ -410,7 +374,7 @@ def post_else_get(
     try:
         _loc = post(uri, obj_path, data=data, token=token)
     except fdp_exc.RegistryAPICallError as e:
-        # If the working config is already in the registry then ignore the
+        # If the item is already in the registry then ignore the
         # conflict error and continue, else raise exception
         if e.error_code == 409:
             _loc = get(uri, obj_path, params=params)
@@ -506,11 +470,9 @@ def get_writable_fields(
     typing.List[str]
         list of object type paths
     """
-    _writable_fields = filter_object_dependencies(
+    return filter_object_dependencies(
         uri, obj_path, {"read_only": False}
     )
-
-    return _writable_fields
 
 
 def download_file(url: str, chunk_size: int = 8192) -> str:
@@ -562,10 +524,8 @@ def get_dependency_listing(uri: str) -> typing.Dict:
 
     _registry_objs = url_get(uri)
 
-    _dependencies = {}
-
-    for obj in _registry_objs:
-        _dependencies[obj] = filter_object_dependencies(
+    return {
+        obj: filter_object_dependencies(
             uri,
             obj,
             {
@@ -573,8 +533,8 @@ def get_dependency_listing(uri: str) -> typing.Dict:
                 "type": "field",
                 "local": True
             }
-        )
-    return _dependencies
+        ) for obj in _registry_objs
+    }
 
 def get_obj_type_from_url(request_url: str) -> str:
     """Retrieves the type of object from the given URL

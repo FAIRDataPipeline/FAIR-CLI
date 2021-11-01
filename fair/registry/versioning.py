@@ -134,11 +134,7 @@ def get_correct_version(
             _versions.append(_zero)
         _max_ver = max(_versions)
 
-        if _bump_func:
-            _new_version = getattr(_max_ver, _bump_func)()
-        else: # LATEST
-            _new_version = _max_ver
-        
+        _new_version = getattr(_max_ver, _bump_func)() if _bump_func else _max_ver
     except fdp_exc.UserConfigError: # Not a command, try an exact version
         _new_version = semver.VersionInfo.parse(version)
 
@@ -151,9 +147,7 @@ def get_correct_version(
             f"Trying to read non-existing version: {version}"
         )
     elif _new_version == _zero:
-        raise fdp_exc.UserConfigError(
-            f"Trying to work with version {str(_zero)}"
-        )
+        raise fdp_exc.UserConfigError(f'Trying to work with version {_zero}')
 
     return _new_version
 

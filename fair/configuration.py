@@ -14,7 +14,31 @@ Functions
 ---------
 
     read_local_fdpconfig - read the contents of the local CLI config file
-
+    read_global_fdpconfig - read the contents of the global CLI config file
+    set_email - set the user's email in the configuration
+    set_user - set the user's name in the configuration
+    get_current_user_name - retrieve name of the current user
+    get_remote_uri - retrieve URL for the remote registry
+    local_git_repo - retrieve path for the current project Git repository
+    remote_git_repo - retrieve URL for the remote Git repository
+    get_remote_token - retrieve the token for the remote registry
+    get_session_git_remote - get the current git remote label or URL
+    get_current_user_uri - retrieve the full URL identifier for the current user
+    get_current_user_uuid - retrieve the uuid of the current user if specified
+    check_registry_exists - check that the specified local registry directory exists
+    get_local_uri - retrieve the URL of the local registry
+    get_local_port - retrieve the port number of the local registry
+    global_config_query - setup the global configuration using prompts
+    local_config_query - setup the local configuration using prompts
+    fdp_config_value - retrieve a value from either local or global configurations
+    write_data_store - retrieve the current write data store
+    input_namespace - retrieve current input namespace
+    output_namespace - retrieve current output namespace
+    is_public - retrieve the current data is_public label
+    read_version - retrieve the current data read version
+    write_version - retrieve the current data write
+    registry_url - retrieves either local or remote registry URL
+    update_metadata - updates the metadata within a use configuration file
 """
 
 __date__ = "2021-07-02"
@@ -24,12 +48,13 @@ import platform
 import pathlib
 import uuid
 import copy
-import re
 import logging
 import typing
 import yaml
 import click
 import git
+
+from urllib.parse import urlparse
 
 import fair.common as fdp_com
 import fair.exceptions as fdp_exc
@@ -37,6 +62,7 @@ import fair.identifiers as fdp_id
 import fair.registry.server as fdp_serv
 import fair.registry.requests as fdp_req
 import fair.registry.versioning as fdp_ver
+
 
 def read_local_fdpconfig(repo_loc: str) -> typing.MutableMapping:
     """Read contents of repository level FAIR-CLI configurations.
@@ -114,12 +140,28 @@ def set_user(repo_loc: str, name: str, is_global: bool = False) -> None:
         whether to also override the global settings, by default False
     """
     _loc_conf = read_local_fdpconfig(repo_loc)
-    _loc_conf['user']['name'] = name
+    if len(name.split()) > 1:
+        _given_name, _family_name = name.rsplit(" ", 1)
+        _loc_conf['user']['given_names'] = _given_name.title().strip()
+        _loc_conf['user']['family_name'] = _family_name.title().strip()
+        if is_global:
+            _glob_conf = read_global_fdpconfig()
+            _glob_conf['user']['given_names'] = _given_name.title().strip()
+            _glob_conf['user']['family_name'] = _family_name.title().strip()
+            yaml.dump(_glob_conf, open(fdp_com.global_fdpconfig(), "w"))
+    else:
+        _loc_conf['user']['given_names'] = name.title().strip()
+        _loc_conf['user']['family_name'] = None
+        if is_global:
+            _glob_conf = read_global_fdpconfig()
+            _glob_conf['user']['given_names'] = name.title().strip()
+            _glob_conf['user']['family_name'] = None
+            yaml.dump(_glob_conf, open(fdp_com.global_fdpconfig(), "w"))
     yaml.dump(_loc_conf, open(fdp_com.local_fdpconfig(repo_loc), "w"))
     if is_global:
         _glob_conf = read_global_fdpconfig()
         _glob_conf['user']['name'] = name
-        yaml.dump(_glob_conf, open(fdp_com.global_fdpconfig(), "w"))
+        yaml.dump(_glob_conf, open(fdp_com.global_fdpconfig(), "w"))          
 
 
 def get_current_user_name(repo_loc: str) -> typing.Tuple[str]:
@@ -185,6 +227,7 @@ def local_git_repo(cfg: typing.Dict = None) -> str:
             "Failed to retrieve local project git repository directory"
         )
 
+
 def remote_git_repo(cfg: typing.Dict = None) -> str:
     """Retrieves the remote repository git directory
 
@@ -238,62 +281,76 @@ def get_remote_token(repo_dir: str, remote: str = 'origin') -> str:
     return _token
 
 
-def get_session_git_remote(repo_loc: str) -> str:
+def get_session_git_remote(repo_loc: str, url: bool = False) -> str:
     """Retrieves the local repository git remote
 
     Parameters
     ----------
     repo_loc : str
         Location of session CLI config
+    url : optional, bool
+        If True return the URL for the remote instead
 
     Returns
     -------
     str
-        the remote of the git repository
+        the remote label or URL of the git repository
     """
     _local_conf = read_local_fdpconfig(repo_loc)
 
     try:
-        return _local_conf['git']['remote']
+        _remote_label = _local_conf['git']['remote']
     except KeyError:
         raise fdp_exc.InternalError(
             "Failed to retrieve project git repository remote"
         )
+    
+    if not url:
+        return _remote_label
+    
+    _repo_root = fdp_com.find_git_root(repo_loc)
 
-
-def get_current_user_orcid(repo_loc: str) -> str:
-    """Retrieves the ORCID of the current session user as defined in the config
-
-    Parameters
-    ----------
-    repo_loc : str
-        Location of session CLI config
-
-    Returns
-    -------
-    str
-        user ORCID
-    """
-    _local_conf = read_local_fdpconfig(repo_loc)
     try:
-        _orcid =_local_conf['user']['orcid']
-    except KeyError:
-        _orcid = None
-    if not _orcid or _orcid == "None":
-        raise fdp_exc.CLIConfigurationError("No ORCID defined.")
-    return _orcid
+        return git.Repo(_repo_root).remote(_remote_label).url
+    except ValueError:
+        raise fdp_exc.CLIConfigurationError(
+            f"Failed to retrieve URL for git remote '{_remote_label}'"
+        )
 
 
 def get_current_user_uuid(repo_loc: str) -> str:
-    """Retrieves the UUID of the current session user as defined in the config
+    """Retrieves the UUID of the current session user if defined in the config
 
     Returns
     -------
     str
-        user ORCID
+        user UUID
     """
     _local_conf = read_local_fdpconfig(repo_loc)
-    return _local_conf['user']['uuid']
+    try:
+        _uuid = _local_conf['user']['uuid']
+    except KeyError:
+        _uuid = None
+    if not _uuid or _uuid == "None":
+        raise fdp_exc.CLIConfigurationError("No UUID defined.")
+    return _uuid
+
+def get_current_user_uri(repo_loc: str) -> str:
+    """Retrieves the URI identifier for the current user
+
+    Returns
+    -------
+    str
+        user URI identifier
+    """
+    _local_conf = read_local_fdpconfig(repo_loc)
+    try:
+        _uri = _local_conf['user']['uri']
+    except KeyError:
+        _uri = None
+    if not _uri or _uri == "None":
+        raise fdp_exc.CLIConfigurationError("No user URI identifier defined.")
+    return _uri
 
 
 def check_registry_exists(registry: str = None) -> bool:
@@ -305,82 +362,192 @@ def check_registry_exists(registry: str = None) -> bool:
         True if registry exists, else False
     """
     if not registry:
-        registry = os.path.join(pathlib.Path.home(), fdp_com.FAIR_FOLDER, 'registry')
+        registry = fdp_serv.DEFAULT_REGISTRY_LOCATION
     return os.path.isdir(registry)
 
 
 def get_local_uri() -> str:
+    """Retrieve the local registry URI"""
     _cfg = read_global_fdpconfig()
 
     try:
         return _cfg['registries']['local']['uri']
     except KeyError:
         raise fdp_exc.CLIConfigurationError(
-            f"Expected key 'registries:local:uri' in global CLI configuration"
+            "Expected key 'registries:local:uri' in global CLI configuration"
         )
 
 
-def get_local_port(local_uri: str = None) -> str:
+def get_local_port(local_uri: str = None) -> int:
+    """Retrieve the local port from the local URI"""
     if not local_uri:
         local_uri = get_local_uri()
-    _port_res = re.findall(r'localhost:([0-9]+)', local_uri)
-    if not _port_res:
-        _port_res = re.findall(r'127.0.0.1:([0-9]+)', local_uri)
-    if not _port_res:
+    _port = urlparse(local_uri).port
+    if not _port:
         raise fdp_exc.InternalError(
             "Failed to determine port number from local registry URL"
         )
-    return _port_res[0]
+    return _port
 
+def _handle_orcid(user_orcid: str) -> typing.Tuple[typing.Dict, str]:
+    """Extract the name information from an ORCID selection
+
+    Parameters
+    ----------
+    user_orcid : str
+        ORCID to search
+
+    Returns
+    -------
+    user_info : typing.Dict
+        dictionary of extracted name metadata
+    str
+        default output namespace
+    """
+    _user_info = fdp_id.check_orcid(user_orcid.strip())
+
+    while not _user_info:
+        click.echo("Invalid ORCID given.")
+        user_orcid = click.prompt("ORCID")
+        _user_info = fdp_id.check_orcid(user_orcid.strip())
+    
+    _user_info['orcid'] = user_orcid
+
+    click.echo(
+        f"Found entry: {_user_info['given_names']} "
+        f"{_user_info['family_name']}"
+    )
+
+    _def_ospace = _user_info['given_names'][0]
+
+    if len(_user_info['family_name'].split()) > 1:
+        _def_ospace += _user_info['family_name'].split()[-1]
+    else:
+        _def_ospace += _user_info['family_name']
+
+    return _user_info, _def_ospace
+
+
+def _handle_ror(user_ror: str) -> typing.Tuple[typing.Dict, str]:
+    """Extract institution name information from an ROR ID
+
+    Parameters
+    ----------
+    user_ror : str
+        ROR ID for an institution
+
+    Returns
+    -------
+    user_info : typing.Dict
+        dictionary of extracted name metadata
+    str
+        default output namespace
+    """
+    _user_info = fdp_id.check_ror(user_ror.strip())
+
+    while not _user_info:
+        click.echo("Invalid ROR ID given.")
+        user_ror = click.prompt("ROR ID")
+        _user_info = fdp_id.check_ror(user_ror.strip())
+
+    _user_info['ror'] = user_ror
+
+    click.echo(
+        f"Found entry: {_user_info['family_name']} "
+    )
+
+    _def_ospace = _user_info['family_name'].lower().replace(' ', '_')
+
+    return _user_info, _def_ospace
+
+
+def _handle_grid(user_grid: str) -> typing.Tuple[typing.Dict, str]:
+    """Extract institution name information from an GRID ID
+
+    Parameters
+    ----------
+    user_grid : str
+        GRID ID for an institution
+
+    Returns
+    -------
+    user_info : typing.Dict
+        dictionary of extracted name metadata
+    str
+        default output namespace
+    """
+    _user_info = fdp_id.check_grid(user_grid.strip())
+
+    while not _user_info:
+        click.echo("Invalid GRID ID given.")
+        user_grid = click.prompt("GRID ID")
+        _user_info = fdp_id.check_grid(user_grid.strip())
+
+    _user_info['grid'] = user_grid
+
+    click.echo(
+        f"Found entry: {_user_info['family_name']} "
+    )
+
+    _def_ospace = _user_info['family_name'].lower().replace(' ', '_')
+
+    return _user_info, _def_ospace
+
+
+def _handle_uuid() -> typing.Tuple[typing.Dict, str]:
+    """Obtain metadata for user where no ID provided
+
+    Returns
+    -------
+    user_info : typing.Dict
+        dictionary of extracted name metadata
+    str
+        default output namespace
+    """
+    _full_name = click.prompt("Full Name")
+    _def_ospace = ""
+    _user_info = {}
+    if len(_full_name.split()) > 1:
+        _given_name, _family_name = _full_name.split(" ", 1)
+        _def_ospace = _full_name.lower().strip()[0]
+        _def_ospace += _full_name.lower().split()[-1]
+        _user_info['given_names'] = _given_name.strip()
+        _user_info['family_name'] = _family_name.strip()
+    else:
+        _def_ospace += _full_name
+        _user_info['given_names'] = _full_name
+        _user_info['family_name'] = None
+
+    return _user_info, _def_ospace
 
 
 def _get_user_info_and_namespaces() -> typing.Dict[str, typing.Dict]:
     _user_email = click.prompt("Email")
-    _user_orcid = click.prompt("ORCID", default="None")
-    _user_uuid = None
 
-    if _user_orcid != "None":
-        _user_info = fdp_id.check_orcid(_user_orcid.strip())
+    _invalid_input = True
 
-        while not _user_info:
-            click.echo("Invalid ORCID given.")
+    while _invalid_input:
+        _id_type = click.prompt("Use ID (ORCID/ROR/GRID)", default="None")
+
+        if _id_type.upper() == "ORCID":
             _user_orcid = click.prompt("ORCID")
-            _user_info = fdp_id.check_orcid(_user_orcid)
-
-        click.echo(
-            f"Found entry: {_user_info['given_names']} "
-            f"{_user_info['family_name']}"
-        )
-
-        _def_ospace = _user_info['given_names'][0]
-
-        if len(_user_info['family_name'].split()) > 1:
-            _def_ospace += _user_info['family_name'].split()[-1]
-        else:
-            _def_ospace += _user_info['family_name']
-
-    else:
-        #TODO Add in ROR management here
-        _user_orcid = None
-        _user_uuid = str(uuid.uuid4())
-        _full_name = click.prompt("Full Name")
-        _def_ospace = ""
-        _user_info = {}
-        if len(_full_name.split()) > 1:
-            _given_name, _family_name = _full_name.split(" ", 1)
-            _def_ospace = _full_name.lower().strip()[0]
-            _def_ospace += _full_name.lower().split()[-1]
-            _user_info['given_names'] = _given_name.strip()
-            _user_info['family_name'] = _family_name.strip()
-        else:
-            _def_ospace += _full_name
-            _user_info['given_names'] = _full_name
-            _user_info['family_name'] = None
-
-    _user_info['uuid'] = _user_uuid
+            _user_info, _def_ospace = _handle_orcid(_user_orcid)
+            _invalid_input = False
+        elif _id_type.upper() == "ROR":
+            _user_ror = click.prompt("ROR ID")
+            _user_info, _def_ospace = _handle_ror(_user_ror)
+            _invalid_input = False
+        elif _id_type.upper() == "GRID":
+            _user_grid = click.prompt("GRID ID")
+            _user_info, _def_ospace = _handle_grid(_user_grid)
+            _invalid_input = False
+        elif _id_type.upper() == "NONE":
+            _user_info, _def_ospace = _handle_uuid()
+            _user_uuid = str(uuid.uuid4())
+            _user_info['uuid'] = _user_uuid
+            _invalid_input = False
 
     _user_info['email'] = _user_email
-    _user_info['orcid'] = _user_orcid
 
     _def_ospace = _def_ospace.lower().replace(" ", "").strip()
 
@@ -397,26 +564,23 @@ def _get_user_info_and_namespaces() -> typing.Dict[str, typing.Dict]:
 
 def global_config_query(registry: str = None) -> typing.Dict[str, typing.Any]:
     """Ask user question set for creating global FAIR config"""
-
     if not registry:
-        registry = os.path.join(
-            pathlib.Path().home(), fdp_com.FAIR_FOLDER, 'registry'
-        )
-
+        registry = fdp_serv.DEFAULT_REGISTRY_LOCATION
     click.echo("Checking for local registry")
     if check_registry_exists(registry):
         click.echo("Local registry found")
     else:
-        click.confirm(
+        _install_reg = click.confirm(
             "Local registry not found, would you like to install now?",
-            abort = True
+            default=True
         )
+        if not _install_reg:
+            raise fdp_exc.CLIConfigurationError(
+                "FAIR repository initialisation requires a local registry installation, aborting."
+            )
         fdp_serv.install_registry()
 
-    _default_url = 'http://localhost:8000/api/'
-    if platform.system() == "Windows":
-        _default_url = 'http://127.0.0.1:8000/api/'
-    _local_uri = click.prompt("Local Registry URL", default=_default_url)
+    _local_uri = click.prompt("Local Registry URL", default=fdp_serv.DEFAULT_LOCAL_REGISTRY_URL)
 
     _default_rem = 'https://data.scrc.uk/api/'
     _remote_url = click.prompt("Remote API URL", default=_default_rem)
@@ -455,24 +619,22 @@ def global_config_query(registry: str = None) -> typing.Dict[str, typing.Any]:
             fdp_serv.launch_server(_local_uri, registry_dir=registry)
 
             # Keep server running by creating user run cache file
-            _cache_addr = os.path.join(
-                fdp_com.session_cache_dir(), f"user.run"
-            )
+            _cache_addr = os.path.join(fdp_com.session_cache_dir(), 'user.run')
             pathlib.Path(_cache_addr).touch()
 
         else:
             click.echo("Temporarily launching server to retrieve API token.")
             fdp_serv.launch_server(_local_uri, registry_dir=registry)
-            fdp_serv.stop_server()
+            fdp_serv.stop_server(registry_dir=registry, local_uri=_local_uri)
             try:
-                fdp_req.local_token()
+                fdp_req.local_token(registry_dir=registry)
             except fdp_exc.FileNotFoundError:
                 raise fdp_exc.RegistryError(
                     "Failed to retrieve local API token from registry."
                 )
 
     _loc_data_store = click.prompt(
-        "Default Data Store: ",
+        "Default Data Store",
         default=os.path.join(fdp_com.USER_FAIR_DIR, 'data/')
     )
     if _loc_data_store[-1] != os.path.sep:
@@ -578,7 +740,7 @@ def local_config_query(
     _git_remote = click.prompt("Git remote name", default=_def_rem)
     _invalid_rem = True
 
-    while _invalid_rem:
+    while _invalid_rem and _def_rem:
         try:
             git.Repo(_git_repo).remotes[_git_remote]
             _invalid_rem = False
@@ -747,18 +909,16 @@ def add_site_configs(cfg: typing.Dict, repo_dir: str) -> None:
         raise fdp_exc.InternalError(
             f"Failed to read local CLI configuration '{_local_conf_path}'"
         )
-    else:
-        with open(_local_conf_path) as f:
-            cfg['config_files']['local'] = yaml.safe_load(f)
+    with open(_local_conf_path) as f:
+        cfg['config_files']['local'] = yaml.safe_load(f)
 
     _global_conf_path = fdp_com.global_fdpconfig()
     if not os.path.exists(_global_conf_path):
         raise fdp_exc.InternalError(
             f"Failed to read global CLI configuration '{_global_conf_path}'"
         )
-    else:
-        with open(_global_conf_path) as f:
-            cfg['config_files']['global'] = yaml.safe_load(f)
+    with open(_global_conf_path) as f:
+        cfg['config_files']['global'] = yaml.safe_load(f)
 
 def update_metadata(cfg: typing.Dict) -> None:
     _logger = logging.getLogger("FAIRDataPipeline.Run")

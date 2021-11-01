@@ -204,7 +204,7 @@ def run_command(
     # Substitute in all of the variables we can at this point
     _cfg = fdp_varparse.subst_cli_vars(_job_dir, _now, _cfg)
 
-    _remote_access = mode == CMD_MODE.PULL or mode == CMD_MODE.PUSH
+    _remote_access = mode in [CMD_MODE.PULL, CMD_MODE.PUSH]
 
     # Fully specify registers
     if 'register' in _cfg:
@@ -212,7 +212,7 @@ def run_command(
 
         if _remote_access:
             fdp_varparse.pull_metadata(_cfg, 'register')
-            
+
         if wildcards:
             raise fdp_exc.UserConfigError(
                 f"Found register wildcards in '{config_yaml}'"
@@ -299,10 +299,11 @@ def run_command(
                     "--------------------------------\n",
                     f" Commenced = {_out_str}\n",
                     f" Author    = {' '.join(_user)} <{_email}>\n",
-                    f" Command   = fair pull\n",
+                    ' Command   = fair pull\n',
                     "--------------------------------\n",
                 ]
             )
+
 
     if mode in [CMD_MODE.RUN, CMD_MODE.PASS]:
         yaml.dump(_cfg, open(_work_cfg_yml, 'w'))
@@ -355,7 +356,7 @@ def run_command(
                 ]
             )
 
-        if not "local_repo" in _cfg["run_metadata"]:
+        if "local_repo" not in _cfg["run_metadata"]:
             raise fdp_exc.InternalError(
                 "Expected local repository location to be defined in "
                 f"working configuration file '{config_yaml}'"
@@ -372,7 +373,7 @@ def run_command(
             _process = subprocess.Popen(
                 _cmd_list,
                 stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
                 universal_newlines=True,
                 bufsize=1,
                 text=True,
@@ -416,9 +417,7 @@ def run_command(
             f.writelines([f"------- time taken {_duration} -------\n"])
 
 
-    _hash = get_job_hash(_job_dir)
-
-    return _hash
+    return get_job_hash(_job_dir)
 
 def create_working_config(
     cfg: typing.Dict,

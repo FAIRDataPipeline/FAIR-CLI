@@ -5,22 +5,27 @@ import fair.registry.versioning as fdp_ver
 
 
 @pytest.mark.versioning
-def test_version_bumps():
-    _version_bumps= {
-        "minor": '${{ MINOR }}',
-        "major": '${{ MAJOR }}',
-        "patch": '${{ PATCH }}'
-    }
+def test_incrementer_parsing():
+    for key in fdp_ver.BUMP_FUNCS:
+        assert fdp_ver.parse_incrementer('${{'+key+'}}') == fdp_ver.BUMP_FUNCS[key]
 
-    _expect = {
-        "minor": "0.2.0",
-        "major": "1.0.0",
-        "patch": "0.1.1"
-    }
 
-    _orig_version = semver.VersionInfo.parse("0.1.0")
+@pytest.mark.versioning
+def test_remove_incrementing():
+    assert fdp_ver.undo_incrementer('${{MINOR}}') == '${{ LATEST }}'
 
-    for bump, var in _version_bumps.items():
-        _func = fdp_ver.parse_incrementer(var)
-        assert bump in _func 
-        assert getattr(_orig_version, _func)() == semver.VersionInfo.parse(_expect[bump])
+
+@pytest.mark.versioning
+def test_get_latest():
+    assert fdp_ver.get_latest_version() == semver.VersionInfo(0,0,0)
+    results = [
+        {'version': "0.1.0"},
+        {'version': "1.2.3-rc4"},
+        {'version': "2.1.0"}
+    ]
+    assert fdp_ver.get_latest_version(results) == semver.VersionInfo(2,1,0)
+
+
+@pytest.mark.versioning
+def test_default_bump():
+    assert fdp_ver.default_bump(semver.VersionInfo(0, 1, 0)) == semver.VersionInfo(0, 1, 1)
