@@ -9,6 +9,7 @@ import os
 
 import fair.staging as fdp_stage
 import fair.exceptions as fdp_exc
+import fair.common as fdp_com
 
 LOCAL_REGISTRY_URL = 'http://localhost:8000/api'
 
@@ -72,11 +73,28 @@ def test_get_job_data(local_registry, stager: fdp_stage.Stager, local_config: ty
 
 
             _dummy_url = 'http://not-a-url.com'
-            mocker.patch.object(stager, 'find_registry_entry_for_file', lambda *args: {'url': _dummy_url})
-            mocker.patch('fair.registry.requests.get', lambda *args, **kwargs: [{'url': _dummy_url}])
+            mocker.patch.object(
+                stager,
+                'find_registry_entry_for_file',
+                lambda *args: {'url': _dummy_url}
+            )
 
-            shutil.copy(os.path.join(TEST_DATA, 'test_config.yaml'), os.path.join(_job_dir, fdp_com.USER_CONFIG_FILE))
+            mocker.patch(
+                'fair.registry.requests.get',
+                lambda *args,
+                **kwargs: [{'url': _dummy_url}]
+            )
+
+            shutil.copy(
+                os.path.join(TEST_DATA, 'test_config.yaml'),
+                os.path.join(_job_dir, fdp_com.USER_CONFIG_FILE)
+            )
             
             _jobs = stager.get_job_data(LOCAL_REGISTRY_URL, _id)
 
-            assert _jobs == {'jobs': [], 'user_written_objects': 2*[_dummy_url], 'config_file': _dummy_url, 'script_file': None}
+            assert _jobs == {
+                'jobs': [],
+                'user_written_objects': 2*[_dummy_url],
+                'config_file': _dummy_url,
+                'script_file': None
+            }
