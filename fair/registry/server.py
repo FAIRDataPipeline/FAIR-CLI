@@ -29,6 +29,7 @@ import enum
 import tempfile
 import typing
 import requests
+import platform
 import stat
 import logging
 
@@ -41,6 +42,8 @@ import fair.registry.requests as fdp_req
 REGISTRY_INSTALL_URL = "https://data.scrc.uk/static/localregistry.sh"
 DEFAULT_REGISTRY_LOCATION = os.path.join(pathlib.Path().home(), fdp_com.FAIR_FOLDER, 'registry')
 DEFAULT_LOCAL_REGISTRY_URL = "http://localhost:8000/api/"
+if platform.system() == "Windows":
+    DEFAULT_LOCAL_REGISTRY_URL = 'http://127.0.0.1:8000/api/'
 
 class SwitchMode(enum.Enum):
     """Server access mode
@@ -98,6 +101,12 @@ def launch_server(local_uri: str = None, registry_dir: str = None, verbose: bool
         registry_dir, "scripts", "start_fair_registry"
     )
 
+    if platform.system() == "Windows":
+        registry_dir = fdp_com.registry_home()
+        _server_start_script = os.path.join(
+            registry_dir, "scripts", "start_fair_registry_windows.bat"
+        )
+
     if not os.path.exists(_server_start_script):
         raise fdp_exc.RegistryError(
             f"Failed to find local registry executable '{_server_start_script}',"
@@ -113,7 +122,7 @@ def launch_server(local_uri: str = None, registry_dir: str = None, verbose: bool
         shell=False,
     )
 
-    if verbose:
+    if verbose and platform.system() != "Windows":
         for c in iter(lambda: _start.stdout.read(1), b""):
             sys.stdout.buffer.write(c)
 
@@ -155,6 +164,11 @@ def stop_server(
     _server_stop_script = os.path.join(
         registry_dir, "scripts", "stop_fair_registry"
     )
+
+    if platform.system() == "Windows":
+        _server_stop_script = os.path.join(
+            fdp_com.registry_home(), "scripts", "stop_fair_registry_windows.bat"
+            )
 
     if not os.path.exists(_server_stop_script):
         raise fdp_exc.RegistryError(

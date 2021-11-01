@@ -44,6 +44,7 @@ Functions
 __date__ = "2021-07-02"
 
 import os
+import platform
 import pathlib
 import uuid
 import copy

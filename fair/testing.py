@@ -1,6 +1,7 @@
 import typing
 import tempfile
 import os
+import platform
 import git
 
 import fair.identifiers as fdp_id
@@ -48,18 +49,23 @@ def create_configurations(
         local_git_dir = _proj_dir
 
     os.makedirs(_loc_data_store)
+    _local_uri = 'http://localhost:8000/api/'
+    _origin_uri = 'http://localhost:8001/api/'
+    if platform.system() == "Windows":
+        _local_uri = 'http://127.0.0.1:8000/api/'
+        _origin_uri = 'http://127.0.0.1:8001/api/'
     return {
         'namespaces': {'input': 'testing', 'output': 'testing'},
         'registries': {
             'local': {
                 'data_store': _loc_data_store,
                 'directory': registry_dir,
-                'uri': 'http://localhost:8000/api/'
+                'uri': _local_uri
             },
             'origin': {
                 'data_store': None,
                 'token': os.path.join(registry_dir, 'token.txt'),
-                'uri': 'http://localhost:8001/api/'
+                'uri': _origin_uri
             }
         },
         'user': {
@@ -75,3 +81,4 @@ def create_configurations(
             'remote': 'origin'
         },
     }
+    
