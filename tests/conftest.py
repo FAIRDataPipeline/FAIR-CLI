@@ -61,7 +61,7 @@ def local_config(mocker: pytest_mock.MockerFixture):
             yaml.dump(_cfgl, open(_lconfig_path, 'w'))    
             with open(os.path.join(templ, fdp_com.USER_CONFIG_FILE), 'w') as conf:
                 yaml.dump({'run_metadata': {}}, conf)
-            mocker.patch('fair.common.find_fair_root', lambda: templ)
+            mocker.patch('fair.common.find_fair_root', lambda *args: templ)
             yield (tempg, templ)
 
 
@@ -69,7 +69,7 @@ def local_config(mocker: pytest_mock.MockerFixture):
 def job_directory(mocker: pytest_mock.MockerFixture) -> str:
     with tempfile.TemporaryDirectory() as tempd:
         # Set default to point to temporary
-        mocker.patch('fair.common.default_jobs_dir', lambda: tempd)
+        mocker.patch('fair.common.default_jobs_dir', lambda *args: tempd)
 
         # Create a mock job directory
         os.makedirs(os.path.join(tempd, TEST_JOB_FILE_TIMESTAMP))
