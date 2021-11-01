@@ -59,6 +59,10 @@ SHELLS: typing.Dict[str, str] = {
         "exec": "{0}",
         "extension": "bat"
     },
+    "powershell": {
+        "exec": "powershell -command \". '{0}'\"",
+        "extension": "ps1"
+    },
     "python2": {
         "exec": "python2 {0}",
         "extension": "py"
