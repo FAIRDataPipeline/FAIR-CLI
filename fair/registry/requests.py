@@ -28,6 +28,7 @@ import copy
 import urllib.parse
 import re
 import requests
+from requests.api import head
 import simplejson.errors
 
 import fair.common as fdp_com
@@ -92,6 +93,7 @@ def _access(
     token: str = None,
     headers: typing.Dict[str, typing.Any] = None,
     params: typing.Dict = None,
+    data: typing.Dict = None,
     *args,
     **kwargs,
 ):
@@ -100,6 +102,9 @@ def _access(
 
     if not params:
         params: typing.Dict[str, str] = {}
+    
+    if not data:
+        data: typing.Dict[str, str] = {}
 
     if not token:
         token = local_token()
@@ -114,45 +119,48 @@ def _access(
     if _url[-1] != "/":
         _url += "/"
 
-    if params:
-        _url += "?"
-        _param_strs = [f"{k}={v}" for k, v in params.items()]
-        _url += "&".join(_param_strs)
     _headers = copy.deepcopy(headers)
     _headers["Authorization"] = f"token {token}"
 
     logger.debug("Sending request of type %s: %s", method, _url)
 
     try:
-        _request = getattr(requests, method)(
-            _url, headers=_headers, *args, **kwargs
-        )
+        if method == 'get':
+            _request = requests.get(
+                _url, headers=_headers, params=params, *args, **kwargs
+            )
+        elif method == 'post':
+            _request = requests.post(
+                _url, headers=_headers, data=data, *args, **kwargs
+            )
+        else:
+            _request = getattr(requests, method)(
+                _url, headers=_headers, *args, **kwargs
+            )
     except requests.exceptions.ConnectionError:
         raise fdp_exc.UnexpectedRegistryServerState(
             f"Failed to make registry API request '{_url}'",
             hint="Is this remote correct and the server running?"
         )
 
-    _info = f'\turl = {_url}'
-    _info += f'\tparameters = {kwargs["params"]}' if 'params' in kwargs else ''
-    _info += f'\tdata = {kwargs["data"]}' if 'data' in kwargs else ''
+    _info = f'url = {_url}, '
+    _info += f' parameters = {kwargs["params"]},' if 'params' in kwargs else ''
+    _info += f' data = {kwargs["data"]}' if 'data' in kwargs else ''
 
     # Case of unrecognised object
     if _request.status_code == 404:
         raise fdp_exc.RegistryAPICallError(
             f"Attempt to access an unrecognised resource on registry "
-            f"using method '{method}' and arguments:\n"+_info,
+            f"using method '{method}' and arguments: " + _info,
             error_code=404
         )
 
     # Case of unrecognised object
 
-    #TODO: fix _searchable as for 403 error, shouldnt need join()
     if _request.status_code == 403:
-        _searchable = uri if not obj_path else obj_path
         raise fdp_exc.RegistryAPICallError(
-            f"Failed to retrieve object of type '{_searchable}' "
-            f"using method '{method}' and arguments:\n"+_info,
+            f"Failed to run method '{method}' for url {_url}, "
+            f"request forbidden",
             error_code=403
         )
     elif _request.status_code == 409:
@@ -162,7 +170,6 @@ def _access(
             f"using method '{method}' as it already exists."
             f"Arguments:\n"+_info,
             error_code=409,
-
         )
 
     try:

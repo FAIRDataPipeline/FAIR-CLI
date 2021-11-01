@@ -136,8 +136,8 @@ def local_fdpconfig(user_loc: str = os.getcwd()) -> str:
 
 
 def local_user_config(user_loc: str = os.getcwd()) -> str:
-    """Location of the FAIR-CLI configuration file for the given repository"""
-    return os.path.join(find_fair_root(user_loc), )
+    """Location of the default user configuration file for the given repository"""
+    return os.path.join(find_fair_root(user_loc), USER_CONFIG_FILE)
 
 
 def default_jobs_dir() -> str:

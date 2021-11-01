@@ -226,6 +226,10 @@ def launch(install_dir: str = None, port: int = 8000, silent: bool = False, venv
             "An access token for the REST API is available in the file"
             f"'{os.path.join(install_dir, 'token')}'"
         )
+        if not os.path.exists(os.path.join(install_dir, 'token')):
+            raise AssertionError("Expected token file, but none created")
+        if not open(os.path.join(install_dir, 'token')).read().strip():
+            raise AssertionError("Expected token in token file, but file empty")
     
     if not shutil.which('dot') and not silent:
         click.echo("WARNING: Graphviz is not installed, so provenance report images are not available")

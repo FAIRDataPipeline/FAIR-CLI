@@ -108,6 +108,7 @@ class TestRegistry:
     def __enter__(self):
         try:
             self._process = test_reg.launch(self._install, silent=True, venv_dir=self._venv)
+            self._token = open(os.path.join(self._install, 'token')).read().strip()
         except KeyboardInterrupt as e:
             os.kill(self._process.pid, signal.SIGTERM)
             raise e

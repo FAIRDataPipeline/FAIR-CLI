@@ -28,6 +28,7 @@ import yaml
 from fair.cli import cli
 import fair.staging
 from fair.registry.server import DEFAULT_REGISTRY_DOMAIN
+from fair.registry.requests import local_token
 
 LOCAL_REGISTRY_URL = 'http://localhost:8000/api'
 
@@ -277,5 +278,8 @@ def test_run(
     mocker: pytest_mock.MockerFixture):
     with local_registry:
         mocker.patch('fair.common.registry_home', lambda: local_registry._install)
-        _result = click_test.invoke(cli, ['run', '--debug', '--script', '"echo \'Hello World!\'"'])
+        mocker.patch('fair.registry.requests.local_token', lambda: local_registry._token)
+        with open(os.path.join(local_config[1], fdp_com.FAIR_FOLDER, 'staging'), 'w') as staged:
+            yaml.dump({'job': {}}, staged)
+        _result = click_test.invoke(cli, ['run', '--debug', '--script', 'echo "Hello World!"'])
         assert _result.exit_code == 0

@@ -84,7 +84,7 @@ SHELLS: typing.Dict[str, str] = {
     },
     "bash": {
         "exec": "bash -eo pipefail {0}",
-        "name": "Shell script",
+        "extension": "sh",
     },
     "java": {
         "exec": "java {0}",
@@ -146,6 +146,7 @@ def run_command(
     logger.debug(f"Creating user configuration job object from {config_yaml}")
 
     _job_cfg = fdp_user.JobConfiguration(config_yaml)
+
     _job_cfg.update_from_fair(repo_dir)
 
     if bash_cmd:
@@ -462,6 +463,7 @@ def setup_job_script(
         a dictionary containing information on the command to execute,
         which shell to run it in and the environment to use
     """
+    logger.debug("Setting up job script for execution")
     _cmd = None
 
     if config_dir[-1] != os.path.sep:
@@ -475,8 +477,16 @@ def setup_job_script(
         _shell = user_config["run_metadata"]["shell"]
     else:
         _shell = "batch" if platform.system() == "Windows" else "sh"
+
+    logger.debug("Will use shell: %s", _shell)
+
     if "script" in user_config["run_metadata"]:
         _cmd = user_config["run_metadata"]['script']
+
+        if 'extension' not in SHELLS[_shell]:
+            raise fdp_exc.InternalError(
+                f"Failed to retrieve an extension for shell '{_shell}'"
+            )
         _ext = SHELLS[_shell]["extension"]
         _out_file = os.path.join(output_dir, f"script.{_ext}")
         if _cmd:
@@ -496,6 +506,9 @@ def setup_job_script(
         if _cmd:
             with open(_out_file, "w") as f:
                 f.write(_cmd)
+    
+    logger.debug("Script command: %s", _cmd)
+    logger.debug("Script written to: %s", _out_file)
 
     if not _cmd or not _out_file:
         raise fdp_exc.UserConfigError(

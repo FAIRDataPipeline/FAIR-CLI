@@ -127,6 +127,20 @@ class FAIR:
         self._local_config: typing.Dict[str, typing.Any] = {}
         self._global_config: typing.Dict[str, typing.Any] = {}
 
+        self._logger.debug(
+            "Initialising session with:\n"
+            "\tsession_config = %s\n"
+            "\ttesting        = %s\n"
+            "\trun_mode       = %s\n"
+            "\tstaging_file   = %s\n"
+            "\tsession_id     = %s\n",
+            self._session_config,
+            self._testing,
+            self._run_mode,
+            self._stager._staging_file,
+            self._session_id
+        )
+
         self._load_configurations()
 
         self._setup_server()

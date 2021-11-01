@@ -90,6 +90,13 @@ class Stager:
             whether job is staged, default True
         """
         self._logger.debug("Setting job '%s' status to staged=%s", job_id, stage)
+
+        if not os.path.exists(self._staging_file):
+            raise fdp_exc.FileNotFoundError(
+                "Failed to update tracking, expected staging file"
+                f" '{self._staging_file}' but it does not exist"
+            )
+
         # Open the staging dictionary first
         _staging_dict = yaml.safe_load(open(self._staging_file))
 

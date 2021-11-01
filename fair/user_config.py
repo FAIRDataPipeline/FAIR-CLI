@@ -43,8 +43,12 @@ class JobConfiguration(MutableMapping):
                 "file does not exist"
             )
 
+        self._logger.debug("Loading file '%s'", config_yaml)
+
         self._config: typing.Dict = yaml.safe_load(open(config_yaml))
+
         self._fill_missing()
+
         self.env = None
 
     def __contains__(self, key_addr: str) -> bool:
@@ -301,11 +305,12 @@ class JobConfiguration(MutableMapping):
 
     def get(self, key: str, default: typing.Optional[typing.Any] = None) -> typing.Any:
         """Retrieve item if exists, else return default"""
-        self._logger.debug(f"Removing '{key}' else using default '{default}'")
         try:
-            return self[key]
+            _value = self[key]
         except fdp_exc.KeyPathError:
-            return default
+            _value = default
+        self._logger.debug(f"Returning '{key}={_value}'")
+        return _value
 
     def set_command(self, cmd: str, shell: str='bash') -> None:
         """Set a BASH command to be executed"""

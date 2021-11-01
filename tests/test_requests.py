@@ -1,4 +1,3 @@
-import urllib.parse
 import pytest
 import tempfile
 import os
