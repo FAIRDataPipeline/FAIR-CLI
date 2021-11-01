@@ -63,15 +63,6 @@ def test_preparation(
     local_config: typing.Tuple[str, str],
     local_registry: conf.TestRegistry):
     mocker.patch('fair.common.registry_home', lambda: local_registry._install)
-    _proj_dir = os.path.join(local_config[1], 'project')
     with local_registry:
-        with pytest.raises(fdp_exc.FDPRepositoryError) as e:
-            make_config.prepare(local_config[1], datetime.now(), CMD_MODE.PULL)
-        assert str(e.value) == f"Failed to retrieve latest commit for local repository '{_proj_dir}'"
-        pathlib.Path(os.path.join(_proj_dir, 'temp.txt')).touch()
-        _repo = git.Repo(_proj_dir)
-        _repo.index.add([os.path.join(_proj_dir, 'temp.txt')])
-        _repo.index.commit('Initial commit')
         make_config.prepare(local_config[1], datetime.now(), CMD_MODE.PULL)
-
         make_config.write('test.yaml')

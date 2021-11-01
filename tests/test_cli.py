@@ -50,6 +50,8 @@ def test_status(local_config: typing.Tuple[str, str],
     os.makedirs(os.path.join(local_config[0], fdp_com.FAIR_FOLDER, 'sessions'), exist_ok=True)
     os.makedirs(os.path.join(os.getcwd(), fdp_com.FAIR_FOLDER), exist_ok=True)
     os.makedirs(os.path.join(os.getcwd(), 'jobs'))
+    with open(os.path.join(local_config[1], fdp_com.FAIR_FOLDER, 'staging'), 'w') as staged:
+            yaml.dump({'job': {}}, staged)
     mocker.patch('fair.run.get_job_dir', lambda x: os.path.join(os.getcwd(), 'jobs', x))
     _dummy_config = {
         'run_metadata': {
