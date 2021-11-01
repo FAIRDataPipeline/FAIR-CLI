@@ -46,17 +46,22 @@ def session_virtualenv():
 @pytest.fixture
 def local_config(mocker: pytest_mock.MockerFixture):
     with tempfile.TemporaryDirectory() as tempg:
+        os.makedirs(os.path.join(tempg, fdp_com.FAIR_FOLDER, 'registry'))
+        os.makedirs(os.path.join(tempg, fdp_com.FAIR_FOLDER, 'sessions'))
+        _gconfig_path = os.path.join(tempg, fdp_com.FAIR_FOLDER, fdp_com.FAIR_CLI_CONFIG)
+        _cfgg = fdp_test.create_configurations(tempg, None, tempg, True)
+        yaml.dump(_cfgg, open(_gconfig_path, 'w'))
+        mocker.patch('fair.common.global_config_dir', lambda: os.path.dirname(_gconfig_path))
+        mocker.patch('fair.common.global_fdpconfig', lambda: _gconfig_path)
+
         with tempfile.TemporaryDirectory() as templ:
             os.makedirs(os.path.join(templ, fdp_com.FAIR_FOLDER))
-            os.makedirs(os.path.join(tempg, fdp_com.FAIR_FOLDER, 'registry'))
-            _lconfig_path = os.path.join(templ, fdp_com.FAIR_FOLDER, 'cli-config.yaml')
-            _gconfig_path = os.path.join(tempg, fdp_com.FAIR_FOLDER, 'cli-config.yaml')
+            _lconfig_path = os.path.join(templ, fdp_com.FAIR_FOLDER, fdp_com.FAIR_CLI_CONFIG)
             _cfgl = fdp_test.create_configurations(templ, None, templ, True)
-            _cfgg = fdp_test.create_configurations(tempg, None, tempg, True)
-            yaml.dump(_cfgl, open(_lconfig_path, 'w'))
-            yaml.dump(_cfgg, open(_gconfig_path, 'w'))
-            mocker.patch('fair.common.global_config_dir', lambda: os.path.dirname(_gconfig_path))
-            mocker.patch('fair.common.global_fdpconfig', lambda: _gconfig_path)
+            yaml.dump(_cfgl, open(_lconfig_path, 'w'))    
+            with open(os.path.join(templ, fdp_com.USER_CONFIG_FILE), 'w') as conf:
+                yaml.dump({'run_metadata': {}}, conf)
+            mocker.patch('fair.common.find_fair_root', lambda: templ)
             yield (tempg, templ)
 
 

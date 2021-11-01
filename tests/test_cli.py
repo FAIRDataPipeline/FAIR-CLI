@@ -42,7 +42,10 @@ def click_test():
 
 
 @pytest.mark.cli
-def test_status(local_config: typing.Tuple[str, str], local_registry: conf.TestRegistry, click_test: click.testing.CliRunner, mocker: pytest_mock.MockerFixture):
+def test_status(local_config: typing.Tuple[str, str],
+    local_registry: conf.TestRegistry,
+    click_test: click.testing.CliRunner,
+    mocker: pytest_mock.MockerFixture):
     os.makedirs(os.path.join(local_config[0], fdp_com.FAIR_FOLDER, 'sessions'), exist_ok=True)
     os.makedirs(os.path.join(os.getcwd(), fdp_com.FAIR_FOLDER), exist_ok=True)
     os.makedirs(os.path.join(os.getcwd(), 'jobs'))
@@ -70,7 +73,7 @@ def test_status(local_config: typing.Tuple[str, str], local_registry: conf.TestR
     mocker.patch('fair.registry.server.stop_server', lambda *args: None)
     for identifier in _dummy_job_staging['job']:
         os.makedirs(os.path.join(os.getcwd(), 'jobs', identifier))
-        yaml.dump(_dummy_config, open(os.path.join(os.getcwd(), 'jobs', identifier, 'config.yaml'), 'w'))
+        yaml.dump(_dummy_config, open(os.path.join(os.getcwd(), 'jobs', identifier, fdp_com.USER_CONFIG_FILE), 'w'))
     yaml.dump(_dummy_job_staging, open(os.path.join(os.getcwd(), fdp_com.FAIR_FOLDER, "staging"), 'w'))
     with local_registry:
         mocker.patch('fair.common.registry_home', lambda: local_registry._install)
@@ -80,12 +83,16 @@ def test_status(local_config: typing.Tuple[str, str], local_registry: conf.TestR
 
 
 @pytest.mark.cli
-def test_create(local_registry: conf.TestRegistry, click_test: click.testing.CliRunner, local_config: typing.Tuple[str, str], mocker: pytest_mock.MockerFixture):
+def test_create(
+    local_registry: conf.TestRegistry,
+    click_test: click.testing.CliRunner,
+    local_config: typing.Tuple[str, str],
+    mocker: pytest_mock.MockerFixture):
     with local_registry:
         os.makedirs(os.path.join(os.getcwd(), fdp_com.FAIR_FOLDER))
         shutil.copy(os.path.join(local_config[1], fdp_com.FAIR_FOLDER, 'cli-config.yaml'), os.path.join(os.getcwd(), fdp_com.FAIR_FOLDER, 'cli-config.yaml'))
         mocker.patch('fair.common.registry_home', lambda: local_registry._install)
-        _out_config = os.path.join(os.getcwd(), 'config.yaml')
+        _out_config = os.path.join(os.getcwd(), fdp_com.USER_CONFIG_FILE)
         _result = click_test.invoke(cli, ['create', '--debug', _out_config])
         assert _result.exit_code == 0
         assert os.path.exists(_out_config)
@@ -95,7 +102,7 @@ def test_create(local_registry: conf.TestRegistry, click_test: click.testing.Cli
 def test_init_from_existing(local_registry: conf.TestRegistry, click_test: click.testing.CliRunner, mocker: pytest_mock.MockerFixture):
     mocker.patch('fair.common.registry_home', lambda: local_registry._install)
     
-    _out_config = os.path.join(os.getcwd(), 'config.yaml')
+    _out_config = os.path.join(os.getcwd(), fdp_com.USER_CONFIG_FILE)
     
     with tempfile.TemporaryDirectory() as tempd:
         _out_cli_config = os.path.join(tempd, 'cli-config.yaml')
@@ -135,7 +142,10 @@ def test_init_from_existing(local_registry: conf.TestRegistry, click_test: click
 
 
 @pytest.mark.cli
-def test_init_full(local_registry: conf.TestRegistry, click_test: click.testing.CliRunner, mocker: pytest_mock.MockerFixture):
+def test_init_full(
+    local_registry: conf.TestRegistry,
+    click_test: click.testing.CliRunner,
+    mocker: pytest_mock.MockerFixture):
     mocker.patch('fair.common.registry_home', lambda: local_registry._install)
     mocker.patch('fair.registry.server.update_registry_post_setup', lambda *args: None)
     with local_registry:
@@ -182,7 +192,10 @@ def test_init_full(local_registry: conf.TestRegistry, click_test: click.testing.
 
 
 @pytest.mark.cli
-def test_purge(local_config: typing.Tuple[str, str], click_test: click.testing.CliRunner, mocker: pytest_mock.MockerFixture):
+def test_purge(
+    local_config: typing.Tuple[str, str],
+    click_test: click.testing.CliRunner,
+    mocker: pytest_mock.MockerFixture):
     mocker.patch('fair.common.global_config_dir', lambda *args: local_config[0])
     mocker.patch('fair.common.find_fair_root', lambda *args: local_config[1])
     assert os.path.exists(os.path.join(local_config[0], fdp_com.FAIR_FOLDER))
@@ -199,7 +212,9 @@ def test_purge(local_config: typing.Tuple[str, str], click_test: click.testing.C
 
 
 @pytest.mark.cli
-def test_registry_cli(local_config: typing.Tuple[str, str], click_test: click.testing.CliRunner, mocker: pytest_mock.MockerFixture):
+def test_registry_cli(local_config: typing.Tuple[str, str],
+    click_test: click.testing.CliRunner,
+    mocker: pytest_mock.MockerFixture):
     mocker.patch('fair.common.global_config_dir', lambda *args: local_config[0])
     with tempfile.TemporaryDirectory() as tempd:
         _reg_dir = os.path.join(tempd, 'registry')
@@ -253,3 +268,14 @@ def test_registry_cli(local_config: typing.Tuple[str, str], click_test: click.te
 
         assert _result.exit_code == 0
         assert not glob.glob(os.path.join(tempd, '*'))
+
+
+def test_run(
+    local_config: typing.Tuple[str, str],
+    local_registry: conf.TestRegistry,
+    click_test: click.testing.CliRunner,
+    mocker: pytest_mock.MockerFixture):
+    with local_registry:
+        mocker.patch('fair.common.registry_home', lambda: local_registry._install)
+        _result = click_test.invoke(cli, ['run', '--debug', '--script', '"echo \'Hello World!\'"'])
+        assert _result.exit_code == 0

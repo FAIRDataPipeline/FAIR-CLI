@@ -278,6 +278,8 @@ class FAIR:
             mode=mode
         )
 
+        self._logger.debug(f"Tracking job hash {_hash}")
+
         # Automatically add the run to tracking but unstaged
         self._stager.change_job_stage_status(_hash, False)
 
@@ -500,7 +502,7 @@ class FAIR:
     def make_starter_config(self, output_file_name: str = None) -> None:
         """Create a starter config.yaml"""
         if not output_file_name:
-            output_file_name = os.path.join(self._session_loc, 'config.yaml')
+            output_file_name = os.path.join(self._session_loc, fdp_com.USER_CONFIG_FILE)
         if os.path.exists(output_file_name):
             click.echo(
                 f"The user configuration file '{os.path.abspath(output_file_name)}'"

@@ -75,7 +75,7 @@ def test_get_job_data(local_registry, stager: fdp_stage.Stager, local_config: ty
             mocker.patch.object(stager, 'find_registry_entry_for_file', lambda *args: {'url': _dummy_url})
             mocker.patch('fair.registry.requests.get', lambda *args, **kwargs: [{'url': _dummy_url}])
 
-            shutil.copy(os.path.join(TEST_DATA, 'test_config.yaml'), os.path.join(_job_dir, 'config.yaml'))
+            shutil.copy(os.path.join(TEST_DATA, 'test_config.yaml'), os.path.join(_job_dir, fdp_com.USER_CONFIG_FILE))
             
             _jobs = stager.get_job_data(LOCAL_REGISTRY_URL, _id)
 

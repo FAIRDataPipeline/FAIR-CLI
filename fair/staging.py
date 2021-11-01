@@ -242,7 +242,7 @@ class Stager:
             )
         
         # Check for a config.yaml file
-        _config_yaml = os.path.join(_directory, "config.yaml")
+        _config_yaml = os.path.join(_directory, fdp_com.USER_CONFIG_FILE)
         if not os.path.exists(_config_yaml):
             raise fdp_exc.FileNotFoundError(
                 f"Cannot stage job '{identifier}' "
@@ -260,7 +260,7 @@ class Stager:
         )["url"]
 
         # Check for job script file
-        _config_yaml = os.path.join(_directory, "config.yaml")
+        _config_yaml = os.path.join(_directory, fdp_com.USER_CONFIG_FILE)
         if not os.path.exists(_config_yaml):
             raise fdp_exc.FileNotFoundError(
                 f"Cannot stage job '{identifier}' "

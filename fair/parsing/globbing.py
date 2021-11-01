@@ -35,8 +35,8 @@ def glob_read_write(
     user_config: typing.Dict,
     blocktype: str,
     version: str,
+    registry_url: str,
     search_key: str = None,
-    local_glob: bool = False,
     remove_wildcard: bool = False) -> typing.List:
     """Substitute glob expressions in the 'read' or 'write' part of a user config
 
@@ -46,24 +46,18 @@ def glob_read_write(
         config yaml
     blocktype : str
         block type to process
+    version : str
+        version string
+    registry_url : str
+        URL of the registry to process
     search_key : str, optional
         key to search under, default is taken from SEARCH_KEYS
-    local_glob : bool, optional
-        whether to search the local or remote registry,
-        default is False.
     remove_wildcard: bool, optional
         whether to delete wildcard from yaml file, default is False
     """
     
     _block_cfg = user_config[blocktype]
     _parsed: typing.List[typing.Dict] = []
-
-    # Check whether to glob the local or remote registry
-    # retrieve the URI from the repository CLI config
-    if local_glob:
-        _uri = fdp_conf.registry_url("local", user_config)
-    else:
-        _uri = fdp_conf.registry_url("global", user_config)
 
     # Iterate through all entries in the section looking for any
     # key-value pairs that contain glob statements.
@@ -110,7 +104,7 @@ def glob_read_write(
         # Send a request to the relevant registry using the search string
         # and the selected search key        
         _results = fdp_req.get(
-            _uri,
+            registry_url,
             _key_glob,
             params = _search_dict
         )

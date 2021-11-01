@@ -61,7 +61,7 @@ def status(verbose, debug) -> None:
 @click.argument("output", nargs=-1)
 def create(debug, output: str) -> None:
     """Generate a new FAIR repository user YAML config file"""
-    output = os.path.join(os.getcwd(), 'config.yaml') if not output else output[0]
+    output = os.path.join(os.getcwd(), fdp_com.USER_CONFIG_FILE) if not output else output[0]
     click.echo(
         f"Generating new user configuration file"
         f" '{output}'"

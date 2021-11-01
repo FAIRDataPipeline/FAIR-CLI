@@ -63,7 +63,7 @@ class JobConfiguration(MutableMapping):
             del self._config[key_addr]
         _flat_cfg = fdp_util.flatten_dict(self._config, separator)
         if key_addr not in _flat_cfg:
-            raise fdp_exc.KeyPathError(key_addr, 'config.yaml')
+            raise fdp_exc.KeyPathError(key_addr, fdp_com.USER_CONFIG_FILE)
         self._logger.debug(f"Removing '{key_addr}'")
         del _flat_cfg[key_addr]
         self._config = fdp_util.expand_dict(_flat_cfg)
@@ -73,7 +73,7 @@ class JobConfiguration(MutableMapping):
             return self._config[key_addr]
         _flat_cfg = fdp_util.flatten_dict(self._config, separator)
         if key_addr not in _flat_cfg:
-            raise fdp_exc.KeyPathError(key_addr, 'config.yaml')
+            raise fdp_exc.KeyPathError(key_addr, fdp_com.USER_CONFIG_FILE)
         return _flat_cfg[key_addr]
     
     def __len__(self) -> int:
@@ -93,10 +93,9 @@ class JobConfiguration(MutableMapping):
             self['run_metadata'] = {}
 
         _required = [
-            ('public', True),
-            ('default_read_version', '${{'+fdp_ver.DEFAULT_READ_VERSION+'}}'),
-            ('default_write_version', '${{'+fdp_ver.DEFAULT_WRITE_VERSION+'}}'),
-            ('run_metadata.local_data_registry_url', fdp_conf.get_local_uri())
+            ('run_metadata.public', True),
+            ('run_metadata.default_read_version', '${{'+fdp_ver.DEFAULT_READ_VERSION+'}}'),
+            ('run_metadata.default_write_version', '${{'+fdp_ver.DEFAULT_WRITE_VERSION+'}}'),
         ]
 
         for item in _required:
@@ -217,7 +216,7 @@ class JobConfiguration(MutableMapping):
             user_config=self._config,
             blocktype=block_type,
             search_key=None,
-            local_glob = True,
+            registry_url = self.local_uri,
             version=_version,
             remove_wildcard = block_type == 'read'
         )
@@ -666,6 +665,7 @@ class JobConfiguration(MutableMapping):
     def default_output_namespace(self) -> str:
         """Retrieves the default write data store"""
         return self['run_metadata.default_output_namespace']
+
 
     @property
     def default_read_version(self) -> str:

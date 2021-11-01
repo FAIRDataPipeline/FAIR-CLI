@@ -45,6 +45,7 @@ import fair.exceptions as fdp_exc
 
 USER_FAIR_DIR = os.path.join(pathlib.Path.home(), ".fair")
 FAIR_CLI_CONFIG = "cli-config.yaml"
+USER_CONFIG_FILE = "config.yaml"
 FAIR_FOLDER = ".fair"
 JOBS_DIR = "jobs"
 
@@ -136,7 +137,7 @@ def local_fdpconfig(user_loc: str = os.getcwd()) -> str:
 
 def local_user_config(user_loc: str = os.getcwd()) -> str:
     """Location of the FAIR-CLI configuration file for the given repository"""
-    return os.path.join(find_fair_root(user_loc), "config.yaml")
+    return os.path.join(find_fair_root(user_loc), )
 
 
 def default_jobs_dir() -> str:
