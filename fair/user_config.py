@@ -7,6 +7,7 @@ import copy
 import os
 import re
 import git
+import platform
 import datetime
 
 import fair.exceptions as fdp_exc
@@ -312,8 +313,10 @@ class JobConfiguration(MutableMapping):
         self._logger.debug(f"Returning '{key}={_value}'")
         return _value
 
-    def set_command(self, cmd: str, shell: str='bash') -> None:
+    def set_command(self, cmd: str, shell: typing.Optional[str] = None) -> None:
         """Set a BASH command to be executed"""
+        if not shell:
+            shell = "batch" if platform.system() == "Windows" else "sh"
         self._logger.debug(f"Setting {shell} command to '{cmd}'")
         self['run_metadata.script'] = cmd
         self['run_metadata.shell'] = shell
@@ -649,7 +652,8 @@ class JobConfiguration(MutableMapping):
     @property
     def shell(self) -> str:
         """Retrieve the shell choice"""
-        return self.get('shell', 'bash')
+        _shell_default = "batch" if platform.system() == "Windows" else "sh"
+        return self.get('shell', _shell_default)
 
     @property
     def local_repository(self) -> str:

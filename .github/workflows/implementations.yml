@@ -69,4 +69,4 @@ jobs:
         poetry run fair init --ci
         poetry run fair pull src/main/resources/seirs-config.yaml --debug
         poetry run fair run  src/main/resources/seirs-config.yaml --debug
-      working-directory: java_example
+      working-directory: java_example 
