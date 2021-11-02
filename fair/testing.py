@@ -48,11 +48,10 @@ def create_configurations(
         _repo = git.Repo.init(_proj_dir)
         _repo.create_remote('origin', url='git@notagit.com/nope')
         local_git_dir = _proj_dir
-
-    _demo_file = os.path.join(_proj_dir, 'first_file')
-    pathlib.Path(_demo_file).touch()
-    _repo.index.add(_demo_file)
-    _repo.index.commit("First commit of test repository")
+        _demo_file = os.path.join(_proj_dir, 'first_file')
+        pathlib.Path(_demo_file).touch()
+        _repo.index.add(_demo_file)
+        _repo.index.commit("First commit of test repository")
 
     os.makedirs(_loc_data_store)
     _local_uri = 'http://localhost:8000/api/'

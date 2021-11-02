@@ -570,7 +570,11 @@ class FAIR:
         _first_time = not os.path.exists(fdp_com.global_fdpconfig())
 
         if self._testing:
-            using = fdp_test.create_configurations(registry)
+            using = fdp_test.create_configurations(
+                registry,
+                fdp_com.find_git_root(os.getcwd()),
+                os.getcwd()
+            )
 
         if os.path.exists(_fair_dir):
             if export_as:

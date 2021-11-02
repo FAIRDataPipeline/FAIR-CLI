@@ -28,7 +28,6 @@ import re
 import logging
 import os
 import git
-import yaml
 
 import fair.common as fdp_com
 import fair.registry.versioning as fdp_ver
@@ -37,7 +36,7 @@ import fair.configuration as fdp_conf
 import fair.registry.requests as fdp_req
 import fair.registry.storage as fdp_store
 
-LOG: str = "FAIRDataPipeline.Parsing"
+logger = logging.getLogger("FAIRDataPipeline.Parsing")
 
 def subst_cli_vars(
     job_dir: str,
@@ -67,14 +66,13 @@ def subst_cli_vars(
     Dict
         new user configuration dictionary with substitutions
     """
+    logger.debug("Searching for CLI variables")
 
     def _get_id(directory):
         try:
             return fdp_conf.get_current_user_uri(directory)
         except fdp_exc.CLIConfigurationError:
             return fdp_conf.get_current_user_uuid(directory)
-
-    _fair_head = fdp_com.find_fair_root(local_repo)
 
     def _tag_check(*args, **kwargs):
         _repo = git.Repo(fdp_conf.local_git_repo(local_repo))
@@ -89,7 +87,7 @@ def subst_cli_vars(
         "DATETIME": lambda : job_time.strftime("%Y-%m-%dT%H:%M:%S%Z"),
         "USER": lambda : fdp_conf.get_current_user_name(local_repo),
         "USER_ID": lambda : _get_id(job_dir),
-        "REPO_DIR": lambda : _fair_head,
+        "REPO_DIR": lambda : local_repo,
         "CONFIG_DIR": lambda : job_dir + os.path.sep,
         "LOCAL_TOKEN": lambda : fdp_req.local_token(),
         "GIT_BRANCH": lambda : git.Repo(
@@ -105,6 +103,12 @@ def subst_cli_vars(
 
     _dt_fmt_res = _regex_dt_fmt.findall(user_config_str)
     _fmt_res = _regex_fmt.findall(user_config_str)
+
+    logging.debug(
+        "Found datetime substitutions: %s %s",
+        _dt_fmt_res or "",
+        _fmt_res or ""
+    )
 
     # The two regex searches should match lengths
     if len(_dt_fmt_res) != len(_fmt_res):
@@ -126,22 +130,26 @@ def subst_cli_vars(
     for var, subst in _regex_dict.items():
         # Only execute functions in var substitutions that are required
         if re.findall(subst, user_config_str):
-            user_config_str = re.sub(subst, str(_substitutes[var]()), user_config_str)
+            _value = _substitutes[var]()
+            if not _value:
+                raise fdp_exc.InternalError(
+                    f"Expected value for substitution of '{var}' but returned None",
+                )
+            user_config_str = re.sub(subst, str(_value), user_config_str)
+            logger.debug("Substituting %s: %s", var, str(_value))
     
     # Load the YAML (this also verifies the write was successful) and return it
     return user_config_str
 
 
 def pull_metadata(cfg: typing.Dict, blocktype: str) -> None:
-    _logger = logging.getLogger(LOG)
-    _logger.info(
+    logger.info(
         "Not currently pulling from remote registry"
     )
 
 def pull_data(cfg: typing.Dict, blocktype: str = "read") -> None:
     if blocktype == "read":
-        _logger = logging.getLogger(LOG)
-        _logger.info(
+        logger.info(
             "Not currently pulling from remote registry"
         )
 
