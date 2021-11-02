@@ -95,7 +95,7 @@ class FAIR:
             run in testing mode
         """
         if debug:
-            self._logger.setLevel(logging.DEBUG)
+            logging.getLogger('FAIRDataPipeline').setLevel(logging.DEBUG)
         self._logger.debug("Starting new session.")
         self._testing = testing
         self._session_loc = repo_loc
@@ -283,6 +283,7 @@ class FAIR:
         self.check_is_repo()
         if not os.path.exists(self._session_config):
             self.make_starter_config()
+        
         self._logger.debug("Setting up command execution")
 
         _hash = fdp_run.run_command(

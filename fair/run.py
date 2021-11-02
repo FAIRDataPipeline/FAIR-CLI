@@ -27,12 +27,9 @@ import platform
 import typing
 import glob
 import logging
-import copy
 import hashlib
-import enum
 import datetime
 import subprocess
-import yaml
 import click
 import git
 
@@ -40,7 +37,6 @@ import fair.configuration as fdp_conf
 import fair.common as fdp_com
 import fair.history as fdp_hist
 import fair.exceptions as fdp_exc
-import fair.registry.requests as fdp_req
 import fair.parsing.variables as fdp_varparse
 import fair.user_config as fdp_user
 
@@ -123,6 +119,7 @@ def run_command(
     if not config_yaml:
         config_yaml = os.path.join(fdp_com.find_fair_root(), fdp_com.USER_CONFIG_FILE)
 
+    logger.debug("Using user configuration file: %s", config_yaml)
     click.echo(f"Updating registry from {config_yaml}", err = True)
 
     # Record the time the job was commenced, create a log and both

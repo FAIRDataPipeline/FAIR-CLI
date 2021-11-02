@@ -2,6 +2,36 @@
 name: FAIR CLI Implementation Testing
 on: [push]
 jobs:
+  Python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Clone Python Implementation
+        uses: actions/checkout@v2
+        with:
+          repository: FAIRDataPipeline/pyDataPipeline
+          path: python_example
+          ref: 'v0.2.0'
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: "3.10"
+          architecture: "x64"
+      - name: Install local registry
+        run: |
+          /bin/bash -c "$(curl -fsSL https://data.scrc.uk/static/localregistry.sh)"
+      - name: Install and initialise FAIR CLI
+      - name: install fair-cli
+        run: |
+          pip install poetry
+          poetry install
+
+      - name: run javaSimpleModel with fair cli
+        run: |
+          poetry run fair pull src/org/fairdatapipeline/simpleModel/ext/SEIRSconfig.yaml
+          poetry run fair run src/org/fairdatapipeline/simpleModel/ext/SEIRSconfig.yaml
+        working-directory: python_example
+
   Java:
     runs-on: ubuntu-latest
     steps:
@@ -27,10 +57,6 @@ jobs:
     - name: Install local registry
       run: |
         /bin/bash -c "$(curl -fsSL https://data.scrc.uk/static/localregistry.sh)"
-    
-    - uses: actions/setup-python@v2
-      with:
-        python-version: '3.x'
     
     - name: install fair-cli
       run: |
