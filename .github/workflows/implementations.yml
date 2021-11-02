@@ -25,8 +25,9 @@ jobs:
           pip install poetry
           poetry install
 
-      - name: run javaSimpleModel with fair cli
+      - name: run Python Model with fair cli
         run: |
+          poetry run fair init --ci
           poetry run fair pull src/org/fairdatapipeline/simpleModel/ext/SEIRSconfig.yaml
           poetry run fair run src/org/fairdatapipeline/simpleModel/ext/SEIRSconfig.yaml
         working-directory: python_example
