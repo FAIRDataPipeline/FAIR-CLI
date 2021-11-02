@@ -232,7 +232,7 @@ def run_command(
             )
 
         if mode == CMD_MODE.RUN:
-            prepare_command(_cmd_list, _job_cfg, _log_file, _now)
+            execute_run(_cmd_list, _job_cfg, _log_file, _now)
         else: # CMD_MODE.PASS
             _end_time = datetime.datetime.now()
             with open(_log_file, "a") as f:
@@ -251,43 +251,6 @@ def run_command(
 
 
     return get_job_hash(_job_dir)
-
-
-def prepare_command(_cmd_list, _job_cfg, _log_file, _now):
-    logger.debug("Executing command: %s", ' '.join(_cmd_list))
-    _shell = platform.system() == "Windows"
-    # Run the submission script
-    _process = subprocess.Popen(
-        _cmd_list,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        universal_newlines=True,
-        bufsize=1,
-        text=True,
-        shell=_shell,
-        env=_job_cfg.environment,
-        cwd=_job_cfg.local_repository
-    )
-
-    # Write any stdout to the job log
-    for line in iter(_process.stdout.readline, ""):
-        with open(_log_file, "a") as f:
-            f.writelines([line])
-        click.echo(line, nl=False)
-        sys.stdout.flush()
-    _process.wait()
-    _end_time = datetime.datetime.now()
-    with open(_log_file, "a") as f:
-        _duration = _end_time - _now
-        f.writelines([f"------- time taken {_duration} -------\n"])
-
-    # Exit the session if the job failed
-    if _process.returncode != 0:
-        raise fdp_exc.CommandExecutionError(
-            f"Run failed with exit code '{_process.returncode}'",
-            exit_code=_process.returncode
-        )
-    execute_run(_cmd_list, _job_cfg, _log_file, _now)
 
 
 def execute_run(
