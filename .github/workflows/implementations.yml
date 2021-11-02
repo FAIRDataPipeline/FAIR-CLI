@@ -28,6 +28,7 @@ jobs:
       - name: run Python Model with fair cli
         run: |
           poetry run fair init --ci
+          poetry run pip install .
           poetry run fair pull src/org/fairdatapipeline/simpleModel/ext/SEIRSconfig.yaml --debug
           poetry run fair run src/org/fairdatapipeline/simpleModel/ext/SEIRSconfig.yaml --debug
         working-directory: python_example
