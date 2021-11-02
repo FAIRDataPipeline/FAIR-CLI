@@ -11,7 +11,7 @@ jobs:
         with:
           repository: FAIRDataPipeline/pyDataPipeline
           path: python_example
-          ref: 'v0.2.0'
+          ref: 'dev'
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
