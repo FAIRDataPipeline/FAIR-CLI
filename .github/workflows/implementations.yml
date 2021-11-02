@@ -87,7 +87,7 @@ jobs:
         version: '1.4'
         arch: 'x64'
     - name: Install Package
-      run: julia -e 'using Pkg; Pkg.add("DataPipeline")'
+      run: julia -e 'using Pkg; Pkg.add("InlineStrings"); Pkg.add("DataPipeline")'
 
     - name: Install local registry
       run: |
