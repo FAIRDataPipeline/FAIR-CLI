@@ -16,12 +16,15 @@ jobs:
         run: python -m poetry install
       - name: Install PyInstaller
         run: poetry run pip install pyinstaller
+      - name: 'Get Previous tag'
+        id: previoustag
+        uses: "WyriHaximus/github-action-get-previous-tag@v1"
       - name: Build Binary
         run: |
           poetry run pyinstaller -F fair/cli.py --collect-all fair
       - uses: actions/upload-artifact@v2
         with:
-          name: fair-cli-${{ github.ref }}-x64-ubuntu-latest
+          name: fair-cli-${{ steps.previoustag.outputs.tag }}-x64-ubuntu-latest
           path: dist/cli
       # - name: Create Release
       #   id: create_release
