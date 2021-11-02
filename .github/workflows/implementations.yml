@@ -21,7 +21,6 @@ jobs:
         run: |
           /bin/bash -c "$(curl -fsSL https://data.scrc.uk/static/localregistry.sh)"
       - name: Install and initialise FAIR CLI
-      - name: install fair-cli
         run: |
           pip install poetry
           poetry install
