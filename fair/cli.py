@@ -501,4 +501,4 @@ def pull(config: str, debug: bool):
             sys.exit(e.exit_code)
 
 if __name__ in "__main__":
-    cli(ob={})
+    cli()

@@ -1,0 +1,37 @@
+name: Deploy FAIR-CLI Binary
+on: [push]
+jobs:
+  ubuntu-py39:
+    name: Deploy Ubuntu Python3.9 Binary
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+        with:
+          python-version: '3.9.7'
+          architecture: "x64"
+      - name: Install Poetry
+        run: python -m pip install poetry
+      - name: Install Module
+        run: python -m poetry install
+      - name: Install PyInstaller
+        run: poetry run pip install pyinstaller
+      - name: Build Binary
+        run: |
+          pyinstaller -F fair/cli --collect-all fair
+      - uses: actions/upload-artifact@v2
+        with:
+          name: fair-cli-${{ github.ref }}-x64-ubuntu-latest
+          path: dist/cli
+      # - name: Create Release
+      #   id: create_release
+      #   uses: actions/create-release@v1
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #   with:
+      #     tag_name: ${{ github.ref }}
+      #     release_name: FAIR-CLI Release ${{ github.ref }}
+      #     draft: false
+      #     prerelease: false
+
+    
