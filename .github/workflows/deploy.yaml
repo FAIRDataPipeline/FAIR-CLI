@@ -18,7 +18,7 @@ jobs:
         run: poetry run pip install pyinstaller
       - name: Build Binary
         run: |
-          poetry run pyinstaller -F fair/cli --collect-all fair
+          poetry run pyinstaller -F fair/cli.py --collect-all fair
       - uses: actions/upload-artifact@v2
         with:
           name: fair-cli-${{ github.ref }}-x64-ubuntu-latest
