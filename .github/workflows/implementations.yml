@@ -70,3 +70,64 @@ jobs:
         poetry run fair pull src/main/resources/seirs-config.yaml --debug
         poetry run fair run  src/main/resources/seirs-config.yaml --debug
       working-directory: java_example 
+
+  R:
+    runs-on: ubuntu-20.04
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: git2r dependencies (for package deployment)
+      run: sudo apt-get install -y libgit2-dev
+
+    - name: Clone R Implementation
+      uses: actions/checkout@v2
+      with:
+        repository: FAIRDataPipeline/rSimpleModel
+        path: r_example
+        ref: 'main'
+  
+    - uses: r-lib/actions/setup-r@v1
+      with:
+        r-version: release
+        use-public-rspm: true
+
+    - uses: r-lib/actions/setup-r-dependencies@v1
+      with:
+        extra-packages: |
+          rcmdcheck
+          remotes
+          pkgdown
+        needs: website
+
+    - name: Install R API system requirements (ubuntu-20.04)
+      run: |
+        while read -r cmd
+        do
+          eval sudo $cmd
+        done < <(Rscript -e 'cat(remotes::system_requirements("ubuntu", "20.04"), sep = "\n")')
+
+    - name: Install local registry
+      run: /bin/bash -c "$(curl -fsSL https://data.scrc.uk/static/localregistry.sh)"
+
+    - name: install fair-cli
+      run: |
+        pip install poetry
+        poetry install
+
+    - name: Install implementation
+      run: |
+        install.packages(devtools)
+        devtools::install_github("FAIRDataPipeline/rDataPipeline")
+        library(rDataPipeline)
+        devtools::install_github("FAIRDataPipeline/rSimpleModel")
+        library(rSimpleModel)
+      shell: Rscript {0}
+
+    - name: run rSimpleModel with fair cli
+      run: |
+        poetry run fair init --ci
+        poetry run fair pull inst/extdata/SEIRSconfig.yaml
+        poetry run fair run inst/extdata/SEIRSconfig.yaml
+      working-directory: r_example 
