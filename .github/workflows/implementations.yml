@@ -86,6 +86,8 @@ jobs:
       with:
         version: '1.4'
         arch: 'x64'
+    - name: Install Package
+      run: julia -e 'using Pkg; Pkg.instantiate()'
 
     - name: Install local registry
       run: |
