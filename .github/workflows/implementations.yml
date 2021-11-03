@@ -84,7 +84,7 @@ jobs:
     - name: Set up julia
       uses: julia-actions/setup-julia@v1
       with:
-        version: '1.4'
+        version: '1'
         arch: 'x64'
     - name: Install Package
       run: julia -e 'using Pkg; Pkg.instantiate()'
