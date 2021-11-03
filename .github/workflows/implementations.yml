@@ -93,14 +93,6 @@ jobs:
         r-version: release
         use-public-rspm: true
 
-    - uses: r-lib/actions/setup-r-dependencies@v1
-      with:
-        extra-packages: |
-          rcmdcheck
-          remotes
-          pkgdown
-        needs: website
-
     - name: Install R API system requirements (ubuntu-20.04)
       run: |
         while read -r cmd
