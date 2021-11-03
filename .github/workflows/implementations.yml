@@ -78,9 +78,6 @@ jobs:
     steps:
     - uses: actions/checkout@v2
 
-    - name: git2r dependencies (for package deployment)
-      run: sudo apt-get install -y libgit2-dev
-
     - name: Clone R Implementation
       uses: actions/checkout@v2
       with:
@@ -110,7 +107,7 @@ jobs:
 
     - name: Install implementation
       run: |
-        install.packages(devtools)
+        install.packages("devtools")
         devtools::install_github("FAIRDataPipeline/rDataPipeline")
         library(rDataPipeline)
         devtools::install_github("FAIRDataPipeline/rSimpleModel")
