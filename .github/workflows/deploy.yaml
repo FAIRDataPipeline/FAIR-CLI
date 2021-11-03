@@ -1,5 +1,10 @@
 name: Deploy FAIR-CLI Binary
-on: [push]
+on:
+  push:
+    tags:
+      - "v*"
+permissions:
+  contents: write
 jobs:
   ubuntu-py39:
     name: Deploy Ubuntu Python3.9 Binary
@@ -8,35 +13,44 @@ jobs:
       - uses: actions/checkout@v2
         with:
             fetch-depth: 0
+
       - uses: actions/setup-python@v2
         with:
           python-version: '3.9.7'
           architecture: "x64"
+
       - name: Install Poetry
         run: python -m pip install poetry
+
       - name: Install Module
         run: python -m poetry install
+
       - name: Install PyInstaller
         run: poetry run pip install pyinstaller
+
       - name: 'Get Previous tag'
         id: previoustag
         uses: "WyriHaximus/github-action-get-previous-tag@v1"
+
+      - name: Build Module
+        run: |
+          poetry build
+
       - name: Build Binary
         run: |
           poetry run pyinstaller -F fair/cli.py --collect-all fair
-      - uses: actions/upload-artifact@v2
+          mv dist/cli dist/fair-cli-${{ steps.previoustag.outputs.tag }}-x64-ubuntu-latest
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
         with:
-          name: fair-cli-${{ steps.previoustag.outputs.tag }}-x64-ubuntu-latest
-          path: dist/cli
-      # - name: Create Release
-      #   id: create_release
-      #   uses: actions/create-release@v1
-      #   env:
-      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      #   with:
-      #     tag_name: ${{ github.ref }}
-      #     release_name: FAIR-CLI Release ${{ github.ref }}
-      #     draft: false
-      #     prerelease: false
+          token: "${{ secrets.GITHUB_TOKEN }}"
+          prerelease: false
+          name: FAIR-CLI Release ${{ steps.previoustag.outputs.tag }}
+          tag_name: ${{ steps.previoustag.outputs.tag }}
+          files: |
+            dist/*.whl
+            dist/*.gz
+            dist/fair-cli-${{ steps.previoustag.outputs.tag }}-x64-*
 
     
