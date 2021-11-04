@@ -599,7 +599,8 @@ def global_config_query(registry: str = None) -> typing.Dict[str, typing.Any]:
         click.echo("Local registry found")
     else:
         _install_reg = click.confirm(
-            "Local registry not found, would you like to install now?",
+            f"Local registry not found at location '{registry}',"
+            "would you like to install now?",
             default=True
         )
         if not _install_reg:
