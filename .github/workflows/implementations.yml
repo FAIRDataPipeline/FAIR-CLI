@@ -131,6 +131,11 @@ jobs:
         library(rSimpleModel)
       shell: Rscript {0}
 
+    - name: install fair-cli
+      run: |
+        pip install poetry
+        poetry install
+
     - name: run rSimpleModel with fair cli
       run: |
         poetry run fair registry install
