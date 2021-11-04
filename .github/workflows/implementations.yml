@@ -70,4 +70,40 @@ jobs:
         poetry run fair init --ci
         poetry run fair pull src/main/resources/seirs-config.yaml --debug
         poetry run fair run  src/main/resources/seirs-config.yaml --debug
-      working-directory: java_example 
+      working-directory: java_example
+
+  Julia:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Clone Julia Implementation
+      uses: actions/checkout@v2
+      with:
+        repository: FAIRDataPipeline/DataPipeline.jl
+        path: julia_example
+        ref: 'main'
+    - name: Set up julia
+      uses: julia-actions/setup-julia@v1
+      with:
+        version: '1'
+        arch: 'x64'
+    - name: Install Package
+      run: julia -e 'using Pkg; Pkg.instantiate()'
+
+    - name: Install local registry
+      run: |
+        /bin/bash -c "$(curl -fsSL https://data.scrc.uk/static/localregistry.sh)"
+    
+    - name: install fair-cli
+      run: |
+        pip install poetry
+        poetry install
+      
+    - name: Run SEIRS Model with fair cli
+      run: |
+        poetry run fair init --ci
+        poetry run fair pull examples/fdp/SEIRSconfig.yaml --debug
+        poetry run fair run examples/fdp/SEIRSconfig.yaml --debug
+      working-directory: julia_example 
+    
+
