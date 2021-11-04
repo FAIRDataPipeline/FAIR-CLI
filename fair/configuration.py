@@ -724,7 +724,7 @@ def local_config_query(
 
     # Allow the user to continue without an input namespace as some
     # functionality does not require this.
-    if "input" not in global_config['namespaces']:
+    if "input" not in global_config['namespaces'] or not global_config['namespaces']:
         click.echo(
             "Warning: No global input namespace declared,"
             " in order to use the registry you will need to specify one"
