@@ -71,8 +71,8 @@ class FAIRCLIException(Exception):
 class RegistryError(FAIRCLIException):
     """Errors relating to registry setup and usage"""
 
-    def __init__(self, msg):
-        super().__init__(msg)
+    def __init__(self, msg: str, hint:str = ""):
+        super().__init__(msg, hint=hint)
 
 
 class CLIConfigurationError(FAIRCLIException):

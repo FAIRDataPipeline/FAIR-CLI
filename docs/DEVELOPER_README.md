@@ -169,7 +169,7 @@ Checking for local registry
 Local registry found
 Remote Data Storage Root [http://data.scrc.uk/data/]: 
 Remote API Token File: $HOME/scrc_token.txt
-Local API URL [http://localhost:8000/api/]: 
+Local API URL [http://127.0.0.1:8000/api/]: 
 Local registry is offline, would you like to start it? [y/N]: y
 Default Data Store:  [/home/joebloggs/.fair/data]: 
 Email: jbloggs@noreply.uk
@@ -198,7 +198,7 @@ Git remote name [origin]:
 Using git repository remote 'origin': git@nogit.com:joebloggs/AnalysisProject.git
 Remote API URL [http://data.scrc.uk/api/]: 
 Remote API Token File [/home/kristian/scrc_token.txt]: 
-Local API URL [http://localhost:8000/api/]: 
+Local API URL [http://127.0.0.1:8000/api/]: 
 Default output namespace [jbloggs]: 
 Default input namespace [SCRC]: 
 Initialised empty fair repository in /home/joebloggs/Documents/AnalysisProject/.fair
@@ -211,7 +211,7 @@ run_metadata:
   default_input_namespace: SCRC
   default_output_namespace: jbloggs
   description: Test Project
-  local_data_registry: http://localhost:8000/api/
+  local_data_registry: http://127.0.0.1:8000/api/
   local_repo: /home/joebloggs/Documents/AnalysisProject
   write_data_store: /home/joebloggs/.fair/data/
 ```
@@ -230,7 +230,7 @@ registries:
   local:
     data_store: /path/to/local/data_store/,
     directory: /local/registry/install/directory
-    uri: http://localhost:8000/api/
+    uri: http://127.0.0.1:8000/api/
   origin:
     data_store: /remote/registry/data/store/path/
     token: /path/to/remote/token
@@ -292,7 +292,7 @@ run_metadata:
   default_input_namespace: SCRC
   default_output_namespace: jbloggs
   description: Test project
-  local_data_registry: http://localhost:8000/api/
+  local_data_registry: http://127.0.0.1:8000/api/
   local_repo: /home/joebloggs/Documents/SCRC/FAIR-CLI
   write_data_store: /home/joebloggs/.fair/data/
 register:

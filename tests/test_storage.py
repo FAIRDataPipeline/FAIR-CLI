@@ -10,7 +10,7 @@ import fair.registry.file_types as fdp_file
 from tests.test_requests import LOCAL_URL
 from . import conftest as conf
 
-LOCAL_REGISTRY_URL = 'http://localhost:8000/api'
+LOCAL_REGISTRY_URL = 'http://127.0.0.1:8000/api'
 
 
 @pytest.mark.storage

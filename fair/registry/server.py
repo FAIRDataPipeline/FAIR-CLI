@@ -29,6 +29,7 @@ import enum
 import logging
 import venv
 import typing
+from gitdb.db import ref
 import requests
 import platform
 import git
@@ -46,11 +47,8 @@ FAIR_REGISTRY_REPO = "https://github.com/FAIRDataPipeline/data-registry.git"
 DEFAULT_REGISTRY_DOMAIN = "https://data.scrc.uk/"
 REGISTRY_INSTALL_URL = "https://data.scrc.uk/static/localregistry.sh"
 DEFAULT_REGISTRY_LOCATION = os.path.join(pathlib.Path().home(), fdp_com.FAIR_FOLDER, 'registry')
-DEFAULT_LOCAL_REGISTRY_URL = "http://localhost:8000/api/"
-if platform.system() == "Windows":
-    DEFAULT_LOCAL_REGISTRY_URL = 'http://127.0.0.1:8000/api/'
+DEFAULT_LOCAL_REGISTRY_URL = "http://127.0.0.1:8000/api/"
 
-logger = logging.getLogger('FAIRDataPipeline.Server')
 
 def django_environ(environ: typing.Dict = os.environ):
     _environ = environ.copy()
@@ -89,8 +87,12 @@ def check_server_running(local_uri: str = None) -> bool:
     bool
         whether server is running
     """
+    logger = logging.getLogger('FAIRDataPipeline.Server')
+
     if not local_uri:
         local_uri = fdp_conf.get_local_uri()
+
+    logger.debug("Checking if server is running on '%s'", local_uri)
 
     try:
         _status_code = requests.get(local_uri).status_code
@@ -108,6 +110,7 @@ def launch_server(local_uri: str = None, registry_dir: str = None, verbose: bool
     verbose : bool, optional
         show registry start output, by default False
     """
+    logger = logging.getLogger('FAIRDataPipeline.Server')
 
     if not registry_dir:
         registry_dir = fdp_com.registry_home()
@@ -117,10 +120,7 @@ def launch_server(local_uri: str = None, registry_dir: str = None, verbose: bool
     )
 
     if platform.system() == "Windows":
-        registry_dir = fdp_com.registry_home()
-        _server_start_script = os.path.join(
-            registry_dir, "scripts", "start_fair_registry_windows.bat"
-        )
+        _server_start_script += '.bat'
 
     if not os.path.exists(_server_start_script):
         raise fdp_exc.RegistryError(
@@ -129,6 +129,8 @@ def launch_server(local_uri: str = None, registry_dir: str = None, verbose: bool
         )
 
     _cmd = [_server_start_script, '-p', f'{fdp_conf.get_local_port(local_uri)}']
+
+    logger.debug("Launching server with command '%s'", ' '.join(_cmd))
 
     _start = subprocess.Popen(
         _cmd,
@@ -160,6 +162,8 @@ def stop_server(
     force : bool, optional
         whether to force server shutdown if it is being used
     """
+    logger = logging.getLogger('FAIRDataPipeline.Server')
+
     registry_dir = registry_dir or fdp_com.registry_home()
     _session_port_file = os.path.join(registry_dir, 'session_port.log')
 
@@ -191,6 +195,8 @@ def stop_server(
             " is the FAIR data pipeline properly installed on this system?"
         )
 
+    logger.debug("Stopping local registry server.")
+
     _stop = subprocess.Popen(
         _server_stop_script,
         stdout=subprocess.PIPE,
@@ -209,15 +215,35 @@ def stop_server(
 
 
 def rebuild_local(python: str, install_dir: str = None, silent: bool = False):
+    """Rebuild the local Django registry
+
+    Parameters
+    ----------
+    python : str
+        python binary of virtual environment
+    install_dir : str, optional
+        location of registry installation
+    silent : bool, optional
+        run in silent mode, by default False
+    """
+
+    logger = logging.getLogger('FAIRDataPipeline.Server')
+    logger.debug("Rebuilding local registry")
     if not install_dir:
         install_dir = DEFAULT_REGISTRY_LOCATION
     
-    _migration_files = glob.glob(os.path.join(install_dir, '*', 'migrations', '*.py*'))
+    _migration_files = glob.glob(
+        os.path.join(install_dir, '*', 'migrations', '*.py*')
+    )
+
+    logger.debug("Removing migration files: %s", _migration_files)
 
     for mf in _migration_files:
         os.remove(mf)
 
     _db_file = os.path.join(install_dir, 'db.sqlite3')
+
+    logger.debug("Removing SQL database file")
 
     if os.path.exists(_db_file):
         os.remove(_db_file)
@@ -243,6 +269,8 @@ def rebuild_local(python: str, install_dir: str = None, silent: bool = False):
         ('createsuperuser', '--noinput')
     ]
 
+    logger.debug("Running Django migration commands as setup")
+
     for sub in _sub_cmds:
         subprocess.check_call(
             [python, _manage, *sub],
@@ -252,6 +280,7 @@ def rebuild_local(python: str, install_dir: str = None, silent: bool = False):
         )
 
     if shutil.which('dot'):
+        logger.debug("Creating schema diagram")
         subprocess.check_call(
             [
                 shutil.which('dot'),
@@ -267,11 +296,13 @@ def rebuild_local(python: str, install_dir: str = None, silent: bool = False):
 
 def install_registry(
     repository: str = FAIR_REGISTRY_REPO,
-    head: str = 'main',
+    reference: str = None,
     install_dir: str = None,
     silent: bool = False,
     force: bool = False,
     venv_dir: str = None) -> None:
+
+    logger = logging.getLogger('FAIRDataPipeline.Server')
 
     if not install_dir:
         install_dir = DEFAULT_REGISTRY_LOCATION
@@ -296,28 +327,54 @@ def install_registry(
         yaml.dump(fdp_util.expand_dict(_glob_conf), out_conf)
     
     if force:
+        logger.debug("Removing existing installation at '%s'", install_dir)
         shutil.rmtree(install_dir, ignore_errors=True)
+
+    logger.debug("Creating directories for installation if they do not exist")
 
     os.makedirs(os.path.dirname(install_dir), exist_ok=True)
 
     _repo = git.Repo.clone_from(repository, install_dir)
 
-    if head not in _repo.heads:
-        raise FileNotFoundError(f"No such HEAD '{head}' in registry repository")
+    logger.debug("Retrieving the reference specified from the repository")
+
+    # If no reference is specified, use the latest tag for the registry
+    if not reference:
+        if not _repo.tags:
+            raise fdp_exc.RegistryError(
+                f"Expected tags in local registry repository '{repository}', "
+                "but found none"
+            )
+        reference = _repo.tags[-1].name
+
+    logger.debug("Using reference '%s' for registry checkout", reference)
+
+    _candidates = [t.name for t in _repo.tags+_repo.heads]
+
+    if reference not in _candidates:
+        raise fdp_exc.RegistryError(
+            f"No such head or tag '{reference}' in registry repository"
+            f"Candidates are {_candidates}"
+        )
     else:
-        _repo.heads[head].checkout()
+        _repo.git.checkout(reference)
 
     if not venv_dir:
         venv_dir = os.path.join(install_dir, 'venv')
 
         venv.create(venv_dir, with_pip=True, prompt='TestRegistry',)
 
-    _venv_python = shutil.which('python', path=os.path.join(venv_dir, 'bin'))
+    _python_exe = 'python.exe' if platform.system() == 'Windows' else 'python'
+    _binary_loc = 'Scripts' if platform.system() == 'Windows' else 'bin'
+
+    _venv_python = shutil.which(_python_exe, path=os.path.join(venv_dir, _binary_loc))
 
     if not _venv_python:
         raise FileNotFoundError(
-            f"Failed to find 'python' in location '{venv_dir}"
+            f"Failed to find binary '{_python_exe}' in location '{venv_dir}"
         )
+
+    logger.debug("Installing requirements")
 
     subprocess.check_call(
         [_venv_python, '-m', 'pip', 'install', '--upgrade', 'pip', 'wheel'],
@@ -349,6 +406,7 @@ def install_registry(
 
 def uninstall_registry() -> None:
     """Uninstall the local registry from the default location"""
+    logger = logging.getLogger('FAIRDataPipeline.Server')
     # First check if the location can be retrieved from a CLI configuration
     # else check the default install location
     if (os.path.exists(fdp_com.global_fdpconfig())
@@ -374,14 +432,20 @@ def update_registry_post_setup(repo_dir: str, global_setup: bool = False) -> Non
     global_setup : bool, optional
         whether this is the first (global) setup or local for a new repository
     """
+    logger = logging.getLogger('FAIRDataPipeline.Server')
+
+    logger.debug("Updating registry from latest setup")
+
     _is_running = check_server_running(fdp_conf.get_local_uri())
-    # Populate file type table
+
     if not _is_running:
         launch_server(fdp_conf.get_local_uri())
-    
+
     if global_setup:
+        logger.debug("Populating file types")
         fdp_store.populate_file_type(fdp_conf.get_local_uri())
 
+    logger.debug("Adding 'author' and 'UserAuthor' entries ig not present")
     # Add author and UserAuthor
     _author_url = fdp_store.store_user(repo_dir, fdp_conf.get_local_uri())
 

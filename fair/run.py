@@ -8,15 +8,6 @@ Execute Job
 Creates required files for job execution and runs the job itself using the
 retrieved metadata
 
-
-Contents
-========
-
-Functions
--------
-
-    create_working_config  -  creation of working config.yaml
-
 """
 
 __date__ = "2021-06-30"
@@ -31,13 +22,11 @@ import hashlib
 import datetime
 import subprocess
 import click
-import git
 
 import fair.configuration as fdp_conf
 import fair.common as fdp_com
 import fair.history as fdp_hist
 import fair.exceptions as fdp_exc
-import fair.parsing.variables as fdp_varparse
 import fair.user_config as fdp_user
 
 from fair.common import CMD_MODE
@@ -309,41 +298,6 @@ def execute_run(
             f"Run failed with exit code '{_process.returncode}'",
             exit_code=_process.returncode
         )
-
-def create_working_config(
-    cfg: typing.Dict,
-    job_dir: str,
-    time: datetime.datetime
-) -> typing.Dict:
-    """Generate a working configuration file used during jobs
-
-    Parameters
-    ----------
-    cfg : str
-        working yaml
-    repo_dir : str
-        FAIR repository directory
-    job_dir : str
-        location to write generated config
-    time : datetime.datetime
-        time stamp of job initiation time
-
-    Return
-    ------
-    typing.Dict
-        dictionary after substitutions
-    """
-
-    _conf_yaml = fdp_varparse.subst_cli_vars(
-        cfg, job_dir, time
-    )
-
-    # Add in key for latest commit on the given repository
-    _git_repo = git.Repo(_conf_yaml["run_metadata"]['local_repo'])
-
-    _conf_yaml["run_metadata"]["latest_commit"] = _git_repo.head.commit.hexsha
-
-    return _conf_yaml
 
 
 def get_job_hash(job_dir: str) -> str:

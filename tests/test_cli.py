@@ -30,7 +30,7 @@ import fair.staging
 from fair.registry.server import DEFAULT_REGISTRY_DOMAIN
 from fair.registry.requests import local_token
 
-LOCAL_REGISTRY_URL = 'http://localhost:8000/api'
+LOCAL_REGISTRY_URL = 'http://127.0.0.1:8000/api'
 
 
 @pytest.fixture

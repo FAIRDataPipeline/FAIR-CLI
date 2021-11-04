@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "fair-cli"
-version = "0.2.2"
+version = "0.2.3"
 description = "Synchronization interface for the SCRC FAIR Data Pipeline registry"
 authors = [
     "Richard Reeve <richard.reeve@glasgow.ac.uk>",
@@ -16,7 +16,7 @@ classifiers = [
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Topic :: Scientific/Engineering",
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Topic :: Database :: Front-Ends",
     "Environment :: Console",
     "Operating System :: POSIX :: Linux",
@@ -51,7 +51,7 @@ python = "^3.7.1,<4.0"
 click = "^8.0.0"
 requests = "^2.23.0"
 toml = "^0.10.2"
-rich = "^10.2.2"
+rich = "^10.2.3"
 GitPython = "^3.1.18"
 semver = "^2.13.0"
 Jinja2 = "^3.0.1"
@@ -74,6 +74,7 @@ pytest-cov = "^2.12.1"
 requests-mock = "^1.9.3"
 deepdiff = "^5.5.0"
 pytest-virtualenv = "^1.7.0"
+loremipsum = "^1.0.5"
 
 [tool.poetry.scripts]
 fair = 'fair.cli:cli'

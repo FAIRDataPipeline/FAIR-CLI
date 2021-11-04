@@ -122,7 +122,7 @@ def _access(
     _headers = copy.deepcopy(headers)
     _headers["Authorization"] = f"token {token}"
 
-    logger.debug("Sending request of type %s: %s", method, _url)
+    logger.debug("Sending request of type '%s': %s", method, _url)
 
     try:
         if method == 'get':

@@ -191,7 +191,7 @@ def launch(install_dir: str = None, port: int = 8000, silent: bool = False, venv
 
     while _connection_time < 10:
         try:
-            _req = requests.get(f'http://localhost:{port}/api')
+            _req = requests.get(f'http://127.0.0.1:{port}/api')
             break
         except requests.exceptions.ConnectionError:
             time.sleep(1)
@@ -249,7 +249,7 @@ def stop(install_dir: str = None, port: int = 8000, silent: bool = False):
         shell=False
     )
     try:
-        requests.get(f'http://localhost:{port}/api')
+        requests.get(f'http://127.0.0.1:{port}/api')
         raise AssertionError("Expected registry termination")
     except requests.ConnectionError:
         pass

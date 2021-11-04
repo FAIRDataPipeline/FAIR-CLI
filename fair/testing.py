@@ -45,8 +45,8 @@ def create_configurations(
     if not local_git_dir:
         local_git_dir = _no_git_setup(_proj_dir)
     os.makedirs(_loc_data_store)
-    _local_uri = 'http://localhost:8000/api/'
-    _origin_uri = 'http://localhost:8001/api/'
+    _local_uri = 'http://127.0.0.1:8000/api/'
+    _origin_uri = 'http://127.0.0.1:8001/api/'
     if platform.system() == "Windows":
         _local_uri = 'http://127.0.0.1:8000/api/'
         _origin_uri = 'http://127.0.0.1:8001/api/'
