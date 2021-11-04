@@ -120,7 +120,7 @@ def launch_server(local_uri: str = None, registry_dir: str = None, verbose: bool
     )
 
     if platform.system() == "Windows":
-        _server_start_script += '.bat'
+        _server_start_script += '_windows.bat'
 
     if not os.path.exists(_server_start_script):
         raise fdp_exc.RegistryError(
@@ -185,9 +185,7 @@ def stop_server(
     )
 
     if platform.system() == "Windows":
-        _server_stop_script = os.path.join(
-            fdp_com.registry_home(), "scripts", "stop_fair_registry_windows.bat"
-            )
+        _server_stop_script += '_windows.bat'
 
     if not os.path.exists(_server_stop_script):
         raise fdp_exc.RegistryError(
