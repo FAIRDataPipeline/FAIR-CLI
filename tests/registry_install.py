@@ -128,7 +128,7 @@ def install_registry(
         stdout=subprocess.DEVNULL if silent else None
     )
 
-    _requirements = os.path.join(install_dir, 'requirements.txt')
+    _requirements = os.path.join(install_dir, 'local-requirements.txt')
 
     if not os.path.exists(_requirements):
         raise FileNotFoundError(

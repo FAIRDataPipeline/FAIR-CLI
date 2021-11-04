@@ -2,13 +2,10 @@ from datetime import datetime
 import typing
 import pytest
 import os.path
-import git
-import pathlib
 import pytest_mock
 from fair.common import CMD_MODE
 
 import fair.user_config as fdp_user
-import fair.exceptions as fdp_exc
 from . import conftest as conf
 
 TEST_USER_CONFIG = os.path.join(
