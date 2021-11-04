@@ -70,7 +70,74 @@ jobs:
         poetry run fair init --ci
         poetry run fair pull src/main/resources/seirs-config.yaml --debug
         poetry run fair run  src/main/resources/seirs-config.yaml --debug
-      working-directory: java_example
+      working-directory: java_example 
+
+  R:
+    runs-on: ubuntu-20.04
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+    - uses: actions/checkout@v2
+    
+    - name: Install memcached
+      run: sudo apt install -y libmemcached-dev
+
+    - name: Clone R Data Pipeline
+      uses: actions/checkout@v2
+      with:
+        repository: FAIRDataPipeline/rDataPipeline
+        path: r_data_pipeline
+        ref: 'main'
+        
+    - name: Clone R Implementation
+      uses: actions/checkout@v2
+      with:
+        repository: FAIRDataPipeline/rSimpleModel
+        path: r_example
+        ref: 'main' 
+  
+    - uses: r-lib/actions/setup-r@v1
+      with:
+        r-version: release
+        use-public-rspm: true
+ 
+    - name: install remotes
+      run: |
+          install.packages("remotes")
+      shell: Rscript {0}
+
+    - name: Install R API system requirements (ubuntu-20.04)
+      working-directory: r_data_pipeline
+      run: |
+        while read -r cmd
+        do
+          eval sudo $cmd
+        done < <(Rscript -e 'cat(remotes::system_requirements("ubuntu", "20.04"), sep = "\n")')
+
+    - name: Install R Example system requirements (ubuntu-20.04)
+      working-directory: r_example
+      run: |
+        while read -r cmd
+        do
+          eval sudo $cmd
+        done < <(Rscript -e 'cat(remotes::system_requirements("ubuntu", "20.04"), sep = "\n")')  
+    
+    - name: Install implementation
+      run: |
+        install.packages("devtools")
+        devtools::install_github("FAIRDataPipeline/rDataPipeline")
+        library(rDataPipeline)
+        devtools::install_github("FAIRDataPipeline/rSimpleModel")
+        library(rSimpleModel)
+      shell: Rscript {0}
+
+    - name: run rSimpleModel with fair cli
+      run: |
+        poetry run fair registry install
+        poetry run fair init --ci
+        poetry run fair pull inst/extdata/SEIRSconfig.yaml
+        poetry run fair run inst/extdata/SEIRSconfig.yaml
+      working-directory: r_example 
 
   Julia:
     runs-on: ubuntu-latest
@@ -92,7 +159,7 @@ jobs:
 
     - name: Install Package
       run: julia -e 'using Pkg; Pkg.instantiate()'
-    
+  
     - name: install fair-cli
       run: |
         pip install poetry
