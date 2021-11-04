@@ -17,9 +17,6 @@ jobs:
         with:
           python-version: "3.9"
           architecture: "x64"
-      - name: Install local registry
-        run: |
-          /bin/bash -c "$(curl -fsSL https://data.scrc.uk/static/localregistry.sh)"
       - name: Install and initialise FAIR CLI
         run: |
           pip install poetry
@@ -27,6 +24,7 @@ jobs:
 
       - name: run Python Model with fair cli
         run: |
+          poetry run registry install
           poetry run fair init --ci
           poetry run pip install .
           poetry run fair pull src/org/fairdatapipeline/simpleModel/ext/SEIRSconfig.yaml --debug
@@ -55,10 +53,6 @@ jobs:
       run: gradle build
       working-directory: java_example
     
-    - name: Install local registry
-      run: |
-        /bin/bash -c "$(curl -fsSL https://data.scrc.uk/static/localregistry.sh)"
-    
     - name: install fair-cli
       run: |
         pip install poetry
@@ -66,6 +60,7 @@ jobs:
     
     - name: run javaSimpleModel with fair cli
       run: |
+        poetry run registry install
         poetry run fair init --ci
         poetry run fair pull src/main/resources/seirs-config.yaml --debug
         poetry run fair run  src/main/resources/seirs-config.yaml --debug
