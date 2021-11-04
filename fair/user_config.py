@@ -15,7 +15,6 @@ import fair.utilities as fdp_util
 import fair.configuration as fdp_conf
 import fair.registry.versioning as fdp_ver
 import fair.parsing.globbing as fdp_glob
-import fair.parsing.variables as fdp_var
 import fair.registry.storage as fdp_store
 import fair.registry.requests as fdp_req
 import fair.common as fdp_com
@@ -338,13 +337,7 @@ class JobConfiguration(MutableMapping):
 
     def _substitute_variables(self, job_dir: str, time_stamp: datetime.datetime) -> None:
         self._logger.debug("Performing variable substitution")
-        _config_str = yaml.dump(self._config)
-        _config_str = fdp_var.subst_cli_vars(
-            job_dir,
-            self.local_repository,
-            time_stamp,
-            _config_str
-        )
+        _config_str = self._subst_cli_vars(job_dir, time_stamp)
         self._config = yaml.safe_load(_config_str)
 
     def prepare(self, job_dir: str, time_stamp: datetime.datetime, job_mode: CMD_MODE) -> None:
@@ -406,6 +399,82 @@ class JobConfiguration(MutableMapping):
         _regex_fmt = re.compile(r'\$\{\{\s*([^}${\s]+)\s*\}\}')
 
         return _regex_fmt.findall(_conf_str)
+
+    def _subst_cli_vars(self, job_dir: str, job_time: datetime.datetime) -> str:
+        self._logger.debug("Searching for CLI variables")
+
+        def _get_id():
+            try:
+                return fdp_conf.get_current_user_uri(job_dir)
+            except fdp_exc.CLIConfigurationError:
+                return fdp_conf.get_current_user_uuid(job_dir)
+
+        def _tag_check(*args, **kwargs):
+            _repo = git.Repo(fdp_conf.local_git_repo(self.local_repository))
+            if len(_repo.tags) < 1:
+                fdp_exc.UserConfigError(
+                    "Cannot use GIT_TAG variable, no git tags found."
+                )
+            return _repo.tags[-1].name
+
+        _substitutes: typing.Dict[str, typing.Callable] = {
+            "DATE": lambda : job_time.strftime("%Y%m%d"),
+            "DATETIME": lambda : job_time.strftime("%Y-%m-%dT%H:%M:%S%Z"),
+            "USER": lambda : fdp_conf.get_current_user_name(self.local_repository),
+            "USER_ID": lambda : _get_id(job_dir),
+            "REPO_DIR": lambda : self.local_repository,
+            "CONFIG_DIR": lambda : job_dir + os.path.sep,
+            "LOCAL_TOKEN": lambda : fdp_req.local_token(),
+            "GIT_BRANCH": lambda : self.git_branch,
+            "GIT_REMOTE": lambda : self.git_remote_uri,
+            "GIT_TAG": _tag_check,
+        }
+
+        # Additional parser for formatted datetime
+        _regex_dt_fmt = re.compile(r'\$\{\{\s*DATETIME\-[^}${\s]]+\s*\}\}')
+        _regex_fmt = re.compile(r'\$\{\{\s*DATETIME\-([^}${\s]+)\s*\}\}')
+
+        _config_str: str = yaml.dump(self._config)
+
+        _dt_fmt_res: typing.Optional[typing.List[str]] = _regex_dt_fmt.findall(_config_str)
+        _fmt_res: typing.Optional[typing.List[str]] = _regex_fmt.findall(_config_str)
+
+        self._logger.debug(
+            "Found datetime substitutions: %s %s",
+            _dt_fmt_res or "",
+            _fmt_res or ""
+        )
+
+        # The two regex searches should match lengths
+        if len(_dt_fmt_res) != len(_fmt_res):
+            raise fdp_exc.UserConfigError(
+                "Failed to parse formatted datetime variable"
+            )
+
+        if _dt_fmt_res:
+            for i, _ in enumerate(_dt_fmt_res):
+                _time_str = job_time.strftime(_fmt_res[i].strip())
+                _config_str = _config_str.replace(_dt_fmt_res[i], _time_str)
+
+        _regex_dict = {
+            var: r'\$\{\{\s*'+f'{var}'+r'\s*\}\}'
+            for var in _substitutes
+        }
+
+        # Perform string substitutions
+        for var, subst in _regex_dict.items():
+            # Only execute functions in var substitutions that are required
+            if re.findall(subst, _config_str):
+                _value = _substitutes[var]()
+                if not _value:
+                    raise fdp_exc.InternalError(
+                        f"Expected value for substitution of '{var}' but returned None",
+                    )
+                _config_str = re.sub(subst, str(_value), _config_str)
+                self._logger.debug("Substituting %s: %s", var, str(_value))
+        
+        # Load the YAML (this also verifies the write was successful) and return it
+        return _config_str
 
     def _register_to_read(self) -> typing.Dict:
         """Construct 'read' block entries from 'register' block entries
@@ -675,7 +744,6 @@ class JobConfiguration(MutableMapping):
         """Retrieves the default write data store"""
         return self['run_metadata.default_output_namespace']
 
-
     @property
     def default_read_version(self) -> str:
         """Retrieves the default read version"""
@@ -703,6 +771,17 @@ class JobConfiguration(MutableMapping):
             'run_metadata.remote_data_registry_url',
             fdp_conf.get_remote_uri(self.local_repository)
         )
+
+    @property
+    def git_remote_uri(self) -> str:
+        """Retrieves the URI of the remote repository on git"""
+        return self['run_metadata.remote_repo']
+
+    @property
+    def git_branch(self) -> str:
+        """Retrieves the current git repository branch"""
+        _git_loc = fdp_conf.local_git_repo(self.local_repository)
+        return git.Repo(_git_loc).active_branch.name
 
     @property
     def command(self) -> typing.Optional[str]:
