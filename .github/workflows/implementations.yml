@@ -100,6 +100,7 @@ jobs:
       
     - name: Run SEIRS Model with fair cli
       run: |
+        poetry run registry install
         poetry run fair init --ci
         poetry run fair pull examples/fdp/SEIRSconfig.yaml --debug
         poetry run fair run examples/fdp/SEIRSconfig.yaml --debug
