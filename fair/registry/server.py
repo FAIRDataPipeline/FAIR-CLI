@@ -312,13 +312,15 @@ def install_registry(
 
         venv.create(venv_dir, with_pip=True, prompt='TestRegistry',)
 
-    _venv_python = shutil.which('python', path=os.path.join(venv_dir, 'bin'))
+    _python_exe = 'python.exe' if platform.system() == 'Windows' else 'python'
+    _binary_loc = 'Scripts' if platform.system() == 'Windows' else 'bin'
+
+    _venv_python = shutil.which(_python_exe, path=os.path.join(venv_dir, _binary_loc))
 
     if not _venv_python:
         raise FileNotFoundError(
-            f"Failed to find 'python' in location '{venv_dir}"
+            f"Failed to find binary '{_python_exe}' in location '{venv_dir}"
         )
-
     subprocess.check_call(
         [_venv_python, '-m', 'pip', 'install', '--upgrade', 'pip', 'wheel'],
         shell=False,
