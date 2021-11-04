@@ -600,18 +600,21 @@ class FAIR:
                 self._global_config = fdp_conf.global_config_query(
                     registry
                 )
-                self._local_config = fdp_conf.local_config_query(
-                    self._global_config, first_time_setup=_first_time
-                )
             except (fdp_exc.CLIConfigurationError, click.Abort) as e:
                 self._clean_reset(_fair_dir, e)
+            try:
+                self._local_config = fdp_conf.local_config_query(
+                        self._global_config, first_time_setup=_first_time
+                    )
+            except (fdp_exc.CLIConfigurationError, click.Abort) as e:
+                self._clean_reset(_fair_dir, e, True)
         elif not using:
             try:
                 self._local_config = fdp_conf.local_config_query(
                     self._global_config
                 )
             except (fdp_exc.CLIConfigurationError, click.Abort) as e:
-                self._clean_reset(_fair_dir, e)
+                self._clean_reset(_fair_dir, e, True)
         if not using:
             with open(fdp_com.local_fdpconfig(self._session_loc), "w") as f:
                 yaml.dump(self._local_config, f)
@@ -628,9 +631,10 @@ class FAIR:
 
         click.echo(f"Initialised empty fair repository in {_fair_dir}")
 
-    def _clean_reset(self, _fair_dir, e):
-        shutil.rmtree(fdp_com.session_cache_dir(), ignore_errors=True)
-        shutil.rmtree(fdp_com.global_config_dir(), ignore_errors=True)
+    def _clean_reset(self, _fair_dir, e, local_only: bool = False):
+        if not local_only:
+            shutil.rmtree(fdp_com.session_cache_dir(), ignore_errors=True)
+            shutil.rmtree(fdp_com.global_config_dir(), ignore_errors=True)
         shutil.rmtree(_fair_dir)
         raise e
 

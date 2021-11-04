@@ -412,6 +412,10 @@ def post_else_get(
             raise e
 
     if isinstance(_loc, list):
+        if not _loc:
+            raise fdp_exc.RegistryAPICallError(
+                "Expected to receieve a URL location from registry post"
+            )
         _loc = _loc[0]
     if isinstance(_loc, dict):
         _loc = _loc["url"]

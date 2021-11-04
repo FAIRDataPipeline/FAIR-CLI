@@ -755,7 +755,7 @@ def local_config_query(
                 "Invalid directory, location is not the head of a local"
                 " git repository."
             )
-            _git_repo = click.prompt("Local Git repository", default=_git_repo)
+            _git_repo = click.prompt("Local Git repository")
 
     # Set the remote to use within git by label, by default 'origin'
     # check the remote label is valid before proceeding
@@ -777,7 +777,15 @@ def local_config_query(
             click.echo("Invalid remote name for git repository")
             _git_remote = click.prompt("Git remote name", default=_def_rem)
 
-    _git_remote_repo = git.Repo(_git_repo).remotes[_git_remote].url
+    _repo = git.Repo(_git_repo)
+
+    while _git_remote not in _repo.remotes:
+        click.echo(
+            f"Git remote label '{_git_remote}' does not exist"
+        )
+        _git_remote = click.prompt("Git remote name")
+
+    _git_remote_repo = _repo.remotes[_git_remote].url
 
     click.echo(
         f"Using git repository remote '{_git_remote}': "
@@ -790,9 +798,12 @@ def local_config_query(
         _def_remote = click.prompt("Remote API URL", default=_def_remote)
         _def_rem_key = click.prompt("Remote API Token File", default=_def_rem_key)
         _def_rem_key = os.path.expandvars(_def_rem_key)
+
+        #TODO fix search for valid token
         while (
-            not os.path.exists(_def_rem_key)
-            or not open(_def_rem_key).read().strip()
+            False
+            #not os.path.exists(_def_rem_key)
+            #or not open(_def_rem_key).read().strip()
         ):
             click.echo(
                 f"Token file '{_def_rem_key}' does not exist or is empty, "
