@@ -6,8 +6,73 @@ on:
 permissions:
   contents: write
 jobs:
+  windows-py39:
+    name: Deploy Latest Windows Release
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+            fetch-depth: 0
+
+      - uses: actions/setup-python@v2
+        with:
+          python-version: '3.9.7'
+          architecture: "x64"
+
+      - name: Install Poetry
+        run: python -m pip install poetry
+
+      - name: Install Module
+        run: python -m poetry install
+
+      - name: Install PyInstaller
+        run: poetry run pip install pyinstaller
+
+      - name: Build Windows Binary
+        run: |
+          poetry run pyinstaller -c -F fair/cli.py --collect-all fair
+          mv dist/cli.exe dist/fair-cli-${{ steps.previoustag.outputs.tag }}-x64-windows-latest.exe
+      
+      - uses: actions/upload-artifact@v1
+        with:
+            name: windows_faircli
+            path: dist/fair-cli-${{ steps.previoustag.outputs.tag }}-x64-windows-latest.exe
+
+  macos-py39:
+    name: Deploy Latest Windows Release
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+            fetch-depth: 0
+
+      - uses: actions/setup-python@v2
+        with:
+          python-version: '3.9.7'
+          architecture: "x64"
+
+      - name: Install Poetry
+        run: python -m pip install poetry
+
+      - name: Install Module
+        run: python -m poetry install
+
+      - name: Install PyInstaller
+        run: poetry run pip install pyinstaller
+
+      - name: Build macOS Binary
+        run: |
+          poetry run pyinstaller -c -F fair/cli.py --collect-all fair
+          mv dist/cli.exe dist/fair-cli-${{ steps.previoustag.outputs.tag }}-x64-macos-latest
+      
+      - uses: actions/upload-artifact@v1
+        with:
+            name: macos_faircli
+            path: dist/fair-cli-${{ steps.previoustag.outputs.tag }}-x64-macos-latest
+      
+
   ubuntu-py39:
-    name: Deploy Latest Release
+    name: Deploy Latest Linux Release
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -28,9 +93,24 @@ jobs:
       - name: Install PyInstaller
         run: poetry run pip install pyinstaller
 
-      - name: Get Previous tag
-        id: previoustag
-        uses: "WyriHaximus/github-action-get-previous-tag@v1"
+      - name: Build Ubuntu Binary
+        run: |
+          poetry run pyinstaller -F fair/cli.py --collect-all fair
+          mv dist/cli dist/fair-cli-${{ steps.previoustag.outputs.tag }}-x64-ubuntu-latest
+
+      - uses: actions/upload-artifact@v1
+        with:
+            name: ubuntu_faircli
+            path: dist/fair-cli-${{ steps.previoustag.outputs.tag }}-x64-ubuntu-latest
+
+    
+  create-release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+            fetch-depth: 0
 
       - name: Verify version alignment
         run: |
@@ -46,14 +126,28 @@ jobs:
             exit 1
           fi
 
+      - name: Get Previous tag
+        id: previoustag
+        uses: "WyriHaximus/github-action-get-previous-tag@v1"
+
       - name: Build Module
         run: |
           poetry build
 
-      - name: Build Ubuntu Binary
-        run: |
-          poetry run pyinstaller -F fair/cli.py --collect-all fair
-          mv dist/cli dist/fair-cli-${{ steps.previoustag.outputs.tag }}-x64-ubuntu-latest
+      - name: Retrieve Ubuntu Executable
+        uses: actions/download-artifact@v1
+        with:
+          name: ubuntu_faircli
+
+      - name: Retrieve Windows Executable
+        uses: actions/download-artifact@v1
+        with:
+          name: windows_faircli
+      
+      - name: Retrieve macOS Executable
+        uses: actions/download-artifact@v1
+        with:
+          name: macos_faircli
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
@@ -65,6 +159,6 @@ jobs:
           files: |
             dist/*.whl
             dist/*.gz
-            dist/fair-cli-${{ steps.previoustag.outputs.tag }}-x64-*
-
-    
+            macos_faircli/fair-cli-${{ steps.previoustag.outputs.tag }}-x64-*
+            windows_faircli/fair-cli-${{ steps.previoustag.outputs.tag }}-x64-*
+            ubuntu_faircli/fair-cli-${{ steps.previoustag.outputs.tag }}-x64-*
