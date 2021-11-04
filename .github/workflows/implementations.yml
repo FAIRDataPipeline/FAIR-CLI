@@ -96,6 +96,7 @@ jobs:
       shell: Rscript {0}
 
     - name: Install R API system requirements (ubuntu-20.04)
+      working-directory: r_example
       run: |
         while read -r cmd
         do
