@@ -24,7 +24,7 @@ jobs:
 
       - name: run Python Model with fair cli
         run: |
-          poetry run registry install
+          poetry run fair registry install
           poetry run fair init --ci
           poetry run pip install .
           poetry run fair pull src/org/fairdatapipeline/simpleModel/ext/SEIRSconfig.yaml --debug
@@ -60,7 +60,7 @@ jobs:
     
     - name: run javaSimpleModel with fair cli
       run: |
-        poetry run registry install
+        poetry run fair registry install
         poetry run fair init --ci
         poetry run fair pull src/main/resources/seirs-config.yaml --debug
         poetry run fair run  src/main/resources/seirs-config.yaml --debug
