@@ -61,7 +61,7 @@ def test_get_user(local_config: typing.Tuple[str, str]):
 
 @pytest.mark.configuration
 def test_get_remote_uri(local_config: typing.Tuple[str, str]):
-    assert fdp_conf.get_remote_uri(local_config[1]) == 'http://localhost:8001/api/'
+    assert fdp_conf.get_remote_uri(local_config[1]) == 'http://127.0.0.1:8001/api/'
 
 @pytest.mark.configuration
 def test_get_remote_token(local_config: typing.Tuple[str, str]):
@@ -94,7 +94,7 @@ def test_registry_exists(mocker: pytest_mock.MockerFixture, local_config: typing
 
 @pytest.mark.configuration
 def test_local_uri(local_config: typing.Tuple[str, str]):
-    assert fdp_conf.get_local_uri() == 'http://localhost:8000/api/'
+    assert fdp_conf.get_local_uri() == 'http://127.0.0.1:8000/api/'
 
 
 @pytest.mark.configuration
@@ -153,8 +153,8 @@ def test_global_config_query(mocker: pytest_mock.MockerFixture, local_config: ty
         "Remote Data Storage Root": "",
         "Remote API Token File": os.path.join(local_config[0], 'token.txt'),
         "Default Data Store": "data_store/",
-        "Local Registry URL": "http://localhost:8001/api/",
-        "Remote API URL": "http://localhost:8007/api/"
+        "Local Registry URL": "http://127.0.0.1:8001/api/",
+        "Remote API URL": "http://127.0.0.1:8007/api/"
     }
     _default_user = {
         'family_name': 'Bloggs',
@@ -214,14 +214,14 @@ def test_local_config_query(local_config: typing.Tuple[str, str], mocker: pytest
         },
         'registries': {
             'local': {
-                'uri': "http://localhost:8001/api/",
+                'uri': "http://127.0.0.1:8001/api/",
                 'directory': local_config[0],
                 'data_store': "data_store/",
             },
             'origin': {
-                'uri': "http://localhost:8007/api/",
+                'uri': "http://127.0.0.1:8007/api/",
                 'token': os.path.join(local_config[0], 'token.txt'),
-                'data_store': "http://localhost:8007/data/"
+                'data_store': "http://127.0.0.1:8007/data/"
             }
         },
         'namespaces': {'input': 'ispace', 'output': 'jbloggs'}

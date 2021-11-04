@@ -163,6 +163,7 @@ def check_id_permitted(identifier: str, retries: int = 5) -> bool:
             requests.exceptions.MissingSchema,
             requests.exceptions.HTTPError,
             requests.exceptions.ConnectionError):
+            _n_attempts += 1
             time.sleep(1)
             continue
     

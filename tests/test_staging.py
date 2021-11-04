@@ -11,7 +11,7 @@ import fair.staging as fdp_stage
 import fair.exceptions as fdp_exc
 import fair.common as fdp_com
 
-LOCAL_REGISTRY_URL = 'http://localhost:8000/api'
+LOCAL_REGISTRY_URL = 'http://127.0.0.1:8000/api'
 
 TEST_DATA = os.path.join(os.path.dirname(__file__), 'data')
 
@@ -41,7 +41,7 @@ def test_job_status_change(stager: fdp_stage.Stager, mocker: pytest_mock.MockerF
 
 @pytest.mark.staging
 def test_registry_entry_for_file(stager: fdp_stage.Stager, mocker: pytest_mock.MockerFixture):
-    _url = 'http://localhost:8000/api/storage_location/1'
+    _url = 'http://127.0.0.1:8000/api/storage_location/1'
     def dummy_get(uri, obj_path, params):
         if uri != LOCAL_REGISTRY_URL:
             raise fdp_exc.RegistryError("No such registry")
