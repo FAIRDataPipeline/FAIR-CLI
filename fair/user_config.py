@@ -421,7 +421,7 @@ class JobConfiguration(MutableMapping):
             "DATE": lambda : job_time.strftime("%Y%m%d"),
             "DATETIME": lambda : job_time.strftime("%Y-%m-%dT%H:%M:%S%Z"),
             "USER": lambda : fdp_conf.get_current_user_name(self.local_repository),
-            "USER_ID": lambda : _get_id(job_dir),
+            "USER_ID": lambda : _get_id(),
             "REPO_DIR": lambda : self.local_repository,
             "CONFIG_DIR": lambda : job_dir + os.path.sep,
             "LOCAL_TOKEN": lambda : fdp_req.local_token(),
