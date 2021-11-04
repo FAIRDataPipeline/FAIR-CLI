@@ -82,17 +82,16 @@ jobs:
         repository: FAIRDataPipeline/DataPipeline.jl
         path: julia_example
         ref: 'main'
+    - name: Install memcached
+      run: sudo apt install -y libmemcached-dev
     - name: Set up julia
       uses: julia-actions/setup-julia@v1
       with:
         version: '1'
         arch: 'x64'
+
     - name: Install Package
       run: julia -e 'using Pkg; Pkg.instantiate()'
-
-    - name: Install local registry
-      run: |
-        /bin/bash -c "$(curl -fsSL https://data.scrc.uk/static/localregistry.sh)"
     
     - name: install fair-cli
       run: |
@@ -104,6 +103,4 @@ jobs:
         poetry run fair init --ci
         poetry run fair pull examples/fdp/SEIRSconfig.yaml --debug
         poetry run fair run examples/fdp/SEIRSconfig.yaml --debug
-      working-directory: julia_example 
-    
-
+      working-directory: julia_example
