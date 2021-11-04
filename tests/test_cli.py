@@ -18,6 +18,7 @@ import fair.common as fdp_com
 import git
 import shutil
 import glob
+import sys
 import pytest
 import uuid
 import requests
@@ -199,6 +200,8 @@ def test_purge(
     local_config: typing.Tuple[str, str],
     click_test: click.testing.CliRunner,
     mocker: pytest_mock.MockerFixture):
+    if sys.version_info.major == 3 and sys.version_info.minor == 7:
+        pytest.skip("Python3.7 issues with shutil.rmtree in local_config fixture")
     mocker.patch('fair.common.global_config_dir', lambda *args: local_config[0])
     mocker.patch('fair.common.find_fair_root', lambda *args: local_config[1])
     assert os.path.exists(os.path.join(local_config[0], fdp_com.FAIR_FOLDER))
