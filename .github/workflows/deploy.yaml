@@ -119,6 +119,10 @@ jobs:
   create-release:
     name: Create Release
     runs-on: ubuntu-latest
+    needs:
+      - ubuntu-py39
+      - macos-py39
+      - windows-py39
     steps:
       - uses: actions/checkout@v2
         with:
