@@ -19,6 +19,10 @@ jobs:
           python-version: '3.9.7'
           architecture: "x64"
 
+      - name: Get Previous tag
+        id: previoustag
+        uses: "WyriHaximus/github-action-get-previous-tag@v1"
+
       - name: Install Poetry
         run: python -m pip install poetry
 
@@ -39,7 +43,7 @@ jobs:
             path: dist/fair-cli-${{ steps.previoustag.outputs.tag }}-x64-windows-latest.exe
 
   macos-py39:
-    name: Deploy Latest Windows Release
+    name: Deploy Latest macOS Release
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v2
@@ -57,13 +61,17 @@ jobs:
       - name: Install Module
         run: python -m poetry install
 
+      - name: Get Previous tag
+        id: previoustag
+        uses: "WyriHaximus/github-action-get-previous-tag@v1"
+
       - name: Install PyInstaller
         run: poetry run pip install pyinstaller
 
       - name: Build macOS Binary
         run: |
           poetry run pyinstaller -c -F fair/cli.py --collect-all fair
-          mv dist/cli.exe dist/fair-cli-${{ steps.previoustag.outputs.tag }}-x64-macos-latest
+          mv dist/cli dist/fair-cli-${{ steps.previoustag.outputs.tag }}-x64-macos-latest
       
       - uses: actions/upload-artifact@v1
         with:
@@ -86,6 +94,10 @@ jobs:
 
       - name: Install Poetry
         run: python -m pip install poetry
+
+      - name: Get Previous tag
+        id: previoustag
+        uses: "WyriHaximus/github-action-get-previous-tag@v1"
 
       - name: Install Module
         run: python -m poetry install
