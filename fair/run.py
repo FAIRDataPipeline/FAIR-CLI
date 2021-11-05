@@ -8,15 +8,6 @@ Execute Job
 Creates required files for job execution and runs the job itself using the
 retrieved metadata
 
-
-Contents
-========
-
-Functions
--------
-
-    create_working_config  -  creation of working config.yaml
-
 """
 
 __date__ = "2021-06-30"
@@ -27,27 +18,20 @@ import platform
 import typing
 import glob
 import logging
-import copy
 import hashlib
-import enum
 import datetime
 import subprocess
-import tempfile
-import yaml
 import click
-import git
 
 import fair.configuration as fdp_conf
 import fair.common as fdp_com
 import fair.history as fdp_hist
 import fair.exceptions as fdp_exc
-import fair.registry.requests as fdp_req
-import fair.parsing.variables as fdp_varparse
-import fair.parsing.globbing as fdp_glob
-import fair.register as fdp_reg
-import fair.registry.storage as fdp_store
+import fair.user_config as fdp_user
 
-LOG = "FAIRDataPipeline.Run"
+from fair.common import CMD_MODE
+
+logger = logging.getLogger("FAIRDataPipeline.Run")
 
 # Dictionary of recognised shell labels.
 SHELLS: typing.Dict[str, str] = {
@@ -85,7 +69,7 @@ SHELLS: typing.Dict[str, str] = {
     },
     "bash": {
         "exec": "bash -eo pipefail {0}",
-        "name": "Shell script",
+        "extension": "sh",
     },
     "java": {
         "exec": "java {0}",
@@ -97,17 +81,10 @@ SHELLS: typing.Dict[str, str] = {
     }
 }
 
-class CMD_MODE(enum.Enum):
-    RUN = 1,
-    PULL = 2,
-    PUSH = 3,
-    PASS = 4
-
 
 def run_command(
-    local_uri: str,
     repo_dir: str,
-    config_yaml: str = os.path.join(fdp_com.find_fair_root(), "config.yaml"),
+    config_yaml: str = None,
     mode: CMD_MODE = CMD_MODE.RUN,
     bash_cmd: str = "",
 ) -> str:
@@ -126,14 +103,12 @@ def run_command(
         run from a given config.yaml file
     bash_cmd : str, optional
         override execution command with a bash command
-
-    Returns
-    -------
-        str
-            job hash
     """
 
-    _logger = logging.getLogger(LOG)
+    if not config_yaml:
+        config_yaml = os.path.join(fdp_com.find_fair_root(), fdp_com.USER_CONFIG_FILE)
+
+    logger.debug("Using user configuration file: %s", config_yaml)
     click.echo(f"Updating registry from {config_yaml}", err = True)
 
     # Record the time the job was commenced, create a log and both
@@ -141,8 +116,10 @@ def run_command(
     _now = datetime.datetime.now()
     _timestamp = _now.strftime("%Y-%m-%d_%H_%M_%S_%f")
     _logs_dir = fdp_hist.history_directory(repo_dir)
+
     if not os.path.exists(_logs_dir):
         os.mkdir(_logs_dir)
+
     _log_file = os.path.join(_logs_dir, f"job_{_timestamp}.log")
 
     # Check that the specified user config file for a job actually exists
@@ -152,141 +129,35 @@ def run_command(
             f"file '{config_yaml}' does not exist."
         )
 
-    with open(config_yaml) as f:
-        _cfg = yaml.safe_load(f)
+    logger.debug(f"Creating user configuration job object from {config_yaml}")
 
-    if not _cfg:
-        raise fdp_exc.UserConfigError(
-            f"Failed to load file '{config_yaml}', contents empty."
-        )
+    _job_cfg = fdp_user.JobConfiguration(config_yaml)
 
-    if 'run_metadata' not in _cfg:
-        _cfg['run_metadata'] = {}
-        _logger.debug(
-            f"Failed to find 'run_metadata' in config '{config_yaml}', creating"
-        )
+    _job_cfg.update_from_fair(repo_dir)
 
-    _cfg_meta = _cfg['run_metadata']
-
-    # If a bash command is specified, rewrite the config.yaml with it
     if bash_cmd:
-        _cfg_meta['script'] = bash_cmd
-        _cfg_meta.pop('script_path', None)
-        _cfg['run_metadata'] = _cfg_meta
-        yaml.dump(_cfg, open(config_yaml, 'w'))
+        _job_cfg.set_command(bash_cmd)
 
-    # Incorporate local and global config into config.yaml Dict
-    fdp_conf.add_site_configs(_cfg, repo_dir)
-
-    # Fill in blank in run_metadata block of user config
-    fdp_conf.update_metadata(_cfg)
-
-    # Check we have the right local endpoint
-    _luri = fdp_conf.registry_url("local", _cfg)
-    if  _luri != local_uri:
-        raise fdp_exc.InternalError(
-            f"Mismatch in local endpoint: '{local_uri}' != '{_luri}'"
-        )
-
-    # Make sure we have created the necessary input and output namespaces
-    fdp_store.update_namespaces(_cfg)
-
-    # Create a new timestamped directory for the job
-    _job_dir = os.path.join(
-        fdp_conf.write_data_store(_cfg), fdp_com.JOBS_DIR
-    )
-
-    _logger.debug("Using job directory: %s", _job_dir)
-
-    _job_dir = os.path.join(_job_dir, _timestamp)
+    _job_dir = os.path.join(fdp_com.default_jobs_dir(), _timestamp)
+    logger.debug("Using job directory: %s", _job_dir)
     os.makedirs(_job_dir, exist_ok=True)
 
-    # Substitute in all of the variables we can at this point
-    _cfg = fdp_varparse.subst_cli_vars(_job_dir, _now, _cfg)
+    _job_cfg.prepare(_job_dir, _timestamp, mode)
 
-    _remote_access = mode in [CMD_MODE.PULL, CMD_MODE.PUSH]
-
-    # Fully specify registers
-    if 'register' in _cfg:
-        wildcards = fdp_varparse.fill_block(_cfg, 'register')
-
-        if _remote_access:
-            fdp_varparse.pull_metadata(_cfg, 'register')
-
-        if wildcards:
-            raise fdp_exc.UserConfigError(
-                f"Found register wildcards in '{config_yaml}'"
-            )
-        if not _remote_access:
-            fdp_varparse.register_to_read(_cfg)
-
-        fdp_varparse.fill_versions(_cfg, 'register')
-
-        if mode == CMD_MODE.PULL:
-            fdp_reg.fetch_registrations(repo_dir, _cfg)
-
-    # Fully specify reads
-    if 'read' in _cfg:
-        wildcards = fdp_varparse.fill_block(_cfg, 'read')
-        if _remote_access:
-            fdp_varparse.pull_metadata(_cfg, 'read')
-        if wildcards:
-            fdp_glob.expand_wildcards(_cfg, 'read')
-            if fdp_varparse.fill_block(_cfg, 'read'):
-                raise fdp_exc.InternalError(
-                    f"Still found read wildcards in '{config_yaml}'"
-                )
-        if _remote_access:
-            fdp_varparse.pull_data(_cfg, 'read')
-        fdp_varparse.fill_versions(_cfg, 'read')
-
-    # Fully specify writes
-    if 'write' in _cfg:
-        wildcards = fdp_varparse.fill_block(_cfg, 'write')
-
-        if _remote_access:
-            fdp_varparse.pull_metadata(_cfg, 'write')
-
-        if wildcards:
-            fdp_glob.expand_wildcards(_cfg, 'write')
-
-            if not fdp_varparse.fill_block(_cfg, 'write'):
-                raise fdp_exc.InternalError(
-                    f"Failed to find write wildcards in '{config_yaml}'"
-                )
-        fdp_varparse.fill_versions(_cfg, 'write')
-
-
-    fdp_varparse.clean_config(_cfg)
-
-    _run_executable = "script" in _cfg["run_metadata"] or "script_path" in _cfg["run_metadata"]
+    _run_executable = "script" in _job_cfg["run_metadata"] or "script_path" in _job_cfg["run_metadata"]
     _run_executable = _run_executable and mode in [CMD_MODE.RUN, CMD_MODE.PASS]
 
     if mode == CMD_MODE.PASS:
-        _logger.debug(
+        logger.debug(
             "Run called in passive mode, no command will be executed"
         )
 
     # Set location of working config.yaml to the job directory
-    _work_cfg_yml = os.path.join(_job_dir, "config.yaml")
-
-    # Add in key for latest commit on the given repository
-    _git_repo = git.Repo(_cfg["run_metadata"]['local_repo'])
-
-    _cfg["run_metadata"]["latest_commit"] = _git_repo.head.commit.hexsha
+    _work_cfg_yml = os.path.join(_job_dir, fdp_com.USER_CONFIG_FILE)
 
     # Fetch the CLI configurations for logging information
     _user = fdp_conf.get_current_user_name(repo_dir)
-    _email = fdp_conf.fdp_config_value(_cfg, "none", ['user', 'email'])
-
-    # Remove config file data from working config
-    _cfg.pop('config_files', None)
-
-    if _logger.getEffectiveLevel() == logging.DEBUG:
-        # Create a new config file and update filename
-        (_, config_yaml) = tempfile.mkstemp(suffix=".yaml", text = True)
-        yaml.dump(_cfg, open(config_yaml, 'w'))
-        _logger.debug("New user config stored here: '%s'", config_yaml)
+    _email = fdp_conf.get_current_user_email(repo_dir)
 
     if mode in [CMD_MODE.PULL]:
         # If not a fair run then the log file will have less metadata
@@ -304,41 +175,34 @@ def run_command(
                 ]
             )
 
+    _job_cfg.write(_work_cfg_yml)
 
-    if mode in [CMD_MODE.RUN, CMD_MODE.PASS]:
-        yaml.dump(_cfg, open(_work_cfg_yml, 'w'))
-        if not os.path.exists(_work_cfg_yml):
-            raise fdp_exc.InternalError(
-                "Failed to create working config.yaml in job folder"
-            )
-
-        _logger.debug("Creating working configuration storage location")
+    logger.debug("Creating working configuration storage location")
 
     if _run_executable:
 
         # Create a run script if 'script' is specified instead of 'script_path'
         # else use the script
-        _cmd_setup = setup_job_script(_work_cfg_yml, _job_dir)
-        _shell = _cmd_setup["shell"]
+        _cmd_setup = setup_job_script(
+            _job_cfg.content,
+            _job_cfg.env['FDP_CONFIG_DIR'],
+            _job_dir
+        )
 
-        if _shell not in SHELLS:
+        _job_cfg.set_script(_cmd_setup['script'])
+        _job_cfg.write(_work_cfg_yml)
+
+        if _job_cfg.shell not in SHELLS:
             raise fdp_exc.UserConfigError(
-                f"Unrecognised shell '{_shell}' specified."
+                f"Unrecognised shell '{_job_cfg.shell}' specified."
             )
 
-        _exec = SHELLS[_shell]["exec"]
+        _exec = SHELLS[_job_cfg.shell]["exec"]
         _cmd_list = _exec.format(_cmd_setup['script']).split()
 
-        _run_meta = _cfg["run_metadata"]
-
-        if (
-            "script" not in _run_meta
-            and "script_path" not in _run_meta
-        ):
+        if not _job_cfg.command:
             click.echo("Nothing to run.")
             sys.exit(0)
-
-        _namespace = fdp_conf.output_namespace(_cfg)
 
         # Generate a local job log for the CLI, this is NOT
         # related to metadata sent to the registry
@@ -350,56 +214,14 @@ def run_command(
                     "--------------------------------\n",
                     f" Commenced = {_out_str}\n",
                     f" Author    = {' '.join(_user)} <{_email}>\n",
-                    f" Namespace = {_namespace}\n",
+                    f" Namespace = {_job_cfg.default_output_namespace}\n",
                     f" Command   = {' '.join(_cmd_list)}\n",
                     "--------------------------------\n",
                 ]
             )
 
-        if "local_repo" not in _cfg["run_metadata"]:
-            raise fdp_exc.InternalError(
-                "Expected local repository location to be defined in "
-                f"working configuration file '{config_yaml}'"
-            )
-
-        _run_dir = _cfg["run_metadata"]['local_repo']
-
         if mode == CMD_MODE.RUN:
-            _logger.debug("Executing command: %s", ' '.join(_cmd_list))
-            _shell = False
-            if platform.system() == "Windows":
-                _shell = True
-            # Run the submission script
-            _process = subprocess.Popen(
-                _cmd_list,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                universal_newlines=True,
-                bufsize=1,
-                text=True,
-                shell=_shell,
-                env=_cmd_setup["env"],
-                cwd=_run_dir
-            )
-
-            # Write any stdout to the job log
-            for line in iter(_process.stdout.readline, ""):
-                with open(_log_file, "a") as f:
-                    f.writelines([line])
-                click.echo(line, nl=False)
-                sys.stdout.flush()
-            _process.wait()
-            _end_time = datetime.datetime.now()
-            with open(_log_file, "a") as f:
-                _duration = _end_time - _now
-                f.writelines([f"------- time taken {_duration} -------\n"])
-
-            # Exit the session if the job failed
-            if _process.returncode != 0:
-                raise fdp_exc.CommandExecutionError(
-                    f"Run failed with exit code '{_process.returncode}'",
-                    exit_code=_process.returncode
-                )
+            execute_run(_cmd_list, _job_cfg, _log_file, _now)
         else: # CMD_MODE.PASS
             _end_time = datetime.datetime.now()
             with open(_log_file, "a") as f:
@@ -419,41 +241,63 @@ def run_command(
 
     return get_job_hash(_job_dir)
 
-def create_working_config(
-    cfg: typing.Dict,
-    repo_dir: str,
-    job_dir: str,
-    time: datetime.datetime
-) -> typing.Dict:
-    """Generate a working configuration file used during jobs
+
+def execute_run(
+    command: typing.List[str],
+    job_config: fdp_user.JobConfiguration,
+    log_file: str,
+    timestamp: datetime.datetime) -> None:
+    """Execute a run initialised by a CLI run of mode RUN
 
     Parameters
     ----------
-    cfg : str
-        working yaml
-    repo_dir : str
-        FAIR repository directory
-    job_dir : str
-        location to write generated config
-    time : datetime.datetime
-        time stamp of job initiation time
+    command : typing.List[str]
+        command to execute
+    job_config : str
+        job configuration
+    log_file : str
+        log file to write stdout
+    timestamp : datetime.datetime
+        job execution start time
 
-    Return
+    Raises
     ------
-    typing.Dict
-        dictionary after substitutions
+    fdp_exc.CommandExecutionError
+        [description]
     """
+    logger.debug("Executing command: %s", ' '.join(command))
 
-    _conf_yaml = fdp_varparse.subst_cli_vars(
-        cfg, job_dir, time
+    # Run the submission script
+    _process = subprocess.Popen(
+        command,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        universal_newlines=True,
+        bufsize=1,
+        text=True,
+        shell=False,
+        env=job_config.environment,
+        cwd=job_config.local_repository
     )
 
-    # Add in key for latest commit on the given repository
-    _git_repo = git.Repo(_conf_yaml["run_metadata"]['local_repo'])
+    # Write any stdout to the job log
+    for line in iter(_process.stdout.readline, ""):
+        with open(log_file, "a") as f:
+            f.writelines([line])
+        click.echo(line, nl=False)
+        sys.stdout.flush()
+    _process.wait()
+    _end_time = datetime.datetime.now()
+    with open(log_file, "a") as f:
+        _duration = _end_time - timestamp
+        f.writelines([f"------- time taken {_duration} -------\n"])
 
-    _conf_yaml["run_metadata"]["latest_commit"] = _git_repo.head.commit.hexsha
-
-    return _conf_yaml
+    # Exit the session if the job failed
+    if _process.returncode != 0:
+        raise fdp_exc.CommandExecutionError(
+            f"Run failed with exit code '{_process.returncode}'",
+            exit_code=_process.returncode
+        )
 
 
 def get_job_hash(job_dir: str) -> str:
@@ -506,7 +350,8 @@ def get_job_dir(job_hash: str) -> str:
 
 
 def setup_job_script(
-    config_yaml: str,
+    user_config: typing.Dict,
+    config_dir: str,
     output_dir: str
     ) -> typing.Dict[str, typing.Any]:
     """Setup a job script from the given configuration.
@@ -517,8 +362,12 @@ def setup_job_script(
 
     Parameters
     ----------
-    config_yaml : str
-        job configuration file
+    local_repo : str
+        local FAIR repository
+    script : str
+        script to write to file
+    config_dir : str
+        final location of output config.yaml
     output_dir : str
         location to store submission/job script
 
@@ -528,39 +377,38 @@ def setup_job_script(
         a dictionary containing information on the command to execute,
         which shell to run it in and the environment to use
     """
-    _conf_yaml = yaml.safe_load(open(config_yaml))
+    logger.debug("Setting up job script for execution")
     _cmd = None
-    _run_env = copy.deepcopy(os.environ)
 
-    # Create environment variable which users can refer to in their
-    # submission scripts
-    _run_env["FDP_LOCAL_REPO"] = _conf_yaml["run_metadata"]['local_repo']
-    _run_env["FDP_CONFIG_DIR"] = os.path.dirname(config_yaml) + os.path.sep
-    _run_env["FDP_LOCAL_TOKEN"] = fdp_req.local_token()
+    if config_dir[-1] != os.path.sep:
+        config_dir += os.path.sep
 
     # Check if a specific shell has been defined for the script
     _shell = None
     _out_file = None
 
-    if "shell" in _conf_yaml["run_metadata"]:
-        _shell = _conf_yaml["run_metadata"]["shell"]
+    if "shell" in user_config["run_metadata"]:
+        _shell = user_config["run_metadata"]["shell"]
     else:
-        if platform.system() == "Windows":
-            _shell = "batch"
-        else:
-            _shell = "sh"
+        _shell = "batch" if platform.system() == "Windows" else "sh"
 
-    if "script" in _conf_yaml["run_metadata"]:
-        _cmd = _conf_yaml["run_metadata"]['script']
+    logger.debug("Will use shell: %s", _shell)
+
+    if "script" in user_config["run_metadata"]:
+        _cmd = user_config["run_metadata"]['script']
+
+        if 'extension' not in SHELLS[_shell]:
+            raise fdp_exc.InternalError(
+                f"Failed to retrieve an extension for shell '{_shell}'"
+            )
         _ext = SHELLS[_shell]["extension"]
         _out_file = os.path.join(output_dir, f"script.{_ext}")
         if _cmd:
             with open(_out_file, "w") as f:
                 f.write(_cmd)
-        del _conf_yaml["run_metadata"]['script']
 
-    elif "script_path" in _conf_yaml["run_metadata"]:
-        _path = _conf_yaml["run_metadata"]["script_path"]
+    elif "script_path" in user_config["run_metadata"]:
+        _path = user_config["run_metadata"]["script_path"]
         if not os.path.exists(_path):
             raise fdp_exc.CommandExecutionError(
                 f"Failed to execute run, script '{_path}' was not found, or"
@@ -572,6 +420,9 @@ def setup_job_script(
         if _cmd:
             with open(_out_file, "w") as f:
                 f.write(_cmd)
+    
+    logger.debug("Script command: %s", _cmd)
+    logger.debug("Script written to: %s", _out_file)
 
     if not _cmd or not _out_file:
         raise fdp_exc.UserConfigError(
@@ -579,9 +430,4 @@ def setup_job_script(
             "'script' or 'script_path' entry under 'run_metadata'"
         )
 
-    _conf_yaml["run_metadata"]["script_path"] = _out_file
-
-    with open(config_yaml, 'w') as f:
-        yaml.dump(_conf_yaml, f)
-
-    return {"shell": _shell, "script": _out_file, "env": _run_env}
+    return {"shell": _shell, "script": _out_file}

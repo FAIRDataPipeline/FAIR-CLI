@@ -36,7 +36,6 @@ import pathlib
 import logging
 import shutil
 import copy
-import sys
 import click
 import rich
 import git
@@ -51,11 +50,7 @@ import fair.exceptions as fdp_exc
 import fair.history as fdp_hist
 import fair.staging as fdp_stage
 import fair.testing as fdp_test
-import fair.session as fdp_session
-import fair.registry.server as fdp_svr
 import fair.registry.sync as fdp_sync
-import fair.registry.storage as fdp_store
-import fair.registry.requests as fdp_req
 
 
 class FAIR:
@@ -67,6 +62,7 @@ class FAIR:
     being determined relative to the closest FAIR repository root folder (i.e.
     the closest location in the upper hierarchy containing a '.fair' folder).
     """
+    _logger = logging.getLogger("FAIRDataPipeline.Session")
 
     def __init__(
         self,
@@ -98,14 +94,14 @@ class FAIR:
         testing : bool
             run in testing mode
         """
-        self._logger = logging.getLogger("FAIRDataPipeline")
         if debug:
-            self._logger.setLevel(logging.DEBUG)
+            logging.getLogger('FAIRDataPipeline').setLevel(logging.DEBUG)
         self._logger.debug("Starting new session.")
         self._testing = testing
         self._session_loc = repo_loc
+        self._logger.debug(f"Session location: {self._session_loc}")
         self._run_mode = server_mode
-        self._stager = fdp_stage.Stager(self._session_loc)
+        self._stager: fdp_stage.Stager = fdp_stage.Stager(self._session_loc)
         self._session_id = (
             uuid.uuid4() if server_mode == fdp_serv.SwitchMode.CLI else None
         )
@@ -130,6 +126,20 @@ class FAIR:
         # Initialise all configuration status dictionaries
         self._local_config: typing.Dict[str, typing.Any] = {}
         self._global_config: typing.Dict[str, typing.Any] = {}
+
+        self._logger.debug(
+            "Initialising session with:\n"
+            "\tsession_config = %s\n"
+            "\ttesting        = %s\n"
+            "\trun_mode       = %s\n"
+            "\tstaging_file   = %s\n"
+            "\tsession_id     = %s\n",
+            self._session_config,
+            self._testing,
+            self._run_mode,
+            self._stager._staging_file,
+            self._session_id
+        )
 
         self._load_configurations()
 
@@ -163,11 +173,11 @@ class FAIR:
         global_cfg : bool, optional
             remove global directories, default is False
         verbose : bool, optional
-            run in verbose mode, default is Trye
+            run in verbose mode, default is True
         clear_data : bool, optional
             remove the data directory (potentially dangerous), default is False
         """
-        _root_dir = os.path.join(fdp_com.find_fair_root(), fdp_com.FAIR_FOLDER)
+        _root_dir = os.path.join(fdp_com.find_fair_root(self._session_loc), fdp_com.FAIR_FOLDER)
         if local_cfg and os.path.exists(_root_dir):
             if verbose:
                 click.echo(f"Removing directory '{_root_dir}'")
@@ -198,20 +208,9 @@ class FAIR:
         # If a session ID has been specified this means the server is auto
         # started as opposed to being started explcitly by the user
         # this means it will be shut down on completion
+        self._logger.debug(f"Running server setup for run mode {self._run_mode}")
         if self._run_mode == fdp_serv.SwitchMode.CLI:
-            self.check_is_repo()
-            _cache_addr = os.path.join(
-                fdp_com.session_cache_dir(), f"{self._session_id}.run"
-            )
-
-            # If there are no session cache files start the server
-            if not glob.glob(
-                os.path.join(fdp_com.session_cache_dir(), "*.run")
-            ):
-                fdp_serv.launch_server()
-
-            # Create new session cache file
-            pathlib.Path(_cache_addr).touch()
+            self._setup_server_cli_mode()
         elif self._run_mode == fdp_serv.SwitchMode.USER_START:
             self._setup_server_user_start()
         elif self._run_mode in [
@@ -230,10 +229,38 @@ class FAIR:
                 force=self._run_mode == fdp_serv.SwitchMode.FORCE_STOP,
             )
 
+    def _setup_server_cli_mode(self):
+        self.check_is_repo()
+        _cache_addr = os.path.join(
+            fdp_com.session_cache_dir(), f"{self._session_id}.run"
+        )
+
+        self._logger.debug("Checking for existing sessions")
+        # If there are no session cache files start the server
+        if not glob.glob(
+            os.path.join(fdp_com.session_cache_dir(), "*.run")
+        ):
+            self._logger.debug("No sessions found, launching server")
+            fdp_serv.launch_server()
+
+        self._logger.debug(f"Creating new session #{self._session_id}")
+
+        if not os.path.exists(fdp_com.session_cache_dir()):
+            raise fdp_exc.InternalError(
+                "Failed to create session cache file, "
+                f"expected cache directory '{fdp_com.session_cache_dir()}' to exist"
+            )
+
+        # Create new session cache file
+        pathlib.Path(_cache_addr).touch()
+
     def _setup_server_user_start(self):
+        if not os.path.exists(fdp_com.session_cache_dir()):
+            os.makedirs(fdp_com.session_cache_dir())
+
         _cache_addr = os.path.join(fdp_com.session_cache_dir(), 'user.run')
 
-        if "registries" not in self._local_config:
+        if "registries" not in self._global_config:
             raise fdp_exc.CLIConfigurationError(
                 "Cannot find server address in current configuration",
                 hint="Is the current location a FAIR repository?"
@@ -256,26 +283,30 @@ class FAIR:
         self.check_is_repo()
         if not os.path.exists(self._session_config):
             self.make_starter_config()
+        
         self._logger.debug("Setting up command execution")
 
         _hash = fdp_run.run_command(
-            local_uri=fdp_conf.get_local_uri(),
             repo_dir=self._session_loc,
             config_yaml=self._session_config,
             bash_cmd=bash_cmd,
             mode=mode
         )
 
+        self._logger.debug(f"Tracking job hash {_hash}")
+
         # Automatically add the run to tracking but unstaged
         self._stager.change_job_stage_status(_hash, False)
 
         return _hash
 
-    def check_is_repo(self) -> None:
+    def check_is_repo(self, location: str = None) -> None:
         """Check that the current location is a FAIR repository"""
-        if not fdp_com.find_fair_root():
+        if not location:
+            location = self._session_loc
+        if not fdp_com.find_fair_root(location):
             raise fdp_exc.FDPRepositoryError(
-                "Not a FAIR repository", hint="Run 'fair init' to initialise."
+                f"'{location}' is not a FAIR repository", hint="Run 'fair init' to initialise."
             )
 
     def check_git_repo_state(self, git_repo: str, remote_label: str = 'origin') -> bool:
@@ -305,6 +336,7 @@ class FAIR:
         """This ensures all configurations are read at the
         start of every session.
         """
+        self._logger.debug("Loading CLI configurations.")
 
         if os.path.exists(fdp_com.global_fdpconfig()):
             self._global_config = fdp_conf.read_global_fdpconfig()
@@ -314,19 +346,19 @@ class FAIR:
             )
 
     def change_staging_state(
-        self, run_to_stage: str, stage: bool = True
+        self, job_to_stage: str, stage: bool = True
     ) -> None:
         """Change the staging status of a given run
 
         Parameters
         ----------
-        run_to_stage : str
+        job_to_stage : str
             uuid of run to add to staging
         stage : bool, optional
             whether to stage/unstage run, by default True (staged)
         """
         self.check_is_repo()
-        self._stager.change_run_stage_status(run_to_stage, stage)
+        self._stager.change_job_stage_status(job_to_stage, stage)
 
     def remove_job(self, job_id: str, cached: bool = False) -> None:
         """Remove a job from tracking
@@ -413,6 +445,7 @@ class FAIR:
 
     def status(self, verbose: bool = False) -> None:
         """Get the status of staging"""
+        self._logger.debug("Updating staging status")
         self.check_is_repo()
 
         _staged_jobs = self._stager.get_item_list(True, "job")
@@ -484,7 +517,7 @@ class FAIR:
     def make_starter_config(self, output_file_name: str = None) -> None:
         """Create a starter config.yaml"""
         if not output_file_name:
-            output_file_name = os.path.join(self._session_loc, 'config.yaml')
+            output_file_name = os.path.join(self._session_loc, fdp_com.USER_CONFIG_FILE)
         if os.path.exists(output_file_name):
             click.echo(
                 f"The user configuration file '{os.path.abspath(output_file_name)}'"
@@ -502,7 +535,7 @@ class FAIR:
             _yaml_str = fdp_tpl.config_template.render(
                 instance=self,
                 data_dir=fdp_com.default_data_dir(),
-                local_repo=os.path.abspath(fdp_com.find_fair_root()),
+                local_repo=os.path.abspath(fdp_com.find_fair_root(self._session_loc)),
             )
             _yaml_dict = yaml.safe_load(_yaml_str)
 
@@ -537,7 +570,11 @@ class FAIR:
         _first_time = not os.path.exists(fdp_com.global_fdpconfig())
 
         if self._testing:
-            using = fdp_test.create_configurations(registry)
+            using = fdp_test.create_configurations(
+                registry,
+                fdp_com.find_git_root(os.getcwd()),
+                os.getcwd()
+            )
 
         if os.path.exists(_fair_dir):
             if export_as:
@@ -563,18 +600,21 @@ class FAIR:
                 self._global_config = fdp_conf.global_config_query(
                     registry
                 )
-                self._local_config = fdp_conf.local_config_query(
-                    self._global_config, first_time_setup=_first_time
-                )
             except (fdp_exc.CLIConfigurationError, click.Abort) as e:
                 self._clean_reset(_fair_dir, e)
+            try:
+                self._local_config = fdp_conf.local_config_query(
+                        self._global_config, first_time_setup=_first_time
+                    )
+            except (fdp_exc.CLIConfigurationError, click.Abort) as e:
+                self._clean_reset(_fair_dir, e, True)
         elif not using:
             try:
                 self._local_config = fdp_conf.local_config_query(
                     self._global_config
                 )
             except (fdp_exc.CLIConfigurationError, click.Abort) as e:
-                self._clean_reset(_fair_dir, e)
+                self._clean_reset(_fair_dir, e, True)
         if not using:
             with open(fdp_com.local_fdpconfig(self._session_loc), "w") as f:
                 yaml.dump(self._local_config, f)
@@ -591,9 +631,10 @@ class FAIR:
 
         click.echo(f"Initialised empty fair repository in {_fair_dir}")
 
-    def _clean_reset(self, _fair_dir, e):
-        shutil.rmtree(fdp_com.session_cache_dir(), ignore_errors=True)
-        shutil.rmtree(fdp_com.global_config_dir(), ignore_errors=True)
+    def _clean_reset(self, _fair_dir, e, local_only: bool = False):
+        if not local_only:
+            shutil.rmtree(fdp_com.session_cache_dir(), ignore_errors=True)
+            shutil.rmtree(fdp_com.global_config_dir(), ignore_errors=True)
         shutil.rmtree(_fair_dir)
         raise e
 

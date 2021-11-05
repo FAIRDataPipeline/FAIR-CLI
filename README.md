@@ -56,7 +56,7 @@ registries:
   local:
     data_store: /path/to/local/data_store/,
     directory: /local/registry/install/directory
-    uri: http://localhost:8000/api/
+    uri: http://127.0.0.1:8000/api/
   origin:
     data_store: /remote/registry/data/store/path/
     token: /path/to/remote/token

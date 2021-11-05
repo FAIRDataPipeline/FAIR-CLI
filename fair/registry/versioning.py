@@ -57,8 +57,13 @@ def parse_incrementer(incrementer: str) -> str:
             raise fdp_exc.InternalError(f"Unrecognised 'semver.VersionInfo' method '{func}'")
 
     for component in BUMP_FUNCS:
-        if re.findall(r'\$\{\{\s*'+component+r'\s*\}\}', incrementer):
-            return BUMP_FUNCS[component]
+        try:
+            if re.findall(r'\$\{\{\s*'+component+r'\s*\}\}', incrementer):
+                return BUMP_FUNCS[component]
+        except TypeError:
+            raise fdp_exc.InternalError(
+                f"Failed to parse incrementer '{incrementer}' expected string"
+            )
     
     raise fdp_exc.UserConfigError(
         f"Unrecognised version incrementer variable '{incrementer}'"
@@ -106,19 +111,12 @@ def get_latest_version(results_list: typing.List = None) -> semver.VersionInfo:
 
 
 def get_correct_version(
-    cfg: typing.Dict,
+    version: str,
     results_list: typing.List = None,
-    free_write: bool = True,
-    version: str = None
+    free_write: bool = True
 ) -> semver.VersionInfo:
 
     _zero = semver.VersionInfo.parse("0.0.0")
-
-    if not version:
-        if free_write:
-            version = fdp_conf.write_version(cfg)
-        else:
-            version = fdp_conf.read_version(cfg)
 
     if results_list:
         _versions = [
@@ -132,6 +130,11 @@ def get_correct_version(
         _bump_func = parse_incrementer(version)
         if free_write:
             _versions.append(_zero)
+
+        if not _versions:
+            raise fdp_exc.InternalError(
+                f"Version parsing failed for version={version}, free_write={free_write}"
+            )
         _max_ver = max(_versions)
 
         _new_version = getattr(_max_ver, _bump_func)() if _bump_func else _max_ver
@@ -140,11 +143,11 @@ def get_correct_version(
 
     if _new_version in _versions and free_write:
         raise fdp_exc.UserConfigError(
-            f"Trying to create existing version: {version}"
+            f"Trying to create existing version: {_new_version}"
         )
     elif _new_version not in _versions and not free_write:
         raise fdp_exc.UserConfigError(
-            f"Trying to read non-existing version: {version}"
+            f"Trying to read non-existing version: {_new_version}"
         )
     elif _new_version == _zero:
         raise fdp_exc.UserConfigError(f'Trying to work with version {_zero}')

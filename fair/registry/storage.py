@@ -36,15 +36,15 @@ import fair.identifiers as fdp_id
 import fair.registry.file_types as fdp_file
 import fair.registry.versioning as fdp_ver
 
-def get_write_storage(uri: str, cfg: typing.Dict) -> str:
+def get_write_storage(uri: str, write_data_store: str) -> str:
     """Construct storage root if it does not exist
 
     Parameters
     ----------
     uri : str
         end point of the RestAPI
-    str : typing.Dict
-        path of the config file
+    write_data_store : str
+        path of the write data store
 
     Returns
     -------
@@ -57,10 +57,8 @@ def get_write_storage(uri: str, cfg: typing.Dict) -> str:
         If 'write_data_store' not present in the working config or global config
     """
 
-    _write_data_store = fdp_conf.write_data_store(cfg)
-
     # Convert local file path to a valid data store path
-    _write_store_root = f"file://{_write_data_store}"
+    _write_store_root = f"file://{write_data_store}"
     if _write_store_root[-1] != os.path.sep:
         _write_store_root += os.path.sep
 
@@ -188,7 +186,7 @@ def store_working_config(repo_dir: str, uri: str, work_cfg_yml: str) -> str:
     _storage_loc_data = {
         "path": _rel_path,
         "storage_root": _root_store,
-        "public": _work_cfg['run_metadata']['public'],
+        "public": _work_cfg['run_metadata'].get('public', True),
         "hash": _hash,
     }
 
@@ -273,7 +271,7 @@ def store_working_script(
     _storage_loc_data = {
         "path": _rel_path,
         "storage_root": _root_store,
-        "public": _work_cfg['run_metadata']['public'],
+        "public": _work_cfg['run_metadata'].get('public', True),
         "hash": _hash,
     }
 
@@ -348,87 +346,18 @@ def store_namespace(
     )
 
 
-def update_namespaces(user_cfg: typing.Dict) -> None:
-    """Ensure that the namespaces in the user config are created
-    
-    Parameters
-    ----------
-    user_cfg : typing.Dict
-        job specification from a user 'config.yaml' file
-    """
-
-    _local_uri = fdp_conf.registry_url("local", user_cfg)
-
-    _namespaces: typing.List[str] = []
-    _new_block = []
-
-    if 'register' in user_cfg:
-        _registration_items = user_cfg['register']
-
-        for item in _registration_items:
-            if 'external_object' in item or 'data_product' in item:
-                if 'namespace_name' in item:
-                    _namespaces.append({
-                        'name': item['namespace_name'],
-                        'full_name': item.get('namespace_full_name', None),
-                        'website': item.get('namespace_website', None)
-                    })
-                elif 'namespace' in item and isinstance(item['namespace'], dict):
-                    _namespaces.append(item['namespace'])
-                _new_block.append(item)
-            elif 'namespace' in item:
-                _namespaces.append({
-                    'name': item['namespace'],
-                    'full_name': item.get('full_name', None),
-                    'website': item.get('website', None)
-                })
-            else:
-                _new_block.append(item)
-
-        for namespace in _namespaces:
-            store_namespace(
-                _local_uri,
-                namespace['name'],
-                namespace['full_name'],
-                namespace['website']
-            )
-        
-    store_namespace(
-        _local_uri,
-        fdp_conf.input_namespace(user_cfg)
-    )
-
-    store_namespace(
-        _local_uri,
-        fdp_conf.output_namespace(user_cfg)
-    )
-
-    if 'register' in user_cfg:
-        for item in _new_block:
-            if ('external_object' in item or 'data_product' in item) and 'namespace' in item:
-                if isinstance(item['namespace'], str):
-                    item['namespace_name'] = item['namespace']
-                elif isinstance(item['namespace'], dict):
-                    item['namespace_name'] = item['namespace']['name']
-                item['namespace_full_name'] = None
-                item['namespace_website'] = None
-                del item['namespace']
-        user_cfg['register'] = _new_block
-
-
 def store_data_file(
     uri: str,
     repo_dir: str,
     data: typing.Dict,
     local_file: str,
-    cfg: typing.Dict,
+    write_data_store: str,
     public: bool
 ) -> None:
 
-    _root_store = get_write_storage(uri, cfg)
-    _data_store = fdp_conf.write_data_store(cfg)
+    _root_store = get_write_storage(uri, write_data_store)
 
-    _rel_path = os.path.relpath(local_file, _data_store)
+    _rel_path = os.path.relpath(local_file, write_data_store)
 
     if 'version' not in data['use']:
         raise fdp_exc.InternalError(
@@ -625,7 +554,6 @@ def calculate_file_hash(file_name: str, buffer_size: int = 64*1024) -> str:
         while len(_buffer) > 0:
             _input_hasher.update(_buffer)
             _buffer = in_f.read(buffer_size)
-    print(_input_hasher.hexdigest())
 
     return _input_hasher.hexdigest()
 
@@ -687,7 +615,7 @@ def check_match(input_object: str, results_list: typing.List[str]):
 
 
 def check_if_object_exists(
-    cfg: typing.Dict,
+    local_uri: str,
     file_loc: str,
     obj_type: str,
     search_data: typing.Dict,
@@ -696,8 +624,8 @@ def check_if_object_exists(
 
     Parameters
     ----------
-    cfg : typing.Dict
-        config yaml
+    local_uri : str
+        local registry endpoint
     file_loc : str
         path of file on system
     obj_type : str
@@ -713,12 +641,8 @@ def check_if_object_exists(
         whether object is present with matching hash, present or absent
         if present but not hash matched return the latest version identifier
     """
-    _logger = logging.getLogger("FAIRDataPipeline.Run")
-
-    _local_uri = fdp_conf.registry_url("local", cfg)
-
-
     _version = None
+
     if 'version' in search_data:
         _version = search_data['version']
         if '${{' in _version:
@@ -726,17 +650,18 @@ def check_if_object_exists(
 
     # Obtain list of storage_locations for the given data_product
     _results = fdp_req.get(
-        _local_uri,
+        local_uri,
         obj_type,
         params=search_data,
         token=token
     )
 
-    _logger.debug(search_data)
-    _logger.debug(_results)
-
     try:
-        fdp_ver.get_correct_version(cfg, _results, False, _version)
+        fdp_ver.get_correct_version(
+            version=_version,
+            results_list=_results,
+            free_write=True
+        )
     except fdp_exc.UserConfigError:
         return "absent"
 

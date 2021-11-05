@@ -3,17 +3,19 @@ import pytest
 import pytest_mock
 import pytest_fixture_config
 import pytest_virtualenv
+import logging
 import tempfile
+import signal
 import yaml
 import fair.testing as fdp_test
 import fair.common as fdp_com
 
-from fair.common import FAIR_FOLDER
 from . import registry_install as test_reg
 
 TEST_JOB_FILE_TIMESTAMP = '2021-10-11_10_0_0_100000'
-REGISTRY_INSTALL_URL = "https://data.scrc.uk/static/localregistry.sh"
 
+
+logging.getLogger('FAIRDataPipeline').setLevel(logging.DEBUG)
 
 @pytest.fixture(scope='session')
 @pytest_fixture_config.yield_requires_config(pytest_virtualenv.FixtureConfig(
@@ -44,16 +46,22 @@ def session_virtualenv():
 @pytest.fixture
 def local_config(mocker: pytest_mock.MockerFixture):
     with tempfile.TemporaryDirectory() as tempg:
+        os.makedirs(os.path.join(tempg, fdp_com.FAIR_FOLDER, 'registry'))
+        os.makedirs(os.path.join(tempg, fdp_com.FAIR_FOLDER, 'sessions'))
+        _gconfig_path = os.path.join(tempg, fdp_com.FAIR_FOLDER, fdp_com.FAIR_CLI_CONFIG)
+        _cfgg = fdp_test.create_configurations(tempg, None, tempg, True)
+        yaml.dump(_cfgg, open(_gconfig_path, 'w'))
+        mocker.patch('fair.common.global_config_dir', lambda: os.path.dirname(_gconfig_path))
+        mocker.patch('fair.common.global_fdpconfig', lambda: _gconfig_path)
+
         with tempfile.TemporaryDirectory() as templ:
             os.makedirs(os.path.join(templ, fdp_com.FAIR_FOLDER))
-            os.makedirs(os.path.join(tempg, fdp_com.FAIR_FOLDER, 'registry'))
-            _lconfig_path = os.path.join(templ, fdp_com.FAIR_FOLDER, 'cli-config.yaml')
-            _gconfig_path = os.path.join(tempg, fdp_com.FAIR_FOLDER, 'cli-config.yaml')
+            _lconfig_path = os.path.join(templ, fdp_com.FAIR_FOLDER, fdp_com.FAIR_CLI_CONFIG)
             _cfgl = fdp_test.create_configurations(templ, None, templ, True)
-            _cfgg = fdp_test.create_configurations(tempg, None, tempg, True)
-            yaml.dump(_cfgl, open(_lconfig_path, 'w'))
-            yaml.dump(_cfgg, open(_gconfig_path, 'w'))
-            mocker.patch('fair.common.global_fdpconfig', lambda: _gconfig_path)
+            yaml.dump(_cfgl, open(_lconfig_path, 'w'))    
+            with open(os.path.join(templ, fdp_com.USER_CONFIG_FILE), 'w') as conf:
+                yaml.dump({'run_metadata': {}}, conf)
+            mocker.patch('fair.common.find_fair_root', lambda *args: templ)
             yield (tempg, templ)
 
 
@@ -61,7 +69,7 @@ def local_config(mocker: pytest_mock.MockerFixture):
 def job_directory(mocker: pytest_mock.MockerFixture) -> str:
     with tempfile.TemporaryDirectory() as tempd:
         # Set default to point to temporary
-        mocker.patch('fair.common.default_jobs_dir', lambda: tempd)
+        mocker.patch('fair.common.default_jobs_dir', lambda *args: tempd)
 
         # Create a mock job directory
         os.makedirs(os.path.join(tempd, TEST_JOB_FILE_TIMESTAMP))
@@ -94,17 +102,19 @@ class TestRegistry:
         if not os.path.exists(os.path.join(install_loc, 'manage.py')):
             test_reg.install_registry(install_dir=install_loc, silent=True, venv_dir=self._venv)
 
+    def rebuild(self):
+        test_reg.rebuild_local(os.path.join(self._venv, 'bin', 'python'), self._install)
+
     def __enter__(self):
         try:
             self._process = test_reg.launch(self._install, silent=True, venv_dir=self._venv)
+            self._token = open(os.path.join(self._install, 'token')).read().strip()
         except KeyboardInterrupt as e:
-            self._process.kill()
-            self._process.wait()
+            os.kill(self._process.pid, signal.SIGTERM)
             raise e
 
     def __exit__(self, type, value, tb):
-        self._process.kill()
-        self._process.wait()
+        os.kill(self._process.pid, signal.SIGTERM)
         self._process = None
 
 

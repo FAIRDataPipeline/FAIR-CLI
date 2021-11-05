@@ -9,7 +9,6 @@ import shutil
 import subprocess
 import pathlib
 import glob
-import signal
 import time
 
 from fair.common import FAIR_FOLDER
@@ -129,7 +128,7 @@ def install_registry(
         stdout=subprocess.DEVNULL if silent else None
     )
 
-    _requirements = os.path.join(install_dir, 'requirements.txt')
+    _requirements = os.path.join(install_dir, 'local-requirements.txt')
 
     if not os.path.exists(_requirements):
         raise FileNotFoundError(
@@ -192,7 +191,7 @@ def launch(install_dir: str = None, port: int = 8000, silent: bool = False, venv
 
     while _connection_time < 10:
         try:
-            _req = requests.get(f'http://localhost:{port}/api')
+            _req = requests.get(f'http://127.0.0.1:{port}/api')
             break
         except requests.exceptions.ConnectionError:
             time.sleep(1)
@@ -223,18 +222,22 @@ def launch(install_dir: str = None, port: int = 8000, silent: bool = False, venv
         )
 
     if not silent:
-        print(
+        click.echo(
             "An access token for the REST API is available in the file"
             f"'{os.path.join(install_dir, 'token')}'"
         )
+        if not os.path.exists(os.path.join(install_dir, 'token')):
+            raise AssertionError("Expected token file, but none created")
+        if not open(os.path.join(install_dir, 'token')).read().strip():
+            raise AssertionError("Expected token in token file, but file empty")
     
     if not shutil.which('dot') and not silent:
-        print("WARNING: Graphviz is not installed, so provenance report images are not available")
+        click.echo("WARNING: Graphviz is not installed, so provenance report images are not available")
 
     return _process
 
     
-def stop(install_dir: str = None, silent: bool = False):
+def stop(install_dir: str = None, port: int = 8000, silent: bool = False):
     if not install_dir:
         install_dir = os.path.join(pathlib.Path.home(), FAIR_FOLDER, 'registry')
 
@@ -245,6 +248,11 @@ def stop(install_dir: str = None, silent: bool = False):
         env=django_environ(),
         shell=False
     )
+    try:
+        requests.get(f'http://127.0.0.1:{port}/api')
+        raise AssertionError("Expected registry termination")
+    except requests.ConnectionError:
+        pass
 
 
 @click.group()

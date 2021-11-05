@@ -1,6 +1,27 @@
+#!/usr/bin/python3
+# -*- coding: utf-8 -*-
+"""
+Staging
+=======
+
+Manage object staging for pushing to a remote registry from the local registry
+
+Contents
+========
+
+Classes
+-------
+
+    Staging - class handles staging of objects ready to be synchronised
+
+"""
+
+__date__ = "2021-07-13"
+
 import os
 import typing
 import yaml
+import logging
 
 import fair.common as fdp_com
 import fair.run as fdp_run
@@ -10,19 +31,39 @@ import fair.configuration as fdp_conf
 
 
 class Stager:
-    def __init__(self, repo_root: str = fdp_com.find_fair_root(os.getcwd())) -> None:
+    """
+    The stager handles staging of jobs and other objects for synchronising
+    between local and remote registries. In a manner similar to git, objects
+    such as jobs can be tracked but not staged, for example if a job is a trial
+    or has issues.
+    """
+    _logger = logging.getLogger('FAIRDataPipeline.Staging')
+    def __init__(self, repo_root: str) -> None:
+        """Create a new stager instance for a given FAIR repository
+
+        Parameters
+        ----------
+        repo_root : str, optional
+            the root of the FAIR repository, by default find the root from the
+            current working directory
+        """
         self._root = repo_root
         self._staging_file = fdp_com.staging_cache(self._root)
+        self._logger.debug("Creating stager for FAIR repository '%s'", repo_root)
 
     def initialise(self) -> None:
+        """Initialise the stager, creating a staging cache file if one does not exist"""
         # Only create the staging file if one is not already present within the
         # specified directory
         if not os.path.exists(self._staging_file):
+            self._logger.debug("Creating new staging cache file")
             # If the stager is called before the rest of the directory tree
             # has been created make the parent directories first
             if not os.path.exists(os.path.dirname(self._staging_file)):
                 os.makedirs(os.path.dirname(self._staging_file), exist_ok=True)
             self._create_staging_file()
+        else:
+            self._logger.debug("Existing staging cache found")
 
 
     def _create_file_label(self, file_to_stage: str) -> str:
@@ -45,15 +86,16 @@ class Stager:
         ----------
         job_id : str
             a valid uuid for the given job
-        stage : bool
-            whether job is staged
-
-        Returns
-        -------
-            bool
-                success if staging/unstaging complete,
-                else fail if ID not recognised
+        stage : bool, optional
+            whether job is staged, default True
         """
+        self._logger.debug("Setting job '%s' status to staged=%s", job_id, stage)
+
+        if not os.path.exists(self._staging_file):
+            raise fdp_exc.FileNotFoundError(
+                "Failed to update tracking, expected staging file"
+                f" '{self._staging_file}' but it does not exist"
+            )
 
         # Open the staging dictionary first
         _staging_dict = yaml.safe_load(open(self._staging_file))
@@ -84,6 +126,11 @@ class Stager:
         str
             URL of local registry entry
         """
+        self._logger.debug(
+            "Retrieving registry entry for file '%s'",
+            file_path
+        )
+
         # Will search storage locations for a similar path by using
         # parent_directory/file_name
         _obj_type = 'storage_location'
@@ -101,6 +148,8 @@ class Stager:
                 "Expected single result for local registry entry relating to "
                 f" file '{file_path} but got {len(_results)}"
             )
+        
+        self._logger.debug("Found config.yaml URL: %s", _results[0])
 
         return _results[0]
 
@@ -129,6 +178,10 @@ class Stager:
             If the expected registry entries have not been created by an API
             implementation
         """
+        self._logger.debug(
+            "Retrieving code run URL for job '%s'",
+            os.path.basename(job_dir)
+        )
         # Check if any code_runs are present for the given job
         _code_run_file = os.path.join(job_dir, 'coderuns.txt')
         _code_run_urls = []
@@ -136,6 +189,7 @@ class Stager:
         if ( os.path.exists(_code_run_file) and
             open(_code_run_file).read().strip()
         ):
+            self._logger.debug("Found coderuns file, extracting runs")
             _runs = [i.strip() for i in open(_code_run_file).readlines()]
             
             for run in _runs:
@@ -186,6 +240,7 @@ class Stager:
     def get_job_data(
             self, local_uri, identifier: str
         ) -> typing.Dict[str, str]:
+        self._logger.debug("Fetching job data for job %s", identifier)
         # Firstly find the job directory
         _directory = fdp_run.get_job_dir(identifier)
         if not _directory:
@@ -194,10 +249,10 @@ class Stager:
             )
         
         # Check for a config.yaml file
-        _config_yaml = os.path.join(_directory, "config.yaml")
+        _config_yaml = os.path.join(_directory, fdp_com.USER_CONFIG_FILE)
         if not os.path.exists(_config_yaml):
             raise fdp_exc.FileNotFoundError(
-                f"Cannot stage job '{identifier}'"
+                f"Cannot stage job '{identifier}' "
                 f"Expected config.yaml in '{_directory}'"
             )
 
@@ -212,10 +267,10 @@ class Stager:
         )["url"]
 
         # Check for job script file
-        _config_yaml = os.path.join(_directory, "config.yaml")
+        _config_yaml = os.path.join(_directory, fdp_com.USER_CONFIG_FILE)
         if not os.path.exists(_config_yaml):
             raise fdp_exc.FileNotFoundError(
-                f"Cannot stage job '{identifier}'"
+                f"Cannot stage job '{identifier}' "
                 f"Expected config.yaml in '{_directory}'"
             )
 
@@ -232,6 +287,7 @@ class Stager:
 
             # Find the relevant script path on the local registry, this involves
             # firstly getting the path commencing from the 'jobs' folder
+            self._logger.debug("Finding job script within local registry")
             _script_path = _config_dict['run_metadata']['script_path']
             _rel_script_path = _script_path.split(fdp_com.JOBS_DIR)[1]
             _rel_script_path = f'{fdp_com.JOBS_DIR}{_rel_script_path}'
@@ -240,6 +296,9 @@ class Stager:
                 local_uri,
                 _rel_script_path
             )["url"]
+            self._logger.debug("Script URL: %s", _script_url)
+
+        self._logger.debug("Retrieving code runs and written objects")
 
         _code_run_urls = self._get_code_run_entries(local_uri, _directory)
         _user_written_obj_urls = self._get_written_obj_entries(
@@ -304,6 +363,4 @@ class Stager:
                 f"Cannot remove staging item of unrecognised type '{stage_type}'"
             )
 
-        _items = [k for k, v in _staging_dict[stage_type].items() if v == staged]
-
-        return _items
+        return [k for k, v in _staging_dict[stage_type].items() if v == staged]

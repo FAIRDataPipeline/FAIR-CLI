@@ -13,7 +13,6 @@ __date__ = "2021-06-24"
 import typing
 import os
 import sys
-import pathlib
 import click
 import yaml
 
@@ -62,10 +61,7 @@ def status(verbose, debug) -> None:
 @click.argument("output", nargs=-1)
 def create(debug, output: str) -> None:
     """Generate a new FAIR repository user YAML config file"""
-    if not output:
-        output = os.path.join(os.getcwd(), 'config.yaml')
-    else:
-        output = output[0]
+    output = os.path.join(os.getcwd(), fdp_com.USER_CONFIG_FILE) if not output else output[0]
     click.echo(
         f"Generating new user configuration file"
         f" '{output}'"
@@ -205,15 +201,11 @@ def uninstall(debug: bool):
 @registry.command()
 @click.option("--force/--no-force", help="Force a reinstall", default=False)
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
-def install(debug: bool, force: bool):
+@click.option("--directory", help="Installation location", default=None)
+def install(debug: bool, force: bool, directory: str):
     """Install the local registry on the system"""
     try:
-        if force:
-            fdp_svr.uninstall_registry()
-        elif (os.path.exists(fdp_com.global_fdpconfig())
-            and os.path.exists(fdp_svr.DEFAULT_REGISTRY_LOCATION)):
-            raise fdp_exc.RegistryError("Local registry is already installed")
-        fdp_svr.install_registry()
+        fdp_svr.install_registry(install_dir=directory, force=force)
     except fdp_exc.FAIRCLIException as e:
         if debug:
             raise e
@@ -451,10 +443,7 @@ def modify(ctx, label: str, url: str, debug: bool) -> None:
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
 def push(remote: str, debug: bool):
     """Push data between the local and remote registry"""
-    if len(remote) == 0:
-        remote = 'origin'
-    else:
-        remote = remote[0]
+    remote = 'origin' if len(remote) == 0 else remote[0]
     try:
         with fdp_session.FAIR(os.getcwd(), debug=debug) as fair_session:
             fair_session.push(remote)

@@ -35,8 +35,10 @@ import fair.configuration as fdp_conf
 
 
 def fetch_registrations(
+    local_uri: str,
     repo_dir: str,
-    cfg: typing.Dict,
+    write_data_store: str,
+    user_config_register: typing.Dict,
     ) -> typing.Dict:
     """As part of running 'pull' fetch all items listed under 'register'
 
@@ -52,14 +54,6 @@ def fetch_registrations(
     typing.List[str]
         list of registered object URLs
     """
-
-    _local_uri = fdp_conf.registry_url("local", cfg)
-
-    if 'register' not in cfg:
-        return cfg
-
-    _registrations = cfg['register']
-
     _expected_keys = [
         "root",
         "path",
@@ -72,13 +66,13 @@ def fetch_registrations(
 
     _stored_objects: typing.List[str] = []
 
-    for entry in _registrations:
+    for entry in user_config_register:
         for key in _expected_keys:
             if key not in entry and key not in entry['use']:
                 raise fdp_exc.UserConfigError(
                     f"Expected key '{key}' in 'register' item"
                 )
-        
+
         _identifier: str = entry['identifier'] if 'identifier' in entry else ''
         _unique_name: str = entry['unique_name'] if 'unique_name' in entry else ''
 
@@ -94,9 +88,9 @@ def fetch_registrations(
 
         if not _external_object and not _data_product:
             raise fdp_exc.UserConfigError(
-                f"Expected either 'data_product' or "
-                "'external_object' in 'register' item"
+                "Expected either 'data_product' or 'external_object' in 'register' item"
             )
+
         elif _external_object and _data_product:
             raise fdp_exc.UserConfigError(
                 "Only one type may be provided (data_product/external_object)"
@@ -127,13 +121,14 @@ def fetch_registrations(
 
         if not _identifier and not _unique_name:
             raise fdp_exc.UserConfigError(
-                f"Expected either 'unique_name' or 'identifier' in 'register' item"
+                "Expected either 'unique_name' or 'identifier' in 'register' item"
             )
+
         elif _identifier and _unique_name:
             raise fdp_exc.UserConfigError(
                 "Only one unique identifier may be provided (doi/unique_name)"
             )
-        
+
         if 'cache' in entry: # Do we have a local cache already?
             _temp_data_file = entry['cache']
         else: # Need to download it
@@ -155,16 +150,16 @@ def fetch_registrations(
             _name = _name.replace('/', os.path.sep)
 
         _local_dir = os.path.join(
-            fdp_conf.write_data_store(cfg), _namespace, _name
+            write_data_store, _namespace, _name
         )
 
         # Check if the object is already present on the local registry
         _is_present = fdp_store.check_if_object_exists(
-            cfg, _temp_data_file, _obj_type, _search_data
+            local_uri=local_uri,
+            file_loc=_temp_data_file,
+            obj_type=_obj_type,
+            search_data=_search_data
         )
-
-        _logger.debug(_temp_data_file)
-        _logger.debug(str(_is_present))
 
         # Hash matched version already present
         if _is_present == "hash_match":
@@ -174,20 +169,24 @@ def fetch_registrations(
             )
             os.remove(_temp_data_file)
             continue
-        
+
         # Item found but not hash matched retrieve a version number
         elif _is_present != "absent":
             _results = _is_present
             _user_version = fdp_ver.get_correct_version(
-                cfg, _results, True, entry['use']['version']
+                results_list=_results,
+                free_write=True,
+                version=entry['use']['version']
             )
             _logger.debug("Found results for %s", str(_results))
         else:
             _user_version = fdp_ver.get_correct_version(
-                cfg, None, True, entry['use']['version']
+                results_list=None,
+                free_write=True,
+                version=entry['use']['version']
             )
             _logger.debug("Found nothing for %s", str(_search_data))
-        
+
         # Create object location directory, ignoring if already present
         # as multiple version files can exist
         os.makedirs(_local_dir, exist_ok=True)
@@ -206,121 +205,19 @@ def fetch_registrations(
         if 'public' in entry:
             _public = entry['public']
 
+        data=copy.deepcopy(entry)
+
+        data['namespace_name'] = entry['use']['namespace']
+
         _file_url = fdp_store.store_data_file(
-            uri=_local_uri,
+            uri=local_uri,
             repo_dir=repo_dir,
-            data=copy.deepcopy(entry),
+            data=data,
             local_file=_local_file,
-            cfg=cfg,
+            write_data_store=write_data_store,
             public=_public
         )
 
         _stored_objects.append(_file_url)
     
-#    if 'read' in cfg:
-#        cfg['read'] += _stored_objects
-#    else:
-#        cfg['read'] = _stored_objects
-            
-def subst_registrations(local_uri: str, input_config: typing.Dict):
-    """As part of 'run' substitute listings in config for working configuration
-
-    Parameters
-    ----------
-    uri: str
-        endpoint of the local registry
-    input_config : typing.Dict
-        input user configuration
-
-    Returns
-    -------
-    typing.Dict
-        new dictionary with 'register' removed and replaced with local objects
-    """
-    _new_cfg = input_config.copy()
-
-    # If there is no register key then abort substitutions
-    if 'register' not in _new_cfg:
-        return _new_cfg
-
-    # Remove register as it will be replaced
-    del _new_cfg['register']
-
-    if 'read' not in _new_cfg:
-        _new_cfg['read'] = []
-
-    _registrations = input_config['register']
-
-    for reg in _registrations:
-        if not any(t in reg for t in ['data_product', 'external_object']):
-            raise fdp_exc.UserConfigError(
-                f"Expected either 'data_product' or "
-                "'external_object' in 'register' item"
-            )
-        if 'version' not in reg:
-            raise fdp_exc.InternalError(
-
-            )
-
-        # If an external object fetch the relevant data_product first
-        if 'external_object' in reg:
-            # TODO Not enough info to make unique
-            _ext_data = {
-                "version": reg['version'],
-                "title": reg['title']
-            }
-            _results = fdp_req.get(
-                local_uri,
-                'external_object',
-                params=_ext_data
-            )
-            
-            if len(_results) > 1 or not _results:
-                raise fdp_exc.InternalError(
-                    f"Expected one external_object for '{_ext_data}', "
-                    f"got {len(_results)}"
-                )
-
-            if 'data_product' not in _results[0]:
-                raise fdp_exc.RegistryError(
-                    f"Expected external_object '{reg['external_object']}' "
-                    "to have a data_product"
-                )
-            _data_product_url = _results[0]['data_product']
-            _results[0] = fdp_req.url_get(_data_product_url)
-        else: # data product
-            # TODO Not enough info to make unique
-            _data = {
-                "version": reg['version'],
-                "name": reg['data_product']
-            }
-
-            if 'namespace_name' in reg:
-                _data['namespace'] = reg['namespace_name'] 
-
-            _results = fdp_req.get(
-                local_uri,
-                'data_product',
-                params=_data
-            )
-
-            if len(_results) > 1 or not _results:
-                raise fdp_exc.InternalError(
-                    f"Expected one result for {_data}, got {len(_results)}"
-                )
-
-        _namespace_url = _results[0]['namespace']
-        _namespace_data = fdp_req.url_get(_namespace_url)
-
-        _object_data = {
-            'data_product': _results[0]['name'],
-            'use': {
-                'version': _results[0]['version'],
-                'namespace': _namespace_data['name'],
-            }
-        }
-
-    _new_cfg['read'].append(_object_data)
-        
-    return _new_cfg
-
+    return _stored_objects

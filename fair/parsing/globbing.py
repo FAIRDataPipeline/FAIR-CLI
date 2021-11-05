@@ -23,7 +23,6 @@ __date__ = "2021-08-16"
 
 import typing
 import copy
-import logging
 
 import fair.registry.requests as fdp_req
 import fair.configuration as fdp_conf
@@ -32,54 +31,33 @@ import fair.registry.versioning as fdp_ver
 import fair.utilities as fdp_util
 
 
-def expand_wildcards(cfg: typing.Dict, blocktype: str) -> None:
-    """Expand the wildcards in the config yaml from the local registry
-
-    Parameters
-    ----------
-    cfg : typing.Dict
-        user config yaml
-
-    blocktype : str
-        key name of block to fill in entries for ('read' or 'write')
-
-    """
-    glob_read_write(
-        cfg, blocktype, None, True, blocktype=='read'
-    )
-
 def glob_read_write(
-    cfg: typing.Dict,
+    user_config: typing.Dict,
     blocktype: str,
+    version: str,
+    registry_url: str,
     search_key: str = None,
-    local_glob: bool = False,
     remove_wildcard: bool = False) -> typing.List:
     """Substitute glob expressions in the 'read' or 'write' part of a user config
 
     Parameters
     ----------
-    cfg : typing.Dict
+    user_config : typing.Dict
         config yaml
     blocktype : str
         block type to process
+    version : str
+        version string
+    registry_url : str
+        URL of the registry to process
     search_key : str, optional
         key to search under, default is taken from SEARCH_KEYS
-    local_glob : bool, optional
-        whether to search the local or remote registry,
-        default is False.
     remove_wildcard: bool, optional
         whether to delete wildcard from yaml file, default is False
     """
     
-    _block_cfg = cfg[blocktype]
+    _block_cfg = user_config[blocktype]
     _parsed: typing.List[typing.Dict] = []
-
-    # Check whether to glob the local or remote registry
-    # retrieve the URI from the repository CLI config
-    if local_glob:
-        _uri = fdp_conf.registry_url("local", cfg)
-    else:
-        _uri = fdp_conf.registry_url("global", cfg)
 
     # Iterate through all entries in the section looking for any
     # key-value pairs that contain glob statements.
@@ -88,7 +66,8 @@ def glob_read_write(
         # user wants to write to this namespace.
         # Wipe version info for this object to start from beginning
         _orig_entry = copy.deepcopy(entry)
-        _orig_entry['use']['version'] = str(fdp_ver.get_correct_version(cfg))
+
+        _orig_entry['use']['version'] = str(fdp_ver.get_correct_version(version, free_write=blocktype!='read'))
 
         _glob_vals = [(k, v) for k, v in entry.items() if isinstance(v, str) and '*' in v]
         if len(_glob_vals) > 1:
@@ -125,7 +104,7 @@ def glob_read_write(
         # Send a request to the relevant registry using the search string
         # and the selected search key        
         _results = fdp_req.get(
-            _uri,
+            registry_url,
             _key_glob,
             params = _search_dict
         )
@@ -142,4 +121,4 @@ def glob_read_write(
             _parsed.append(_entry_dict)
 
     # Before returning the list of dictionaries remove any duplicates
-    cfg[blocktype] = fdp_util.remove_dictlist_dupes(_parsed)
+    user_config[blocktype] = fdp_util.remove_dictlist_dupes(_parsed)

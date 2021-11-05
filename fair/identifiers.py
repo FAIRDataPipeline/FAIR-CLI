@@ -20,6 +20,7 @@ __date__ = "2021-07-01"
 
 import urllib.parse
 import typing
+import time
 import requests
 import requests.exceptions
 
@@ -137,7 +138,7 @@ def check_grid(grid_id: str) -> typing.Dict:
     return _result_dict
 
 
-def check_id_permitted(identifier: str) -> bool:
+def check_id_permitted(identifier: str, retries: int = 5) -> bool:
     """Check a user provided identifier is permitted
 
     This ID is expected to be a valid URL
@@ -152,11 +153,18 @@ def check_id_permitted(identifier: str) -> bool:
     bool
         if valid identifier
     """
-    try:
-        requests.get(identifier).raise_for_status()
-        return True
-    except (
-        requests.exceptions.MissingSchema,
-        requests.exceptions.HTTPError,
-        requests.exceptions.ConnectionError):
-        return False
+    _n_attempts = 0
+
+    while _n_attempts < retries:
+        try:
+            requests.get(identifier).raise_for_status()
+            return True
+        except (
+            requests.exceptions.MissingSchema,
+            requests.exceptions.HTTPError,
+            requests.exceptions.ConnectionError):
+            _n_attempts += 1
+            time.sleep(1)
+            continue
+    
+    return False

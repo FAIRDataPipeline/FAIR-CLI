@@ -23,10 +23,12 @@ import json
 import os
 import tempfile
 import typing
+import logging
 import copy
 import urllib.parse
 import re
 import requests
+from requests.api import head
 import simplejson.errors
 
 import fair.common as fdp_com
@@ -40,6 +42,8 @@ SEARCH_KEYS = {
     "storage_root": "root",
     "storage_location": "hash"
 }
+
+logger = logging.getLogger('FAIRDataPipeline.Requests')
 
 def split_api_url(request_url: str, splitter: str = 'api') -> typing.Tuple[str]:
     """Split a request URL into endpoint and path
@@ -71,7 +75,14 @@ def local_token(registry_dir: str = None) -> str:
             hint="Try creating the file by manually starting the registry "
             "by running 'fair registry start'"
         )
-    return open(_local_token_file).readlines()[0].strip()
+    _file_lines = open(_local_token_file).readlines()
+
+    if not _file_lines:
+        raise fdp_exc.FileNotFoundError(
+            f"Expected token in file {_local_token_file}, but file is empty"
+        )
+
+    return _file_lines[0].strip()
 
 
 def _access(
@@ -82,6 +93,7 @@ def _access(
     token: str = None,
     headers: typing.Dict[str, typing.Any] = None,
     params: typing.Dict = None,
+    data: typing.Dict = None,
     *args,
     **kwargs,
 ):
@@ -90,6 +102,9 @@ def _access(
 
     if not params:
         params: typing.Dict[str, str] = {}
+    
+    if not data:
+        data: typing.Dict[str, str] = {}
 
     if not token:
         token = local_token()
@@ -104,42 +119,48 @@ def _access(
     if _url[-1] != "/":
         _url += "/"
 
-    if params:
-        _url += "?"
-        _param_strs = [f"{k}={v}" for k, v in params.items()]
-        _url += "&".join(_param_strs)
     _headers = copy.deepcopy(headers)
     _headers["Authorization"] = f"token {token}"
+
+    logger.debug("Sending request of type '%s': %s", method, _url)
+
     try:
-        _request = getattr(requests, method)(
-            _url, headers=_headers, *args, **kwargs
-        )
+        if method == 'get':
+            _request = requests.get(
+                _url, headers=_headers, params=params, *args, **kwargs
+            )
+        elif method == 'post':
+            _request = requests.post(
+                _url, headers=_headers, data=data, *args, **kwargs
+            )
+        else:
+            _request = getattr(requests, method)(
+                _url, headers=_headers, *args, **kwargs
+            )
     except requests.exceptions.ConnectionError:
         raise fdp_exc.UnexpectedRegistryServerState(
             f"Failed to make registry API request '{_url}'",
             hint="Is this remote correct and the server running?"
         )
 
-    _info = f'\turl = {_url}'
-    _info += f'\tparameters = {kwargs["params"]}' if 'params' in kwargs else ''
-    _info += f'\data = {kwargs["data"]}' if 'data' in kwargs else ''
+    _info = f'url = {_url}, '
+    _info += f' parameters = {kwargs["params"]},' if 'params' in kwargs else ''
+    _info += f' data = {kwargs["data"]}' if 'data' in kwargs else ''
 
     # Case of unrecognised object
     if _request.status_code == 404:
         raise fdp_exc.RegistryAPICallError(
             f"Attempt to access an unrecognised resource on registry "
-            f"using method '{method}' and arguments:\n"+_info,
+            f"using method '{method}' and arguments: " + _info,
             error_code=404
         )
 
     # Case of unrecognised object
 
-    #TODO: fix _searchable as for 403 error, shouldnt need join()
     if _request.status_code == 403:
-        _searchable = uri if not obj_path else obj_path
         raise fdp_exc.RegistryAPICallError(
-            f"Failed to retrieve object of type '{_searchable}' "
-            f"using method '{method}' and arguments:\n"+_info,
+            f"Failed to run method '{method}' for url {_url}, "
+            f"request forbidden",
             error_code=403
         )
     elif _request.status_code == 409:
@@ -149,7 +170,6 @@ def _access(
             f"using method '{method}' as it already exists."
             f"Arguments:\n"+_info,
             error_code=409,
-
         )
 
     try:
@@ -266,6 +286,11 @@ def get(
     typing.Dict
         returned data for the given request
     """
+    logger.debug(
+        "Retrieving object of type '%s' from registry at '%s' with parameters: %s",
+        obj_path, uri, params
+    )
+
     if not headers:
         headers = {}
 
@@ -294,6 +319,11 @@ def get(
             r'^' + uri + r'/?namespace/(\d+)/$',
             _namespaces[0]['url']
         )
+
+        if not _results:
+            raise fdp_exc.InternalError(
+                "Failed to parse namespace identifiers"
+            )
 
         params['namespace'] = int(_results.group(1))
 
@@ -382,6 +412,10 @@ def post_else_get(
             raise e
 
     if isinstance(_loc, list):
+        if not _loc:
+            raise fdp_exc.RegistryAPICallError(
+                "Expected to receieve a URL location from registry post"
+            )
         _loc = _loc[0]
     if isinstance(_loc, dict):
         _loc = _loc["url"]

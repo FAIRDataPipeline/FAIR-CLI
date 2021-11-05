@@ -2,6 +2,39 @@
 name: FAIR CLI Implementation Testing
 on: [push]
 jobs:
+  Python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Clone Python Implementation
+        uses: actions/checkout@v2
+        with:
+          repository: FAIRDataPipeline/pyDataPipeline
+          path: python_example
+          ref: 'dev'
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: "3.9"
+          architecture: "x64"
+
+      - name: Install memcached
+        run: sudo apt install -y libmemcached-dev
+
+      - name: Install and initialise FAIR CLI
+        run: |
+          pip install poetry
+          poetry install
+
+      - name: run Python Model with fair cli
+        run: |
+          poetry run fair registry install
+          poetry run fair init --ci
+          poetry run pip install .
+          poetry run fair pull src/org/fairdatapipeline/simpleModel/ext/SEIRSconfig.yaml --debug
+          poetry run fair run src/org/fairdatapipeline/simpleModel/ext/SEIRSconfig.yaml --debug
+        working-directory: python_example
+
   Java:
     runs-on: ubuntu-latest
     steps:
@@ -12,6 +45,8 @@ jobs:
         repository: FAIRDataPipeline/javaSimpleModel
         path: java_example
         ref: 'v1.0.0-alpha'
+    - name: Install memcached
+      run: sudo apt install -y libmemcached-dev
     - name: Set up JDK 11
       uses: actions/setup-java@v2
       with:
@@ -24,14 +59,6 @@ jobs:
       run: gradle build
       working-directory: java_example
     
-    - name: Install local registry
-      run: |
-        /bin/bash -c "$(curl -fsSL https://data.scrc.uk/static/localregistry.sh)"
-    
-    - uses: actions/setup-python@v2
-      with:
-        python-version: '3.x'
-    
     - name: install fair-cli
       run: |
         pip install poetry
@@ -39,7 +66,114 @@ jobs:
     
     - name: run javaSimpleModel with fair cli
       run: |
+        poetry run fair registry install
         poetry run fair init --ci
-        poetry run fair pull src/main/resources/seirs-config.yaml
-        poetry run fair run  src/main/resources/seirs-config.yaml
-      working-directory: java_example
+        poetry run fair pull src/main/resources/seirs-config.yaml --debug
+        poetry run fair run  src/main/resources/seirs-config.yaml --debug
+      working-directory: java_example 
+
+  R:
+    runs-on: ubuntu-20.04
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+    - uses: actions/checkout@v2
+    
+    - name: Install memcached
+      run: sudo apt install -y libmemcached-dev
+
+    - name: Clone R Data Pipeline
+      uses: actions/checkout@v2
+      with:
+        repository: FAIRDataPipeline/rDataPipeline
+        path: r_data_pipeline
+        ref: 'main'
+        
+    - name: Clone R Implementation
+      uses: actions/checkout@v2
+      with:
+        repository: FAIRDataPipeline/rSimpleModel
+        path: r_example
+        ref: 'main' 
+  
+    - uses: r-lib/actions/setup-r@v1
+      with:
+        r-version: release
+        use-public-rspm: true
+ 
+    - name: install remotes
+      run: |
+          install.packages("remotes")
+      shell: Rscript {0}
+
+    - name: Install R API system requirements (ubuntu-20.04)
+      working-directory: r_data_pipeline
+      run: |
+        while read -r cmd
+        do
+          eval sudo $cmd
+        done < <(Rscript -e 'cat(remotes::system_requirements("ubuntu", "20.04"), sep = "\n")')
+
+    - name: Install R Example system requirements (ubuntu-20.04)
+      working-directory: r_example
+      run: |
+        while read -r cmd
+        do
+          eval sudo $cmd
+        done < <(Rscript -e 'cat(remotes::system_requirements("ubuntu", "20.04"), sep = "\n")')  
+    
+    - name: Install implementation
+      run: |
+        install.packages("devtools")
+        devtools::install_github("FAIRDataPipeline/rDataPipeline")
+        library(rDataPipeline)
+        devtools::install_github("FAIRDataPipeline/rSimpleModel")
+        library(rSimpleModel)
+      shell: Rscript {0}
+
+    - name: install fair-cli
+      run: |
+        pip install poetry
+        poetry install
+
+    - name: run rSimpleModel with fair cli
+      run: |
+        poetry run fair registry install
+        poetry run fair init --ci
+        poetry run fair pull inst/extdata/SEIRSconfig.yaml
+        poetry run fair run inst/extdata/SEIRSconfig.yaml
+      working-directory: r_example 
+
+  Julia:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Clone Julia Implementation
+      uses: actions/checkout@v2
+      with:
+        repository: FAIRDataPipeline/DataPipeline.jl
+        path: julia_example
+        ref: 'main'
+    - name: Install memcached
+      run: sudo apt install -y libmemcached-dev
+    - name: Set up julia
+      uses: julia-actions/setup-julia@v1
+      with:
+        version: '1'
+        arch: 'x64'
+
+    - name: Install Package
+      run: julia -e 'using Pkg; Pkg.instantiate()'
+  
+    - name: install fair-cli
+      run: |
+        pip install poetry
+        poetry install
+      
+    - name: Run SEIRS Model with fair cli
+      run: |
+        poetry run fair registry install
+        poetry run fair init --ci
+        poetry run fair pull examples/fdp/SEIRSconfig.yaml --debug
+        poetry run fair run examples/fdp/SEIRSconfig.yaml --debug
+      working-directory: julia_example

@@ -17,6 +17,7 @@ Exceptions
     FAIRCLIException
     RegistryErrorException
     CLIConfigurationError
+    KeyPathError
     UnexpectedRegistryServerState
     FDPRepositoryError
     FileNotFoundError
@@ -70,8 +71,8 @@ class FAIRCLIException(Exception):
 class RegistryError(FAIRCLIException):
     """Errors relating to registry setup and usage"""
 
-    def __init__(self, msg):
-        super().__init__(msg)
+    def __init__(self, msg: str, hint:str = ""):
+        super().__init__(msg, hint=hint)
 
 
 class CLIConfigurationError(FAIRCLIException):
@@ -79,6 +80,14 @@ class CLIConfigurationError(FAIRCLIException):
 
     def __init__(self, msg, hint="", level='Error'):
         super().__init__(msg, hint=hint, level=level)
+
+
+class KeyPathError(FAIRCLIException):
+    """Errors relating to key path within a nested mapping"""
+
+    def __init__(self, key, parent_label):
+        _msg = f"Failed to retrieve item at address '{key}' from mapping '{parent_label}', no such address"
+        super().__init__(_msg, level='Error')
 
 
 class UserConfigError(FAIRCLIException):
@@ -128,16 +137,13 @@ class RegistryAPICallError(FAIRCLIException):
 
     def __init__(self, msg, error_code):
         self.error_code = error_code
-        if self.error_code in [403]:
-            _level = "Warning"
-        else:
-            _level = "Error"
-        super().__init__(msg, exit_code=error_code, level=_level)
+        _level = "Warning" if self.error_code in [403] else "Error"
+        super().__init__(f'[HTTP {self.error_code}]: {msg}', exit_code=error_code, level=_level)
 
 class NotImplementedError(FAIRCLIException):
     """Errors relating to features that have not yet been implemented"""
-    def __init__(self, msg, hint=""):
-        super().__init__(msg, hint)
+    def __init__(self, msg, hint="", level='Error'):
+        super().__init__(msg, hint, level=level)
 
 
 class StagingError(FAIRCLIException):

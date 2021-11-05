@@ -2,6 +2,7 @@ import typing
 import tempfile
 import os
 import platform
+import pathlib
 import git
 
 import fair.identifiers as fdp_id
@@ -9,7 +10,7 @@ import fair.identifiers as fdp_id
 
 def create_configurations(
     registry_dir: str,
-    local_git_dir: str = os.getcwd(),
+    local_git_dir: str = None,
     testing_dir: str = tempfile.mkdtemp(),
     tokenless: bool = False) -> typing.Dict:
     """
@@ -41,16 +42,11 @@ def create_configurations(
         with open(_token_file, 'w') as out_f:
             out_f.write(_token)
 
-    if local_git_dir:
-        _repo = git.Repo(local_git_dir)
-    else:
-        _repo = git.Repo.init(_proj_dir)
-        _repo.create_remote('origin', url='git@notagit.com/nope')
-        local_git_dir = _proj_dir
-
-    os.makedirs(_loc_data_store)
-    _local_uri = 'http://localhost:8000/api/'
-    _origin_uri = 'http://localhost:8001/api/'
+    if not local_git_dir:
+        local_git_dir = _no_git_setup(_proj_dir)
+    os.makedirs(_loc_data_store, exist_ok=True)
+    _local_uri = 'http://127.0.0.1:8000/api/'
+    _origin_uri = 'http://127.0.0.1:8001/api/'
     if platform.system() == "Windows":
         _local_uri = 'http://127.0.0.1:8000/api/'
         _origin_uri = 'http://127.0.0.1:8001/api/'
@@ -81,4 +77,16 @@ def create_configurations(
             'remote': 'origin'
         },
     }
+
+
+def _no_git_setup(_proj_dir):
+    _repo = git.Repo.init(_proj_dir)
+    _repo.create_remote('origin', url='git@notagit.com/nope')
+    result = _proj_dir
+    _demo_file = os.path.join(_proj_dir, 'first_file')
+    pathlib.Path(_demo_file).touch()
+    _repo.index.add(_demo_file)
+    _repo.index.commit("First commit of test repository")
+
+    return result
     

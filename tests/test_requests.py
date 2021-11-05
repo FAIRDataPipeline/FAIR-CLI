@@ -1,4 +1,3 @@
-import urllib.parse
 import pytest
 import tempfile
 import os
@@ -11,7 +10,7 @@ from . import conftest as conf
 from functools import reduce
 
 
-LOCAL_URL = 'http://localhost:8000/api'
+LOCAL_URL = 'http://127.0.0.1:8000/api'
 
 
 @pytest.mark.requests
