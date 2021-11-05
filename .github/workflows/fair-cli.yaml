@@ -28,7 +28,7 @@ jobs:
       - name: Install Module
         run: python -m poetry install
       - name: Run Tests
-        run: python -m poetry run pytest -m "not registry" --cov=fair --cov-report=xml --cov-report=term -s tests/
+        run: python -m poetry run pytest --cov=fair --cov-report=xml --cov-report=term -s tests/
       - uses: codecov/codecov-action@v2
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
