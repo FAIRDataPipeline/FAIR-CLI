@@ -18,14 +18,15 @@ Classes
 
 __date__ = "2021-07-13"
 
+import logging
 import os
 import typing
 import yaml
-import logging
 
 import fair.common as fdp_com
 import fair.run as fdp_run
 import fair.registry.requests as fdp_req
+import fair.registry.server as fdp_serve
 import fair.exceptions as fdp_exc
 import fair.configuration as fdp_conf
 
@@ -65,7 +66,6 @@ class Stager:
         else:
             self._logger.debug("Existing staging cache found")
 
-
     def _create_file_label(self, file_to_stage: str) -> str:
         return os.path.relpath(
             file_to_stage,
@@ -75,9 +75,35 @@ class Stager:
     def _create_staging_file(self) -> None:
         _staging_dict = {
             'job': {},
-            'file': {}
+            'file': {},
+            'data_product': {},
         }
         yaml.dump(_staging_dict, open(self._staging_file, 'w'))
+
+    def change_stage_status(self, identifier: str, item_type: str, stage: bool = True) -> None:
+        self._logger.debug("Setting %s '%s' status to staged=%s", item_type, identifier, stage)
+
+        if not os.path.exists(self._staging_file):
+            raise fdp_exc.FileNotFoundError(
+                "Failed to update tracking, expected staging file"
+                f" '{self._staging_file}' but it does not exist"
+            )
+
+        # Open the staging dictionary first
+        _staging_dict = yaml.safe_load(open(self._staging_file))
+
+        _staging_dict[item_type][identifier] = stage
+
+        with open(self._staging_file, 'w') as f:
+            yaml.dump(_staging_dict, f)
+
+    def change_data_product_stage_status(self, data_product_id: int, stage: bool = True) -> None:
+        try:
+            fdp_req.url_get(f"{fdp_serve.DEFAULT_LOCAL_REGISTRY_URL}data_product/{data_product_id}")
+        except fdp_exc.RegistryAPICallError:
+            raise fdp_exc.StagingError(f"DataProduct {data_product_id} not found in Local Registry")
+
+        self.change_stage_status(data_product_id, 'data_product', stage)
 
     def change_job_stage_status(self, job_id: str, stage: bool = True) -> None:
         """Stage a local code job ready to be pushed to the remote registry
@@ -89,16 +115,6 @@ class Stager:
         stage : bool, optional
             whether job is staged, default True
         """
-        self._logger.debug("Setting job '%s' status to staged=%s", job_id, stage)
-
-        if not os.path.exists(self._staging_file):
-            raise fdp_exc.FileNotFoundError(
-                "Failed to update tracking, expected staging file"
-                f" '{self._staging_file}' but it does not exist"
-            )
-
-        # Open the staging dictionary first
-        _staging_dict = yaml.safe_load(open(self._staging_file))
 
         # When a job is completed by a language implementation the CLI should
         # have already registered it into staging with a status of staged=False
@@ -107,11 +123,7 @@ class Stager:
                 f"Failed to recognise job with ID '{job_id}'"
             )
 
-        _staging_dict['job'][job_id] = stage
-
-        with open(self._staging_file, 'w') as f:
-            yaml.dump(_staging_dict, f)
-
+        self.change_stage_status(job_id, 'job', stage)
 
     def find_registry_entry_for_file(self, local_uri: str, file_path: str) -> str:
         """Performs a rough search for a file in the local registry
@@ -152,7 +164,6 @@ class Stager:
         self._logger.debug("Found config.yaml URL: %s", _results[0])
 
         return _results[0]
-
     
     def _get_code_run_entries(
         self,
@@ -312,7 +323,6 @@ class Stager:
             "script_file": _script_url
         }
 
-    
     def remove_staging_entry(
         self, identifier: str, stage_type: str = "job"
         ) -> None:
@@ -364,3 +374,23 @@ class Stager:
             )
 
         return [k for k, v in _staging_dict[stage_type].items() if v == staged]
+
+    def update_data_product_staging(self) -> None:
+        """Update DataProduct list in staging file.
+        """
+        result = fdp_req.url_get(f"{fdp_serve.DEFAULT_LOCAL_REGISTRY_URL}data_product")
+
+        data_products = []
+        for data_product in result:
+            namespace = fdp_req.url_get(data_product["namespace"])["name"]
+            name = data_product["name"]
+            version = data_product["version"]
+            data_products.append(f"{namespace}: {name}@v{version}")
+
+        with open(self._staging_file) as f:
+            _staging_dict = yaml.safe_load(f)
+
+        _staging_dict["data_product"] = data_products
+
+        with open(self._staging_file, 'w') as f:
+            yaml.dump(_staging_dict, f)

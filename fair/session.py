@@ -443,7 +443,9 @@ class FAIR:
         rich.print("\n".join(_remote_print))
         return _remote_print
 
-    def status(self, verbose: bool = False) -> None:
+    def status_data_products
+
+    def status_jobs(self, verbose: bool = False) -> None:
         """Get the status of staging"""
         self._logger.debug("Updating staging status")
         self.check_is_repo()
