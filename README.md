@@ -34,6 +34,13 @@ By default the shell used to execute a process is `sh` or `pwsh` for UNIX and Wi
 
 A full description of `config.yaml` files can be found [here](https://www.fairdatapipeline.org/docs/interface/config/).
 
+## Tab Completion
+To enable tab completion you need to modify your shell:
+
+```
+_FAIR_COMPLETE=bash_source fair > ~/config/fair-complete.bash
+echo '. ~/config/fair-complete.bash'
+```
 
 ## Available Commands
 

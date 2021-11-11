@@ -14,7 +14,9 @@ import typing
 import os
 import sys
 import click
+import click.shell_completion
 import yaml
+import pathlib
 
 import fair.session as fdp_session
 import fair.common as fdp_com
@@ -25,10 +27,26 @@ import fair.registry.server as fdp_svr
 import fair.run as fdp_run
 
 __author__ = "Scottish COVID Response Consortium"
-__credits__ = ["Richard Reeve (University of Glasgow)", "Nathan Cummings (UKAEA)", "Kristian Zarebski (UKAEA)", "Dennis Reddyhoff (University of Sheffield)"]
+__credits__ = [
+    "Richard Reeve (University of Glasgow)",
+    "Nathan Cummings (UKAEA)",
+    "Kristian Zarebski (UKAEA)",
+    "Dennis Reddyhoff (University of Sheffield)"
+]
 __license__ = "BSD-2-Clause"
 __status__ = "Development"
 __copyright__ = "Copyright 2021, FAIR Data Pipeline"
+
+def complete_yamls(ctx, param, incomplete):
+    _file_list: typing.List[str] = [
+        str(i)
+        for i in pathlib.Path(os.getcwd()).rglob('*.yaml')
+    ]
+    _file_list += [str(i) for i in pathlib.Path(os.getcwd()).rglob('*.yml')]
+    return [
+        click.shell_completion.CompletionItem(k)
+        for k in _file_list if k.startswith(incomplete)
+    ]
 
 
 @click.group()
@@ -75,11 +93,13 @@ def create(debug, output: str) -> None:
     "--config",
     help="Specify alternate location for generated config.yaml",
     default=fdp_com.local_user_config(os.getcwd()),
+    shell_complete=complete_yamls
 )
 @click.option(
     "--using",
     help="Initialise the CLI system from an existing CLI global configuration file",
-    default=""
+    default="",
+    shell_complete=complete_yamls
 )
 @click.option(
     "--registry",
@@ -371,8 +391,6 @@ def remote(ctx, verbose: bool = False, debug: bool = False):
 @remote.command()
 @click.argument("options", nargs=-1)
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
-
-
 def add(options: typing.List[str], debug: bool) -> None:
     """Add a remote registry URL with option to give it a label if multiple
     remotes may be used.
