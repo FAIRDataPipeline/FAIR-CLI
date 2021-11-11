@@ -378,19 +378,28 @@ class Stager:
     def update_data_product_staging(self) -> None:
         """Update DataProduct list in staging file.
         """
+        with open(self._staging_file) as f:
+            _staging_dict = yaml.safe_load(f)
+
         result = fdp_req.url_get(f"{fdp_serve.DEFAULT_LOCAL_REGISTRY_URL}data_product")
 
-        data_products = []
         for data_product in result:
             namespace = fdp_req.url_get(data_product["namespace"])["name"]
             name = data_product["name"]
             version = data_product["version"]
-            data_products.append(f"{namespace}: {name}@v{version}")
-
-        with open(self._staging_file) as f:
-            _staging_dict = yaml.safe_load(f)
-
-        _staging_dict["data_product"] = data_products
+            key = f"{namespace}: {name}@v{version}"
+            if key not in _staging_dict["data_product"]:
+                _staging_dict["data_product"][key] = False
 
         with open(self._staging_file, 'w') as f:
             yaml.dump(_staging_dict, f)
+
+    def _load_from_file(self, file_name: str = None) -> typing.Dict[str, bool]:
+        if not file_name:
+            file_name = self._staging_file
+        
+        with open(file_name, 'w') as f:
+            _staging_dict = yaml.safe_load(f)
+        
+        self._staging_file = file_name
+        return _staging_dict

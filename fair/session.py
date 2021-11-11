@@ -443,11 +443,39 @@ class FAIR:
         rich.print("\n".join(_remote_print))
         return _remote_print
 
-    def status_data_products
+    def status_data_products(self) -> None:
+        """Get the stageing status of DataProducts"""
+        self._logger.debug("Getting DataProducts staging status")
+        self.check_is_repo()
+
+        self._stager.update_data_product_staging() #TODO: Move to pull and run methods, here for development
+        _staged_data_products = self._stager.get_item_list(True, "data_product")
+        _unstaged_data_products = self._stager.get_item_list(False, "data_product")
+
+        if _staged_data_products:
+            click.echo("Changes to be synchronized:")
+            click.echo("\tDataProducts:")
+            for data_product in _staged_data_products:
+                click.echo(click.style(f"\t\t{data_product}", fg="green"))
+        
+        if _unstaged_data_products:
+            click.echo("Changes not staged for synchronization:")
+            click.echo('\t(use "fair add <DataProduct>..." to stage DataProducts)')
+
+            click.echo("\tDataProducts:")
+            for i, data_product in enumerate(_unstaged_data_products):
+                if i > 4:
+                    click.echo(click.style("\t\t...", fg='red'))
+                    break
+                click.echo(click.style(f"\t\t{data_product}", fg="red"))
+
+        if not _unstaged_data_products and not _staged_data_products:
+            click.echo("No DataProducts marked for tracking.")
+
 
     def status_jobs(self, verbose: bool = False) -> None:
-        """Get the status of staging"""
-        self._logger.debug("Updating staging status")
+        """Get the staging status of jobs"""
+        self._logger.debug("Getting job staging status")
         self.check_is_repo()
 
         _staged_jobs = self._stager.get_item_list(True, "job")
@@ -514,7 +542,7 @@ class FAIR:
                         )
 
         if not _unstaged_jobs and not _staged_jobs:
-            click.echo("Nothing marked for tracking.")
+            click.echo("No jobs marked for tracking.")
 
     def make_starter_config(self, output_file_name: str = None) -> None:
         """Create a starter config.yaml"""

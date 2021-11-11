@@ -47,7 +47,7 @@ def status(verbose, debug) -> None:
         with fdp_session.FAIR(
             os.getcwd(), debug=debug, server_mode=fdp_svr.SwitchMode.CLI
         ) as fair_session:
-            fair_session.status(verbose)
+            fair_session.status_data_products()
     except fdp_exc.FAIRCLIException as e:
         if debug:
             raise e
