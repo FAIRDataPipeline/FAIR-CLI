@@ -619,19 +619,15 @@ def global_config_query(registry: str = None) -> typing.Dict[str, typing.Any]:
         default=_remote_url.replace("api", "data")
     )
 
-    _default_token = os.path.join(registry, "remote-token")
     _rem_key_file = click.prompt(
         "Remote API Token File",
-        default=_default_token
     )
     _rem_key_file = os.path.expandvars(_rem_key_file)
 
-    #TODO fix search for valid token
     while (
-        False and
-        (not os.path.exists(_rem_key_file)
+        not os.path.exists(_rem_key_file)
         or not open(_rem_key_file).read().strip()
-        )):
+        ):
         click.echo(
             f"Token file '{_rem_key_file}' does not exist or is empty, "
             "please provide a valid token file."
@@ -800,11 +796,9 @@ def local_config_query(
         _def_rem_key = click.prompt("Remote API Token File", default=_def_rem_key)
         _def_rem_key = os.path.expandvars(_def_rem_key)
 
-        #TODO fix search for valid token
         while (
-            False
-            #not os.path.exists(_def_rem_key)
-            #or not open(_def_rem_key).read().strip()
+            not os.path.exists(_def_rem_key)
+            or not open(_def_rem_key).read().strip()
         ):
             click.echo(
                 f"Token file '{_def_rem_key}' does not exist or is empty, "
