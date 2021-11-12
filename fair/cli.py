@@ -280,19 +280,32 @@ def view(job_id: str, debug: bool) -> None:
 
 
 @cli.command()
-@click.argument("file_paths", type=click.Path(exists=True), nargs=-1)
+@click.argument("identifier")
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
-def reset(file_paths: typing.List[str], debug: bool) -> None:
-    """Removes jobs from staging"""
-    pass
+@click.option("-j", "--job/--no-job", help="Stage entire job", default=False)
+def unstage(identifier: str, debug: bool, job: bool) -> None:
+    """Remove data products or jobs from staging"""
+    try:
+        with fdp_session.FAIR(os.getcwd(), debug=debug,) as fair_session:
+            fair_session.change_staging_state(
+                identifier,
+                "job" if job else "data_product",
+                stage=False,
+            )
+    except fdp_exc.FAIRCLIException as e:
+        if debug:
+            raise e
+        e.err_print()
+        if e.level.lower() == "error":
+            sys.exit(e.exit_code)
 
 
 @cli.command()
 @click.argument("identifier")
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
-@click.option("--job/--no-job", help="Stage entire job", default=False)
+@click.option("-j", "--job/--no-job", help="Stage entire job", default=False)
 def add(identifier: str, debug: bool, job: bool) -> None:
-    """Add a job to staging"""
+    """Add a data product or job to staging"""
     try:
         with fdp_session.FAIR(os.getcwd(), debug=debug,) as fair_session:
             fair_session.change_staging_state(
