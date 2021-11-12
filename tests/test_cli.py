@@ -73,7 +73,6 @@ def test_status(local_config: typing.Tuple[str, str],
     _urls_list = {i: 'http://dummyurl.com' for i in _dummy_job_staging['job']}
     mocker.patch.object(fair.staging.Stager, 'get_job_data', lambda *args: _urls_list)
 
-    mocker.patch('fair.registry.requests.local_token', lambda: str(uuid.uuid4()))
     mocker.patch('fair.registry.server.stop_server', lambda *args: None)
     for identifier in _dummy_job_staging['job']:
         os.makedirs(os.path.join(os.getcwd(), 'jobs', identifier))
@@ -81,6 +80,7 @@ def test_status(local_config: typing.Tuple[str, str],
     yaml.dump(_dummy_job_staging, open(os.path.join(os.getcwd(), fdp_com.FAIR_FOLDER, "staging"), 'w'))
     with local_registry:
         mocker.patch('fair.common.registry_home', lambda: local_registry._install)
+        mocker.patch('fair.registry.requests.local_token', lambda: local_registry._token)
         _result = click_test.invoke(cli, ['status', '--debug', '--verbose'])
 
         assert _result.exit_code == 0
