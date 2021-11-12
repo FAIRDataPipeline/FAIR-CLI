@@ -387,7 +387,7 @@ class Stager:
             namespace = fdp_req.url_get(data_product["namespace"])["name"]
             name = data_product["name"]
             version = data_product["version"]
-            key = f"{namespace}: {name}@v{version}"
+            key = f"{namespace}:{name}@v{version}"
             if key not in _staging_dict["data_product"]:
                 _staging_dict["data_product"][key] = False
 
