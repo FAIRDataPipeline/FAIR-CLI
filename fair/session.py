@@ -37,9 +37,12 @@ import logging
 import shutil
 import copy
 import click
+import re
 import rich
 import git
 import yaml
+from rich.console import Console
+from rich.table import Table
 
 import fair.templates as fdp_tpl
 import fair.common as fdp_com
@@ -452,6 +455,7 @@ class FAIR:
         _staged_data_products = self._stager.get_item_list(True, "data_product")
         _unstaged_data_products = self._stager.get_item_list(False, "data_product")
 
+        console = Console()
         if _staged_data_products:
             click.echo("Changes to be synchronized:")
             click.echo("\tDataProducts:")
@@ -459,15 +463,27 @@ class FAIR:
                 click.echo(click.style(f"\t\t{data_product}", fg="green"))
         
         if _unstaged_data_products:
-            click.echo("Changes not staged for synchronization:")
-            click.echo('\t(use "fair add <DataProduct>..." to stage DataProducts)')
-
-            click.echo("\tDataProducts:")
+            unstaged_table = Table(
+                title="Data products not staged for synchronization:",
+                title_style="bold",
+                title_justify="left",
+                box=rich.box.SIMPLE,
+            )
+            unstaged_table.add_column("Namespace", style="red", no_wrap=True)
+            unstaged_table.add_column("Name", style="red", no_wrap=True)
+            unstaged_table.add_column("Version", style="red", no_wrap=True)
             for i, data_product in enumerate(_unstaged_data_products):
-                if i > 4:
-                    click.echo(click.style("\t\t...", fg='red'))
+                namespace, name, version = re.split("[:@]", data_product)
+                unstaged_table.add_row(namespace, name, version)
+                if i == 4 and i != len(_unstaged_data_products) - 1:
+                    unstaged_table.add_row(
+                        f"+ {len(_unstaged_data_products) - i - 1} more...",
+                        '',
+                        '',
+                    )
                     break
-                click.echo(click.style(f"\t\t{data_product}", fg="red"))
+            click.echo(console.print(unstaged_table))
+            click.echo(rich.print('(use "fair add <DataProduct>..." to stage DataProducts)'))
 
         if not _unstaged_data_products and not _staged_data_products:
             click.echo("No DataProducts marked for tracking.")
