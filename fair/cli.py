@@ -160,10 +160,22 @@ def init(
     help="Also delete the local data directory",
     default=False
 )
+@click.option(
+    "--all/--not-all",
+    help="Remove all FAIR interfaces and registry",
+    default=False
+)
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
-def purge(glob: bool, debug: bool, yes: bool, data: bool) -> None:
+def purge(glob: bool, debug: bool, yes: bool, data: bool, all: bool) -> None:
     """Resets the repository deleting all local caches"""
-    if not yes:
+    _purge = yes
+
+    if all:
+        all = click.confirm(
+            "Are you sure you want to remove all FAIR components from this system?\n"
+            "WARNING: This will also remove your local registry"
+        )
+    else:
         _purge = click.confirm(
             "Are you sure you want to reset FAIR tracking, "
             "this is not reversible?"
@@ -173,18 +185,16 @@ def purge(glob: bool, debug: bool, yes: bool, data: bool) -> None:
                 "Are you sure you want to delete the local data directory?\n"
                 "WARNING: Do not do this if you have a populated local registry"
             )
-    else:
-        _purge = True
-
-    if not _purge:
-        return
+        if not _purge:
+            return
 
     try:
         with fdp_session.FAIR(os.getcwd()) as fair_session:
             fair_session.purge(
                 global_cfg=glob,
                 local_cfg=_purge,
-                clear_data=data
+                clear_data=data,
+                clear_all=all
             )
     except fdp_exc.FAIRCLIException as e:
         if debug:

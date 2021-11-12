@@ -14,6 +14,33 @@ The package is installed using Pip:
 pip install fair-cli
 ```
 
+To enable tab completion you need to modify your shell:
+
+### Bash
+```
+_FAIR_COMPLETE=bash_source fair > ~/.config/.fair-complete.bash
+echo '. ~/.config/.fair-complete.bash' >> ~/.bashrc
+```
+
+### zsh
+```
+_FAIR_COMPLETE=zsh_source fair > ~/.fair-complete.zsh
+echo '. ~/.fair-complete.zsh' >> ~/.bashrc
+```
+
+### Fish
+```
+_FAIR_COMPLETE=bash_source fair > ~/.config/fish/.fair-complete.fish
+echo '. ~/.config/fish/.fair-complete.fish' >> ~/.bashrc
+```
+
+## Uninstallation
+To uninstall the CLI run:
+```
+fair purge --all
+pip uninstall fair
+```
+
 ## The User Configuration File
 Job runs are configured via `config.yaml` files. Upon initialisation of a project, FAIR-CLI automatically generates a starter configuration file with all requirements in place. To execute a process (e.g. perform a model run from a compiled binary/script) an additional key of either `script` or `script_path` must be provided. Alternatively the command `fair run bash` can be used to append the key and run a command directly.
 
@@ -33,14 +60,6 @@ By default the shell used to execute a process is `sh` or `pwsh` for UNIX and Wi
 | `sh`         | `sh -e {0}`                     |
 
 A full description of `config.yaml` files can be found [here](https://www.fairdatapipeline.org/docs/interface/config/).
-
-## Tab Completion
-To enable tab completion you need to modify your shell:
-
-```
-_FAIR_COMPLETE=bash_source fair > ~/config/fair-complete.bash
-echo '. ~/config/fair-complete.bash'
-```
 
 ## Available Commands
 

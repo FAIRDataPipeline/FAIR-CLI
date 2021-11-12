@@ -162,7 +162,8 @@ class FAIR:
         verbose: bool = True,
         local_cfg: bool = False,
         global_cfg: bool = False,
-        clear_data: bool = False
+        clear_data: bool = False,
+        clear_all: bool = False
         ) -> None:
         """Remove FAIR-CLI tracking from the given directory
 
@@ -176,12 +177,19 @@ class FAIR:
             run in verbose mode, default is True
         clear_data : bool, optional
             remove the data directory (potentially dangerous), default is False
+        clear_all : bool, optional
+            remove all FAIR components from the system, overrides others, default is False
         """
         _root_dir = os.path.join(fdp_com.find_fair_root(self._session_loc), fdp_com.FAIR_FOLDER)
-        if local_cfg and os.path.exists(_root_dir):
+        if os.path.exists(_root_dir):
             if verbose:
                 click.echo(f"Removing directory '{_root_dir}'")
             shutil.rmtree(_root_dir)
+        if clear_all:
+            if verbose:
+                click.echo(f"Removing directory '{fdp_com.USER_FAIR_DIR}'")
+            shutil.rmtree(fdp_com.USER_FAIR_DIR)
+            return
         if clear_data:
             try:
                 if verbose:
