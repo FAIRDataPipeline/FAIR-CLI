@@ -148,15 +148,12 @@ class FAIR:
         self._setup_server()
 
     def push(self, remote: str = "origin"):
-        self._logger.debug(
-            f"Pushing items in '{self._session_config}:write' to remote"
-            f" registry '{remote}'"
-        )
-        fdp_sync.push_from_config(
+        _staged_data_products = self._stager.get_item_list(True, "data_product")
+        fdp_sync.push_data_products(
             fdp_conf.get_local_uri(),
             fdp_conf.get_remote_uri(self._session_loc, remote),
             fdp_conf.get_remote_token(self._session_loc, remote),
-            self._session_config,
+            _staged_data_products
         )
 
     def purge(
@@ -460,7 +457,7 @@ class FAIR:
             click.echo("No DataProducts marked for tracking.")
 
     def show_data_products(
-        self, data_products: list, title: str, style="green"
+        self, data_products: typing.List[str], title: str, style="green"
     ) -> None:
         console = Console()
         table = Table(
