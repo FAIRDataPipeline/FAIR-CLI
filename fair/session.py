@@ -338,7 +338,9 @@ class FAIR:
         if os.path.exists(fdp_com.local_fdpconfig(self._session_loc)):
             self._local_config = fdp_conf.read_local_fdpconfig(self._session_loc)
 
-    def change_staging_state(self, job_to_stage: str, stage: bool = True) -> None:
+    def change_staging_state(
+        self, identifier: str, type_to_stage: str = "data_product", stage: bool = True
+    ) -> None:
         """Change the staging status of a given run
 
         Parameters
@@ -349,7 +351,10 @@ class FAIR:
             whether to stage/unstage run, by default True (staged)
         """
         self.check_is_repo()
-        self._stager.change_job_stage_status(job_to_stage, stage)
+        if type_to_stage == "data_product":
+            self._stager.change_data_product_stage_status(identifier, stage)
+        else:
+            self._stager.change_job_stage_status(identifier, stage)
 
     def remove_job(self, job_id: str, cached: bool = False) -> None:
         """Remove a job from tracking

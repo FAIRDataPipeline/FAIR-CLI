@@ -288,11 +288,23 @@ def reset(file_paths: typing.List[str], debug: bool) -> None:
 
 
 @cli.command()
-@click.argument("job_ids", nargs=-1)
+@click.argument("identifier")
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
-def add(job_ids: typing.List[str], debug: bool) -> None:
+@click.option("--job/--no-job", help="Stage entire job", default=False)
+def add(identifier: str, debug: bool, job: bool) -> None:
     """Add a job to staging"""
-    pass
+    try:
+        with fdp_session.FAIR(os.getcwd(), debug=debug,) as fair_session:
+            fair_session.change_staging_state(
+                identifier,
+                "job" if job else "data_product",
+            )
+    except fdp_exc.FAIRCLIException as e:
+        if debug:
+            raise e
+        e.err_print()
+        if e.level.lower() == "error":
+            sys.exit(e.exit_code)
 
 
 @cli.command()
