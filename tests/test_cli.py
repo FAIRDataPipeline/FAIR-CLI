@@ -67,7 +67,8 @@ def test_status(local_config: typing.Tuple[str, str],
             str(uuid.uuid4()): False,
             str(uuid.uuid4()): False
         },
-        'file': {}
+        'file': {},
+        'data_product': {},
     }
 
     _urls_list = {i: 'http://dummyurl.com' for i in _dummy_job_staging['job']}
