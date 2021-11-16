@@ -209,11 +209,12 @@ def run_command(
         # this log is viewable via the `fair view <run-cli-sha>`
         with open(_log_file, "a") as f:
             _out_str = _now.strftime("%a %b %d %H:%M:%S %Y %Z")
+            _user = _user[0] if not _user[1] else ' '.join(_user)
             f.writelines(
                 [
                     "--------------------------------\n",
                     f" Commenced = {_out_str}\n",
-                    f" Author    = {' '.join(_user)} <{_email}>\n",
+                    f" Author    = {_user} <{_email}>\n",
                     f" Namespace = {_job_cfg.default_output_namespace}\n",
                     f" Command   = {' '.join(_cmd_list)}\n",
                     "--------------------------------\n",
