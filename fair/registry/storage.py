@@ -91,7 +91,7 @@ def store_user(repo_dir: str, uri: str) -> str:
         URI for created author
     """
     _user = fdp_conf.get_current_user_name(repo_dir)
-    _data = {'name': ' '.join(_user) if _user[0] else _user[1]}
+    _data = {'name': ' '.join(_user) if _user[1] else _user[0]}
 
     try:
         _id = fdp_conf.get_current_user_uri(repo_dir)
