@@ -1,4 +1,4 @@
-# Unreleased
+# 2021-11-17 [v0.2.3](https://github.com/FAIRDataPipeline/FAIR-CLI/releases/tag/v0.2.3)
 - Move handling of the user `config.yaml` file to a separate class `JobConfiguration`.
 - Add various fixes to improve functionality within Windows.
 - Move registry installation from script execution to internal function which sets up virtual environment etc.
@@ -7,6 +7,7 @@
 
 # 2021-10-06 [v0.2.2](https://github.com/FAIRDataPipeline/FAIR-CLI/releases/tag/v0.2.2)
 - Update to package metadata for PyPi
+
 # 2021-10-06 [v0.2.1](https://github.com/FAIRDataPipeline/FAIR-CLI/releases/tag/v0.2.1) 
 - Automatic starter `config.yaml` generation.
 - Local and Global CLI configurations.
