@@ -18,22 +18,23 @@ Functions
 
 __date__ = "2021-07-01"
 
-import urllib.parse
-import typing
 import time
+import typing
+import urllib.parse
+
 import requests
 import requests.exceptions
 
 ID_URIS = {
-    'orcid': 'https://orcid.org/',
-    'ror': 'https://ror.org/',
-    'grid': 'https://www.grid.ac/institutes/'
+    "orcid": "https://orcid.org/",
+    "ror": "https://ror.org/",
+    "grid": "https://www.grid.ac/institutes/",
 }
 
 QUERY_URLS = {
-    'orcid': "https://pub.orcid.org/v2.0/",
-    'ror': "https://api.ror.org/organizations?query=",
-    'grid': "https://www.grid.ac/institutes/"
+    "orcid": "https://pub.orcid.org/v2.0/",
+    "ror": "https://api.ror.org/organizations?query=",
+    "grid": "https://www.grid.ac/institutes/",
 }
 
 
@@ -51,27 +52,28 @@ def check_orcid(orcid: str) -> typing.Dict:
         metadata from the given ID
     """
 
-    _header = {'Accept': 'application/json'}
-    _url = urllib.parse.urljoin(QUERY_URLS['orcid'], orcid)
-    _response = requests.get(_url, headers = _header)
+    _header = {"Accept": "application/json"}
+    _url = urllib.parse.urljoin(QUERY_URLS["orcid"], orcid)
+    _response = requests.get(_url, headers=_header)
 
     _result_dict: typing.Dict[str, typing.Any] = {}
 
     if _response.status_code != 200:
         return _result_dict
-    
-    _names = _response.json()['person']['name']
-    _given = _names['given-names']['value']
-    _family = _names['family-name']['value']
-    _name = _given + ' ' + _family
 
-    _result_dict['name'] = _name
-    _result_dict['family_name'] = _family
-    _result_dict['given_names'] = _given
-    _result_dict['orcid'] = orcid
-    _result_dict['uri'] = f'{ID_URIS["orcid"]}{orcid}'
+    _names = _response.json()["person"]["name"]
+    _given = _names["given-names"]["value"]
+    _family = _names["family-name"]["value"]
+    _name = _given + " " + _family
+
+    _result_dict["name"] = _name
+    _result_dict["family_name"] = _family
+    _result_dict["given_names"] = _given
+    _result_dict["orcid"] = orcid
+    _result_dict["uri"] = f'{ID_URIS["orcid"]}{orcid}'
 
     return _result_dict
+
 
 def check_ror(ror: str) -> typing.Dict:
     """Checks if valid ROR using ROR public api
@@ -94,16 +96,16 @@ def check_ror(ror: str) -> typing.Dict:
 
     if _response.status_code != 200:
         return _result_dict
-    
-    if _response.json()['number_of_results'] == 0:
+
+    if _response.json()["number_of_results"] == 0:
         return _result_dict
-        
-    _name = _response.json()['items'][0]['name']
-    _result_dict['name'] = _name
-    _result_dict['family_name'] = _name
-    _result_dict['given_names'] = None
-    _result_dict['ror'] = ror
-    _result_dict['uri'] = f'{ID_URIS["ror"]}{ror}'
+
+    _name = _response.json()["items"][0]["name"]
+    _result_dict["name"] = _name
+    _result_dict["family_name"] = _name
+    _result_dict["given_names"] = None
+    _result_dict["ror"] = ror
+    _result_dict["uri"] = f'{ID_URIS["ror"]}{ror}'
 
     return _result_dict
 
@@ -119,7 +121,7 @@ def check_grid(grid_id: str) -> typing.Dict:
     typing.Dict
         metadata from the given ID
     """
-    _header = {'Accept': 'application/json'}
+    _header = {"Accept": "application/json"}
     _response = requests.get(f'{QUERY_URLS["grid"]}{grid_id}', headers=_header)
 
     _result_dict: typing.Dict[str, typing.Any] = {}
@@ -127,13 +129,13 @@ def check_grid(grid_id: str) -> typing.Dict:
     if _response.status_code != 200:
         return _result_dict
 
-    _name = _response.json()['institute']['name']
+    _name = _response.json()["institute"]["name"]
 
-    _result_dict['name'] = _name
-    _result_dict['family_name'] = _name
-    _result_dict['given_names'] = None
-    _result_dict['grid'] = grid_id
-    _result_dict['uri'] = f'{ID_URIS["grid"]}{grid_id}'
+    _result_dict["name"] = _name
+    _result_dict["family_name"] = _name
+    _result_dict["given_names"] = None
+    _result_dict["grid"] = grid_id
+    _result_dict["uri"] = f'{ID_URIS["grid"]}{grid_id}'
 
     return _result_dict
 
@@ -162,9 +164,10 @@ def check_id_permitted(identifier: str, retries: int = 5) -> bool:
         except (
             requests.exceptions.MissingSchema,
             requests.exceptions.HTTPError,
-            requests.exceptions.ConnectionError):
+            requests.exceptions.ConnectionError,
+        ):
             _n_attempts += 1
             time.sleep(1)
             continue
-    
+
     return False

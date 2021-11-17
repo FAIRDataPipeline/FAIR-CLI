@@ -22,19 +22,19 @@ Functions
 
 __date__ = "2021-07-02"
 
-import typing
-import os
 import hashlib
-import urllib.parse
-import logging
+import os
+import typing
+
 import yaml
 
-import fair.registry.requests as fdp_req
-import fair.exceptions as fdp_exc
 import fair.configuration as fdp_conf
+import fair.exceptions as fdp_exc
 import fair.identifiers as fdp_id
 import fair.registry.file_types as fdp_file
+import fair.registry.requests as fdp_req
 import fair.registry.versioning as fdp_ver
+
 
 def get_write_storage(uri: str, write_data_store: str) -> str:
     """Construct storage root if it does not exist
@@ -63,9 +63,7 @@ def get_write_storage(uri: str, write_data_store: str) -> str:
         _write_store_root += os.path.sep
 
     # Check if the data store already exists by querying for it
-    _search_root = fdp_req.get(
-        uri, "storage_root", params={"root": _write_store_root}
-    )
+    _search_root = fdp_req.get(uri, "storage_root", params={"root": _write_store_root})
 
     # If the data store already exists just return the URI else create it
     # and then do the same
@@ -91,23 +89,21 @@ def store_user(repo_dir: str, uri: str) -> str:
         URI for created author
     """
     _user = fdp_conf.get_current_user_name(repo_dir)
-    _data = {'name': ' '.join(_user) if _user[0] else _user[1]}
+    _data = {"name": " ".join(_user) if _user[0] else _user[1]}
 
     try:
         _id = fdp_conf.get_current_user_uri(repo_dir)
-        _data['identifier'] = _id
+        _data["identifier"] = _id
         return fdp_req.post_else_get(
             uri, "author", data=_data, params={"identifier": _id}
         )
     except fdp_exc.CLIConfigurationError:
         _uuid = fdp_conf.get_current_user_uuid(repo_dir)
-        _data['uuid'] = _uuid
-        return fdp_req.post_else_get(
-            uri, "author", data=_data, params={"uuid": _uuid}
-        )
+        _data["uuid"] = _uuid
+        return fdp_req.post_else_get(uri, "author", data=_data, params={"uuid": _uuid})
 
 
-def populate_file_type(uri:str) -> typing.List[typing.Dict]:
+def populate_file_type(uri: str) -> typing.List[typing.Dict]:
     """Populates file_type table with common file file_types
 
     Parameters
@@ -141,9 +137,10 @@ def create_file_type(uri: str, extension: str) -> str:
     """
     _name = fdp_file.FILE_TYPES[extension]
     return fdp_req.post_else_get(
-        uri, "file_type",
+        uri,
+        "file_type",
         data={"name": _name, "extension": extension.lower()},
-        params={"extension": extension.lower()}
+        params={"extension": extension.lower()},
     )
 
 
@@ -186,16 +183,12 @@ def store_working_config(repo_dir: str, uri: str, work_cfg_yml: str) -> str:
     _storage_loc_data = {
         "path": _rel_path,
         "storage_root": _root_store,
-        "public": _work_cfg['run_metadata'].get('public', True),
+        "public": _work_cfg["run_metadata"].get("public", True),
         "hash": _hash,
     }
 
     try:
-        _post_store_loc = fdp_req.post(
-            uri,
-            "storage_location",
-            data=_storage_loc_data
-        )
+        _post_store_loc = fdp_req.post(uri, "storage_location", data=_storage_loc_data)
     except fdp_exc.RegistryAPICallError as e:
         if not e.error_code == 409:
             raise e
@@ -204,7 +197,7 @@ def store_working_config(repo_dir: str, uri: str, work_cfg_yml: str) -> str:
                 f"Cannot post storage_location "
                 f"'{_rel_path}' with hash"
                 f" '{_hash}', object already exists",
-                error_code=409
+                error_code=409,
             )
 
     _user = store_user(repo_dir, uri)
@@ -225,11 +218,8 @@ def store_working_config(repo_dir: str, uri: str, work_cfg_yml: str) -> str:
 
 
 def store_working_script(
-    repo_dir: str,
-    uri: str,
-    script_path: str,
-    working_config: str
-    ) -> str:
+    repo_dir: str, uri: str, script_path: str, working_config: str
+) -> str:
     """Construct a storage location and object for the CLI run script
 
     Parameters
@@ -271,16 +261,12 @@ def store_working_script(
     _storage_loc_data = {
         "path": _rel_path,
         "storage_root": _root_store,
-        "public": _work_cfg['run_metadata'].get('public', True),
+        "public": _work_cfg["run_metadata"].get("public", True),
         "hash": _hash,
     }
 
     try:
-        _post_store_loc = fdp_req.post(
-            uri,
-            "storage_location",
-            data=_storage_loc_data
-        )
+        _post_store_loc = fdp_req.post(uri, "storage_location", data=_storage_loc_data)
     except fdp_exc.RegistryAPICallError as e:
         if not e.error_code == 409:
             raise e
@@ -289,14 +275,12 @@ def store_working_script(
                 f"Cannot post storage_location "
                 f"'{_rel_path}' with hash"
                 f" '{_hash}', object already exists",
-                error_code=409
+                error_code=409,
             )
 
     _user = store_user(repo_dir, uri)
 
-    _shell_script_type = create_file_type(
-        uri, "sh"
-    )
+    _shell_script_type = create_file_type(uri, "sh")
 
     _time_stamp_dir = os.path.basename(os.path.dirname(script_path))
     _desc = f"Run script for timestamp {_time_stamp_dir}"
@@ -313,10 +297,7 @@ def store_working_script(
 
 
 def store_namespace(
-    uri: str,
-    namespace_label: str,
-    full_name: str = None,
-    website: str = None
+    uri: str, namespace_label: str, full_name: str = None, website: str = None
 ) -> str:
     """Create a namespace on the registry
 
@@ -336,30 +317,27 @@ def store_namespace(
     str
         URL of the created namespace
     """
-    _data = {
-        "name": namespace_label,
-        "full_name": full_name,
-        "website": website
-    }
+    _data = {"name": namespace_label, "full_name": full_name, "website": website}
     return fdp_req.post_else_get(
         uri, "namespace", data=_data, params={"name": namespace_label}
     )
 
 
+# flake8: noqa: C901
 def store_data_file(
     uri: str,
     repo_dir: str,
     data: typing.Dict,
     local_file: str,
     write_data_store: str,
-    public: bool
+    public: bool,
 ) -> None:
 
     _root_store = get_write_storage(uri, write_data_store)
 
     _rel_path = os.path.relpath(local_file, write_data_store)
 
-    if 'version' not in data['use']:
+    if "version" not in data["use"]:
         raise fdp_exc.InternalError(
             f"Expected version number for '{local_file}' "
             "registry submission but none found"
@@ -374,64 +352,56 @@ def store_data_file(
         "hash": _hash,
     }
 
-    _search_data = {
-        'hash': _hash
-    }
+    _search_data = {"hash": _hash}
 
     _post_store_loc = fdp_req.post_else_get(
-        uri,
-        "storage_location",
-        data=_storage_loc_data,
-        params=_search_data
+        uri, "storage_location", data=_storage_loc_data, params=_search_data
     )
 
     _user = store_user(repo_dir, uri)
 
-    if 'file_type' in data:
-        _file_type = data['file_type']
+    if "file_type" in data:
+        _file_type = data["file_type"]
     else:
         _file_type = os.path.splitext(local_file)[1]
 
-    _file_type = create_file_type(
-        uri, _file_type
-    )
+    _file_type = create_file_type(uri, _file_type)
 
     # Namespace is read from the source information
-    if 'namespace_name' not in data:
+    if "namespace_name" not in data:
         raise fdp_exc.UserConfigError(
             f"Expected 'namespace_name' for item '{local_file}'"
         )
 
     _namespace_args = {
         "uri": uri,
-        "namespace_label": data['namespace_name'],
-        "full_name": data['namespace_full_name']
-            if 'namespace_full_name' in data else None,
-        "website": data['namespace_website']
-            if 'namespace_website' in data else None
+        "namespace_label": data["namespace_name"],
+        "full_name": data["namespace_full_name"]
+        if "namespace_full_name" in data
+        else None,
+        "website": data["namespace_website"] if "namespace_website" in data else None,
     }
 
     _namespace_url = store_namespace(**_namespace_args)
 
-    _desc = data['description'] if 'description' in data else None
+    _desc = data["description"] if "description" in data else None
 
     _object_data = {
         "description": _desc,
         "file_type": _file_type,
         "storage_location": _post_store_loc,
-        "authors": [_user]
+        "authors": [_user],
     }
 
     try:
-        _obj_url = fdp_req.post(uri, "object", data=_object_data)['url']
+        _obj_url = fdp_req.post(uri, "object", data=_object_data)["url"]
     except fdp_exc.RegistryAPICallError as e:
         if not e.error_code == 409:
             raise e
         else:
             raise fdp_exc.RegistryAPICallError(
-                f"Cannot post object"
-                f"'{_desc}', duplicate already exists",
-                error_code=409
+                f"Cannot post object" f"'{_desc}', duplicate already exists",
+                error_code=409,
             )
     except KeyError:
         raise fdp_exc.InternalError(
@@ -440,36 +410,35 @@ def store_data_file(
         )
 
     # Get the name of the entry
-    if 'external_object' in data:
-        _name = data['external_object']
-    elif 'data_product' in data:
-        _name = data['data_product']
+    if "external_object" in data:
+        _name = data["external_object"]
+    elif "data_product" in data:
+        _name = data["data_product"]
     else:
         raise fdp_exc.UserConfigError(
             f"Failed to determine type while storing item '{local_file}'"
             "into registry"
         )
 
-    if 'data_product' in data['use']:
-        _name = data['use']['data_product']
+    if "data_product" in data["use"]:
+        _name = data["use"]["data_product"]
 
     _data_prod_data = {
         "namespace": _namespace_url,
         "object": _obj_url,
-        "version": str(data['use']['version']),
-        "name": _name
+        "version": str(data["use"]["version"]),
+        "name": _name,
     }
 
     try:
-        _data_prod_url = fdp_req.post(uri, 'data_product', data=_data_prod_data)['url']
+        _data_prod_url = fdp_req.post(uri, "data_product", data=_data_prod_data)["url"]
     except fdp_exc.RegistryAPICallError as e:
         if not e.error_code == 409:
             raise e
         else:
             raise fdp_exc.RegistryAPICallError(
-                f"Cannot post data_product "
-                f"'{_name}', duplicate already exists",
-                error_code=409
+                f"Cannot post data_product " f"'{_name}', duplicate already exists",
+                error_code=409,
             )
     except KeyError:
         raise fdp_exc.InternalError(
@@ -479,40 +448,35 @@ def store_data_file(
 
     # If 'data_product' key present finish here and return URL
     # else this is an external object
-    if 'data_product' in data:
+    if "data_product" in data:
         return _data_prod_url
 
-    _expected_ext_obj_keys = [
-        "release_date",
-        "primary",
-        "title"
-    ]
+    _expected_ext_obj_keys = ["release_date", "primary", "title"]
 
     _identifier = None
     _alternate_identifier = None
     _alternate_identifier_type = None
 
-    if 'identifier' in data:
-        _identifier = data['identifier']
+    if "identifier" in data:
+        _identifier = data["identifier"]
         if not fdp_id.check_id_permitted(_identifier):
             raise fdp_exc.UserConfigError(
                 f"Identifier '{_identifier}' is not a valid identifier"
             )
 
     if not _identifier:
-        if 'unique_name' not in data:
+        if "unique_name" not in data:
             raise fdp_exc.UserConfigError(
-                "No identifier/alternate_identifier given for "
-                f"item '{local_file}'",
+                "No identifier/alternate_identifier given for " f"item '{local_file}'",
                 hint="You must provide either a URL 'identifier', or "
-                "'unique_name' and 'source_name' keys"
+                "'unique_name' and 'source_name' keys",
             )
         else:
-            _alternate_identifier = data['unique_name']
-            if 'alternate_identifier_type' in data:
-                _alternate_identifier_type = data['alternate_identifier_type']
+            _alternate_identifier = data["unique_name"]
+            if "alternate_identifier_type" in data:
+                _alternate_identifier_type = data["alternate_identifier_type"]
             else:
-                _alternate_identifier_type = 'local source descriptor'
+                _alternate_identifier_type = "local source descriptor"
 
     for key in _expected_ext_obj_keys:
         if key not in data:
@@ -522,18 +486,18 @@ def store_data_file(
 
     _external_obj_data = {
         "data_product": _data_prod_url,
-        "title": data['title'],
-        "primary_not_supplement": data['primary'],
-        "release_date": data['release_date'],
+        "title": data["title"],
+        "primary_not_supplement": data["primary"],
+        "release_date": data["release_date"],
         "identifier": _identifier,
         "alternate_identifier": _alternate_identifier,
-        "alternate_identifier_type": _alternate_identifier_type
+        "alternate_identifier_type": _alternate_identifier_type,
     }
 
-    return fdp_req.post(uri, 'external_object', data=_external_obj_data)
+    return fdp_req.post(uri, "external_object", data=_external_obj_data)
 
 
-def calculate_file_hash(file_name: str, buffer_size: int = 64*1024) -> str:
+def calculate_file_hash(file_name: str, buffer_size: int = 64 * 1024) -> str:
     """Calculates the hash of a data file
 
     Parameters
@@ -549,7 +513,7 @@ def calculate_file_hash(file_name: str, buffer_size: int = 64*1024) -> str:
     # If the file is large we do not want to hash it in one go
     _input_hasher = hashlib.sha1()
 
-    with open(file_name, 'rb') as in_f:
+    with open(file_name, "rb") as in_f:
         _buffer = in_f.read(buffer_size)
         while len(_buffer) > 0:
             _input_hasher.update(_buffer)
@@ -559,9 +523,8 @@ def calculate_file_hash(file_name: str, buffer_size: int = 64*1024) -> str:
 
 
 def get_storage_root_obj_address(
-    remote_uri: str,
-    remote_token: str,
-    address_str: str) -> str:
+    remote_uri: str, remote_token: str, address_str: str
+) -> str:
     """Retrieve the RestAPI URL for a given storage location on the registry
 
     Parameters
@@ -580,12 +543,7 @@ def get_storage_root_obj_address(
     """
     try:
         _results = fdp_req.get(
-            remote_uri,
-            'storage_root',
-            params={
-                'root': address_str
-            },
-            token=remote_token
+            remote_uri, "storage_root", params={"root": address_str}, token=remote_token
         )
         if not _results:
             raise AssertionError
@@ -610,7 +568,7 @@ def check_match(input_object: str, results_list: typing.List[str]):
     results_list : typing.List[str]
         list of storage_location results matching search query
     """
-    _hash_list = [res['hash'] for res in results_list]
+    _hash_list = [res["hash"] for res in results_list]
     return calculate_file_hash(input_object) in _hash_list
 
 
@@ -619,7 +577,8 @@ def check_if_object_exists(
     file_loc: str,
     obj_type: str,
     search_data: typing.Dict,
-    token: str = None) -> str:
+    token: str = None,
+) -> str:
     """Checks if a data product is already present in the registry
 
     Parameters
@@ -643,24 +602,17 @@ def check_if_object_exists(
     """
     _version = None
 
-    if 'version' in search_data:
-        _version = search_data['version']
-        if '${{' in _version:
-            del search_data['version']
+    if "version" in search_data:
+        _version = search_data["version"]
+        if "${{" in _version:
+            del search_data["version"]
 
     # Obtain list of storage_locations for the given data_product
-    _results = fdp_req.get(
-        local_uri,
-        obj_type,
-        params=search_data,
-        token=token
-    )
+    _results = fdp_req.get(local_uri, obj_type, params=search_data, token=token)
 
     try:
         fdp_ver.get_correct_version(
-            version=_version,
-            results_list=_results,
-            free_write=True
+            version=_version, results_list=_results, free_write=True
         )
     except fdp_exc.UserConfigError:
         return "absent"
@@ -668,20 +620,19 @@ def check_if_object_exists(
     if not _results:
         return "absent"
 
-    if obj_type == 'external_object':
-        _results = [res['data_product'] for res in _results]
+    if obj_type == "external_object":
+        _results = [res["data_product"] for res in _results]
         _results = [fdp_req.url_get(r) for r in _results]
 
-    _object_urls = [res['object'] for res in _results]
+    _object_urls = [res["object"] for res in _results]
 
     _storage_urls = [
-        fdp_req.url_get(obj_url, token=token)['storage_location']
+        fdp_req.url_get(obj_url, token=token)["storage_location"]
         for obj_url in _object_urls
     ]
 
     _storage_objs = [
-        fdp_req.url_get(store_url, token=token)
-        for store_url in _storage_urls
+        fdp_req.url_get(store_url, token=token) for store_url in _storage_urls
     ]
 
     if check_match(file_loc, _storage_objs):

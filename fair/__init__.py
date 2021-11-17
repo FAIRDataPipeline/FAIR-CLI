@@ -40,7 +40,7 @@ __credits__ = [
     "Richard Reeve (University of Glasgow)",
     "Nathan Cummings (UKAEA)",
     "Kristian Zarebski (UKAEA)",
-    "Dennis Reddyhoff (University of Sheffield)"
+    "Dennis Reddyhoff (University of Sheffield)",
 ]
 __license__ = "BSD-2-Clause"
 __status__ = "Development"

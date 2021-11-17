@@ -16,18 +16,19 @@ Functions
 
 __date__ = "2021-08-05"
 
-import typing
-import os
 import collections
-import urllib.parse
 import logging
+import os
+import typing
+import urllib.parse
+
 import click
 import yaml
 
 import fair.exceptions as fdp_exc
 import fair.registry.requests as fdp_req
 
-_logger = logging.getLogger('FairDataPipeline.Sync')
+_logger = logging.getLogger("FairDataPipeline.Sync")
 
 
 def get_dependency_chain(object_url: str) -> collections.deque:
@@ -72,7 +73,7 @@ def push_dependency_chain(
     object_url: str,
     dest_uri: str,
     dest_token: str,
-    ) -> typing.Dict[str, str]:
+) -> typing.Dict[str, str]:
     """Push an object and all of its dependencies to the remote registry
 
     In order to push an object, firstly any dependencies which are also
@@ -92,15 +93,10 @@ def push_dependency_chain(
     typing.Dict[str, str]
         dictionary showing conversion from source registry URL to destination
     """
-    _logger.debug(
-        f"Attempting to push object '{object_url}' to '{dest_uri}'"
-    )
+    _logger.debug(f"Attempting to push object '{object_url}' to '{dest_uri}'")
 
     _dependency_chain: collections.deque = get_dependency_chain(object_url)
-    _new_urls: typing.Dict[str, str] = {
-        k: ""
-        for k in _dependency_chain
-    }
+    _new_urls: typing.Dict[str, str] = {k: "" for k in _dependency_chain}
 
     for object in _dependency_chain:
         _obj_data = fdp_req.url_get(object)
@@ -112,7 +108,8 @@ def push_dependency_chain(
             if value in _new_urls:
                 _obj_data[key] = _new_urls[value]
         _writable_data = {
-            k: v for k, v in _obj_data.items()
+            k: v
+            for k, v in _obj_data.items()
             if k in fdp_req.get_writable_fields(_uri, _obj_type)
         }
 
@@ -120,32 +117,25 @@ def push_dependency_chain(
         # given object minus any variables which have a URL value
         # (as remote URL will never match local)
         _filters = {
-            k: v for k, v in _obj_data.items()
-            if k in fdp_req.get_filter_variables(_uri, _obj_type) and
-            not urllib.parse.urlparse(v).netloc
+            k: v
+            for k, v in _obj_data.items()
+            if k in fdp_req.get_filter_variables(_uri, _obj_type)
+            and not urllib.parse.urlparse(v).netloc
         }
 
-        _logger.debug(
-            f"Pushing member '{object}' to '{dest_uri}'"
-        )
+        _logger.debug(f"Pushing member '{object}' to '{dest_uri}'")
         _new_url = fdp_req.post_else_get(
-            dest_uri,
-            _obj_type,
-            data=_writable_data,
-            token=dest_token,
-            params=_filters
+            dest_uri, _obj_type, data=_writable_data, token=dest_token, params=_filters
         )
 
         _new_urls[object] = _new_url
 
     return _new_urls
-        
+
 
 def push_from_config(
-    local_uri: str,
-    dest_uri: str,
-    dest_token: str,
-    config_yaml: str) -> None:
+    local_uri: str, dest_uri: str, dest_token: str, config_yaml: str
+) -> None:
     if not os.path.exists(config_yaml):
         raise fdp_exc.FileNotFoundError(
             f"Cannot load write statements from '{config_yaml}', "
@@ -154,55 +144,47 @@ def push_from_config(
     _logger.debug(f"Reading 'write' statement in '{config_yaml}'")
     _config = yaml.safe_load(open(config_yaml))
 
-    if 'write' not in _config:
+    if "write" not in _config:
         click.echo("Nothing to push.")
         return
 
-    for object in _config['write']:
+    for object in _config["write"]:
         _logger.debug(f"Processing object '{object}'")
-        if 'external_object' in object:
+        if "external_object" in object:
             _usable_fields = {}
-            if 'identifier' in object:
-                _usable_fields['identifier'] = object['identifier']
-            elif 'alternate_identifier' in object:
-                _usable_fields['identifier'] = object['alternate_identifier']
-            if 'title' in object:
-                _usable_fields['title'] = object['title']
-            if 'version' in object:
-                _usable_fields['version'] = object['version']
-            _entries = fdp_req.get(
-                local_uri,
-                'external_object',
-                params=_usable_fields
-            )
+            if "identifier" in object:
+                _usable_fields["identifier"] = object["identifier"]
+            elif "alternate_identifier" in object:
+                _usable_fields["identifier"] = object["alternate_identifier"]
+            if "title" in object:
+                _usable_fields["title"] = object["title"]
+            if "version" in object:
+                _usable_fields["version"] = object["version"]
+            _entries = fdp_req.get(local_uri, "external_object", params=_usable_fields)
 
             if not _entries or len(_entries) > 1:
                 raise fdp_exc.InternalError(
                     "Expected single entry for 'external_object' "
                     f"'{object['external_object']}"
                 )
-            
-            _url = _entries[0]['url']
+
+            _url = _entries[0]["url"]
 
             push_dependency_chain(_url, dest_uri, dest_token)
-        elif 'data_product' in object:
-            _usable_fields = {'name': object['data_product']}
-            if 'version' in object:
-                _usable_fields['version'] = object['version']
-            
-            _entries = fdp_req.get(
-                local_uri,
-                'data_product',
-                params=_usable_fields
-            )
+        elif "data_product" in object:
+            _usable_fields = {"name": object["data_product"]}
+            if "version" in object:
+                _usable_fields["version"] = object["version"]
+
+            _entries = fdp_req.get(local_uri, "data_product", params=_usable_fields)
 
             if not _entries or len(_entries) > 1:
                 raise fdp_exc.InternalError(
                     "Expected single entry for 'data_product' "
                     f"'{object['data_product']}"
                 )
-            
-            _url = _entries[0]['url']
+
+            _url = _entries[0]["url"]
 
             push_dependency_chain(_url, dest_uri, dest_token)
         else:
@@ -210,4 +192,3 @@ def push_from_config(
                 "Cannot write unsupported data type, object must be "
                 "either a data_product or external_object"
             )
-            

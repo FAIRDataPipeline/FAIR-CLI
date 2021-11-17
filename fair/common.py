@@ -35,11 +35,12 @@ Functions
 """
 __date__ = "2021-06-28"
 
+import enum
 import os
 import pathlib
-import yaml
-import enum
+
 import git
+import yaml
 
 import fair.exceptions as fdp_exc
 
@@ -49,31 +50,32 @@ USER_CONFIG_FILE = "config.yaml"
 FAIR_FOLDER = ".fair"
 JOBS_DIR = "jobs"
 
+
 class CMD_MODE(enum.Enum):
-    RUN = 1,
-    PULL = 2,
-    PUSH = 3,
+    RUN = (1,)
+    PULL = (2,)
+    PUSH = (3,)
     PASS = 4
 
 
 def registry_home() -> str:
     _glob_conf = yaml.safe_load(open(global_fdpconfig()))
-    if 'registries' not in _glob_conf:
+    if "registries" not in _glob_conf:
         raise fdp_exc.CLIConfigurationError(
             "Expected key 'registries' in global CLI configuration"
         )
 
-    if 'local' not in _glob_conf['registries']:
+    if "local" not in _glob_conf["registries"]:
         raise fdp_exc.CLIConfigurationError(
             "Expected 'local' registry in global CLI configuration registries"
         )
 
-    if 'directory' not in _glob_conf['registries']['local']:
+    if "directory" not in _glob_conf["registries"]["local"]:
         raise fdp_exc.CLIConfigurationError(
-            'Expected directory of local registry in global CLI configuration'
+            "Expected directory of local registry in global CLI configuration"
         )
 
-    return _glob_conf['registries']['local']['directory']
+    return _glob_conf["registries"]["local"]["directory"]
 
 
 def find_fair_root(start_directory: str = os.getcwd()) -> str:
@@ -105,7 +107,7 @@ def find_fair_root(start_directory: str = os.getcwd()) -> str:
         # If there is no directory component this means the top of the file
         # system has been reached
         if not _directory:
-            return ""            
+            return ""
 
 
 def staging_cache(user_loc: str) -> str:
@@ -115,19 +117,19 @@ def staging_cache(user_loc: str) -> str:
     )
 
 
-def default_data_dir(location: str = 'local') -> str:
+def default_data_dir(location: str = "local") -> str:
     """Location of the default data store"""
     if not os.path.exists(global_fdpconfig()):
         raise fdp_exc.InternalError(
             f"Failed to read CLI global config file '{global_fdpconfig()}'"
         )
     _glob_conf = yaml.safe_load(open(global_fdpconfig()))
-    if 'data_store' in _glob_conf['registries'][location]:
-        return _glob_conf['registries'][location]['data_store']
-    if location == 'local':
+    if "data_store" in _glob_conf["registries"][location]:
+        return _glob_conf["registries"][location]["data_store"]
+    if location == "local":
         return os.path.join(USER_FAIR_DIR, f"data{os.path.sep}")
     else:
-        raise fdp_exc.UserConfigError('Cannot guess remote data store location')
+        raise fdp_exc.UserConfigError("Cannot guess remote data store location")
 
 
 def local_fdpconfig(user_loc: str = os.getcwd()) -> str:
@@ -175,10 +177,7 @@ def find_git_root(start_directory: str = os.getcwd()) -> str:
         absolute path of the .git folder
     """
     try:
-        _repository = git.Repo(
-            start_directory,
-            search_parent_directories=True
-        )
+        _repository = git.Repo(start_directory, search_parent_directories=True)
     except git.InvalidGitRepositoryError:
         raise fdp_exc.UserConfigError(
             "Failed to retrieve git repository for current configuration"
