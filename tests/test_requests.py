@@ -1,78 +1,78 @@
-import pytest
-import tempfile
 import os
+import tempfile
+
+import pytest
 import pytest_mock
 
-import fair.registry.requests as fdp_req
 import fair.exceptions as fdp_exc
+import fair.registry.requests as fdp_req
 
 from . import conftest as conf
-from functools import reduce
 
-
-LOCAL_URL = 'http://127.0.0.1:8000/api'
+LOCAL_URL = "http://127.0.0.1:8000/api"
 
 
 @pytest.mark.requests
 def test_split_url():
-    _test_url = 'https://not_a_site.com/api/object?something=other'
-    assert fdp_req.split_api_url(_test_url) == ('https://not_a_site.com/api', 'object?something=other')
-    assert fdp_req.split_api_url(_test_url, 'com') == ('https://not_a_site.com', 'api/object?something=other')
+    _test_url = "https://not_a_site.com/api/object?something=other"
+    assert fdp_req.split_api_url(_test_url) == (
+        "https://not_a_site.com/api",
+        "object?something=other",
+    )
+    assert fdp_req.split_api_url(_test_url, "com") == (
+        "https://not_a_site.com",
+        "api/object?something=other",
+    )
 
 
 @pytest.mark.requests
 def test_local_token(mocker: pytest_mock.MockerFixture):
-    _dummy_key = 'sdfd234ersdf45234'
+    _dummy_key = "sdfd234ersdf45234"
     with tempfile.TemporaryDirectory() as tempd:
-        _token_file = os.path.join(tempd, 'token')
-        mocker.patch('fair.common.registry_home', lambda: tempd)
+        _token_file = os.path.join(tempd, "token")
+        mocker.patch("fair.common.registry_home", lambda: tempd)
         with pytest.raises(fdp_exc.FileNotFoundError):
             fdp_req.local_token()
-        open(_token_file, 'w').write(_dummy_key)
+        open(_token_file, "w").write(_dummy_key)
         assert fdp_req.local_token() == _dummy_key
 
 
 @pytest.mark.requests
-@pytest.mark.dependency(name='post')
+@pytest.mark.dependency(name="post")
 def test_post(local_registry: conf.TestRegistry, mocker: pytest_mock.MockerFixture):
-    mocker.patch('fair.common.registry_home', lambda: local_registry._install)
-    _name = 'Joseph Bloggs'
-    _orcid = 'https://orcid.org/0000-0000-0000-0000'
+    mocker.patch("fair.common.registry_home", lambda: local_registry._install)
+    _name = "Joseph Bloggs"
+    _orcid = "https://orcid.org/0000-0000-0000-0000"
     with local_registry:
         _result = fdp_req.post(
-            LOCAL_URL,
-            'author',
-            data={'name': _name, 'identifier': _orcid}
+            LOCAL_URL, "author", data={"name": _name, "identifier": _orcid}
         )
-        assert _result['url']
+        assert _result["url"]
 
 
 @pytest.mark.requests
-@pytest.mark.dependency(name='get', depends=['post'])
+@pytest.mark.dependency(name="get", depends=["post"])
 def test_get(local_registry: conf.TestRegistry, mocker: pytest_mock.MockerFixture):
-    mocker.patch('fair.common.registry_home', lambda: local_registry._install)
+    mocker.patch("fair.common.registry_home", lambda: local_registry._install)
     with local_registry:
-        assert fdp_req.get(LOCAL_URL, 'author')
+        assert fdp_req.get(LOCAL_URL, "author")
 
 
 @pytest.mark.requests
-def test_post_else_get(local_registry: conf.TestRegistry, mocker: pytest_mock.MockerFixture):
-    mocker.patch('fair.common.registry_home', lambda: local_registry._install)
+def test_post_else_get(
+    local_registry: conf.TestRegistry, mocker: pytest_mock.MockerFixture
+):
+    mocker.patch("fair.common.registry_home", lambda: local_registry._install)
     with local_registry:
 
-        _data = {'name': 'Comma Separated Values', 'extension': 'csv'}
-        _params = {'extension': 'csv'}
-        _obj_path = 'file_type'
-        
-        mock_post = mocker.patch('fair.registry.requests.post')
-        mock_get = mocker.patch('fair.registry.requests.get')
+        _data = {"name": "Comma Separated Values", "extension": "csv"}
+        _params = {"extension": "csv"}
+        _obj_path = "file_type"
+
+        mock_post = mocker.patch("fair.registry.requests.post")
+        mock_get = mocker.patch("fair.registry.requests.get")
         # Perform method twice, first should post, second retrieve
-        assert fdp_req.post_else_get(
-            LOCAL_URL,
-            _obj_path,
-            data=_data,
-            params=_params
-        )
+        assert fdp_req.post_else_get(LOCAL_URL, _obj_path, data=_data, params=_params)
 
         mock_post.assert_called_once()
         mock_get.assert_not_called()
@@ -82,55 +82,64 @@ def test_post_else_get(local_registry: conf.TestRegistry, mocker: pytest_mock.Mo
         def raise_it(*kwargs, **args):
             raise fdp_exc.RegistryAPICallError("woops", error_code=409)
 
-        mocker.patch('fair.common.registry_home', lambda: local_registry._install)
-        mocker.patch('fair.registry.requests.post', raise_it)
-        mock_get = mocker.patch('fair.registry.requests.get')
+        mocker.patch("fair.common.registry_home", lambda: local_registry._install)
+        mocker.patch("fair.registry.requests.post", raise_it)
+        mock_get = mocker.patch("fair.registry.requests.get")
 
         assert fdp_req.post_else_get(
             LOCAL_URL,
-            'file_type',
-            data={'name': 'Comma Separated Values', 'extension': 'csv'},
-            params={'extension': 'csv'}
+            "file_type",
+            data={"name": "Comma Separated Values", "extension": "csv"},
+            params={"extension": "csv"},
         )
 
         mock_get.assert_called_once()
 
 
 @pytest.mark.requests
-def test_filter_variables(local_registry: conf.TestRegistry, mocker: pytest_mock.MockerFixture):
-    mocker.patch('fair.common.registry_home', lambda: local_registry._install)
+def test_filter_variables(
+    local_registry: conf.TestRegistry, mocker: pytest_mock.MockerFixture
+):
+    mocker.patch("fair.common.registry_home", lambda: local_registry._install)
     with local_registry:
-        assert fdp_req.get_filter_variables(LOCAL_URL, 'data_product')
+        assert fdp_req.get_filter_variables(LOCAL_URL, "data_product")
 
 
 @pytest.mark.requests
-def test_writable_fields(local_registry: conf.TestRegistry, mocker: pytest_mock.MockerFixture):
-    mocker.patch('fair.common.registry_home', lambda: local_registry._install)
+def test_writable_fields(
+    local_registry: conf.TestRegistry, mocker: pytest_mock.MockerFixture
+):
+    mocker.patch("fair.common.registry_home", lambda: local_registry._install)
     with local_registry:
-        fdp_req.filter_object_dependencies(LOCAL_URL, 'data_product', {'read_only': True})
+        fdp_req.filter_object_dependencies(
+            LOCAL_URL, "data_product", {"read_only": True}
+        )
 
 
 @pytest.mark.requests
 def test_download(local_registry: conf.TestRegistry, mocker: pytest_mock.MockerFixture):
-    mocker.patch('fair.common.registry_home', lambda: local_registry._install)
+    mocker.patch("fair.common.registry_home", lambda: local_registry._install)
     with local_registry:
-        _example_file = 'https://data.scrc.uk/static/localregistry.sh'
+        _example_file = "https://data.scrc.uk/static/localregistry.sh"
         _out_file = fdp_req.download_file(_example_file)
         assert os.path.exists(_out_file)
 
 
 @pytest.mark.requests
-def test_dependency_list(local_registry: conf.TestRegistry, mocker: pytest_mock.MockerFixture):
-    mocker.patch('fair.common.registry_home', lambda: local_registry._install)
+def test_dependency_list(
+    local_registry: conf.TestRegistry, mocker: pytest_mock.MockerFixture
+):
+    mocker.patch("fair.common.registry_home", lambda: local_registry._install)
     with local_registry:
         _reqs = fdp_req.get_dependency_listing(LOCAL_URL)
-        assert _reqs['data_product'] == ['object', 'namespace']
+        assert _reqs["data_product"] == ["object", "namespace"]
 
 
 @pytest.mark.requests
-def test_object_type_fetch(local_registry: conf.TestRegistry, mocker: pytest_mock.MockerFixture):
-    mocker.patch('fair.common.registry_home', lambda: local_registry._install)
+def test_object_type_fetch(
+    local_registry: conf.TestRegistry, mocker: pytest_mock.MockerFixture
+):
+    mocker.patch("fair.common.registry_home", lambda: local_registry._install)
     with local_registry:
-        for obj in ['object', 'data_product', 'author', 'file_type']:
-            assert fdp_req.get_obj_type_from_url(f'{LOCAL_URL}/{obj}') == obj
-    
+        for obj in ["object", "data_product", "author", "file_type"]:
+            assert fdp_req.get_obj_type_from_url(f"{LOCAL_URL}/{obj}") == obj
