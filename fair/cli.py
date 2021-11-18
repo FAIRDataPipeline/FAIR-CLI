@@ -11,10 +11,12 @@ interact with the synchronisation tool.
 __date__ = "2021-06-24"
 
 import os
+import pathlib
 import sys
 import typing
 
 import click
+import click.shell_completion
 import yaml
 
 import fair.common as fdp_com
@@ -35,6 +37,18 @@ __credits__ = [
 __license__ = "BSD-2-Clause"
 __status__ = "Development"
 __copyright__ = "Copyright 2021, FAIR Data Pipeline"
+
+
+def complete_yamls(ctx, param, incomplete):
+    _file_list: typing.List[str] = [
+        str(i) for i in pathlib.Path(os.getcwd()).rglob("*.yaml")
+    ]
+    _file_list += [str(i) for i in pathlib.Path(os.getcwd()).rglob("*.yml")]
+    return [
+        click.shell_completion.CompletionItem(k)
+        for k in _file_list
+        if k.startswith(incomplete)
+    ]
 
 
 @click.group()
@@ -80,11 +94,13 @@ def create(debug, output: str) -> None:
     "--config",
     help="Specify alternate location for generated config.yaml",
     default=fdp_com.local_user_config(os.getcwd()),
+    shell_complete=complete_yamls,
 )
 @click.option(
     "--using",
     help="Initialise the CLI system from an existing CLI global configuration file",
     default="",
+    shell_complete=complete_yamls,
 )
 @click.option(
     "--registry",
@@ -139,10 +155,20 @@ def init(
 @click.option(
     "--data/--no-data", help="Also delete the local data directory", default=False
 )
+@click.option(
+    "--all/--not-all", help="Remove all FAIR interfaces and registry", default=False
+)
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
-def purge(glob: bool, debug: bool, yes: bool, data: bool) -> None:
+def purge(glob: bool, debug: bool, yes: bool, data: bool, all: bool) -> None:
     """Resets the repository deleting all local caches"""
-    if not yes:
+    _purge = yes
+
+    if all:
+        all = click.confirm(
+            "Are you sure you want to remove all FAIR components from this system?\n"
+            "WARNING: This will also remove your local registry"
+        )
+    else:
         _purge = click.confirm(
             "Are you sure you want to reset FAIR tracking, " "this is not reversible?"
         )
@@ -151,15 +177,14 @@ def purge(glob: bool, debug: bool, yes: bool, data: bool) -> None:
                 "Are you sure you want to delete the local data directory?\n"
                 "WARNING: Do not do this if you have a populated local registry"
             )
-    else:
-        _purge = True
-
-    if not _purge:
-        return
+        if not _purge:
+            return
 
     try:
         with fdp_session.FAIR(os.getcwd()) as fair_session:
-            fair_session.purge(global_cfg=glob, local_cfg=_purge, clear_data=data)
+            fair_session.purge(
+                global_cfg=glob, local_cfg=_purge, clear_data=data, clear_all=all
+            )
     except fdp_exc.FAIRCLIException as e:
         if debug:
             raise e

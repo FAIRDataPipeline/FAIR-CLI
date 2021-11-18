@@ -551,7 +551,7 @@ def _get_user_info_and_namespaces() -> typing.Dict[str, typing.Dict]:
     _invalid_input = True
 
     while _invalid_input:
-        _id_type = click.prompt("Use ID (ORCID/ROR/GRID)", default="None")
+        _id_type = click.prompt("User ID system (ORCID/ROR/GRID/None)", default="None")
 
         if _id_type.upper() == "ORCID":
             _user_orcid = click.prompt("ORCID")
