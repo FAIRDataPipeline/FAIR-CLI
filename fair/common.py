@@ -50,9 +50,9 @@ FAIR_FOLDER = ".fair"
 JOBS_DIR = "jobs"
 
 class CMD_MODE(enum.Enum):
-    RUN = 1,
-    PULL = 2,
-    PUSH = 3,
+    RUN = 1
+    PULL = 2
+    PUSH = 3
     PASS = 4
 
 
