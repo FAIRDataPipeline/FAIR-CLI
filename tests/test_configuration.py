@@ -110,7 +110,7 @@ def test_user_info(mocker: pytest_mock.MockerFixture):
         "Full Name": "Joseph Bloggs",
         "Default input namespace": _namepaces['input'],
         "Default output namespace": _namepaces['output'],
-        "Use ID (ORCID/ROR/GRID)": "None"
+        "User ID system (ORCID/ROR/GRID/None)": "None"
     }
 
     _orcid_override = {
@@ -126,7 +126,7 @@ def test_user_info(mocker: pytest_mock.MockerFixture):
     mocker.patch('uuid.uuid4', lambda: _uuid_override['uuid'])
     _noorc = fdp_conf._get_user_info_and_namespaces()
 
-    _override["Use ID (ORCID/ROR/GRID)"] = "ORCID"
+    _override["User ID system (ORCID/ROR/GRID/None)"] = "ORCID"
     _override["ORCID"] = "0000-0000-0000"
  
     mocker.patch('click.prompt', lambda x, default=None: _override[x] or default)
