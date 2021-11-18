@@ -19,11 +19,10 @@ __date__ = "2021-08-05"
 
 import re
 import typing
+
 import semver
 
 import fair.exceptions as fdp_exc
-import fair.configuration as fdp_conf
-
 
 BUMP_FUNCS = {
     "LATEST": None,
@@ -31,20 +30,21 @@ BUMP_FUNCS = {
     "MAJOR": "bump_major",
     "PATCH": "bump_patch",
     "BUILD": "bump_build",
-    "PRERELEASE": "bump_prerelease"
+    "PRERELEASE": "bump_prerelease",
 }
 
 DEFAULT_WRITE_VERSION = "PATCH"
 DEFAULT_READ_VERSION = "LATEST"
 
+
 def parse_incrementer(incrementer: str) -> str:
     """Convert an incrementer string in a config to the relevant bump function
-    
+
     Parameters
     ----------
         incrementer : str
             config.yaml variable to describe how version increases are handled
-    
+
     Returns
     -------
         str
@@ -54,17 +54,19 @@ def parse_incrementer(incrementer: str) -> str:
     # Sanity check to confirm all methods are still present in semver module
     for func in BUMP_FUNCS.values():
         if func and func not in dir(semver.VersionInfo):
-            raise fdp_exc.InternalError(f"Unrecognised 'semver.VersionInfo' method '{func}'")
+            raise fdp_exc.InternalError(
+                f"Unrecognised 'semver.VersionInfo' method '{func}'"
+            )
 
     for component in BUMP_FUNCS:
         try:
-            if re.findall(r'\$\{\{\s*'+component+r'\s*\}\}', incrementer):
+            if re.findall(r"\$\{\{\s*" + component + r"\s*\}\}", incrementer):
                 return BUMP_FUNCS[component]
         except TypeError:
             raise fdp_exc.InternalError(
                 f"Failed to parse incrementer '{incrementer}' expected string"
             )
-    
+
     raise fdp_exc.UserConfigError(
         f"Unrecognised version incrementer variable '{incrementer}'"
     )
@@ -72,12 +74,12 @@ def parse_incrementer(incrementer: str) -> str:
 
 def undo_incrementer(incrementer: str) -> str:
     """Convert an incrementer string to just return the latest value
-    
+
     Parameters
     ----------
         incrementer : str
             config.yaml variable to describe how version increases are handled for register
-    
+
     Returns
     -------
         str
@@ -85,11 +87,9 @@ def undo_incrementer(incrementer: str) -> str:
 
     """
     for component in BUMP_FUNCS:
-        if re.findall(r'\$\{\{\s*'+component+r'\s*\}\}', incrementer):
+        if re.findall(r"\$\{\{\s*" + component + r"\s*\}\}", incrementer):
             return re.sub(
-                r'\$\{\{\s*'+component+r'\s*\}\}',
-                '${{ LATEST }}',
-                incrementer
+                r"\$\{\{\s*" + component + r"\s*\}\}", "${{ LATEST }}", incrementer
             )
 
     return incrementer
@@ -100,8 +100,7 @@ def get_latest_version(results_list: typing.List = None) -> semver.VersionInfo:
         return semver.VersionInfo.parse("0.0.0")
 
     _versions = [
-        semver.VersionInfo.parse(i['version']) for i in results_list
-        if 'version' in i
+        semver.VersionInfo.parse(i["version"]) for i in results_list if "version" in i
     ]
 
     if not _versions:
@@ -111,17 +110,16 @@ def get_latest_version(results_list: typing.List = None) -> semver.VersionInfo:
 
 
 def get_correct_version(
-    version: str,
-    results_list: typing.List = None,
-    free_write: bool = True
+    version: str, results_list: typing.List = None, free_write: bool = True
 ) -> semver.VersionInfo:
 
     _zero = semver.VersionInfo.parse("0.0.0")
 
     if results_list:
         _versions = [
-            semver.VersionInfo.parse(i['version']) for i in results_list
-            if 'version' in i
+            semver.VersionInfo.parse(i["version"])
+            for i in results_list
+            if "version" in i
         ]
     else:
         _versions = []
@@ -138,7 +136,7 @@ def get_correct_version(
         _max_ver = max(_versions)
 
         _new_version = getattr(_max_ver, _bump_func)() if _bump_func else _max_ver
-    except fdp_exc.UserConfigError: # Not a command, try an exact version
+    except fdp_exc.UserConfigError:  # Not a command, try an exact version
         _new_version = semver.VersionInfo.parse(version)
 
     if _new_version in _versions and free_write:
@@ -150,7 +148,7 @@ def get_correct_version(
             f"Trying to read non-existing version: {_new_version}"
         )
     elif _new_version == _zero:
-        raise fdp_exc.UserConfigError(f'Trying to work with version {_zero}')
+        raise fdp_exc.UserConfigError(f"Trying to work with version {_zero}")
 
     return _new_version
 
@@ -159,11 +157,11 @@ def default_bump(version: semver.VersionInfo) -> semver.VersionInfo:
     """Perform default version bump
 
     For FAIR-CLI the default version increment is patch
-    
+
     Parameters
     ----------
         version: semver.VersionInfo
-    
+
     Returns
     -------
         new version
