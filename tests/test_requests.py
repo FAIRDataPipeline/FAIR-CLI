@@ -36,7 +36,7 @@ def test_local_token(mocker: pytest_mock.MockerFixture):
 @pytest.mark.dependency(name='post')
 def test_post(local_registry: conf.TestRegistry, mocker: pytest_mock.MockerFixture):
     mocker.patch('fair.common.registry_home', lambda: local_registry._install)
-    _name = 'Joseph Bloggs'
+    _name = 'Joe Bloggs'
     _orcid = 'https://orcid.org/0000-0000-0000-0000'
     with local_registry:
         _result = fdp_req.post(

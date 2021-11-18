@@ -107,7 +107,7 @@ def test_user_info(mocker: pytest_mock.MockerFixture):
     _namepaces = {'input': 'ispace', 'output': 'joebloggs'}
     _override = {
         "Email": "jbloggs@nowhere.com",
-        "Full Name": "Joseph Bloggs",
+        "Full Name": "Joe Bloggs",
         "Default input namespace": _namepaces['input'],
         "Default output namespace": _namepaces['output'],
         "User ID system (ORCID/ROR/GRID/None)": "None"
@@ -115,7 +115,7 @@ def test_user_info(mocker: pytest_mock.MockerFixture):
 
     _orcid_override = {
         'family_name': 'Bloggs',
-        'given_names': 'Joseph',
+        'given_names': 'Joe',
         'uuid': None,
         'email': _override['Email']
     }
@@ -158,7 +158,7 @@ def test_global_config_query(mocker: pytest_mock.MockerFixture, local_config: ty
     }
     _default_user = {
         'family_name': 'Bloggs',
-        'given_names': 'Joseph',
+        'given_names': 'Joe',
         'orcid': '0000-0000-0000-0000',
         'uuid': None,
         'email': 'jbloggs@nowhere.com'
@@ -207,7 +207,7 @@ def test_local_config_query(local_config: typing.Tuple[str, str], mocker: pytest
     _glob_conf = {
         'user': {
             'family_name': 'Bloggs',
-            'given_names': 'Joseph',
+            'given_names': 'Joe',
             'orcid': '0000-0000-0000-0000',
             'uuid': None,
             'email': 'jbloggs@nowhere.com'
