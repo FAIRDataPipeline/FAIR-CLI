@@ -186,7 +186,7 @@ def test_init_full(
             assert _cli_cfg['git']['remote'] == 'origin'
             assert _cli_cfg['git']['remote_repo'] == 'git@notagit.com'
             assert _cli_cfg['namespaces']['input'] == 'testing'
-            assert _cli_cfg['namespaces']['output'] == 'jbloggs'
+            assert _cli_cfg['namespaces']['output'] == 'joebloggs'
             assert _cli_cfg['registries']['origin']['data_store'] == urljoin(DEFAULT_REGISTRY_DOMAIN, 'data/')
             assert _cli_cfg['registries']['origin']['uri'] == urljoin(DEFAULT_REGISTRY_DOMAIN, 'api/')
             assert _cli_cfg['user']['email'] == _dummy_email

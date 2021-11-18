@@ -104,7 +104,7 @@ def test_local_port(local_config: typing.Tuple[str, str]):
 
 @pytest.mark.configuration
 def test_user_info(mocker: pytest_mock.MockerFixture):
-    _namepaces = {'input': 'ispace', 'output': 'jbloggs'}
+    _namepaces = {'input': 'ispace', 'output': 'joebloggs'}
     _override = {
         "Email": "jbloggs@nowhere.com",
         "Full Name": "Joseph Bloggs",
@@ -224,7 +224,7 @@ def test_local_config_query(local_config: typing.Tuple[str, str], mocker: pytest
                 'data_store': "http://127.0.0.1:8007/data/"
             }
         },
-        'namespaces': {'input': 'ispace', 'output': 'jbloggs'}
+        'namespaces': {'input': 'ispace', 'output': 'joebloggs'}
     }
 
     mocker.patch('fair.configuration.global_config_query', lambda: _glob_conf)
