@@ -445,12 +445,9 @@ def _handle_orcid(user_orcid: str) -> typing.Tuple[typing.Dict, str]:
         f"{_user_info['family_name']}"
     )
 
-    _def_ospace = _user_info['given_names'][0]
+    _def_ospace = ''.join(_user_info['given_names']).lower()
 
-    if len(_user_info['family_name'].split()) > 1:
-        _def_ospace += _user_info['family_name'].split()[-1]
-    else:
-        _def_ospace += _user_info['family_name']
+    _def_ospace += _user_info['family_name'].lower().replace(' ', '')
 
     return _user_info, _def_ospace
 
@@ -536,8 +533,7 @@ def _handle_uuid() -> typing.Tuple[typing.Dict, str]:
     _user_info = {}
     if len(_full_name.split()) > 1:
         _given_name, _family_name = _full_name.split(" ", 1)
-        _def_ospace = _full_name.lower().strip()[0]
-        _def_ospace += _full_name.lower().split()[-1]
+        _def_ospace = _full_name.lower().replace(' ', '')
         _user_info['given_names'] = _given_name.strip()
         _user_info['family_name'] = _family_name.strip()
     else:
@@ -554,7 +550,7 @@ def _get_user_info_and_namespaces() -> typing.Dict[str, typing.Dict]:
     _invalid_input = True
 
     while _invalid_input:
-        _id_type = click.prompt("Use ID (ORCID/ROR/GRID)", default="None")
+        _id_type = click.prompt("User ID system (ORCID/ROR/GRID/None)", default="None")
 
         if _id_type.upper() == "ORCID":
             _user_orcid = click.prompt("ORCID")
@@ -577,12 +573,10 @@ def _get_user_info_and_namespaces() -> typing.Dict[str, typing.Dict]:
     _user_info['email'] = _user_email
 
     _def_ospace = _def_ospace.lower().replace(" ", "").strip()
-
-    _def_ispace = click.prompt("Default input namespace", default="None")
-    _def_ispace = _def_ispace if _def_ispace != "None" else None
     _def_ospace = click.prompt(
         "Default output namespace", default=_def_ospace
     )
+    _def_ispace = click.prompt("Default input namespace", default=_def_ospace)
 
     _namespaces = {"input": _def_ispace, "output": _def_ospace}
 
@@ -727,11 +721,9 @@ def local_config_query(
     # functionality does not require this.
     if "input" not in global_config['namespaces'] or not global_config['namespaces']:
         click.echo(
-            "Warning: No global input namespace declared,"
-            " in order to use the registry you will need to specify one"
-            " within this local configuration."
+            f"Will use '{_def_ospace}' as default input namespace"
         )
-        _def_ispace = None
+        _def_ispace = _def_ospace
     else:
         _def_ispace = global_config['namespaces']['input']
 

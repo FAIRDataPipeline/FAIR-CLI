@@ -104,18 +104,18 @@ def test_local_port(local_config: typing.Tuple[str, str]):
 
 @pytest.mark.configuration
 def test_user_info(mocker: pytest_mock.MockerFixture):
-    _namepaces = {'input': 'ispace', 'output': 'jbloggs'}
+    _namepaces = {'input': 'ispace', 'output': 'joebloggs'}
     _override = {
         "Email": "jbloggs@nowhere.com",
-        "Full Name": "Joseph Bloggs",
+        "Full Name": "Joe Bloggs",
         "Default input namespace": _namepaces['input'],
         "Default output namespace": _namepaces['output'],
-        "Use ID (ORCID/ROR/GRID)": "None"
+        "User ID system (ORCID/ROR/GRID/None)": "None"
     }
 
     _orcid_override = {
         'family_name': 'Bloggs',
-        'given_names': 'Joseph',
+        'given_names': 'Joe',
         'uuid': None,
         'email': _override['Email']
     }
@@ -126,7 +126,7 @@ def test_user_info(mocker: pytest_mock.MockerFixture):
     mocker.patch('uuid.uuid4', lambda: _uuid_override['uuid'])
     _noorc = fdp_conf._get_user_info_and_namespaces()
 
-    _override["Use ID (ORCID/ROR/GRID)"] = "ORCID"
+    _override["User ID system (ORCID/ROR/GRID/None)"] = "ORCID"
     _override["ORCID"] = "0000-0000-0000"
  
     mocker.patch('click.prompt', lambda x, default=None: _override[x] or default)
@@ -158,7 +158,7 @@ def test_global_config_query(mocker: pytest_mock.MockerFixture, local_config: ty
     }
     _default_user = {
         'family_name': 'Bloggs',
-        'given_names': 'Joseph',
+        'given_names': 'Joe',
         'orcid': '0000-0000-0000-0000',
         'uuid': None,
         'email': 'jbloggs@nowhere.com'
@@ -207,7 +207,7 @@ def test_local_config_query(local_config: typing.Tuple[str, str], mocker: pytest
     _glob_conf = {
         'user': {
             'family_name': 'Bloggs',
-            'given_names': 'Joseph',
+            'given_names': 'Joe',
             'orcid': '0000-0000-0000-0000',
             'uuid': None,
             'email': 'jbloggs@nowhere.com'
@@ -224,7 +224,7 @@ def test_local_config_query(local_config: typing.Tuple[str, str], mocker: pytest
                 'data_store': "http://127.0.0.1:8007/data/"
             }
         },
-        'namespaces': {'input': 'ispace', 'output': 'jbloggs'}
+        'namespaces': {'input': 'ispace', 'output': 'joebloggs'}
     }
 
     mocker.patch('fair.configuration.global_config_query', lambda: _glob_conf)
