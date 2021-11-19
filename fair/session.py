@@ -213,9 +213,7 @@ class FAIR:
     def _setup_server(self) -> None:
         """Start or stop the server if required"""
 
-        # If a session ID has been specified this means the server is auto
-        # started as opposed to being started explcitly by the user
-        # this means it will be shut down on completion
+
         self._logger.debug(f"Running server setup for run mode {self._run_mode}")
         if self._run_mode == fdp_serv.SwitchMode.CLI:
             self._setup_server_cli_mode()
@@ -225,15 +223,24 @@ class FAIR:
             fdp_serv.SwitchMode.USER_STOP,
             fdp_serv.SwitchMode.FORCE_STOP,
         ]:
-            _cache_addr = os.path.join(fdp_com.session_cache_dir(), "user.run")
-            if not fdp_serv.check_server_running():
-                raise fdp_exc.UnexpectedRegistryServerState("Server is not running.")
-            if os.path.exists(_cache_addr):
-                os.remove(_cache_addr)
-            click.echo("Stopping local registry server.")
-            fdp_serv.stop_server(
-                force=self._run_mode == fdp_serv.SwitchMode.FORCE_STOP,
+            self._stop_server()
+
+    def _stop_server(self) -> None:
+        _cache_addr = os.path.join(fdp_com.session_cache_dir(), "user.run")
+        if not fdp_serv.check_server_running():
+            raise fdp_exc.UnexpectedRegistryServerState("Server is not running.")
+        if os.path.exists(_cache_addr):
+            os.remove(_cache_addr)
+        click.echo("Stopping local registry server.")
+        if (os.listdir(fdp_com.session_cache_dir()) 
+            and self._run_mode != fdp_serv.SwitchMode.FORCE_STOP):
+            raise fdp_exc.UnexpectedRegistryServerState(
+                "Cannot stop registry, a process may still be running",
+                hint="You can force stop using '--force'"
             )
+        fdp_serv.stop_server(
+            force=self._run_mode == fdp_serv.SwitchMode.FORCE_STOP,
+        )
 
     def _setup_server_cli_mode(self):
         self.check_is_repo()
@@ -613,12 +620,6 @@ class FAIR:
                 fdp_com.session_cache_dir(), f"{self._session_id}.run"
             )
             os.remove(_cache_addr)
-
-        if (
-            not os.path.exists(os.path.join(fdp_com.session_cache_dir(), "user.run"))
-            and self._run_mode != fdp_serv.SwitchMode.NO_SERVER
-        ):
-            fdp_serv.stop_server()
 
         with open(fdp_com.global_fdpconfig(), "w") as f:
             yaml.dump(self._global_config, f)
