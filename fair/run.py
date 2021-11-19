@@ -12,73 +12,43 @@ retrieved metadata
 
 __date__ = "2021-06-30"
 
-import os
-import sys
-import platform
-import typing
-import glob
-import logging
-import hashlib
 import datetime
+import glob
+import hashlib
+import logging
+import os
+import platform
 import subprocess
+import sys
+import typing
+
 import click
 
-import fair.configuration as fdp_conf
 import fair.common as fdp_com
-import fair.history as fdp_hist
+import fair.configuration as fdp_conf
 import fair.exceptions as fdp_exc
+import fair.history as fdp_hist
 import fair.user_config as fdp_user
-
 from fair.common import CMD_MODE
 
 logger = logging.getLogger("FAIRDataPipeline.Run")
 
 # Dictionary of recognised shell labels.
 SHELLS: typing.Dict[str, str] = {
-    "pwsh": {
-        "exec": "pwsh -command \". '{0}'\"",
-        "extension": "ps1"
-    },
-    "batch": {
-        "exec": "{0}",
-        "extension": "bat"
-    },
-    "powershell": {
-        "exec": "powershell -command \". '{0}'\"",
-        "extension": "ps1"
-    },
-    "python2": {
-        "exec": "python2 {0}",
-        "extension": "py"
-    },
-    "python3": {
-        "exec": "python3 {0}",
-        "extension": "py"
-    },
-    "python": {
-        "exec": "python {0}",
-        "extension": "py"
-    },
-    "R": {
-        "exec": "R -f {0}",
-        "extension": "R"
-    },
-    "julia": {
-        "exec": "julia {0}",
-        "extension": "jl"
-    },
+    "pwsh": {"exec": "pwsh -command \". '{0}'\"", "extension": "ps1"},
+    "batch": {"exec": "{0}", "extension": "bat"},
+    "powershell": {"exec": "powershell -command \". '{0}'\"", "extension": "ps1"},
+    "python2": {"exec": "python2 {0}", "extension": "py"},
+    "python3": {"exec": "python3 {0}", "extension": "py"},
+    "python": {"exec": "python {0}", "extension": "py"},
+    "R": {"exec": "R -f {0}", "extension": "R"},
+    "julia": {"exec": "julia {0}", "extension": "jl"},
     "bash": {
         "exec": "bash -eo pipefail {0}",
         "extension": "sh",
     },
-    "java": {
-        "exec": "java {0}",
-        "extension": "java"
-    },
-    "sh": {
-        "exec":"sh -e {0}",
-        "extension": "sh"
-    }
+    "java": {"exec": "java {0}", "extension": "java"},
+    "sh": {"exec": "sh -e {0}", "extension": "sh"},
 }
 
 
@@ -109,7 +79,7 @@ def run_command(
         config_yaml = os.path.join(fdp_com.find_fair_root(), fdp_com.USER_CONFIG_FILE)
 
     logger.debug("Using user configuration file: %s", config_yaml)
-    click.echo(f"Updating registry from {config_yaml}", err = True)
+    click.echo(f"Updating registry from {config_yaml}", err=True)
 
     # Record the time the job was commenced, create a log and both
     # print output and write it to the log file
@@ -144,13 +114,14 @@ def run_command(
 
     _job_cfg.prepare(_job_dir, _timestamp, mode)
 
-    _run_executable = "script" in _job_cfg["run_metadata"] or "script_path" in _job_cfg["run_metadata"]
+    _run_executable = (
+        "script" in _job_cfg["run_metadata"]
+        or "script_path" in _job_cfg["run_metadata"]
+    )
     _run_executable = _run_executable and mode in [CMD_MODE.RUN, CMD_MODE.PASS]
 
     if mode == CMD_MODE.PASS:
-        logger.debug(
-            "Run called in passive mode, no command will be executed"
-        )
+        logger.debug("Run called in passive mode, no command will be executed")
 
     # Set location of working config.yaml to the job directory
     _work_cfg_yml = os.path.join(_job_dir, fdp_com.USER_CONFIG_FILE)
@@ -170,7 +141,7 @@ def run_command(
                     "--------------------------------\n",
                     f" Commenced = {_out_str}\n",
                     f" Author    = {' '.join(_user)} <{_email}>\n",
-                    ' Command   = fair pull\n',
+                    " Command   = fair pull\n",
                     "--------------------------------\n",
                 ]
             )
@@ -184,12 +155,10 @@ def run_command(
         # Create a run script if 'script' is specified instead of 'script_path'
         # else use the script
         _cmd_setup = setup_job_script(
-            _job_cfg.content,
-            _job_cfg.env['FDP_CONFIG_DIR'],
-            _job_dir
+            _job_cfg.content, _job_cfg.env["FDP_CONFIG_DIR"], _job_dir
         )
 
-        _job_cfg.set_script(_cmd_setup['script'])
+        _job_cfg.set_script(_cmd_setup["script"])
         _job_cfg.write(_work_cfg_yml)
 
         if _job_cfg.shell not in SHELLS:
@@ -198,7 +167,7 @@ def run_command(
             )
 
         _exec = SHELLS[_job_cfg.shell]["exec"]
-        _cmd_list = _exec.format(_cmd_setup['script']).split()
+        _cmd_list = _exec.format(_cmd_setup["script"]).split()
 
         if not _job_cfg.command:
             click.echo("Nothing to run.")
@@ -209,7 +178,7 @@ def run_command(
         # this log is viewable via the `fair view <run-cli-sha>`
         with open(_log_file, "a") as f:
             _out_str = _now.strftime("%a %b %d %H:%M:%S %Y %Z")
-            _user = _user[0] if not _user[1] else ' '.join(_user)
+            _user = _user[0] if not _user[1] else " ".join(_user)
             f.writelines(
                 [
                     "--------------------------------\n",
@@ -223,14 +192,14 @@ def run_command(
 
         if mode == CMD_MODE.RUN:
             execute_run(_cmd_list, _job_cfg, _log_file, _now)
-        else: # CMD_MODE.PASS
+        else:  # CMD_MODE.PASS
             _end_time = datetime.datetime.now()
             with open(_log_file, "a") as f:
                 _duration = _end_time - _now
                 f.writelines(
                     [
                         "Operating in ci mode without running script\n",
-                        f"------- time taken {_duration} -------\n"
+                        f"------- time taken {_duration} -------\n",
                     ]
                 )
     else:
@@ -239,7 +208,6 @@ def run_command(
             _duration = _end_time - _now
             f.writelines([f"------- time taken {_duration} -------\n"])
 
-
     return get_job_hash(_job_dir)
 
 
@@ -247,7 +215,8 @@ def execute_run(
     command: typing.List[str],
     job_config: fdp_user.JobConfiguration,
     log_file: str,
-    timestamp: datetime.datetime) -> None:
+    timestamp: datetime.datetime,
+) -> None:
     """Execute a run initialised by a CLI run of mode RUN
 
     Parameters
@@ -266,7 +235,7 @@ def execute_run(
     fdp_exc.CommandExecutionError
         [description]
     """
-    logger.debug("Executing command: %s", ' '.join(command))
+    logger.debug("Executing command: %s", " ".join(command))
 
     # Run the submission script
     _process = subprocess.Popen(
@@ -278,7 +247,7 @@ def execute_run(
         text=True,
         shell=False,
         env=job_config.environment,
-        cwd=job_config.local_repository
+        cwd=job_config.local_repository,
     )
 
     # Write any stdout to the job log
@@ -297,7 +266,7 @@ def execute_run(
     if _process.returncode != 0:
         raise fdp_exc.CommandExecutionError(
             f"Run failed with exit code '{_process.returncode}'",
-            exit_code=_process.returncode
+            exit_code=_process.returncode,
         )
 
 
@@ -320,8 +289,7 @@ def get_job_hash(job_dir: str) -> str:
     """
     if not os.path.exists(job_dir):
         raise fdp_exc.FileNotFoundError(
-            "Failed to find hash for job, "
-            f"directory '{job_dir}' does not exist."
+            "Failed to find hash for job, " f"directory '{job_dir}' does not exist."
         )
     _directory = os.path.abspath(job_dir)
     return hashlib.sha1(_directory.encode("utf-8")).hexdigest()
@@ -340,7 +308,7 @@ def get_job_dir(job_hash: str) -> str:
     str
         associated job directory
     """
-    _jobs = glob.glob(os.path.join(fdp_com.default_jobs_dir(), '*'))
+    _jobs = glob.glob(os.path.join(fdp_com.default_jobs_dir(), "*"))
 
     for job in _jobs:
         _hash = hashlib.sha1(os.path.abspath(job).encode("utf-8")).hexdigest()
@@ -351,10 +319,8 @@ def get_job_dir(job_hash: str) -> str:
 
 
 def setup_job_script(
-    user_config: typing.Dict,
-    config_dir: str,
-    output_dir: str
-    ) -> typing.Dict[str, typing.Any]:
+    user_config: typing.Dict, config_dir: str, output_dir: str
+) -> typing.Dict[str, typing.Any]:
     """Setup a job script from the given configuration.
 
     Checks the user configuration file for the required 'script' or 'script_path'
@@ -396,9 +362,9 @@ def setup_job_script(
     logger.debug("Will use shell: %s", _shell)
 
     if "script" in user_config["run_metadata"]:
-        _cmd = user_config["run_metadata"]['script']
+        _cmd = user_config["run_metadata"]["script"]
 
-        if 'extension' not in SHELLS[_shell]:
+        if "extension" not in SHELLS[_shell]:
             raise fdp_exc.InternalError(
                 f"Failed to retrieve an extension for shell '{_shell}'"
             )
@@ -414,14 +380,14 @@ def setup_job_script(
             raise fdp_exc.CommandExecutionError(
                 f"Failed to execute run, script '{_path}' was not found, or"
                 " failed to be created.",
-                exit_code=1
+                exit_code=1,
             )
         _cmd = open(_path).read()
         _out_file = os.path.join(output_dir, os.path.basename(_path))
         if _cmd:
             with open(_out_file, "w") as f:
                 f.write(_cmd)
-    
+
     logger.debug("Script command: %s", _cmd)
     logger.debug("Script written to: %s", _out_file)
 

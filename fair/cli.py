@@ -10,42 +10,44 @@ interact with the synchronisation tool.
 
 __date__ = "2021-06-24"
 
-import typing
 import os
+import pathlib
 import sys
+import typing
+
 import click
 import click.shell_completion
 import yaml
-import pathlib
 
-import fair.session as fdp_session
 import fair.common as fdp_com
-import fair.history as fdp_hist
 import fair.configuration as fdp_conf
 import fair.exceptions as fdp_exc
+import fair.history as fdp_hist
 import fair.registry.server as fdp_svr
 import fair.run as fdp_run
+import fair.session as fdp_session
 
 __author__ = "Scottish COVID Response Consortium"
 __credits__ = [
     "Richard Reeve (University of Glasgow)",
     "Nathan Cummings (UKAEA)",
     "Kristian Zarebski (UKAEA)",
-    "Dennis Reddyhoff (University of Sheffield)"
+    "Dennis Reddyhoff (University of Sheffield)",
 ]
 __license__ = "BSD-2-Clause"
 __status__ = "Development"
 __copyright__ = "Copyright 2021, FAIR Data Pipeline"
 
+
 def complete_yamls(ctx, param, incomplete):
     _file_list: typing.List[str] = [
-        str(i)
-        for i in pathlib.Path(os.getcwd()).rglob('*.yaml')
+        str(i) for i in pathlib.Path(os.getcwd()).rglob("*.yaml")
     ]
-    _file_list += [str(i) for i in pathlib.Path(os.getcwd()).rglob('*.yml')]
+    _file_list += [str(i) for i in pathlib.Path(os.getcwd()).rglob("*.yml")]
     return [
         click.shell_completion.CompletionItem(k)
-        for k in _file_list if k.startswith(incomplete)
+        for k in _file_list
+        if k.startswith(incomplete)
     ]
 
 
@@ -79,11 +81,10 @@ def status(verbose, debug) -> None:
 @click.argument("output", nargs=-1)
 def create(debug, output: str) -> None:
     """Generate a new FAIR repository user YAML config file"""
-    output = os.path.join(os.getcwd(), fdp_com.USER_CONFIG_FILE) if not output else output[0]
-    click.echo(
-        f"Generating new user configuration file"
-        f" '{output}'"
+    output = (
+        os.path.join(os.getcwd(), fdp_com.USER_CONFIG_FILE) if not output else output[0]
     )
+    click.echo(f"Generating new user configuration file" f" '{output}'")
     with fdp_session.FAIR(os.getcwd(), debug=debug) as fair_session:
         fair_session.make_starter_config(output)
 
@@ -93,30 +94,28 @@ def create(debug, output: str) -> None:
     "--config",
     help="Specify alternate location for generated config.yaml",
     default=fdp_com.local_user_config(os.getcwd()),
-    shell_complete=complete_yamls
+    shell_complete=complete_yamls,
 )
 @click.option(
     "--using",
     help="Initialise the CLI system from an existing CLI global configuration file",
     default="",
-    shell_complete=complete_yamls
+    shell_complete=complete_yamls,
 )
 @click.option(
     "--registry",
     help="Specify registry directory",
     default=fdp_svr.DEFAULT_REGISTRY_LOCATION,
-    show_default=True
+    show_default=True,
 )
 @click.option(
-    "--ci/--standard",
-    help="Run in testing mode for a CI system",
-    default=False
+    "--ci/--standard", help="Run in testing mode for a CI system", default=False
 )
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
 @click.option("--export", help="Export the CLI configuration to a file", default="")
 def init(
-    config: str, debug: bool, using: str, registry: str, ci:bool, export: str = ""
-    ) -> None:
+    config: str, debug: bool, using: str, registry: str, ci: bool, export: str = ""
+) -> None:
     """Initialise repository in current location"""
     try:
         with fdp_session.FAIR(
@@ -131,9 +130,7 @@ def init(
                     )
                 _use_dict = yaml.safe_load(open(using))
             fair_session.initialise(
-                using=_use_dict,
-                registry=registry,
-                export_as=export
+                using=_use_dict, registry=registry, export_as=export
             )
     except fdp_exc.FAIRCLIException as e:
         if debug:
@@ -148,22 +145,18 @@ def init(
     "glob",
     "--global/--no-global",
     help="Also delete global FAIR-CLI directories",
-    default=False
+    default=False,
 )
 @click.option(
     "--yes/--no",
     help="Deletes the configurations specified without prompt",
-    default=False
+    default=False,
 )
 @click.option(
-    "--data/--no-data",
-    help="Also delete the local data directory",
-    default=False
+    "--data/--no-data", help="Also delete the local data directory", default=False
 )
 @click.option(
-    "--all/--not-all",
-    help="Remove all FAIR interfaces and registry",
-    default=False
+    "--all/--not-all", help="Remove all FAIR interfaces and registry", default=False
 )
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
 def purge(glob: bool, debug: bool, yes: bool, data: bool, all: bool) -> None:
@@ -177,8 +170,7 @@ def purge(glob: bool, debug: bool, yes: bool, data: bool, all: bool) -> None:
         )
     else:
         _purge = click.confirm(
-            "Are you sure you want to reset FAIR tracking, "
-            "this is not reversible?"
+            "Are you sure you want to reset FAIR tracking, " "this is not reversible?"
         )
         if data:
             data = click.confirm(
@@ -191,10 +183,7 @@ def purge(glob: bool, debug: bool, yes: bool, data: bool, all: bool) -> None:
     try:
         with fdp_session.FAIR(os.getcwd()) as fair_session:
             fair_session.purge(
-                global_cfg=glob,
-                local_cfg=_purge,
-                clear_data=data,
-                clear_all=all
+                global_cfg=glob, local_cfg=_purge, clear_data=data, clear_all=all
             )
     except fdp_exc.FAIRCLIException as e:
         if debug:
@@ -209,13 +198,14 @@ def registry() -> None:
     """Commands relating to control of the local registry server"""
     pass
 
+
 @registry.command()
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
 def uninstall(debug: bool):
     """Uninstall the local registry from the system"""
     _confirm = click.confirm(
         "Are you sure you want to remove the local registry and its components?",
-        default=False
+        default=False,
     )
     if not _confirm:
         return
@@ -227,6 +217,7 @@ def uninstall(debug: bool):
         e.err_print()
         if e.level.lower() == "error":
             sys.exit(e.exit_code)
+
 
 @registry.command()
 @click.option("--force/--no-force", help="Force a reinstall", default=False)
@@ -249,9 +240,7 @@ def install(debug: bool, force: bool, directory: str):
 def start(debug) -> None:
     """Start the local registry server"""
     try:
-        fdp_session.FAIR(
-            os.getcwd(), server_mode=fdp_svr.SwitchMode.USER_START
-        )
+        fdp_session.FAIR(os.getcwd(), server_mode=fdp_svr.SwitchMode.USER_START)
     except fdp_exc.FAIRCLIException as e:
         if debug:
             raise e
@@ -265,11 +254,7 @@ def start(debug) -> None:
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
 def stop(force: bool, debug: bool) -> None:
     """Stop the local registry server"""
-    _mode = (
-        fdp_svr.SwitchMode.FORCE_STOP
-        if force
-        else fdp_svr.SwitchMode.USER_STOP
-    )
+    _mode = fdp_svr.SwitchMode.FORCE_STOP if force else fdp_svr.SwitchMode.USER_STOP
     try:
         fdp_session.FAIR(os.getcwd(), server_mode=_mode)
     except fdp_exc.FAIRCLIException as e:
@@ -320,7 +305,7 @@ def reset(file_paths: typing.List[str], debug: bool) -> None:
 @cli.command()
 @click.argument("job_ids", nargs=-1)
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
-def add(job_ids: typing.List[str], debug: bool) -> None:
+def addjob(job_ids: typing.List[str], debug: bool) -> None:
     """Add a job to staging"""
     pass
 
@@ -333,31 +318,24 @@ def add(job_ids: typing.List[str], debug: bool) -> None:
     default=False,
     help="remove from tracking but do not delete from file system",
 )
-def rm(
-    job_ids: typing.List[str], cached: bool = False, debug: bool = False
-) -> None:
+def rm(job_ids: typing.List[str], cached: bool = False, debug: bool = False) -> None:
     """Removes jobs from system or just tracking"""
     pass
 
 
 @cli.command()
-@click.argument(
-    "config",
-    nargs=-1
-)
+@click.argument("config", nargs=-1)
 @click.option(
     "--script",
     help="Specify a shell command to execute, this will be inserted into the working config",
-    default=""
+    default="",
 )
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
 @click.option(
     "--ci/--no-ci",
     help="Calls run passively without executing any commands for a CI system",
-    default=False
+    default=False,
 )
-
-
 def run(config: str, script: str, debug: bool, ci: bool):
     """Initialises a job with the option to specify a bash command"""
     # Allow no config to be specified, if that is the case use default local
@@ -368,7 +346,10 @@ def run(config: str, script: str, debug: bool, ci: bool):
     _run_mode = fdp_run.CMD_MODE.RUN if not ci else fdp_run.CMD_MODE.PASS
     try:
         with fdp_session.FAIR(
-            os.getcwd(), config, debug=debug, server_mode=fdp_svr.SwitchMode.CLI,
+            os.getcwd(),
+            config,
+            debug=debug,
+            server_mode=fdp_svr.SwitchMode.CLI,
         ) as fair_session:
             _hash = fair_session.run_job(script, mode=_run_mode)
             if ci:
@@ -379,6 +360,7 @@ def run(config: str, script: str, debug: bool, ci: bool):
         e.err_print()
         if e.level.lower() == "error":
             sys.exit(e.exit_code)
+
 
 @cli.group(invoke_without_command=True)
 @click.option("--verbose/--no-verbose", "-v/")
@@ -471,7 +453,7 @@ def modify(ctx, label: str, url: str, debug: bool) -> None:
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
 def push(remote: str, debug: bool):
     """Push data between the local and remote registry"""
-    remote = 'origin' if len(remote) == 0 else remote[0]
+    remote = "origin" if len(remote) == 0 else remote[0]
     try:
         with fdp_session.FAIR(os.getcwd(), debug=debug) as fair_session:
             fair_session.push(remote)
@@ -502,11 +484,8 @@ def config_email(user_email: str) -> None:
 
 
 @cli.command()
-@click.argument(
-    "config",
-    nargs=-1
-)
-@click.option('--debug/--no-debug')
+@click.argument("config", nargs=-1)
+@click.option("--debug/--no-debug")
 def pull(config: str, debug: bool):
     """Update local registry from remotes and sources"""
     if len(config) > 0:
@@ -515,10 +494,7 @@ def pull(config: str, debug: bool):
         config = fdp_com.local_user_config(os.getcwd())
     try:
         with fdp_session.FAIR(
-            os.getcwd(),
-            config,
-            server_mode=fdp_svr.SwitchMode.CLI,
-            debug=debug
+            os.getcwd(), config, server_mode=fdp_svr.SwitchMode.CLI, debug=debug
         ) as fair:
             fair.run_job(mode=fdp_run.CMD_MODE.PULL)
     except fdp_exc.FAIRCLIException as e:
@@ -527,6 +503,7 @@ def pull(config: str, debug: bool):
         e.err_print()
         if e.level.lower() == "error":
             sys.exit(e.exit_code)
+
 
 if __name__ in "__main__":
     cli()

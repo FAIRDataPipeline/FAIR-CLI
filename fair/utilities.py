@@ -27,9 +27,10 @@ Class
 
 __date__ = "2021-08-04"
 
-import typing
-import json
 import datetime
+import json
+import typing
+
 
 def flatten_dict(
     in_dict: typing.Dict,
@@ -58,13 +59,9 @@ def flatten_dict(
         _out_dict = {}
 
     for label, value in in_dict.items():
-        new_label = (
-            f"{_parent_key}{separator}{label}" if _parent_key else label
-        )
+        new_label = f"{_parent_key}{separator}{label}" if _parent_key else label
         if isinstance(value, dict):
-            flatten_dict(
-                in_dict=value, _out_dict=_out_dict, _parent_key=new_label
-            )
+            flatten_dict(in_dict=value, _out_dict=_out_dict, _parent_key=new_label)
             continue
 
         _out_dict[new_label] = value
@@ -107,28 +104,24 @@ def expand_dict(
     return _out_dict
 
 
-def remove_dictlist_dupes(
-    dicts: typing.List[typing.Dict]) -> typing.List[typing.Dict]:
+def remove_dictlist_dupes(dicts: typing.List[typing.Dict]) -> typing.List[typing.Dict]:
     """Remove duplicate dictionaries from a list of dictionaries
-    
+
     Note: this will only work with single layer dictionaries!
 
     Parameters
     ----------
     dicts : List[Dict]
         a list of dictionaries
-    
+
     Returns
     -------
     List[Dict]
         new list without duplicates
     """
     # Convert single layer dictionary to a list of key-value tuples
-    _tupleify = [
-        [(k, v) for k, v in d.items()]
-        for d in dicts
-    ]
-    
+    _tupleify = [[(k, v) for k, v in d.items()] for d in dicts]
+
     # Only append unique tuple lists
     _set_tupleify = []
     for t in _tupleify:
@@ -136,13 +129,12 @@ def remove_dictlist_dupes(
             _set_tupleify.append(t)
 
     # Convert the tuple list back to a list of dictionaries
-    return [
-        {i[0]: i[1] for i in kv}
-        for kv in _set_tupleify
-    ]
+    return [{i[0]: i[1] for i in kv} for kv in _set_tupleify]
 
 
-def get_nested_key(search_dict: typing.Dict, key_addr: str, separator: str = '.') -> typing.Any:
+def get_nested_key(
+    search_dict: typing.Dict, key_addr: str, separator: str = "."
+) -> typing.Any:
     """Retrieve a value from a multi-level dictionary
 
     Parameters
@@ -167,3 +159,9 @@ class JSONDateTimeEncoder(json.JSONEncoder):
             return str(date_time_candidate)
         else:
             return super().default(date_time_candidate)
+
+
+def check_trailing_slash(string: str):
+    if string[-1] != "/":
+        string += "/"
+    return string

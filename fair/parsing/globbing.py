@@ -21,12 +21,11 @@ Functions
 
 __date__ = "2021-08-16"
 
-import typing
 import copy
+import typing
 
-import fair.registry.requests as fdp_req
-import fair.configuration as fdp_conf
 import fair.exceptions as fdp_exc
+import fair.registry.requests as fdp_req
 import fair.registry.versioning as fdp_ver
 import fair.utilities as fdp_util
 
@@ -37,7 +36,8 @@ def glob_read_write(
     version: str,
     registry_url: str,
     search_key: str = None,
-    remove_wildcard: bool = False) -> typing.List:
+    remove_wildcard: bool = False,
+) -> typing.List:
     """Substitute glob expressions in the 'read' or 'write' part of a user config
 
     Parameters
@@ -55,7 +55,7 @@ def glob_read_write(
     remove_wildcard: bool, optional
         whether to delete wildcard from yaml file, default is False
     """
-    
+
     _block_cfg = user_config[blocktype]
     _parsed: typing.List[typing.Dict] = []
 
@@ -67,9 +67,13 @@ def glob_read_write(
         # Wipe version info for this object to start from beginning
         _orig_entry = copy.deepcopy(entry)
 
-        _orig_entry['use']['version'] = str(fdp_ver.get_correct_version(version, free_write=blocktype!='read'))
+        _orig_entry["use"]["version"] = str(
+            fdp_ver.get_correct_version(version, free_write=blocktype != "read")
+        )
 
-        _glob_vals = [(k, v) for k, v in entry.items() if isinstance(v, str) and '*' in v]
+        _glob_vals = [
+            (k, v) for k, v in entry.items() if isinstance(v, str) and "*" in v
+        ]
         if len(_glob_vals) > 1:
             # For now only allow one value within the dictionary to have them
             raise fdp_exc.NotImplementedError(
@@ -92,30 +96,26 @@ def glob_read_write(
         _search_dict = {search_key: _globbable}
 
         # Update search from 'use' block
-        _search_dict.update(entry['use'])
+        _search_dict.update(entry["use"])
 
         try:
             fdp_ver.parse_incrementer(_search_dict["version"])
             # Is an incrementer, so get rid of it
-            _search_dict.pop('version', None)
-        except fdp_exc.UserConfigError: # Should be an exact version, so keep
+            _search_dict.pop("version", None)
+        except fdp_exc.UserConfigError:  # Should be an exact version, so keep
             None
 
         # Send a request to the relevant registry using the search string
-        # and the selected search key        
-        _results = fdp_req.get(
-            registry_url,
-            _key_glob,
-            params = _search_dict
-        )
+        # and the selected search key
+        _results = fdp_req.get(registry_url, _key_glob, params=_search_dict)
 
         # Iterate through all results, make a copy of the entry and swap
         # the globbable statement for the result statement appending this
         # to the output list
         for result in _results:
             _entry_dict = copy.deepcopy(entry)
-            if _key_glob in _entry_dict['use']:
-                _entry_dict['use'][_key_glob] = result[search_key]
+            if _key_glob in _entry_dict["use"]:
+                _entry_dict["use"][_key_glob] = result[search_key]
             if _key_glob in _entry_dict:
                 _entry_dict[_key_glob] = result[search_key]
             _parsed.append(_entry_dict)
