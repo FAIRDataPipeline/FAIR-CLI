@@ -95,6 +95,8 @@ class FAIR:
             stop/start server mode during session
         testing : bool
             run in testing mode
+        generate_config : bool
+            if the specified config.yaml does not exist generate it
         """
         if debug:
             logging.getLogger("FAIRDataPipeline").setLevel(logging.DEBUG)

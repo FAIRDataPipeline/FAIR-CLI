@@ -92,9 +92,8 @@ def create(debug, output: str) -> None:
 @cli.command()
 @click.option(
     "--config",
-    help="Specify alternate location for generated config.yaml",
-    default=fdp_com.local_user_config(os.getcwd()),
-    shell_complete=complete_yamls,
+    help="Create a starter user config.yaml file during initialisation",
+    default=None,
 )
 @click.option(
     "--using",
@@ -119,7 +118,7 @@ def init(
     """Initialise repository in current location"""
     try:
         with fdp_session.FAIR(
-            os.getcwd(), config, debug=debug, testing=ci
+            os.getcwd(), None, debug=debug, testing=ci
         ) as fair_session:
             _use_dict = {}
             if using:
@@ -132,6 +131,8 @@ def init(
             fair_session.initialise(
                 using=_use_dict, registry=registry, export_as=export
             )
+            if config:
+                fair_session.make_starter_config(config)
     except fdp_exc.FAIRCLIException as e:
         if debug:
             raise e

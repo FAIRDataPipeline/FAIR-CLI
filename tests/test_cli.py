@@ -142,6 +142,7 @@ def test_init_from_existing(
             )
             assert _result.exit_code == 0
             assert os.path.exists(_out_cli_config)
+            assert os.path.exists(_out_config)
             assert os.path.exists(os.path.join(os.getcwd(), fdp_com.FAIR_FOLDER))
 
             click_test = click.testing.CliRunner()
