@@ -105,7 +105,7 @@ def create(debug, output: str) -> None:
 @click.option(
     "--registry",
     help="Specify registry directory",
-    default=fdp_svr.DEFAULT_REGISTRY_LOCATION,
+    default=fdp_com.DEFAULT_REGISTRY_LOCATION,
     show_default=True,
 )
 @click.option(

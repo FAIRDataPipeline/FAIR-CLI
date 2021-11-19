@@ -115,7 +115,7 @@ class FAIR:
             fdp_com.registry_home()
         ):
             raise fdp_exc.RegistryError(
-                "User registry directory was not found, this could "
+                f"User registry directory '{fdp_com.registry_home()}' was not found, this could "
                 "mean the local registry has not been installed."
             )
 

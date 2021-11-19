@@ -50,6 +50,17 @@ USER_CONFIG_FILE = "config.yaml"
 FAIR_FOLDER = ".fair"
 JOBS_DIR = "jobs"
 
+FAIR_REGISTRY_REPO = "https://github.com/FAIRDataPipeline/data-registry.git"
+
+DEFAULT_REGISTRY_DOMAIN = "https://data.scrc.uk/"
+REGISTRY_INSTALL_URL = "https://data.scrc.uk/static/localregistry.sh"
+
+DEFAULT_REGISTRY_LOCATION = os.path.join(
+    pathlib.Path().home(), FAIR_FOLDER, "registry"
+)
+
+DEFAULT_LOCAL_REGISTRY_URL = "http://127.0.0.1:8000/api/"
+
 
 class CMD_MODE(enum.Enum):
     RUN = 1
@@ -59,6 +70,8 @@ class CMD_MODE(enum.Enum):
 
 
 def registry_home() -> str:
+    if not os.path.exists(global_fdpconfig()):
+        return DEFAULT_REGISTRY_LOCATION
     _glob_conf = yaml.safe_load(open(global_fdpconfig()))
     if "registries" not in _glob_conf:
         raise fdp_exc.CLIConfigurationError(

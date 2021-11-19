@@ -42,15 +42,6 @@ import fair.registry.requests as fdp_req
 import fair.registry.storage as fdp_store
 import fair.utilities as fdp_util
 
-FAIR_REGISTRY_REPO = "https://github.com/FAIRDataPipeline/data-registry.git"
-
-DEFAULT_REGISTRY_DOMAIN = "https://data.scrc.uk/"
-REGISTRY_INSTALL_URL = "https://data.scrc.uk/static/localregistry.sh"
-DEFAULT_REGISTRY_LOCATION = os.path.join(
-    pathlib.Path().home(), fdp_com.FAIR_FOLDER, "registry"
-)
-DEFAULT_LOCAL_REGISTRY_URL = "http://127.0.0.1:8000/api/"
-
 
 def django_environ(environ: typing.Dict = os.environ):
     _environ = environ.copy()
@@ -230,7 +221,7 @@ def rebuild_local(python: str, install_dir: str = None, silent: bool = False):
     logger = logging.getLogger("FAIRDataPipeline.Server")
     logger.debug("Rebuilding local registry")
     if not install_dir:
-        install_dir = DEFAULT_REGISTRY_LOCATION
+        install_dir = fdp_com.DEFAULT_REGISTRY_LOCATION
 
     _migration_files = glob.glob(os.path.join(install_dir, "*", "migrations", "*.py*"))
 
@@ -293,7 +284,7 @@ def rebuild_local(python: str, install_dir: str = None, silent: bool = False):
 
 
 def install_registry(
-    repository: str = FAIR_REGISTRY_REPO,
+    repository: str = fdp_com.FAIR_REGISTRY_REPO,
     reference: str = None,
     install_dir: str = None,
     silent: bool = False,
@@ -304,7 +295,7 @@ def install_registry(
     logger = logging.getLogger("FAIRDataPipeline.Server")
 
     if not install_dir:
-        install_dir = DEFAULT_REGISTRY_LOCATION
+        install_dir = fdp_com.DEFAULT_REGISTRY_LOCATION
 
     if os.path.exists(install_dir):
         raise fdp_exc.RegistryError(
@@ -417,9 +408,9 @@ def uninstall_registry() -> None:
     ):
         logger.debug("Uninstalling registry, removing '%s'", fdp_com.registry_home())
         shutil.rmtree(fdp_com.registry_home())
-    elif os.path.exists(DEFAULT_REGISTRY_LOCATION):
-        logger.debug("Uninstalling registry, removing '%s'", DEFAULT_REGISTRY_LOCATION)
-        shutil.rmtree(DEFAULT_REGISTRY_LOCATION)
+    elif os.path.exists(fdp_com.DEFAULT_REGISTRY_LOCATION):
+        logger.debug("Uninstalling registry, removing '%s'", fdp_com.DEFAULT_REGISTRY_LOCATION)
+        shutil.rmtree(fdp_com.DEFAULT_REGISTRY_LOCATION)
     else:
         raise fdp_exc.RegistryError(
             "Cannot uninstall registry, no local installation identified"
