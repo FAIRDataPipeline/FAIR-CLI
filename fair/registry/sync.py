@@ -97,14 +97,16 @@ def push_dependency_chain(
 
     _dependency_chain: collections.deque = get_dependency_chain(object_url)
     _new_urls: typing.Dict[str, str] = {k: "" for k in _dependency_chain}
-
+    print(_dependency_chain)
+    _dependency_chain.popleft()
+    print(_dependency_chain)
     for object in _dependency_chain:
         _obj_data = fdp_req.url_get(object)
         _obj_type = fdp_req.get_obj_type_from_url(object)
         _uri, _ = fdp_req.split_api_url(object)
         # Substitute any local dependency URLs for those
         # from the components created on the remote
-        for key, value in _obj_data:
+        for key, value in _obj_data.items():
             if value in _new_urls:
                 _obj_data[key] = _new_urls[value]
         _writable_data = {
@@ -120,7 +122,7 @@ def push_dependency_chain(
             k: v
             for k, v in _obj_data.items()
             if k in fdp_req.get_filter_variables(_uri, _obj_type)
-            and not urllib.parse.urlparse(v).netloc
+            and (not isinstance(v, str) or not urllib.parse.urlparse(v).netloc)
         }
 
         _logger.debug(f"Pushing member '{object}' to '{dest_uri}'")
