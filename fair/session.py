@@ -107,6 +107,13 @@ class FAIR:
         self._session_id = (
             uuid.uuid4() if server_mode == fdp_serv.SwitchMode.CLI else None
         )
+
+        if user_config and not os.path.exists(user_config):
+            raise fdp_exc.FileNotFoundError(
+                f"Cannot launch session from configuration file '{user_config}', "
+                "file not found."
+            )
+
         self._session_config = user_config or fdp_com.local_user_config(
             self._session_loc
         )
