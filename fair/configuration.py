@@ -390,7 +390,7 @@ def check_registry_exists(registry: str = None) -> bool:
         True if registry exists, else False
     """
     if not registry:
-        registry = fdp_serv.DEFAULT_REGISTRY_LOCATION
+        registry = fdp_com.DEFAULT_REGISTRY_LOCATION
     return os.path.isdir(registry)
 
 
@@ -624,10 +624,10 @@ def global_config_query(registry: str = None) -> typing.Dict[str, typing.Any]:
         fdp_serv.install_registry(install_dir=registry)
 
     _local_uri = click.prompt(
-        "Local Registry URL", default=fdp_serv.DEFAULT_LOCAL_REGISTRY_URL
+        "Local Registry URL", default=fdp_com.DEFAULT_LOCAL_REGISTRY_URL
     )
 
-    _default_rem = urljoin(fdp_serv.DEFAULT_REGISTRY_DOMAIN, "api/")
+    _default_rem = urljoin(fdp_com.DEFAULT_REGISTRY_DOMAIN, "api/")
     _remote_url = click.prompt("Remote API URL", default=_default_rem)
 
     _rem_data_store = click.prompt(

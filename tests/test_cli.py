@@ -26,7 +26,6 @@ import yaml
 import fair.common as fdp_com
 import fair.staging
 from fair.cli import cli
-from fair.registry.server import DEFAULT_REGISTRY_DOMAIN
 from tests import conftest as conf
 
 LOCAL_REGISTRY_URL = "http://127.0.0.1:8000/api"
@@ -142,6 +141,7 @@ def test_init_from_existing(
             )
             assert _result.exit_code == 0
             assert os.path.exists(_out_cli_config)
+            assert os.path.exists(_out_config)
             assert os.path.exists(os.path.join(os.getcwd(), fdp_com.FAIR_FOLDER))
 
             click_test = click.testing.CliRunner()
@@ -204,10 +204,10 @@ def test_init_full(
             assert _cli_cfg["namespaces"]["input"] == "testing"
             assert _cli_cfg["namespaces"]["output"] == "jbloggs"
             assert _cli_cfg["registries"]["origin"]["data_store"] == urljoin(
-                DEFAULT_REGISTRY_DOMAIN, "data/"
+                fdp_com.DEFAULT_REGISTRY_DOMAIN, "data/"
             )
             assert _cli_cfg["registries"]["origin"]["uri"] == urljoin(
-                DEFAULT_REGISTRY_DOMAIN, "api/"
+                fdp_com.DEFAULT_REGISTRY_DOMAIN, "api/"
             )
             assert _cli_cfg["user"]["email"] == _dummy_email
             assert _cli_cfg["user"]["family_name"] == "Bloggs"

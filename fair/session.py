@@ -95,6 +95,8 @@ class FAIR:
             stop/start server mode during session
         testing : bool
             run in testing mode
+        generate_config : bool
+            if the specified config.yaml does not exist generate it
         """
         if debug:
             logging.getLogger("FAIRDataPipeline").setLevel(logging.DEBUG)
@@ -107,6 +109,13 @@ class FAIR:
         self._session_id = (
             uuid.uuid4() if server_mode == fdp_serv.SwitchMode.CLI else None
         )
+
+        if user_config and not os.path.exists(user_config):
+            raise fdp_exc.FileNotFoundError(
+                f"Cannot launch session from configuration file '{user_config}', "
+                "file not found."
+            )
+
         self._session_config = user_config or fdp_com.local_user_config(
             self._session_loc
         )
@@ -115,7 +124,7 @@ class FAIR:
             fdp_com.registry_home()
         ):
             raise fdp_exc.RegistryError(
-                "User registry directory was not found, this could "
+                f"User registry directory '{fdp_com.registry_home()}' was not found, this could "
                 "mean the local registry has not been installed."
             )
 
