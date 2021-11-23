@@ -189,7 +189,7 @@ def _access(
             _info = _result
         raise fdp_exc.RegistryAPICallError(
             f"Request failed with status code {_request.status_code}:"
-            f" {_info}",
+            f" {_info}  ",
             error_code=_request.status_code,
         )
     return _result
@@ -407,7 +407,7 @@ def post_else_get(
         # If the item is already in the registry then ignore the
         # conflict error and continue, else raise exception
         if e.error_code == 409:
-            _loc = get(uri, obj_path, params=params)
+            _loc = get(uri, obj_path, params=params, token=token)
         else:
             raise e
 
