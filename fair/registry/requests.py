@@ -189,7 +189,7 @@ def _access(
             _info = _result
         raise fdp_exc.RegistryAPICallError(
             f"Request failed with status code {_request.status_code}:"
-            f" {_info}  ",
+            f" {_info}  {data}",
             error_code=_request.status_code,
         )
     return _result
