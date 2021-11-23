@@ -446,18 +446,9 @@ def _handle_orcid(user_orcid: str) -> typing.Tuple[typing.Dict, str]:
         f"Found entry: {_user_info['given_names']} " f"{_user_info['family_name']}"
     )
 
-<<<<<<< HEAD
     _def_ospace = ''.join(_user_info['given_names']).lower()
 
     _def_ospace += _user_info['family_name'].lower().replace(' ', '')
-=======
-    _def_ospace = _user_info["given_names"][0]
-
-    if len(_user_info["family_name"].split()) > 1:
-        _def_ospace += _user_info["family_name"].split()[-1]
-    else:
-        _def_ospace += _user_info["family_name"]
->>>>>>> main
 
     return _user_info, _def_ospace
 
@@ -539,16 +530,9 @@ def _handle_uuid() -> typing.Tuple[typing.Dict, str]:
     _user_info = {}
     if len(_full_name.split()) > 1:
         _given_name, _family_name = _full_name.split(" ", 1)
-<<<<<<< HEAD
         _def_ospace = _full_name.lower().replace(' ', '')
         _user_info['given_names'] = _given_name.strip()
         _user_info['family_name'] = _family_name.strip()
-=======
-        _def_ospace = _full_name.lower().strip()[0]
-        _def_ospace += _full_name.lower().split()[-1]
-        _user_info["given_names"] = _given_name.strip()
-        _user_info["family_name"] = _family_name.strip()
->>>>>>> main
     else:
         _def_ospace += _full_name
         _user_info["given_names"] = _full_name
@@ -586,17 +570,10 @@ def _get_user_info_and_namespaces() -> typing.Dict[str, typing.Dict]:
     _user_info["email"] = _user_email
 
     _def_ospace = _def_ospace.lower().replace(" ", "").strip()
-<<<<<<< HEAD
     _def_ospace = click.prompt(
         "Default output namespace", default=_def_ospace
     )
     _def_ispace = click.prompt("Default input namespace", default=_def_ospace)
-=======
-
-    _def_ispace = click.prompt("Default input namespace", default="None")
-    _def_ispace = _def_ispace if _def_ispace != "None" else None
-    _def_ospace = click.prompt("Default output namespace", default=_def_ospace)
->>>>>>> main
 
     _namespaces = {"input": _def_ispace, "output": _def_ospace}
 
