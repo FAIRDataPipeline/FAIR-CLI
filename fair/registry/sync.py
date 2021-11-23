@@ -22,6 +22,8 @@ import urllib.parse
 import logging
 import re
 
+import validators
+
 import fair.exceptions as fdp_exc
 import fair.registry.requests as fdp_req
 
@@ -99,16 +101,16 @@ def push_dependency_chain(
     # For every object (and the order) in the dependency chain
     # post the object then store the URL so it can be used to assemble those
     # further down the chain
-    for object in _dependency_chain:
-        _logger.debug("Preparing object '%s'", object)
+    for object_url in _dependency_chain:
+        _logger.debug("Preparing object '%s'", object_url)
         # Retrieve the data for the object from the registry
-        _obj_data = fdp_req.url_get(object)
+        _obj_data = fdp_req.url_get(object_url)
 
         # Get the URI from the URL
-        _uri, _ = fdp_req.split_api_url(object)
+        _uri, _ = fdp_req.split_api_url(object_url)
 
         # Deduce the object type from its URL
-        _obj_type = fdp_req.get_obj_type_from_url(object)
+        _obj_type = fdp_req.get_obj_type_from_url(object_url)
 
         # Filter object data to only the writable fields
         _writable_data = {
@@ -126,13 +128,14 @@ def push_dependency_chain(
         # For the first object there should be no URL values at all.
         for key, value in _writable_data.items():
             # Check if value is URL
-            if (not isinstance(value, str) or not urllib.parse.urlparse(value).netloc):
+            if not isinstance(value, str):
                 _new_obj_data[key] = value
                 continue
-
-            # Store which fields have URLs to use later    
+            elif isinstance(value, str) and not validators.url(value):
+                _new_obj_data[key] = value
+                continue
+            # Store which fields have URLs to use later
             _url_fields.append(key)
-
             # Make sure that a URL for the component does exist
             if value not in _new_urls:
                 raise fdp_exc.RegistryError(
@@ -146,21 +149,23 @@ def push_dependency_chain(
         # Filters are all variables returned by 'filter_fields' request for a
         # given object minus any variables which have a URL value
         # (as remote URL will never match local)
+
         _filters = {
             k: v
             for k, v in _new_obj_data.items()
             if k in fdp_req.get_filter_variables(_uri, _obj_type)
-            and (not isinstance(v, str) or v in _url_fields)
+            and isinstance(v, str)
+            and not k in _url_fields
         }
 
-        _logger.debug(f"Pushing member '{object}' to '{dest_uri}'")
+        _logger.debug(f"Pushing member '{object_url}' to '{dest_uri}'")
 
         _new_url = fdp_req.post_else_get(
             dest_uri, _obj_type, data=_new_obj_data, token=dest_token, params=_filters
         )
 
         # Fill the new URLs dictionary with the result
-        _new_urls[object] = _new_url
+        _new_urls[object_url] = _new_url
 
     return _new_urls
 
@@ -173,7 +178,7 @@ def push_data_products(
         namespace, name, version = re.split("[:@]", data_product)
         query_params = {"namespace": namespace, "name": name, "version": version}
         result = fdp_req.get(local_uri, "data_product", query_params)
-        print(fdp_req.local_token())
+
         if not result:
             raise fdp_exc.RegistryAPICallError(
                 f"Data product not found in local registry using params {query_params}"

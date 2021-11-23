@@ -233,7 +233,6 @@ def post(
         uri,
         "post",
         obj_path,
-        201,
         headers=headers,
         data=json.dumps(data, cls=fdp_util.JSONDateTimeEncoder),
         token=token
@@ -413,7 +412,7 @@ def post_else_get(
 
     if isinstance(_loc, list):
         if not _loc:
-            raise fdp_exc.RegistryAPICallError(
+            raise fdp_exc.RegistryError(
                 "Expected to receieve a URL location from registry post"
             )
         _loc = _loc[0]
