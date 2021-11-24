@@ -21,6 +21,7 @@ import fair.registry.storage as fdp_store
 import fair.registry.versioning as fdp_ver
 import fair.utilities as fdp_util
 from fair.common import CMD_MODE
+from fair.user_config.validation import UserConfigModel
 
 JOB2CLI_MAPPINGS = {
     "run_metadata.local_repo": "git.local_repo",
@@ -282,17 +283,14 @@ class JobConfiguration(MutableMapping):
                 f" '{fair_repo_dir}' does not exist"
             )
 
+        # Combine global and remote CLI configurations by overwriting global
+        # with changes in the local version
+        _fdpconfig = fdp_util.flatten_dict(fdp_conf.read_global_fdpconfig())
         if fair_repo_dir:
-            # Combine global and remote CLI configurations by overwriting global
-            # with changes in the local version
-            _fdpconfig = fdp_util.flatten_dict(fdp_conf.read_global_fdpconfig())
             _local_fdpconfig = fdp_util.flatten_dict(
                 fdp_conf.read_local_fdpconfig(fair_repo_dir)
             )
             _fdpconfig.update(_local_fdpconfig)
-        else:
-            _fdpconfig = fdp_util.flatten_dict(fdp_conf.read_global_fdpconfig())
-
         for key in JOB2CLI_MAPPINGS:
             if key not in self:
                 self[key] = _fdpconfig[JOB2CLI_MAPPINGS[key]]
@@ -404,6 +402,10 @@ class JobConfiguration(MutableMapping):
             raise fdp_exc.InternalError(f"Failed to parse variables '{_unparsed}'")
 
         self["run_metadata.latest_commit"] = self._fetch_latest_commit()
+
+        # Perform config validation
+        self._logger.debug("Running configuration validation")
+        UserConfigModel(**self._config)
 
     def _check_for_unparsed(self) -> typing.List[str]:
         self._logger.debug("Checking for unparsed variables")
