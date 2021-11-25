@@ -456,7 +456,7 @@ def push(remote: str, debug: bool):
     """Push data between the local and remote registry"""
     remote = "origin" if len(remote) == 0 else remote[0]
     try:
-        with fdp_session.FAIR(os.getcwd(), debug=debug) as fair_session:
+        with fdp_session.FAIR(os.getcwd(), debug=debug, server_mode=fdp_svr.SwitchMode.CLI) as fair_session:
             fair_session.push(remote)
     except fdp_exc.FAIRCLIException as e:
         if debug:
