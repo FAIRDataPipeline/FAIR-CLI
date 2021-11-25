@@ -55,9 +55,14 @@ def get_dependency_chain(object_url: str) -> collections.deque:
             return
         url_list.appendleft(item)
         _results = fdp_req.url_get(item)
-        for req in _results:
-            if req in _dependency_list and _results[req]:
-                _dependency_of(url_list, _results[req])
+        _type = fdp_req.get_obj_type_from_url(item)
+        for req, val in _results.items():
+            if req in _dependency_list[_type] and val:
+                if isinstance(val, list):
+                    for url in val:
+                        _dependency_of(url_list, url)
+                else:
+                    _dependency_of(url_list, val)
 
     # Ordering is important so use a deque to preserve
     _urls = collections.deque()
