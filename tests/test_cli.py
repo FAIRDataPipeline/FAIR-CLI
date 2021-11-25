@@ -51,7 +51,6 @@ def test_status(
         os.path.join(local_config[0], fdp_com.FAIR_FOLDER, "sessions"), exist_ok=True
     )
     os.makedirs(os.path.join(os.getcwd(), fdp_com.FAIR_FOLDER), exist_ok=True)
-<<<<<<< HEAD
     os.makedirs(os.path.join(os.getcwd(), 'jobs'))
     with open(os.path.join(local_config[1], fdp_com.FAIR_FOLDER, 'staging'), 'w') as staged:
             yaml.dump({'job': {}, 'data_product': {}}, staged)
@@ -61,15 +60,6 @@ def test_status(
             'script': 'echo "Hello World!"'
         }
     }
-=======
-    os.makedirs(os.path.join(os.getcwd(), "jobs"))
-    with open(
-        os.path.join(local_config[1], fdp_com.FAIR_FOLDER, "staging"), "w"
-    ) as staged:
-        yaml.dump({"job": {}}, staged)
-    mocker.patch("fair.run.get_job_dir", lambda x: os.path.join(os.getcwd(), "jobs", x))
-    _dummy_config = {"run_metadata": {"script": 'echo "Hello World!"'}}
->>>>>>> v0.3
     _dummy_job_staging = {
         "job": {
             str(uuid.uuid4()): True,
@@ -78,7 +68,6 @@ def test_status(
             str(uuid.uuid4()): False,
             str(uuid.uuid4()): False,
         },
-<<<<<<< HEAD
         'file': {},
         'data_product': {},
     }
@@ -95,32 +84,6 @@ def test_status(
         mocker.patch('fair.common.registry_home', lambda: local_registry._install)
         mocker.patch('fair.registry.requests.local_token', lambda: local_registry._token)
         _result = click_test.invoke(cli, ['status', '--debug', '--verbose'])
-=======
-        "file": {},
-    }
-
-    _urls_list = {i: "http://dummyurl.com" for i in _dummy_job_staging["job"]}
-    mocker.patch.object(fair.staging.Stager, "get_job_data", lambda *args: _urls_list)
-
-    mocker.patch("fair.registry.requests.local_token", lambda: str(uuid.uuid4()))
-    mocker.patch("fair.registry.server.stop_server", lambda *args: None)
-    for identifier in _dummy_job_staging["job"]:
-        os.makedirs(os.path.join(os.getcwd(), "jobs", identifier))
-        yaml.dump(
-            _dummy_config,
-            open(
-                os.path.join(os.getcwd(), "jobs", identifier, fdp_com.USER_CONFIG_FILE),
-                "w",
-            ),
-        )
-    yaml.dump(
-        _dummy_job_staging,
-        open(os.path.join(os.getcwd(), fdp_com.FAIR_FOLDER, "staging"), "w"),
-    )
-    with local_registry:
-        mocker.patch("fair.common.registry_home", lambda: local_registry._install)
-        _result = click_test.invoke(cli, ["status", "--debug", "--verbose"])
->>>>>>> v0.3
 
         assert _result.exit_code == 0
 
