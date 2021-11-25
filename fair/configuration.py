@@ -583,7 +583,7 @@ def _get_user_info_and_namespaces() -> typing.Dict[str, typing.Dict]:
 def global_config_query(registry: str = None) -> typing.Dict[str, typing.Any]:
     """Ask user question set for creating global FAIR config"""
     if not registry:
-        registry = fdp_serv.DEFAULT_REGISTRY_LOCATION
+        registry = fdp_com.DEFAULT_REGISTRY_LOCATION
     logger.debug("Running global configuration query with registry at '%s'", registry)
     click.echo("Checking for local registry")
     if check_registry_exists(registry):

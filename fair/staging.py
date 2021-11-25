@@ -356,7 +356,7 @@ class Stager:
         with open(self._staging_file) as f:
             _staging_dict = yaml.safe_load(f)
 
-        result = fdp_req.url_get(f"{fdp_serve.DEFAULT_LOCAL_REGISTRY_URL}data_product")
+        result = fdp_req.url_get(f"{fdp_com.DEFAULT_LOCAL_REGISTRY_URL}data_product")
 
         for data_product in result:
             namespace = fdp_req.url_get(data_product["namespace"])["name"]

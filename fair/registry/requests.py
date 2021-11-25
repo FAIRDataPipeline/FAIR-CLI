@@ -404,7 +404,7 @@ def post_else_get(
     if isinstance(_loc, list):
         if not _loc:
             raise fdp_exc.RegistryError(
-                "Expected to receieve a URL location from registry post"
+                "Expected to receive a URL location from registry post"
             )
         _loc = _loc[0]
     if isinstance(_loc, dict):

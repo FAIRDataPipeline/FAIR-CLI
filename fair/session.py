@@ -193,7 +193,7 @@ class FAIR:
         _root_dir = os.path.join(
             fdp_com.find_fair_root(self._session_loc), fdp_com.FAIR_FOLDER
         )
-        if local_cfg and os.path.exists(_root_dir):
+        if (local_cfg or clear_all) and os.path.exists(_root_dir):
             if verbose:
                 click.echo(f"Removing directory '{_root_dir}'")
             shutil.rmtree(_root_dir)
@@ -202,7 +202,7 @@ class FAIR:
                 click.echo(f"Removing directory '{fdp_com.USER_FAIR_DIR}'")
             shutil.rmtree(fdp_com.USER_FAIR_DIR)
             return
-        if clear_data:
+        if (clear_data or clear_all):
             try:
                 if verbose:
                     click.echo(f"Removing directory '{fdp_com.default_data_dir()}'")
@@ -213,7 +213,7 @@ class FAIR:
                     "Cannot remove local data store, a global CLI configuration "
                     "is required to identify its location"
                 )
-        if global_cfg:
+        if (global_cfg or clear_all):
             if verbose:
                 click.echo(f"Removing directory '{fdp_com.global_config_dir()}'")
             _global_dirs = fdp_com.global_config_dir()
@@ -222,8 +222,6 @@ class FAIR:
 
     def _setup_server(self) -> None:
         """Start or stop the server if required"""
-
-
         self._logger.debug(f"Running server setup for run mode {self._run_mode}")
         if self._run_mode == fdp_serv.SwitchMode.CLI:
             self._setup_server_cli_mode()
@@ -671,6 +669,7 @@ class FAIR:
         click.echo(f"Initialised empty fair repository in {_fair_dir}")
 
     def _clean_reset(self, _fair_dir, e, local_only: bool = False):
+        print(local_only)
         if not local_only:
             shutil.rmtree(fdp_com.session_cache_dir(), ignore_errors=True)
             shutil.rmtree(fdp_com.global_config_dir(), ignore_errors=True)
@@ -689,16 +688,12 @@ class FAIR:
             )
             os.remove(_cache_addr)
 
-        if (
-            not os.path.exists(os.path.join(fdp_com.session_cache_dir(), "user.run"))
-            and self._run_mode != fdp_serv.SwitchMode.NO_SERVER
-        ):
-            fdp_serv.stop_server()
-
-        with open(fdp_com.global_fdpconfig(), "w") as f:
-            yaml.dump(self._global_config, f)
-        with open(fdp_com.local_fdpconfig(self._session_loc), "w") as f:
-            yaml.dump(self._local_config, f)
+        if os.path.exists(fdp_com.global_config_dir()):
+            with open(fdp_com.global_fdpconfig(), "w") as f:
+                yaml.dump(self._global_config, f)
+        if os.path.exists(os.path.dirname(fdp_com.local_fdpconfig())):
+            with open(fdp_com.local_fdpconfig(self._session_loc), "w") as f:
+                yaml.dump(self._local_config, f)
 
     def _validate_and_load_cli_config(self, cli_config: typing.Dict):
         _exp_keys = ["registries", "namespaces", "user", "git"]
