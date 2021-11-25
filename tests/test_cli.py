@@ -160,6 +160,8 @@ def test_init_full(
     mocker.patch("fair.registry.server.update_registry_post_setup", lambda *args: None)
     with local_registry:
         with tempfile.TemporaryDirectory() as tempd:
+            with open(os.path.join(tempd, "token"), "w") as tok_f:
+                tok_f.write("hjasdi324ji7823jdsf78234")
             mocker.patch("fair.common.USER_FAIR_DIR", tempd)
             _dummy_name = "Joseph Bloggs"
             _dummy_email = "jbloggs@nowhere.com"
@@ -167,13 +169,13 @@ def test_init_full(
                 "",
                 "",
                 "",
-                "",
+                os.path.join(tempd, "token"),
                 "",
                 "",
                 _dummy_email,
                 "",
                 _dummy_name,
-                "testing",
+                "",
                 "",
                 os.getcwd(),
                 "",
@@ -195,8 +197,8 @@ def test_init_full(
             assert _cli_cfg["git"]["local_repo"] == os.getcwd()
             assert _cli_cfg["git"]["remote"] == "origin"
             assert _cli_cfg["git"]["remote_repo"] == "git@notagit.com"
-            assert _cli_cfg["namespaces"]["input"] == "testing"
-            assert _cli_cfg["namespaces"]["output"] == "jbloggs"
+            assert _cli_cfg["namespaces"]["input"] == "josephbloggs"
+            assert _cli_cfg["namespaces"]["output"] == "josephbloggs"
             assert _cli_cfg["registries"]["origin"]["data_store"] == urljoin(
                 fdp_com.DEFAULT_REGISTRY_DOMAIN, "data/"
             )
