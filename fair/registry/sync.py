@@ -18,7 +18,6 @@ __date__ = "2021-08-05"
 
 import typing
 import collections
-import urllib.parse
 import logging
 import re
 
@@ -155,8 +154,9 @@ def push_dependency_chain(
             for k, v in _new_obj_data.items()
             if k in fdp_req.get_filter_variables(_uri, _obj_type)
             and isinstance(v, str)
-            and not k in _url_fields
+            and k not in _url_fields
         }
+
 
         _logger.debug(f"Pushing member '{object_url}' to '{dest_uri}'")
 

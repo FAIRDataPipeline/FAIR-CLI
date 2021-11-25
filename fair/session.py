@@ -1,59 +1,61 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
 """
-Session
-=======
+    Session
+    =======
 
-Manage synchronisation of data and metadata relating to runs using the
-FAIR Data Pipeline system.
+    Manage synchronisation of data and metadata relating to runs using the
+    FAIR Data Pipeline system.
 
-Contents
-========
+    Contents
+    ========
 
-Classes
--------
+    Classes
+    -------
 
-    FAIR - main class for performing synchronisations and executing jobs
+        FAIR - main class for performing synchronisations and executing jobs
 
-Misc Variables
---------------
+    Misc Variables
+    --------------
 
-    __author__
-    __license__
-    __credits__
-    __status__
-    __copyright__
+        __author__
+        __license__
+        __credits__
+        __status__
+        __copyright__
 
 """
 
 __date__ = "2021-06-28"
 
-import os
-import glob
-import uuid
-import typing
-import pathlib
-import logging
-import shutil
 import copy
+import glob
+import logging
+import os
+import pathlib
+import shutil
+import typing
+import uuid
+
 import click
 import re
 import rich
 import git
+import rich
 import yaml
 from rich.console import Console
 from rich.table import Table
 
-import fair.templates as fdp_tpl
 import fair.common as fdp_com
-import fair.run as fdp_run
-import fair.registry.server as fdp_serv
 import fair.configuration as fdp_conf
 import fair.exceptions as fdp_exc
 import fair.history as fdp_hist
-import fair.staging as fdp_stage
-import fair.testing as fdp_test
+import fair.registry.server as fdp_serv
 import fair.registry.sync as fdp_sync
+import fair.run as fdp_run
+import fair.staging as fdp_stage
+import fair.templates as fdp_tpl
+import fair.testing as fdp_test
 
 
 class FAIR:
@@ -97,6 +99,8 @@ class FAIR:
             stop/start server mode during session
         testing : bool
             run in testing mode
+        generate_config : bool
+            if the specified config.yaml does not exist generate it
         """
         if debug:
             logging.getLogger("FAIRDataPipeline").setLevel(logging.DEBUG)
@@ -109,6 +113,13 @@ class FAIR:
         self._session_id = (
             uuid.uuid4() if server_mode == fdp_serv.SwitchMode.CLI else None
         )
+
+        if user_config and not os.path.exists(user_config):
+            raise fdp_exc.FileNotFoundError(
+                f"Cannot launch session from configuration file '{user_config}', "
+                "file not found."
+            )
+
         self._session_config = user_config or fdp_com.local_user_config(
             self._session_loc
         )
@@ -117,7 +128,7 @@ class FAIR:
             fdp_com.registry_home()
         ):
             raise fdp_exc.RegistryError(
-                "User registry directory was not found, this could "
+                f"User registry directory '{fdp_com.registry_home()}' was not found, this could "
                 "mean the local registry has not been installed."
             )
 
@@ -162,6 +173,7 @@ class FAIR:
         local_cfg: bool = False,
         global_cfg: bool = False,
         clear_data: bool = False,
+        clear_all: bool = False,
     ) -> None:
         """Remove FAIR-CLI tracking from the given directory
 
@@ -175,6 +187,8 @@ class FAIR:
             run in verbose mode, default is True
         clear_data : bool, optional
             remove the data directory (potentially dangerous), default is False
+        clear_all : bool, optional
+            remove all FAIR components from the system, overrides others, default is False
         """
         _root_dir = os.path.join(
             fdp_com.find_fair_root(self._session_loc), fdp_com.FAIR_FOLDER
@@ -183,6 +197,11 @@ class FAIR:
             if verbose:
                 click.echo(f"Removing directory '{_root_dir}'")
             shutil.rmtree(_root_dir)
+        if clear_all:
+            if verbose:
+                click.echo(f"Removing directory '{fdp_com.USER_FAIR_DIR}'")
+            shutil.rmtree(fdp_com.USER_FAIR_DIR)
+            return
         if clear_data:
             try:
                 if verbose:
@@ -204,9 +223,7 @@ class FAIR:
     def _setup_server(self) -> None:
         """Start or stop the server if required"""
 
-        # If a session ID has been specified this means the server is auto
-        # started as opposed to being started explcitly by the user
-        # this means it will be shut down on completion
+
         self._logger.debug(f"Running server setup for run mode {self._run_mode}")
         if self._run_mode == fdp_serv.SwitchMode.CLI:
             self._setup_server_cli_mode()
@@ -225,6 +242,9 @@ class FAIR:
             fdp_serv.stop_server(
                 force=self._run_mode == fdp_serv.SwitchMode.FORCE_STOP,
             )
+        fdp_serv.stop_server(
+            force=self._run_mode == fdp_serv.SwitchMode.FORCE_STOP,
+        )
 
     def _setup_server_cli_mode(self):
         self.check_is_repo()

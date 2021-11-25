@@ -19,16 +19,16 @@ Contents
 
 __date__ = "2021-07-02"
 
+import copy
 import json
+import logging
 import os
+import re
 import tempfile
 import typing
-import logging
-import copy
 import urllib.parse
-import re
+
 import requests
-from requests.api import head
 import simplejson.errors
 
 import fair.common as fdp_com
@@ -40,12 +40,13 @@ SEARCH_KEYS = {
     "namespace": "name",
     "file_type": "extension",
     "storage_root": "root",
-    "storage_location": "hash"
+    "storage_location": "hash",
 }
 
-logger = logging.getLogger('FAIRDataPipeline.Requests')
+logger = logging.getLogger("FAIRDataPipeline.Requests")
 
-def split_api_url(request_url: str, splitter: str = 'api') -> typing.Tuple[str]:
+
+def split_api_url(request_url: str, splitter: str = "api") -> typing.Tuple[str]:
     """Split a request URL into endpoint and path
 
     Parameters
@@ -60,8 +61,8 @@ def split_api_url(request_url: str, splitter: str = 'api') -> typing.Tuple[str]:
     typing.Tuple[str]
         endpoint, path
     """
-    _root, _path = request_url.split(f'{splitter}/')
-    return f'{_root}{splitter}', _path
+    _root, _path = request_url.split(f"{splitter}/")
+    return f"{_root}{splitter}", _path
 
 
 def local_token(registry_dir: str = None) -> str:
@@ -73,7 +74,7 @@ def local_token(registry_dir: str = None) -> str:
             f"Failed to find local registry token, file '{_local_token_file}'"
             " does not exist.",
             hint="Try creating the file by manually starting the registry "
-            "by running 'fair registry start'"
+            "by running 'fair registry start'",
         )
     _file_lines = open(_local_token_file).readlines()
 
@@ -102,7 +103,7 @@ def _access(
 
     if not params:
         params: typing.Dict[str, str] = {}
-    
+
     if not data:
         data: typing.Dict[str, str] = {}
 
@@ -111,13 +112,11 @@ def _access(
 
     # Make sure we have the right number of '/' in the components
     _uri = uri
-    if _uri[-1] != "/":
-        _uri += '/'
+    _uri = fdp_util.check_trailing_slash(_uri)
 
     _url = urllib.parse.urljoin(_uri, obj_path) if obj_path else uri
 
-    if _url[-1] != "/":
-        _url += "/"
+    _url = fdp_util.check_trailing_slash(_url)
 
     _headers = copy.deepcopy(headers)
     _headers["Authorization"] = f"token {token}"
@@ -125,14 +124,12 @@ def _access(
     logger.debug("Sending request of type '%s': %s", method, _url)
 
     try:
-        if method == 'get':
+        if method == "get":
             _request = requests.get(
                 _url, headers=_headers, params=params, *args, **kwargs
             )
-        elif method == 'post':
-            _request = requests.post(
-                _url, headers=_headers, data=data, *args, **kwargs
-            )
+        elif method == "post":
+            _request = requests.post(_url, headers=_headers, data=data, *args, **kwargs)
         else:
             _request = getattr(requests, method)(
                 _url, headers=_headers, *args, **kwargs
@@ -140,35 +137,34 @@ def _access(
     except requests.exceptions.ConnectionError:
         raise fdp_exc.UnexpectedRegistryServerState(
             f"Failed to make registry API request '{_url}'",
-            hint="Is this remote correct and the server running?"
+            hint="Is this remote correct and the server running?",
         )
 
-    _info = f'url = {_url}, '
-    _info += f' parameters = {kwargs["params"]},' if 'params' in kwargs else ''
-    _info += f' data = {kwargs["data"]}' if 'data' in kwargs else ''
+    _info = f"url = {_url}, "
+    _info += f' parameters = {kwargs["params"]},' if "params" in kwargs else ""
+    _info += f' data = {kwargs["data"]}' if "data" in kwargs else ""
 
     # Case of unrecognised object
     if _request.status_code == 404:
         raise fdp_exc.RegistryAPICallError(
             f"Attempt to access an unrecognised resource on registry "
             f"using method '{method}' and arguments: " + _info,
-            error_code=404
+            error_code=404,
         )
 
     # Case of unrecognised object
 
     if _request.status_code == 403:
         raise fdp_exc.RegistryAPICallError(
-            f"Failed to run method '{method}' for url {_url}, "
-            f"request forbidden",
-            error_code=403
+            f"Failed to run method '{method}' for url {_url}, " f"request forbidden",
+            error_code=403,
         )
     elif _request.status_code == 409:
-        _searchable = uri if not obj_path else '/'.join(obj_path)
+        _searchable = uri if not obj_path else "/".join(obj_path)
         raise fdp_exc.RegistryAPICallError(
             f"Cannot post object of type '{_searchable}' "
             f"using method '{method}' as it already exists."
-            f"Arguments:\n"+_info,
+            f"Arguments:\n" + _info,
             error_code=409,
         )
 
@@ -178,7 +174,7 @@ def _access(
     except (json.JSONDecodeError, simplejson.errors.JSONDecodeError):
         raise fdp_exc.RegistryAPICallError(
             f"Failed to retrieve JSON data from request to '{_url}'",
-            error_code=_request.status_code
+            error_code=_request.status_code,
         )
 
     if _request.status_code not in response_codes:
@@ -188,8 +184,7 @@ def _access(
         if not _info:
             _info = _result
         raise fdp_exc.RegistryAPICallError(
-            f"Request failed with status code {_request.status_code}:"
-            f" {_info}  {data}",
+            f"Request failed with status code {_request.status_code}:" f" {_info}",
             error_code=_request.status_code,
         )
     return _result
@@ -200,7 +195,7 @@ def post(
     obj_path: str,
     data: typing.Dict[str, typing.Any],
     headers: typing.Dict[str, typing.Any] = None,
-    token: str = None
+    token: str = None,
 ) -> typing.Dict:
     """Post an object to the registry
 
@@ -235,7 +230,7 @@ def post(
         obj_path,
         headers=headers,
         data=json.dumps(data, cls=fdp_util.JSONDateTimeEncoder),
-        token=token
+        token=token,
     )
 
 
@@ -263,7 +258,7 @@ def get(
     obj_path: str,
     headers: typing.Dict[str, typing.Any] = None,
     params: typing.Dict[str, typing.Any] = None,
-    token: str = None
+    token: str = None,
 ) -> typing.Dict:
     """Retrieve an object from the given registry
 
@@ -287,7 +282,9 @@ def get(
     """
     logger.debug(
         "Retrieving object of type '%s' from registry at '%s' with parameters: %s",
-        obj_path, uri, params
+        obj_path,
+        uri,
+        params,
     )
 
     if not headers:
@@ -298,11 +295,9 @@ def get(
     if not token:
         token = local_token()
 
-    if "namespace" in params and isinstance(params['namespace'], str):
+    if "namespace" in params and isinstance(params["namespace"], str):
         _namespaces = get(
-            uri,
-            'namespace',
-            params = {SEARCH_KEYS['namespace']: params['namespace']}
+            uri, "namespace", params={SEARCH_KEYS["namespace"]: params["namespace"]}
         )
 
         if len(_namespaces) > 1:
@@ -314,46 +309,43 @@ def get(
                 f"No hits for namespace '{params['namespace']}'"
             )
 
-        _results = re.search(
-            r'^' + uri + r'/?namespace/(\d+)/$',
-            _namespaces[0]['url']
-        )
+        _results = re.search(r"^" + uri + r"/?namespace/(\d+)/$", _namespaces[0]["url"])
 
         if not _results:
-            raise fdp_exc.InternalError(
-                "Failed to parse namespace identifiers"
-            )
+            raise fdp_exc.InternalError("Failed to parse namespace identifiers")
 
-        params['namespace'] = int(_results.group(1))
+        params["namespace"] = int(_results.group(1))
 
     if "data_product" in params:
         _data_products = get(
             uri,
-            'data_product',
-            params = {
-                SEARCH_KEYS['data_product']: params['data_product'],
-                'namespace': params['namespace']
-            }
+            "data_product",
+            params={
+                SEARCH_KEYS["data_product"]: params["data_product"],
+                "namespace": params["namespace"],
+            },
         )
 
-        _results = [re.search(
-            r'^' + uri + r'/?data_product/(\d+)/$',
-            _data_product['url']) for _data_product in _data_products
+        _results = [
+            re.search(r"^" + uri + r"/?data_product/(\d+)/$", _data_product["url"])
+            for _data_product in _data_products
         ]
 
         _output = []
-        del params['namespace']
+        del params["namespace"]
         for data_product in _results:
-            params['data_product'] = int(data_product.group(1))
-            _output.extend(_access(
-                uri,
-                "get",
-                obj_path,
-                200,
-                headers=headers,
-                params=params,
-                token=token
-            ))
+            params["data_product"] = int(data_product.group(1))
+            _output.extend(
+                _access(
+                    uri,
+                    "get",
+                    obj_path,
+                    200,
+                    headers=headers,
+                    params=params,
+                    token=token,
+                )
+            )
         return _output
 
     return _access(
@@ -371,7 +363,7 @@ def post_else_get(
     obj_path: str,
     data: typing.Dict[str, typing.Any],
     params: typing.Dict[str, typing.Any] = None,
-    token: str = None
+    token: str = None,
 ) -> str:
     """Post to the registry if an object does not exist else retrieve URL
 
@@ -421,10 +413,8 @@ def post_else_get(
 
 
 def filter_object_dependencies(
-    uri: str,
-    obj_path: str,
-    filter: typing.Dict[str, typing.Any]
-    ) -> typing.List[str]:
+    uri: str, obj_path: str, filter: typing.Dict[str, typing.Any]
+) -> typing.List[str]:
     """Filter dependencies of an API object based on a set of conditions
 
     Parameters
@@ -484,10 +474,7 @@ def get_filter_variables(uri: str, obj_path: str) -> typing.List[str]:
     return [*_filters]
 
 
-def get_writable_fields(
-    uri: str,
-    obj_path: str
-    ) -> typing.List[str]:
+def get_writable_fields(uri: str, obj_path: str) -> typing.List[str]:
     """Retrieve a list of writable fields for the given RestAPI object
 
     Parameters
@@ -502,9 +489,7 @@ def get_writable_fields(
     typing.List[str]
         list of object type paths
     """
-    return filter_object_dependencies(
-        uri, obj_path, {"read_only": False}
-    )
+    return filter_object_dependencies(uri, obj_path, {"read_only": False})
 
 
 def download_file(url: str, chunk_size: int = 8192) -> str:
@@ -533,7 +518,7 @@ def download_file(url: str, chunk_size: int = 8192) -> str:
                 f"Failed to download file from '{url}'"
                 f" with status code {r_in.status_code}"
             )
-        with os.fdopen(_file, 'wb') as in_f:
+        with os.fdopen(_file, "wb") as in_f:
             for chunk in r_in.iter_content(chunk_size=chunk_size):
                 in_f.write(chunk)
 
@@ -558,15 +543,11 @@ def get_dependency_listing(uri: str) -> typing.Dict:
 
     return {
         obj: filter_object_dependencies(
-            uri,
-            obj,
-            {
-                "read_only": False,
-                "type": "field",
-                "local": True
-            }
-        ) for obj in _registry_objs
+            uri, obj, {"read_only": False, "type": "field", "local": True}
+        )
+        for obj in _registry_objs
     }
+
 
 def get_obj_type_from_url(request_url: str) -> str:
     """Retrieves the type of object from the given URL
