@@ -179,7 +179,7 @@ def test_init_full(
                 _dummy_email,
                 "",
                 _dummy_name,
-                "testing",
+                "",
                 "",
                 os.getcwd(),
                 "",
@@ -201,8 +201,8 @@ def test_init_full(
             assert _cli_cfg["git"]["local_repo"] == os.getcwd()
             assert _cli_cfg["git"]["remote"] == "origin"
             assert _cli_cfg["git"]["remote_repo"] == "git@notagit.com"
-            assert _cli_cfg["namespaces"]["input"] == "testing"
-            assert _cli_cfg["namespaces"]["output"] == "jbloggs"
+            assert _cli_cfg["namespaces"]["input"] == "josephbloggs"
+            assert _cli_cfg["namespaces"]["output"] == "josephbloggs"
             assert _cli_cfg["registries"]["origin"]["data_store"] == urljoin(
                 fdp_com.DEFAULT_REGISTRY_DOMAIN, "data/"
             )
