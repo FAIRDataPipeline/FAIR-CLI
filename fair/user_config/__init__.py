@@ -10,6 +10,7 @@ from collections.abc import MutableMapping
 
 import git
 import yaml
+import pydantic
 
 import fair.common as fdp_com
 import fair.configuration as fdp_conf
@@ -405,7 +406,11 @@ class JobConfiguration(MutableMapping):
 
         # Perform config validation
         self._logger.debug("Running configuration validation")
-        UserConfigModel(**self._config)
+
+        try:
+            UserConfigModel(**self._config)
+        except pydantic.ValidationError as e:
+            raise fdp_exc.ValidationError(e.json())
 
     def _check_for_unparsed(self) -> typing.List[str]:
         self._logger.debug("Checking for unparsed variables")

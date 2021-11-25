@@ -23,12 +23,13 @@ Exceptions
     FileNotFoundError
     InternalError
     StagingError
-
+    ValidationError
 """
 
 __date__ = "2021-06-28"
 
 import click
+import typing
 
 
 class FAIRCLIException(Exception):
@@ -141,6 +142,24 @@ class RegistryAPICallError(FAIRCLIException):
         super().__init__(
             f"[HTTP {self.error_code}]: {msg}", exit_code=error_code, level=_level
         )
+
+
+class ValidationError(FAIRCLIException):
+    """Errors relating to the Pydantic based User Config validation"""
+    def __init__(self, info: typing.List[typing.Dict]) -> None:
+        _invalid_data: typing.List[typing.Dict] = []
+
+        for data in info:
+            _location = ':'.join(data["loc"])
+            _type = data["type"]
+            _msg = data["msg"]
+            _invalid_data.append(f"{_location:<50}  {_type:<20}  {_msg:<20}")
+
+        _msg = "User 'config.yaml' file validation failed with:\n"
+        _msg += "\n"+f'{"Location":<50}  {"Type":<20}  {"Message":<20}\n'
+        _msg += "="*94+"\n"
+        _msg += '\n'.join(_invalid_data)
+        super().__init__(_msg)  
 
 
 class NotImplementedError(FAIRCLIException):
