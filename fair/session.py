@@ -233,14 +233,20 @@ class FAIR:
             fdp_serv.SwitchMode.USER_STOP,
             fdp_serv.SwitchMode.FORCE_STOP,
         ]:
-            _cache_addr = os.path.join(fdp_com.session_cache_dir(), "user.run")
-            if not fdp_serv.check_server_running():
-                raise fdp_exc.UnexpectedRegistryServerState("Server is not running.")
-            if os.path.exists(_cache_addr):
-                os.remove(_cache_addr)
-            click.echo("Stopping local registry server.")
-            fdp_serv.stop_server(
-                force=self._run_mode == fdp_serv.SwitchMode.FORCE_STOP,
+            self._stop_server()
+
+    def _stop_server(self) -> None:
+        _cache_addr = os.path.join(fdp_com.session_cache_dir(), "user.run")
+        if not fdp_serv.check_server_running():
+            raise fdp_exc.UnexpectedRegistryServerState("Server is not running.")
+        if os.path.exists(_cache_addr):
+            os.remove(_cache_addr)
+        click.echo("Stopping local registry server.")
+        if (os.listdir(fdp_com.session_cache_dir()) 
+            and self._run_mode != fdp_serv.SwitchMode.FORCE_STOP):
+            raise fdp_exc.UnexpectedRegistryServerState(
+                "Cannot stop registry, a process may still be running",
+                hint="You can force stop using '--force'"
             )
         fdp_serv.stop_server(
             force=self._run_mode == fdp_serv.SwitchMode.FORCE_STOP,
