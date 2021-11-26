@@ -192,7 +192,7 @@ class FAIR:
         _root_dir = os.path.join(
             fdp_com.find_fair_root(self._session_loc), fdp_com.FAIR_FOLDER
         )
-        if clear_all and os.path.exists(_root_dir):
+        if os.path.exists(_root_dir):
             if verbose:
                 click.echo(f"Removing directory '{_root_dir}'")
             shutil.rmtree(_root_dir)
