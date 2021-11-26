@@ -438,7 +438,7 @@ def update_registry_post_setup(repo_dir: str, global_setup: bool = False) -> Non
         logger.debug("Populating file types")
         fdp_store.populate_file_type(fdp_conf.get_local_uri())
 
-    logger.debug("Adding 'author' and 'UserAuthor' entries ig not present")
+    logger.debug("Adding 'author' and 'UserAuthor' entries if not present")
     # Add author and UserAuthor
     _author_url = fdp_store.store_user(repo_dir, fdp_conf.get_local_uri())
 

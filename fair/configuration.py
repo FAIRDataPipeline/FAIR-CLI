@@ -381,17 +381,18 @@ def get_current_user_uri(repo_loc: str) -> str:
     return _uri
 
 
-def check_registry_exists(registry: str = None) -> bool:
+def check_registry_exists(registry: str = None) -> typing.Optional[str]:
     """Checks if fair registry is set up on users machine
 
     Returns
     -------
-    bool
-        True if registry exists, else False
+    str
+        registry location if found
     """
     if not registry:
         registry = fdp_com.DEFAULT_REGISTRY_LOCATION
-    return os.path.isdir(registry)
+    if os.path.isdir(registry):
+        return registry
 
 
 def get_local_uri() -> str:
@@ -623,8 +624,10 @@ def global_config_query(registry: str = None) -> typing.Dict[str, typing.Any]:
     """Ask user question set for creating global FAIR config"""
     logger.debug("Running global configuration query with registry at '%s'", registry)
     click.echo("Checking for local registry")
-    if check_registry_exists(registry):
-        click.echo("Local registry found")
+    check_reg = check_registry_exists(registry)
+    if check_reg:
+        registry = check_reg
+        click.echo(f"Local registry found at '{check_reg}'")
     elif not registry:
         install_reg = click.confirm(
             "Local registry not found at default location"
