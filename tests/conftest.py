@@ -64,6 +64,9 @@ def local_config(mocker: pytest_mock.MockerFixture):
         )
         mocker.patch("fair.common.global_fdpconfig", lambda: _gconfig_path)
 
+        with open(fdp_com.registry_session_port_file(), "w") as pf:
+            pf.write("8001")
+
         with tempfile.TemporaryDirectory() as templ:
             os.makedirs(os.path.join(templ, fdp_com.FAIR_FOLDER))
             _lconfig_path = os.path.join(

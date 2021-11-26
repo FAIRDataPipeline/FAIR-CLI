@@ -170,7 +170,7 @@ def test_init_full(
             _dummy_name = "Joseph Bloggs"
             _dummy_email = "jbloggs@nowhere.com"
             _args = [
-                "",
+                "8007",
                 "",
                 "",
                 "",
@@ -185,16 +185,23 @@ def test_init_full(
                 "",
             ]
 
-            _result = click_test.invoke(
-                cli, ["init", "--debug"], input="\n".join(_args)
+            res = click_test.invoke(
+                cli, ["init", "--debug", "--registry", local_registry._install], input="\n".join(_args)
             )
 
-            assert _result.exit_code == 0
-
-            assert os.path.exists(os.path.join(os.getcwd(), fdp_com.FAIR_FOLDER))
+            assert os.path.exists(fair.common.global_config_dir())
+            assert os.path.exists(os.path.join(os.getcwd(), fair.common.FAIR_FOLDER))
 
             _cli_cfg = yaml.safe_load(
-                open(os.path.join(os.getcwd(), fdp_com.FAIR_FOLDER, "cli-config.yaml"))
+                open(os.path.join(os.getcwd(), fair.common.FAIR_FOLDER, "cli-config.yaml"))
+            )
+
+            _cli_glob_cfg = yaml.safe_load(
+                open(os.path.join(fair.common.global_config_dir(), "cli-config.yaml"))
+            )
+
+            _expected_url = fdp_com.DEFAULT_LOCAL_REGISTRY_URL.replace(
+                ":8000", ":8007"
             )
 
             assert _cli_cfg
@@ -204,11 +211,12 @@ def test_init_full(
             assert _cli_cfg["namespaces"]["input"] == "josephbloggs"
             assert _cli_cfg["namespaces"]["output"] == "josephbloggs"
             assert _cli_cfg["registries"]["origin"]["data_store"] == urljoin(
-                fdp_com.DEFAULT_REGISTRY_DOMAIN, "data/"
+                fair.common.DEFAULT_REGISTRY_DOMAIN, "data/"
             )
             assert _cli_cfg["registries"]["origin"]["uri"] == urljoin(
-                fdp_com.DEFAULT_REGISTRY_DOMAIN, "api/"
+                fair.common.DEFAULT_REGISTRY_DOMAIN, "api/"
             )
+            assert _cli_glob_cfg["registries"]["local"]["uri"] == _expected_url
             assert _cli_cfg["user"]["email"] == _dummy_email
             assert _cli_cfg["user"]["family_name"] == "Bloggs"
             assert _cli_cfg["user"]["given_names"] == "Joseph"

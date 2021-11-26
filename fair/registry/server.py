@@ -95,8 +95,7 @@ def check_server_running(local_uri: str = None) -> bool:
         return False
 
 
-def launch_server(
-    local_uri: str = None, registry_dir: str = None, verbose: bool = False
+def launch_server(port: int = 8000, registry_dir: str = None, verbose: bool = False
 ) -> int:
     """Start the registry server.
 
@@ -121,7 +120,7 @@ def launch_server(
             " is the FAIR data pipeline properly installed on this system?"
         )
 
-    _cmd = [_server_start_script, "-p", f"{fdp_conf.get_local_port(local_uri)}"]
+    _cmd = [_server_start_script, "-p", f"{port}"]
 
     logger.debug("Launching server with command '%s'", " ".join(_cmd))
 
@@ -137,6 +136,8 @@ def launch_server(
             sys.stdout.buffer.write(c)
 
     _start.wait()
+
+    local_uri = fdp_conf.update_local_port()
 
     if not check_server_running(local_uri):
         raise fdp_exc.RegistryError(
@@ -160,7 +161,7 @@ def stop_server(
     logger = logging.getLogger("FAIRDataPipeline.Server")
 
     registry_dir = registry_dir or fdp_com.registry_home()
-    _session_port_file = os.path.join(registry_dir, "session_port.log")
+    _session_port_file = fdp_com.registry_session_port_file(registry_dir)
 
     if not os.path.exists(_session_port_file):
         raise fdp_exc.FileNotFoundError(
@@ -434,7 +435,7 @@ def update_registry_post_setup(repo_dir: str, global_setup: bool = False) -> Non
     _is_running = check_server_running(fdp_conf.get_local_uri())
 
     if not _is_running:
-        launch_server(fdp_conf.get_local_uri())
+        launch_server()
 
     if global_setup:
         logger.debug("Populating file types")
