@@ -640,7 +640,8 @@ def global_config_query(registry: str = None) -> typing.Dict[str, typing.Any]:
                 _reg_loc = click.prompt("Local registry directory")
                 _manage_script = os.path.join(_reg_loc, "manage.py")
         else:
-            fdp_serv.install_registry(install_dir=fdp_com.DEFAULT_REGISTRY_LOCATION)
+            registry = fdp_com.DEFAULT_REGISTRY_LOCATION
+            fdp_serv.install_registry(install_dir=registry)
     else:
         click.echo(f"Will install registry to '{registry}'")
         fdp_serv.install_registry(install_dir=registry)
