@@ -132,6 +132,7 @@ class FAIR:
         if not os.path.exists(fdp_com.global_config_dir()):
             self._logger.debug("Creating directory: %s", fdp_com.global_config_dir())
             os.makedirs(fdp_com.global_config_dir())
+            assert os.path.exists(fdp_com.global_config_dir())
 
         # Initialise all configuration status dictionaries
         self._local_config: typing.Dict[str, typing.Any] = {}
@@ -170,7 +171,6 @@ class FAIR:
     def purge(
         self,
         verbose: bool = True,
-        local_cfg: bool = False,
         global_cfg: bool = False,
         clear_data: bool = False,
         clear_all: bool = False,
@@ -179,8 +179,6 @@ class FAIR:
 
         Parameters
         ==========
-        local_cfg : bool, optional
-            remove local directories, default is False
         global_cfg : bool, optional
             remove global directories, default is False
         verbose : bool, optional
@@ -198,13 +196,13 @@ class FAIR:
                 click.echo(f"Removing directory '{_root_dir}'")
             shutil.rmtree(_root_dir)
         if clear_all:
-            if verbose:
+            if verbose and os.path.exists(fdp_com.USER_FAIR_DIR):
                 click.echo(f"Removing directory '{fdp_com.USER_FAIR_DIR}'")
             shutil.rmtree(fdp_com.USER_FAIR_DIR)
             return
         if clear_data:
             try:
-                if verbose:
+                if verbose and os.path.exists(fdp_com.default_data_dir()):
                     click.echo(f"Removing directory '{fdp_com.default_data_dir()}'")
                 if os.path.exists(fdp_com.default_data_dir()):
                     shutil.rmtree(fdp_com.default_data_dir())
@@ -214,7 +212,7 @@ class FAIR:
                     "is required to identify its location"
                 )
         if global_cfg:
-            if verbose:
+            if verbose and os.path.exists(fdp_com.global_config_dir()):
                 click.echo(f"Removing directory '{fdp_com.global_config_dir()}'")
             _global_dirs = fdp_com.global_config_dir()
             if os.path.exists(_global_dirs):

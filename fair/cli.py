@@ -184,7 +184,7 @@ def purge(glob: bool, debug: bool, yes: bool, data: bool, all: bool) -> None:
     try:
         with fdp_session.FAIR(os.getcwd()) as fair_session:
             fair_session.purge(
-                global_cfg=glob, local_cfg=_purge, clear_data=data, clear_all=all
+                global_cfg=glob, clear_data=data, clear_all=all
             )
     except fdp_exc.FAIRCLIException as e:
         if debug:
