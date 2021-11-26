@@ -9,11 +9,11 @@ updates:
     directory: "/" # Location of package manifests
     schedule:
       interval: "daily"
+      time: "00:00"
     reviewers:
       - "kzscisoft"
       - "nathan-cummings-ukaea"
     prefix: "pip"
     include: "scope"
     open-pull-requests-limit: 5
-    time: "00:00"
     target-branch: "develop"
