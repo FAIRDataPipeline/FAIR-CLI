@@ -7,6 +7,7 @@ import pytest_mock
 
 import fair.configuration as fdp_conf
 import fair.identifiers as fdp_id
+import fair.common as fdp_com
 
 
 @pytest.mark.configuration
@@ -269,3 +270,10 @@ def test_local_config_query(
     del _glob_conf["registries"]["local"]
 
     assert not deepdiff.DeepDiff(_glob_conf, _usr_config)
+
+@pytest.mark.configuration
+def test_update_port(local_config: typing.Tuple[str, str]):
+    assert fdp_conf.get_local_uri() == fdp_com.DEFAULT_LOCAL_REGISTRY_URL
+    fdp_conf.update_local_port()
+    _new_url = fdp_com.DEFAULT_LOCAL_REGISTRY_URL.replace("8000", "8001")
+    assert fdp_conf.get_local_uri() == _new_url

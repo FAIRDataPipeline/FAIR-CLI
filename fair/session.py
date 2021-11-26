@@ -72,6 +72,7 @@ class FAIR:
         user_config: str = None,
         debug: bool = False,
         server_mode: fdp_serv.SwitchMode = fdp_serv.SwitchMode.NO_SERVER,
+        server_port: int = 8000,
         testing: bool = False,
     ) -> None:
         """Initialise instance of FAIR sync tool
@@ -93,10 +94,10 @@ class FAIR:
             run in verbose mode
         server_mode : fair.registry.server.SwitchMode, optional
             stop/start server mode during session
+        server_port : int, optional
+            port to run local registry on, default is 8000
         testing : bool
             run in testing mode
-        generate_config : bool
-            if the specified config.yaml does not exist generate it
         """
         if debug:
             logging.getLogger("FAIRDataPipeline").setLevel(logging.DEBUG)
@@ -152,7 +153,7 @@ class FAIR:
 
         self._load_configurations()
 
-        self._setup_server()
+        self._setup_server(server_port)
 
     def push(self, remote: str = "origin"):
         self._logger.debug(
@@ -219,15 +220,15 @@ class FAIR:
             if os.path.exists(_global_dirs):
                 shutil.rmtree(_global_dirs)
 
-    def _setup_server(self) -> None:
+    def _setup_server(self, port: int) -> None:
         """Start or stop the server if required"""
 
 
         self._logger.debug(f"Running server setup for run mode {self._run_mode}")
         if self._run_mode == fdp_serv.SwitchMode.CLI:
-            self._setup_server_cli_mode()
+            self._setup_server_cli_mode(port)
         elif self._run_mode == fdp_serv.SwitchMode.USER_START:
-            self._setup_server_user_start()
+            self._setup_server_user_start(port)
         elif self._run_mode in [
             fdp_serv.SwitchMode.USER_STOP,
             fdp_serv.SwitchMode.FORCE_STOP,
@@ -274,13 +275,13 @@ class FAIR:
         # Create new session cache file
         pathlib.Path(_cache_addr).touch()
 
-    def _setup_server_user_start(self):
+    def _setup_server_user_start(self, port: int) -> None:
         if not os.path.exists(fdp_com.session_cache_dir()):
             os.makedirs(fdp_com.session_cache_dir())
 
         _cache_addr = os.path.join(fdp_com.session_cache_dir(), "user.run")
 
-        if "registries" not in self._global_config:
+        if self._global_config and "registries" not in self._global_config:
             raise fdp_exc.CLIConfigurationError(
                 "Cannot find server address in current configuration",
                 hint="Is the current location a FAIR repository?",
@@ -290,7 +291,7 @@ class FAIR:
             raise fdp_exc.UnexpectedRegistryServerState("Server already running.")
         click.echo("Starting local registry server")
         pathlib.Path(_cache_addr).touch()
-        fdp_serv.launch_server(fdp_conf.get_local_uri(), verbose=True)
+        fdp_serv.launch_server(port=port, verbose=True)
 
     def run_job(
         self, bash_cmd: str = "", mode: fdp_run.CMD_MODE = fdp_run.CMD_MODE.RUN
