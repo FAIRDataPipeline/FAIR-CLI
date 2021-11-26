@@ -640,7 +640,7 @@ def global_config_query(registry: str = None) -> typing.Dict[str, typing.Any]:
         fdp_serv.install_registry(install_dir=registry)
 
     _local_port: int = click.prompt(
-        "Local Registry port", default="8000"
+        "Local Registry Port", default="8000"
     )
     _local_uri = fdp_com.DEFAULT_LOCAL_REGISTRY_URL.replace(
         ':8000', f':{_local_port}'

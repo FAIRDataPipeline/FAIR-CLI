@@ -67,8 +67,7 @@ def test_registry_home(mocker: pytest_mock.MockerFixture):
         mocker.patch("fair.common.global_fdpconfig", lambda: _glob_conf)
         with open(_glob_conf, "w") as out_f:
             yaml.dump({}, out_f)
-        with pytest.raises(fdp_exc.CLIConfigurationError):
-            fdp_com.registry_home()
+        assert fdp_com.registry_home() == fdp_com.DEFAULT_LOCAL_REGISTRY_URL
         with open(_glob_conf, "w") as out_f:
             yaml.dump({"registries": {}}, out_f)
         with pytest.raises(fdp_exc.CLIConfigurationError):

@@ -168,7 +168,7 @@ def test_global_config_query(
         "Remote Data Storage Root": "",
         "Remote API Token File": os.path.join(local_config[0], "token.txt"),
         "Default Data Store": "data_store/",
-        "Local Registry URL": "http://127.0.0.1:8001/api/",
+        "Local Registry Port": "8001",
         "Remote API URL": "http://127.0.0.1:8007/api/",
     }
     _default_user = {
@@ -192,7 +192,7 @@ def test_global_config_query(
     _expected = {
         "registries": {
             "local": {
-                "uri": _override["Local Registry URL"],
+                "uri": "http://127.0.0.1:8001/api/",
                 "directory": local_config[0],
                 "data_store": _override["Default Data Store"],
             },
