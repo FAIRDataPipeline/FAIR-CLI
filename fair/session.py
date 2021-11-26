@@ -252,7 +252,7 @@ class FAIR:
             force=self._run_mode == fdp_serv.SwitchMode.FORCE_STOP,
         )
 
-    def _setup_server_cli_mode(self):
+    def _setup_server_cli_mode(self, port: int) -> None:
         self.check_is_repo()
         _cache_addr = os.path.join(
             fdp_com.session_cache_dir(), f"{self._session_id}.run"
@@ -262,7 +262,7 @@ class FAIR:
         # If there are no session cache files start the server
         if not glob.glob(os.path.join(fdp_com.session_cache_dir(), "*.run")):
             self._logger.debug("No sessions found, launching server")
-            fdp_serv.launch_server()
+            fdp_serv.launch_server(port=port)
 
         self._logger.debug(f"Creating new session #{self._session_id}")
 
