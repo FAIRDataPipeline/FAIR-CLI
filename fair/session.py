@@ -197,6 +197,14 @@ class FAIR:
                 click.echo(f"Removing directory '{_root_dir}'")
             shutil.rmtree(_root_dir)
         if clear_all:
+            try:
+                if fdp_serv.check_server_running():
+                    fdp_serv.stop_server()
+            except fdp_exc.CLIConfigurationError:
+                click.echo(
+                    "Warning: Unable to check if server is running, "
+                    "you may need to manually terminate the Django process"
+                )
             if verbose and os.path.exists(fdp_com.USER_FAIR_DIR):
                 click.echo(f"Removing directory '{fdp_com.USER_FAIR_DIR}'")
             shutil.rmtree(fdp_com.USER_FAIR_DIR)
