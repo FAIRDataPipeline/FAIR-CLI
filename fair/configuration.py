@@ -582,22 +582,28 @@ def _get_user_info_and_namespaces() -> typing.Dict[str, typing.Dict]:
 
 def global_config_query(registry: str = None) -> typing.Dict[str, typing.Any]:
     """Ask user question set for creating global FAIR config"""
-    if not registry:
-        registry = fdp_serv.DEFAULT_REGISTRY_LOCATION
     logger.debug("Running global configuration query with registry at '%s'", registry)
     click.echo("Checking for local registry")
     if check_registry_exists(registry):
         click.echo("Local registry found")
-    else:
-        _install_reg = click.confirm(
-            f"Local registry not found at location '{registry}',"
-            "would you like to install now?",
-            default=True,
+    elif not registry:
+        install_reg = click.confirm(
+            "Local registry not found at default location"
+            f"'{fdp_com.DEFAULT_REGISTRY_LOCATION}', "
+            "would you like to specify an existing installation?",
+            default=False,
         )
-        if not _install_reg:
-            raise fdp_exc.CLIConfigurationError(
-                "FAIR repository initialisation requires a local registry installation, aborting."
-            )
+        if install_reg:
+            _reg_loc = click.prompt("Local registry directory")
+            _manage_script = os.path.join(_reg_loc, "manage.py")
+            while not os.path.exists(_manage_script):
+                click.echo(f"Error: Location '{_reg_loc}' is not a valid registry installation")
+                _reg_loc = click.prompt("Local registry directory")
+                _manage_script = os.path.join(_reg_loc, "manage.py")
+        else:
+            fdp_serv.install_registry(install_dir=fdp_com.DEFAULT_REGISTRY_LOCATION)
+    else:
+        click.echo(f"Will install registry to '{registry}'")
         fdp_serv.install_registry(install_dir=registry)
 
     _local_uri = click.prompt(

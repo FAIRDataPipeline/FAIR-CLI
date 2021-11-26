@@ -1,5 +1,6 @@
 # Unreleased
 - Add `config.yaml` file validation.
+- Add initialisation from existing registry.
 
 # 2021-11-17 [v0.2.3](https://github.com/FAIRDataPipeline/FAIR-CLI/releases/tag/v0.2.3)
 - Move handling of the user `config.yaml` file to a separate class `JobConfiguration`.
