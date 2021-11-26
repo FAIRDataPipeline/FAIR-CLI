@@ -1,5 +1,6 @@
 # Unreleased
 - Add `config.yaml` file validation.
+- Add initialisation from existing registry.
 - Switch to setting port not local URI during initialisation.
 - Add option to specify port on `fair registry start`.
 
