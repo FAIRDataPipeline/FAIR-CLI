@@ -861,8 +861,6 @@ def local_config_query(
 
     _local_config['registries']['origin']['uri'] =  _def_remote
     _local_config['registries']['origin']['token'] = _def_rem_key
-    
-    _local_config['user'] = _def_user
 
     _local_config["user"] = _def_user
 
