@@ -104,7 +104,7 @@ def create(debug, output: str) -> None:
 @click.option(
     "--registry",
     help="Specify registry directory",
-    default=fdp_com.DEFAULT_REGISTRY_LOCATION,
+    default=None,
     show_default=True,
 )
 @click.option(
@@ -184,7 +184,7 @@ def purge(glob: bool, debug: bool, yes: bool, data: bool, all: bool) -> None:
     try:
         with fdp_session.FAIR(os.getcwd()) as fair_session:
             fair_session.purge(
-                global_cfg=glob, local_cfg=_purge, clear_data=data, clear_all=all
+                global_cfg=glob, clear_data=data, clear_all=all
             )
     except fdp_exc.FAIRCLIException as e:
         if debug:
@@ -238,10 +238,16 @@ def install(debug: bool, force: bool, directory: str):
 
 @registry.command()
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
-def start(debug) -> None:
+@click.option("--port", help="port on which to run registry", default=8000)
+def start(debug: bool, port: int) -> None:
     """Start the local registry server"""
     try:
-        fdp_session.FAIR(os.getcwd(), server_mode=fdp_svr.SwitchMode.USER_START)
+        fdp_session.FAIR(
+            os.getcwd(),
+            server_mode=fdp_svr.SwitchMode.USER_START,
+            debug=debug,
+            server_port=port
+        )
     except fdp_exc.FAIRCLIException as e:
         if debug:
             raise e
@@ -257,7 +263,7 @@ def stop(force: bool, debug: bool) -> None:
     """Stop the local registry server"""
     _mode = fdp_svr.SwitchMode.FORCE_STOP if force else fdp_svr.SwitchMode.USER_STOP
     try:
-        fdp_session.FAIR(os.getcwd(), server_mode=_mode)
+        fdp_session.FAIR(os.getcwd(), server_mode=_mode, debug=debug)
     except fdp_exc.FAIRCLIException as e:
         if debug:
             raise e

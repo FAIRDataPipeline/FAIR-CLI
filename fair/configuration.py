@@ -398,12 +398,31 @@ def get_local_uri() -> str:
     """Retrieve the local registry URI"""
     _global_conf = read_global_fdpconfig()
 
+    if not _global_conf:
+        return fdp_com.DEFAULT_LOCAL_REGISTRY_URL
+
     try:
         return _global_conf["registries"]["local"]["uri"]
     except KeyError:
         raise fdp_exc.CLIConfigurationError(
             "Expected key 'registries:local:uri' in global CLI configuration"
         )
+
+
+def set_local_uri(uri: str) -> str:
+    """Sets the local URI
+    
+    Parameters
+    ----------
+    uri: str
+        new local URI for the registry
+    """
+    _global_conf = read_global_fdpconfig()
+
+    _global_conf["registries"]["local"]["uri"] = uri
+
+    with open(fdp_com.global_fdpconfig(), "w") as out_f:
+        yaml.dump(_global_conf, out_f)
 
 
 def get_local_port(local_uri: str = None) -> int:
@@ -417,6 +436,26 @@ def get_local_port(local_uri: str = None) -> int:
         )
     return _port
 
+
+def update_local_port() -> str:
+    """Updates the local port in the global configuration from the session port file"""
+    # If the global configuration does not exist or is empty do nothing
+    if not os.path.exists(fdp_com.global_fdpconfig()) or not read_global_fdpconfig():
+        _local_uri = fdp_com.DEFAULT_LOCAL_REGISTRY_URL
+    else:
+        _local_uri = get_local_uri()
+    _old_local_port = get_local_port()
+    _current_port = fdp_com.registry_session_port()
+
+    _new_url = _local_uri.replace(f':{_old_local_port}', f':{_current_port}')
+
+    if os.path.exists(fdp_com.global_fdpconfig()) and read_global_fdpconfig():
+        _glob_conf = read_global_fdpconfig()
+        _glob_conf["registries"]["local"]["uri"] = _new_url
+        with open(fdp_com.global_fdpconfig(), "w") as out_f:
+            yaml.dump(_glob_conf, out_f)
+
+    return _new_url
 
 def _handle_orcid(user_orcid: str) -> typing.Tuple[typing.Dict, str]:
     """Extract the name information from an ORCID selection
@@ -582,26 +621,35 @@ def _get_user_info_and_namespaces() -> typing.Dict[str, typing.Dict]:
 
 def global_config_query(registry: str = None) -> typing.Dict[str, typing.Any]:
     """Ask user question set for creating global FAIR config"""
-    if not registry:
-        registry = fdp_com.DEFAULT_REGISTRY_LOCATION
     logger.debug("Running global configuration query with registry at '%s'", registry)
     click.echo("Checking for local registry")
     if check_registry_exists(registry):
         click.echo("Local registry found")
-    else:
-        _install_reg = click.confirm(
-            f"Local registry not found at location '{registry}',"
-            "would you like to install now?",
-            default=True,
+    elif not registry:
+        install_reg = click.confirm(
+            "Local registry not found at default location"
+            f"'{fdp_com.DEFAULT_REGISTRY_LOCATION}', "
+            "would you like to specify an existing installation?",
+            default=False,
         )
-        if not _install_reg:
-            raise fdp_exc.CLIConfigurationError(
-                "FAIR repository initialisation requires a local registry installation, aborting."
-            )
+        if install_reg:
+            _reg_loc = click.prompt("Local registry directory")
+            _manage_script = os.path.join(_reg_loc, "manage.py")
+            while not os.path.exists(_manage_script):
+                click.echo(f"Error: Location '{_reg_loc}' is not a valid registry installation")
+                _reg_loc = click.prompt("Local registry directory")
+                _manage_script = os.path.join(_reg_loc, "manage.py")
+        else:
+            fdp_serv.install_registry(install_dir=fdp_com.DEFAULT_REGISTRY_LOCATION)
+    else:
+        click.echo(f"Will install registry to '{registry}'")
         fdp_serv.install_registry(install_dir=registry)
 
-    _local_uri = click.prompt(
-        "Local Registry URL", default=fdp_com.DEFAULT_LOCAL_REGISTRY_URL
+    _local_port: int = click.prompt(
+        "Local Registry Port", default="8000"
+    )
+    _local_uri = fdp_com.DEFAULT_LOCAL_REGISTRY_URL.replace(
+        ':8000', f':{_local_port}'
     )
 
     _default_rem = urljoin(fdp_com.DEFAULT_REGISTRY_DOMAIN, "api/")
@@ -627,12 +675,12 @@ def global_config_query(registry: str = None) -> typing.Dict[str, typing.Any]:
         _rem_key_file = click.prompt("Remote API Token File")
         _rem_key_file = os.path.expandvars(_rem_key_file)
 
-    if not fdp_serv.check_server_running(_local_uri):
+    if not fdp_serv.check_server_running():
         _run_server = click.confirm(
             "Local registry is offline, would you like to start it?", default=False
         )
         if _run_server:
-            fdp_serv.launch_server(_local_uri, registry_dir=registry)
+            fdp_serv.launch_server(registry_dir=registry)
 
             # Keep server running by creating user run cache file
             _cache_addr = os.path.join(fdp_com.session_cache_dir(), "user.run")
@@ -640,7 +688,7 @@ def global_config_query(registry: str = None) -> typing.Dict[str, typing.Any]:
 
         else:
             click.echo("Temporarily launching server to retrieve API token.")
-            fdp_serv.launch_server(_local_uri, registry_dir=registry)
+            fdp_serv.launch_server(registry_dir=registry)
             fdp_serv.stop_server(registry_dir=registry, local_uri=_local_uri)
             try:
                 fdp_req.local_token(registry_dir=registry)
