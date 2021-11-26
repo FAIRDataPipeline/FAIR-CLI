@@ -133,6 +133,8 @@ def test_init_from_existing(
                     "init",
                     "--debug",
                     "--ci",
+                    "--registry",
+                    local_registry._install,
                     "--config",
                     _out_config,
                     "--export",

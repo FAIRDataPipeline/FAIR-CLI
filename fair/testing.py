@@ -7,6 +7,7 @@ import typing
 import git
 
 import fair.identifiers as fdp_id
+import fair.common as fdp_com
 
 
 def create_configurations(
@@ -35,6 +36,9 @@ def create_configurations(
     typing.Dict
         A CLI configuration dictionary that can be loaded for a the CLI session
     """
+    if not registry_dir:
+        registry_dir = fdp_com.DEFAULT_REGISTRY_LOCATION
+
     _loc_data_store = os.path.join(testing_dir, "data_store") + os.path.sep
     _proj_dir = os.path.join(testing_dir, "project")
 
