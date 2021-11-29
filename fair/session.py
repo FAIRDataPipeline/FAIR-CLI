@@ -204,7 +204,7 @@ class FAIR:
             try:
                 if fdp_serv.check_server_running():
                     fdp_serv.stop_server()
-            except fdp_exc.CLIConfigurationError:
+            except (fdp_exc.FileNotFoundError, fdp_exc.CLIConfigurationError):
                 click.echo(
                     "Warning: Unable to check if server is running, "
                     "you may need to manually terminate the Django process"

@@ -29,10 +29,15 @@ jobs:
       - name: run Python Model with fair cli
         run: |
           poetry run fair registry install
+          poetry run fair registry install --directory ${{GITHUB_WORKSPACE}}/registry-rem
           poetry run fair init --ci
+          poetry run fair registry start
+          poetry run ${{GITHUB_WORKSPACE}}/registry-rem/scripts/start_fair_registry -p 8001
           poetry run pip install .
           poetry run fair pull --debug src/org/fairdatapipeline/simpleModel/ext/SEIRSconfig.yaml
           poetry run fair run --dirty --debug src/org/fairdatapipeline/simpleModel/ext/SEIRSconfig.yaml
+          poetry run fair add testing:SEIRS_model/parameters@v1.0.0
+          poetry push
         working-directory: python_example
 
   Java:
