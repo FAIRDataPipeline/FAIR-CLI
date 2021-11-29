@@ -317,7 +317,8 @@ class FAIR:
 
         self._logger.debug("Setting up command execution")
 
-        self.check_git_repo_state(*args, **kwargs)
+        if not self._testing:
+            self.check_git_repo_state(*args, **kwargs)
 
         _hash = fdp_run.run_command(
             repo_dir=self._session_loc,
