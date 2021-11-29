@@ -315,13 +315,14 @@ class FAIR:
             self.make_starter_config()
 
         self._logger.debug("Setting up command execution")
+
         if allow_dirty:
             self._logger.debug("Allowing uncommitted changes during run.")
 
         # Only apply constraint for clean repository when executing a run
         if mode != fdp_com.CMD_MODE.RUN:
             allow_dirty = True
-        
+
         self.check_git_repo_state(allow_dirty=allow_dirty)
 
         _hash = fdp_run.run_command(
@@ -364,7 +365,7 @@ class FAIR:
             _current_branch = _repo.active_branch.name
             # Get the latest commit on the current branch locally
             _loc_commit = _repo.refs[_current_branch].commit.hexsha
-        except TypeError as e:
+        except (TypeError, IndexError) as e:
             if allow_dirty:
                 click.echo(f"Warning: {' '.join(e.args)}")
             else:
@@ -384,6 +385,12 @@ class FAIR:
                 f"Failed to retrieve latest commit for local repository '{self._session_loc}'",
                 hint="Have any changes been committed in the project repository?",
             )
+        except IndexError:
+            _msg = f"Failed to find branch '{_current_branch}' on remote repository"
+            if allow_dirty:
+                click.echo(f'Warning: {_msg}')
+            else:
+                raise fdp_exc.FDPRepositoryError(_msg)
 
         # Commit match
         _com_match = _loc_commit == _rem_commit
