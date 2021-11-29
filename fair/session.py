@@ -359,6 +359,7 @@ class FAIR:
         _repo = git.Repo(_repo_root)
         _rem_commit = None
         _loc_commit = None
+        _current_branch = None
 
         # Firstly get the current branch
         try:
