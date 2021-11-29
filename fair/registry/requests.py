@@ -341,7 +341,7 @@ def get(
                     uri,
                     "get",
                     obj_path,
-                    200,
+                    [200],
                     headers=headers,
                     params=params,
                     token=token,
