@@ -744,7 +744,6 @@ class FAIR:
         click.echo(f"Initialised empty fair repository in {_fair_dir}")
 
     def _clean_reset(self, _fair_dir, e, local_only: bool = False):
-        print(local_only)
         if not local_only:
             shutil.rmtree(fdp_com.session_cache_dir(), ignore_errors=True)
             shutil.rmtree(fdp_com.global_config_dir(), ignore_errors=True)

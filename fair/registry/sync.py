@@ -100,7 +100,7 @@ def push_dependency_chain(
 
     _dependency_chain: collections.deque = get_dependency_chain(object_url)
     _new_urls: typing.Dict[str, str] = {k: "" for k in _dependency_chain}
-    _dependency_chain.popleft()
+    #_dependency_chain.popleft()
 
     # For every object (and the order) in the dependency chain
     # post the object then store the URL so it can be used to assemble those
