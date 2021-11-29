@@ -368,7 +368,8 @@ def rm(job_ids: typing.List[str], cached: bool = False, debug: bool = False) -> 
     help="Calls run passively without executing any commands for a CI system",
     default=False,
 )
-def run(config: str, script: str, debug: bool, ci: bool):
+@click.option("--dirty/--clean", help="Allow running with uncommitted changes", default=False)
+def run(config: str, script: str, debug: bool, ci: bool, dirty: bool):
     """Initialises a job with the option to specify a bash command"""
     # Allow no config to be specified, if that is the case use default local
     if len(config) > 0:
@@ -383,7 +384,7 @@ def run(config: str, script: str, debug: bool, ci: bool):
             debug=debug,
             server_mode=fdp_svr.SwitchMode.CLI,
         ) as fair_session:
-            _hash = fair_session.run_job(script, mode=_run_mode)
+            _hash = fair_session.run_job(script, mode=_run_mode, allow_dirty=dirty)
             if ci:
                 click.echo(fdp_run.get_job_dir(_hash))
     except fdp_exc.FAIRCLIException as e:
