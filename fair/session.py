@@ -73,6 +73,7 @@ class FAIR:
         debug: bool = False,
         server_mode: fdp_serv.SwitchMode = fdp_serv.SwitchMode.NO_SERVER,
         server_port: int = 8000,
+        allow_dirty: bool = False,
         testing: bool = False,
     ) -> None:
         """Initialise instance of FAIR sync tool
@@ -96,6 +97,8 @@ class FAIR:
             stop/start server mode during session
         server_port : int, optional
             port to run local registry on, default is 8000
+        allow_dirty : bool, optional
+            allow runs with uncommitted changes, default is False
         testing : bool
             run in testing mode
         """
@@ -104,6 +107,7 @@ class FAIR:
         self._logger.debug("Starting new session.")
         self._testing = testing
         self._session_loc = repo_loc
+        self._allow_dirty = allow_dirty
         self._logger.debug(f"Session location: {self._session_loc}")
         self._run_mode = server_mode
         self._stager: fdp_stage.Stager = fdp_stage.Stager(self._session_loc)
@@ -300,7 +304,11 @@ class FAIR:
         fdp_serv.launch_server(port=port, verbose=True)
 
     def run_job(
-        self, bash_cmd: str = "", mode: fdp_run.CMD_MODE = fdp_run.CMD_MODE.RUN
+        self,
+        bash_cmd: str = "",
+        mode: fdp_run.CMD_MODE = fdp_run.CMD_MODE.RUN,
+        *args,
+        **kwargs
     ) -> str:
         """Execute a run using the given user configuration file"""
         self.check_is_repo()
@@ -309,11 +317,15 @@ class FAIR:
 
         self._logger.debug("Setting up command execution")
 
+        self.check_git_repo_state(*args, **kwargs)
+
         _hash = fdp_run.run_command(
             repo_dir=self._session_loc,
             config_yaml=self._session_config,
             bash_cmd=bash_cmd,
             mode=mode,
+            *args,
+            **kwargs
         )
 
         self._logger.debug(f"Tracking job hash {_hash}")
@@ -333,9 +345,12 @@ class FAIR:
                 hint="Run 'fair init' to initialise.",
             )
 
-    def check_git_repo_state(self, git_repo: str, remote_label: str = "origin") -> bool:
+    def check_git_repo_state(
+        self,
+        remote_label: str = "origin",
+        allow_dirty: bool = False) -> bool:
         """Checks the git repository is clean and that local matches remote"""
-        _repo_root = fdp_com.find_git_root(git_repo)
+        _repo_root = fdp_com.find_git_root(self._session_loc)
         _repo = git.Repo(_repo_root)
 
         # Firstly get the current branch
@@ -345,10 +360,40 @@ class FAIR:
         _loc_commit = _repo.refs[_current_branch].commit.hexsha
 
         # Get the latest commit on this branch on remote
-        _rem_commit = _repo.remotes[remote_label].refs[_current_branch].commit.hexsha
+        try:
+            _rem_commit = _repo.remotes[remote_label].refs[_current_branch].commit.hexsha
+        except git.InvalidGitRepositoryError:
+            raise fdp_exc.FDPRepositoryError(
+                f"Location '{self._session_loc}' is not a valid git repository"
+            )
+        except ValueError:
+            raise fdp_exc.FDPRepositoryError(
+                f"Failed to retrieve latest commit for local repository '{self._session_loc}'",
+                hint="Have any changes been committed in the project repository?",
+            )
 
         # Commit match
         _com_match = _loc_commit == _rem_commit
+
+        if not _com_match:
+            if allow_dirty:
+                click.echo(
+                    "Warning: local git repository is ahead/behind remote"
+                )
+            else:
+                raise fdp_exc.FDPRepositoryError(
+                    "Cannot run job, local git repository not level with "
+                    f"remote '{remote_label}'"
+                )
+        if _repo.is_dirty():
+            if allow_dirty:
+                click.echo(
+                    "Warning: running with uncommitted changes"
+                )
+            else:
+                raise fdp_exc.FDPRepositoryError(
+                    "Cannot run job, git repository contains uncommitted changes"
+                )
 
         return _repo.is_dirty() and _com_match
 

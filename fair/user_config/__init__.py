@@ -249,14 +249,17 @@ class JobConfiguration(MutableMapping):
             )
         except ValueError:
             raise fdp_exc.FDPRepositoryError(
-                f"Failed to retrieve latest commit for local repository '{self.local_repository}'",
-                hint="Have any changes been committed in the project repository?",
+                "Failed to retrieve latest commit for local "
+                f"repository '{self.local_repository}'",
+                hint="Have any changes been committed "
+                "in the project repository?",
             )
 
         if _repository.is_dirty():
             if not allow_dirty:
                 raise fdp_exc.FDPRepositoryError(
-                    "Repository contains uncommitted changes"
+                    "Cannot retrieve latest commit, "
+                    "repository contains uncommitted changes"
                 )
             _latest = f"{_latest}-dirty"
 
@@ -354,7 +357,8 @@ class JobConfiguration(MutableMapping):
         self._config = yaml.safe_load(_config_str)
 
     def prepare(
-        self, job_dir: str, time_stamp: datetime.datetime, job_mode: CMD_MODE
+        self, job_dir: str, time_stamp: datetime.datetime, job_mode: CMD_MODE,
+        allow_dirty: bool = False
     ) -> None:
         """Initiate a job execution"""
         self._logger.debug("Preparing configuration")

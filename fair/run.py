@@ -57,6 +57,7 @@ def run_command(
     config_yaml: str = None,
     mode: CMD_MODE = CMD_MODE.RUN,
     bash_cmd: str = "",
+    allow_dirty: bool = False
 ) -> str:
     """Execute a process as part of job
 
@@ -73,6 +74,8 @@ def run_command(
         run from a given config.yaml file
     bash_cmd : str, optional
         override execution command with a bash command
+    allow_dirty : bool, optional
+            allow runs with uncommitted changes, default is False
     """
 
     if not config_yaml:
@@ -112,7 +115,7 @@ def run_command(
     logger.debug("Using job directory: %s", _job_dir)
     os.makedirs(_job_dir, exist_ok=True)
 
-    _job_cfg.prepare(_job_dir, _timestamp, mode)
+    _job_cfg.prepare(_job_dir, _timestamp, mode, allow_dirty=allow_dirty)
 
     _run_executable = (
         "script" in _job_cfg["run_metadata"]
