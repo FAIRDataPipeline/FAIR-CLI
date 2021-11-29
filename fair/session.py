@@ -374,8 +374,10 @@ class FAIR:
                 )
 
         # Get the latest commit on this branch on remote
+        
         try:
-            _rem_commit = _repo.remotes[remote_label].refs[_current_branch].commit.hexsha
+            if _current_branch:
+                _rem_commit = _repo.remotes[remote_label].refs[_current_branch].commit.hexsha
         except git.InvalidGitRepositoryError:
             raise fdp_exc.FDPRepositoryError(
                 f"Location '{self._session_loc}' is not a valid git repository"
