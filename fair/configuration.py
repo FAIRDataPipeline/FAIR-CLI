@@ -285,7 +285,8 @@ def get_remote_token(repo_dir: str, remote: str = "origin") -> str:
 
     if not os.path.exists(_token_file):
         raise fdp_exc.FileNotFoundError(
-            f"Cannot read token for registry '{remote}', no such token file"
+            f"Cannot read token for registry '{remote}', token file '{_token_file}'"
+            " does not exist"
         )
 
     _token = open(_token_file).read().strip()
