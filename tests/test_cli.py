@@ -298,6 +298,6 @@ def test_run(
         ) as staged:
             yaml.dump({"job": {}}, staged)
         _result = click_test.invoke(
-            cli, ["run", "--debug", "--script", 'echo "Hello World!"']
+            cli, ["run", "--debug", "--dirty", "--script", 'echo "Hello World!"']
         )
         assert _result.exit_code == 0
