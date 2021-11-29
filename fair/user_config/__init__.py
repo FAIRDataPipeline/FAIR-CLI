@@ -405,8 +405,8 @@ class JobConfiguration(MutableMapping):
 
         if _unparsed:
             raise fdp_exc.InternalError(f"Failed to parse variables '{_unparsed}'")
-
-        self["run_metadata.latest_commit"] = self._fetch_latest_commit()
+        
+        self["run_metadata.latest_commit"] = self._fetch_latest_commit(allow_dirty)
 
         # Perform config validation
         self._logger.debug("Running configuration validation")
