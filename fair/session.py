@@ -307,8 +307,7 @@ class FAIR:
         self,
         bash_cmd: str = "",
         mode: fdp_run.CMD_MODE = fdp_run.CMD_MODE.RUN,
-        *args,
-        **kwargs
+        allow_dirty: bool = False
     ) -> str:
         """Execute a run using the given user configuration file"""
         self.check_is_repo()
@@ -316,16 +315,17 @@ class FAIR:
             self.make_starter_config()
 
         self._logger.debug("Setting up command execution")
+        if allow_dirty:
+            self._logger.debug("Allowing uncommitted changes during run.")
 
-        self.check_git_repo_state(*args, **kwargs)
+        self.check_git_repo_state(allow_dirty=allow_dirty)
 
         _hash = fdp_run.run_command(
             repo_dir=self._session_loc,
             config_yaml=self._session_config,
             bash_cmd=bash_cmd,
             mode=mode,
-            *args,
-            **kwargs
+            allow_dirty=allow_dirty
         )
 
         self._logger.debug(f"Tracking job hash {_hash}")
