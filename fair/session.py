@@ -317,8 +317,7 @@ class FAIR:
 
         self._logger.debug("Setting up command execution")
 
-        if not self._testing:
-            self.check_git_repo_state(*args, **kwargs)
+        self.check_git_repo_state(*args, **kwargs)
 
         _hash = fdp_run.run_command(
             repo_dir=self._session_loc,
@@ -353,12 +352,21 @@ class FAIR:
         """Checks the git repository is clean and that local matches remote"""
         _repo_root = fdp_com.find_git_root(self._session_loc)
         _repo = git.Repo(_repo_root)
+        _rem_commit = None
+        _loc_commit = None
 
         # Firstly get the current branch
-        _current_branch = _repo.active_branch.name
-
-        # Get the latest commit on the current branch locally
-        _loc_commit = _repo.refs[_current_branch].commit.hexsha
+        try:
+            _current_branch = _repo.active_branch.name
+            # Get the latest commit on the current branch locally
+            _loc_commit = _repo.refs[_current_branch].commit.hexsha
+        except TypeError as e:
+            if _repo.is_dirty():
+                click.echo(f"Warning: {' '.join(e.args)}")
+            else:
+                raise fdp_exc.FDPRepositoryError(
+                    ' '.join(e.args)
+                )
 
         # Get the latest commit on this branch on remote
         try:
