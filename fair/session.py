@@ -318,6 +318,10 @@ class FAIR:
         if allow_dirty:
             self._logger.debug("Allowing uncommitted changes during run.")
 
+        # Only apply constraint for clean repository when executing a run
+        if mode != fdp_com.CMD_MODE.RUN:
+            allow_dirty = True
+        
         self.check_git_repo_state(allow_dirty=allow_dirty)
 
         _hash = fdp_run.run_command(
