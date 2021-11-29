@@ -361,7 +361,7 @@ class FAIR:
             # Get the latest commit on the current branch locally
             _loc_commit = _repo.refs[_current_branch].commit.hexsha
         except TypeError as e:
-            if _repo.is_dirty():
+            if allow_dirty:
                 click.echo(f"Warning: {' '.join(e.args)}")
             else:
                 raise fdp_exc.FDPRepositoryError(

@@ -31,7 +31,7 @@ jobs:
           poetry run fair registry install
           poetry run fair init --ci
           poetry run pip install .
-          poetry run fair pull -debug src/org/fairdatapipeline/simpleModel/ext/SEIRSconfig.yaml
+          poetry run fair pull --debug src/org/fairdatapipeline/simpleModel/ext/SEIRSconfig.yaml
           poetry run fair run --dirty --debug src/org/fairdatapipeline/simpleModel/ext/SEIRSconfig.yaml
         working-directory: python_example
 
