@@ -33,6 +33,7 @@ jobs:
           poetry run fair init --ci
           poetry run fair registry start
           poetry run ${GITHUB_WORKSPACE}/registry-rem/scripts/start_fair_registry -p 8001
+          cp ${GITHUB_WORKSPACE}/registry-rem/token $PWD/token
           poetry run pip install .
           poetry run fair pull --debug src/org/fairdatapipeline/simpleModel/ext/SEIRSconfig.yaml
           poetry run fair run --dirty --debug src/org/fairdatapipeline/simpleModel/ext/SEIRSconfig.yaml
