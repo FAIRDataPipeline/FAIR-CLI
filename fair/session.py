@@ -222,7 +222,6 @@ class FAIR:
     def _setup_server(self) -> None:
         """Start or stop the server if required"""
 
-
         self._logger.debug(f"Running server setup for run mode {self._run_mode}")
         if self._run_mode == fdp_serv.SwitchMode.CLI:
             self._setup_server_cli_mode()
@@ -241,11 +240,13 @@ class FAIR:
         if os.path.exists(_cache_addr):
             os.remove(_cache_addr)
         click.echo("Stopping local registry server.")
-        if (os.listdir(fdp_com.session_cache_dir()) 
-            and self._run_mode != fdp_serv.SwitchMode.FORCE_STOP):
+        if (
+            os.listdir(fdp_com.session_cache_dir())
+            and self._run_mode != fdp_serv.SwitchMode.FORCE_STOP
+        ):
             raise fdp_exc.UnexpectedRegistryServerState(
                 "Cannot stop registry, a process may still be running",
-                hint="You can force stop using '--force'"
+                hint="You can force stop using '--force'",
             )
         fdp_serv.stop_server(
             force=self._run_mode == fdp_serv.SwitchMode.FORCE_STOP,
