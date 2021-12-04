@@ -10,7 +10,9 @@ from fair.common import CMD_MODE
 
 from . import conftest as conf
 
-TEST_USER_CONFIG = os.path.join(os.path.dirname(__file__), "data", "test_config.yaml")
+TEST_USER_CONFIG = os.path.join(
+    os.path.dirname(__file__), "data", "test_config.yaml"
+)
 
 
 @pytest.fixture
@@ -24,7 +26,8 @@ def make_config(local_config: typing.Tuple[str, str]):
 
 @pytest.mark.user_config
 def test_get_value(
-    local_config: typing.Tuple[str, str], make_config: fdp_user.JobConfiguration
+    local_config: typing.Tuple[str, str],
+    make_config: fdp_user.JobConfiguration,
 ):
     assert make_config["run_metadata.description"] == "SEIRS Model R"
     assert make_config["run_metadata.local_repo"] == os.path.join(
@@ -35,7 +38,10 @@ def test_get_value(
 @pytest.mark.user_config
 def test_set_value(make_config: fdp_user.JobConfiguration):
     make_config["run_metadata.description"] = "a new description"
-    assert make_config._config["run_metadata"]["description"] == "a new description"
+    assert (
+        make_config._config["run_metadata"]["description"]
+        == "a new description"
+    )
 
 
 @pytest.mark.user_config

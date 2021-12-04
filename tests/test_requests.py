@@ -39,7 +39,9 @@ def test_local_token(mocker: pytest_mock.MockerFixture):
 
 @pytest.mark.requests
 @pytest.mark.dependency(name="post")
-def test_post(local_registry: conf.TestRegistry, mocker: pytest_mock.MockerFixture):
+def test_post(
+    local_registry: conf.TestRegistry, mocker: pytest_mock.MockerFixture
+):
     mocker.patch("fair.common.registry_home", lambda: local_registry._install)
     _name = "Joseph Bloggs"
     _orcid = "https://orcid.org/0000-0000-0000-0000"
@@ -52,7 +54,9 @@ def test_post(local_registry: conf.TestRegistry, mocker: pytest_mock.MockerFixtu
 
 @pytest.mark.requests
 @pytest.mark.dependency(name="get", depends=["post"])
-def test_get(local_registry: conf.TestRegistry, mocker: pytest_mock.MockerFixture):
+def test_get(
+    local_registry: conf.TestRegistry, mocker: pytest_mock.MockerFixture
+):
     mocker.patch("fair.common.registry_home", lambda: local_registry._install)
     with local_registry:
         assert fdp_req.get(LOCAL_URL, "author")
@@ -72,7 +76,9 @@ def test_post_else_get(
         mock_post = mocker.patch("fair.registry.requests.post")
         mock_get = mocker.patch("fair.registry.requests.get")
         # Perform method twice, first should post, second retrieve
-        assert fdp_req.post_else_get(LOCAL_URL, _obj_path, data=_data, params=_params)
+        assert fdp_req.post_else_get(
+            LOCAL_URL, _obj_path, data=_data, params=_params
+        )
 
         mock_post.assert_called_once()
         mock_get.assert_not_called()
@@ -82,7 +88,9 @@ def test_post_else_get(
         def raise_it(*kwargs, **args):
             raise fdp_exc.RegistryAPICallError("woops", error_code=409)
 
-        mocker.patch("fair.common.registry_home", lambda: local_registry._install)
+        mocker.patch(
+            "fair.common.registry_home", lambda: local_registry._install
+        )
         mocker.patch("fair.registry.requests.post", raise_it)
         mock_get = mocker.patch("fair.registry.requests.get")
 
@@ -117,7 +125,9 @@ def test_writable_fields(
 
 
 @pytest.mark.requests
-def test_download(local_registry: conf.TestRegistry, mocker: pytest_mock.MockerFixture):
+def test_download(
+    local_registry: conf.TestRegistry, mocker: pytest_mock.MockerFixture
+):
     mocker.patch("fair.common.registry_home", lambda: local_registry._install)
     with local_registry:
         _example_file = "https://data.scrc.uk/static/localregistry.sh"

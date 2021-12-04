@@ -68,7 +68,9 @@ def glob_read_write(
         _orig_entry = copy.deepcopy(entry)
 
         _orig_entry["use"]["version"] = str(
-            fdp_ver.get_correct_version(version, free_write=blocktype != "read")
+            fdp_ver.get_correct_version(
+                version, free_write=blocktype != "read"
+            )
         )
 
         _glob_vals = [

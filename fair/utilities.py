@@ -59,9 +59,13 @@ def flatten_dict(
         _out_dict = {}
 
     for label, value in in_dict.items():
-        new_label = f"{_parent_key}{separator}{label}" if _parent_key else label
+        new_label = (
+            f"{_parent_key}{separator}{label}" if _parent_key else label
+        )
         if isinstance(value, dict):
-            flatten_dict(in_dict=value, _out_dict=_out_dict, _parent_key=new_label)
+            flatten_dict(
+                in_dict=value, _out_dict=_out_dict, _parent_key=new_label
+            )
             continue
 
         _out_dict[new_label] = value
@@ -104,7 +108,9 @@ def expand_dict(
     return _out_dict
 
 
-def remove_dictlist_dupes(dicts: typing.List[typing.Dict]) -> typing.List[typing.Dict]:
+def remove_dictlist_dupes(
+    dicts: typing.List[typing.Dict],
+) -> typing.List[typing.Dict]:
     """Remove duplicate dictionaries from a list of dictionaries
 
     Note: this will only work with single layer dictionaries!

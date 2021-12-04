@@ -142,7 +142,9 @@ def default_data_dir(location: str = "local") -> str:
     if location == "local":
         return os.path.join(USER_FAIR_DIR, f"data{os.path.sep}")
     else:
-        raise fdp_exc.UserConfigError("Cannot guess remote data store location")
+        raise fdp_exc.UserConfigError(
+            "Cannot guess remote data store location"
+        )
 
 
 def local_fdpconfig(user_loc: str = os.getcwd()) -> str:

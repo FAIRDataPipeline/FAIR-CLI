@@ -27,9 +27,13 @@ def django_environ(environ: typing.Dict = os.environ):
 
 def rebuild_local(python: str, install_dir: str = None, silent: bool = False):
     if not install_dir:
-        install_dir = os.path.join(pathlib.Path.home(), FAIR_FOLDER, "registry")
+        install_dir = os.path.join(
+            pathlib.Path.home(), FAIR_FOLDER, "registry"
+        )
 
-    _migration_files = glob.glob(os.path.join(install_dir, "*", "migrations", "*.py*"))
+    _migration_files = glob.glob(
+        os.path.join(install_dir, "*", "migrations", "*.py*")
+    )
 
     for mf in _migration_files:
         os.remove(mf)
@@ -92,7 +96,9 @@ def install_registry(
 ) -> None:
 
     if not install_dir:
-        install_dir = os.path.join(pathlib.Path.home(), FAIR_FOLDER, "registry")
+        install_dir = os.path.join(
+            pathlib.Path.home(), FAIR_FOLDER, "registry"
+        )
 
     if force:
         shutil.rmtree(install_dir, ignore_errors=True)
@@ -102,7 +108,9 @@ def install_registry(
     _repo = git.Repo.clone_from(repository, install_dir)
 
     if head not in _repo.heads:
-        raise FileNotFoundError(f"No such HEAD '{head}' in registry repository")
+        raise FileNotFoundError(
+            f"No such HEAD '{head}' in registry repository"
+        )
     else:
         _repo.heads[head].checkout()
 
@@ -118,7 +126,9 @@ def install_registry(
     _venv_python = shutil.which("python", path=os.path.join(venv_dir, "bin"))
 
     if not _venv_python:
-        raise FileNotFoundError(f"Failed to find 'python' in location '{venv_dir}")
+        raise FileNotFoundError(
+            f"Failed to find 'python' in location '{venv_dir}"
+        )
 
     subprocess.check_call(
         [_venv_python, "-m", "pip", "install", "--upgrade", "pip", "wheel"],
@@ -146,9 +156,13 @@ def install_registry(
     rebuild_local(_venv_python, install_dir, silent)
 
 
-def refresh(install_dir: str = None, silent: bool = False, venv_dir: str = None):
+def refresh(
+    install_dir: str = None, silent: bool = False, venv_dir: str = None
+):
     if not install_dir:
-        install_dir = os.path.join(pathlib.Path.home(), FAIR_FOLDER, "registry")
+        install_dir = os.path.join(
+            pathlib.Path.home(), FAIR_FOLDER, "registry"
+        )
 
     _venv_dir = venv_dir or os.path.join(install_dir, "venv")
 
@@ -169,7 +183,9 @@ def launch(
     venv_dir: str = None,
 ):
     if not install_dir:
-        install_dir = os.path.join(pathlib.Path.home(), FAIR_FOLDER, "registry")
+        install_dir = os.path.join(
+            pathlib.Path.home(), FAIR_FOLDER, "registry"
+        )
 
     _venv_dir = venv_dir or os.path.join(install_dir, "venv")
 
@@ -232,7 +248,9 @@ def launch(
         if not os.path.exists(os.path.join(install_dir, "token")):
             raise AssertionError("Expected token file, but none created")
         if not open(os.path.join(install_dir, "token")).read().strip():
-            raise AssertionError("Expected token in token file, but file empty")
+            raise AssertionError(
+                "Expected token in token file, but file empty"
+            )
 
     if not shutil.which("dot") and not silent:
         click.echo(
@@ -244,7 +262,9 @@ def launch(
 
 def stop(install_dir: str = None, port: int = 8000, silent: bool = False):
     if not install_dir:
-        install_dir = os.path.join(pathlib.Path.home(), FAIR_FOLDER, "registry")
+        install_dir = os.path.join(
+            pathlib.Path.home(), FAIR_FOLDER, "registry"
+        )
 
     _manage = os.path.join(install_dir, "manage.py")
 
@@ -290,10 +310,14 @@ def reg_stop(directory, silent):
 
 @fair_reg.command(name="install")
 @click.option(
-    "--repository", default=FAIR_REGISTRY_REPO, help="FAIR Data Registry Repository"
+    "--repository",
+    default=FAIR_REGISTRY_REPO,
+    help="FAIR Data Registry Repository",
 )
 @click.option(
-    "--head", default="main", help="Head to use for checkout e.g. branch, tag etc."
+    "--head",
+    default="main",
+    help="Head to use for checkout e.g. branch, tag etc.",
 )
 @click.option(
     "--directory",
@@ -305,7 +329,8 @@ def reg_stop(directory, silent):
 def reg_install(repository, head, directory, silent, force):
     if force:
         force = click.confirm(
-            f"Are you sure you want to remove directory '{directory}'?", default=False
+            f"Are you sure you want to remove directory '{directory}'?",
+            default=False,
         )
     install_registry(repository, head, directory, silent, force)
 

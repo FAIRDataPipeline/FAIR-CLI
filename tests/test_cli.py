@@ -48,7 +48,8 @@ def test_status(
     mocker: pytest_mock.MockerFixture,
 ):
     os.makedirs(
-        os.path.join(local_config[0], fdp_com.FAIR_FOLDER, "sessions"), exist_ok=True
+        os.path.join(local_config[0], fdp_com.FAIR_FOLDER, "sessions"),
+        exist_ok=True,
     )
     os.makedirs(os.path.join(os.getcwd(), fdp_com.FAIR_FOLDER), exist_ok=True)
     os.makedirs(os.path.join(os.getcwd(), "jobs"))
@@ -56,7 +57,9 @@ def test_status(
         os.path.join(local_config[1], fdp_com.FAIR_FOLDER, "staging"), "w"
     ) as staged:
         yaml.dump({"job": {}}, staged)
-    mocker.patch("fair.run.get_job_dir", lambda x: os.path.join(os.getcwd(), "jobs", x))
+    mocker.patch(
+        "fair.run.get_job_dir", lambda x: os.path.join(os.getcwd(), "jobs", x)
+    )
     _dummy_config = {"run_metadata": {"script": 'echo "Hello World!"'}}
     _dummy_job_staging = {
         "job": {
@@ -70,16 +73,22 @@ def test_status(
     }
 
     _urls_list = {i: "http://dummyurl.com" for i in _dummy_job_staging["job"]}
-    mocker.patch.object(fair.staging.Stager, "get_job_data", lambda *args: _urls_list)
+    mocker.patch.object(
+        fair.staging.Stager, "get_job_data", lambda *args: _urls_list
+    )
 
-    mocker.patch("fair.registry.requests.local_token", lambda: str(uuid.uuid4()))
+    mocker.patch(
+        "fair.registry.requests.local_token", lambda: str(uuid.uuid4())
+    )
     mocker.patch("fair.registry.server.stop_server", lambda *args: None)
     for identifier in _dummy_job_staging["job"]:
         os.makedirs(os.path.join(os.getcwd(), "jobs", identifier))
         yaml.dump(
             _dummy_config,
             open(
-                os.path.join(os.getcwd(), "jobs", identifier, fdp_com.USER_CONFIG_FILE),
+                os.path.join(
+                    os.getcwd(), "jobs", identifier, fdp_com.USER_CONFIG_FILE
+                ),
                 "w",
             ),
         )
@@ -88,7 +97,9 @@ def test_status(
         open(os.path.join(os.getcwd(), fdp_com.FAIR_FOLDER, "staging"), "w"),
     )
     with local_registry:
-        mocker.patch("fair.common.registry_home", lambda: local_registry._install)
+        mocker.patch(
+            "fair.common.registry_home", lambda: local_registry._install
+        )
         _result = click_test.invoke(cli, ["status", "--debug", "--verbose"])
 
         assert _result.exit_code == 0
@@ -104,10 +115,14 @@ def test_create(
     with local_registry:
         os.makedirs(os.path.join(os.getcwd(), fdp_com.FAIR_FOLDER))
         shutil.copy(
-            os.path.join(local_config[1], fdp_com.FAIR_FOLDER, "cli-config.yaml"),
+            os.path.join(
+                local_config[1], fdp_com.FAIR_FOLDER, "cli-config.yaml"
+            ),
             os.path.join(os.getcwd(), fdp_com.FAIR_FOLDER, "cli-config.yaml"),
         )
-        mocker.patch("fair.common.registry_home", lambda: local_registry._install)
+        mocker.patch(
+            "fair.common.registry_home", lambda: local_registry._install
+        )
         _out_config = os.path.join(os.getcwd(), fdp_com.USER_CONFIG_FILE)
         _result = click_test.invoke(cli, ["create", "--debug", _out_config])
         assert _result.exit_code == 0
@@ -142,7 +157,9 @@ def test_init_from_existing(
             assert _result.exit_code == 0
             assert os.path.exists(_out_cli_config)
             assert os.path.exists(_out_config)
-            assert os.path.exists(os.path.join(os.getcwd(), fdp_com.FAIR_FOLDER))
+            assert os.path.exists(
+                os.path.join(os.getcwd(), fdp_com.FAIR_FOLDER)
+            )
 
             click_test = click.testing.CliRunner()
             click_test.isolated_filesystem()
@@ -163,7 +180,9 @@ def test_init_full(
     mocker: pytest_mock.MockerFixture,
 ):
     mocker.patch("fair.common.registry_home", lambda: local_registry._install)
-    mocker.patch("fair.registry.server.update_registry_post_setup", lambda *args: None)
+    mocker.patch(
+        "fair.registry.server.update_registry_post_setup", lambda *args: None
+    )
     with local_registry:
         with tempfile.TemporaryDirectory() as tempd:
             mocker.patch("fair.common.USER_FAIR_DIR", tempd)
@@ -191,10 +210,16 @@ def test_init_full(
 
             assert _result.exit_code == 0
 
-            assert os.path.exists(os.path.join(os.getcwd(), fdp_com.FAIR_FOLDER))
+            assert os.path.exists(
+                os.path.join(os.getcwd(), fdp_com.FAIR_FOLDER)
+            )
 
             _cli_cfg = yaml.safe_load(
-                open(os.path.join(os.getcwd(), fdp_com.FAIR_FOLDER, "cli-config.yaml"))
+                open(
+                    os.path.join(
+                        os.getcwd(), fdp_com.FAIR_FOLDER, "cli-config.yaml"
+                    )
+                )
             )
 
             assert _cli_cfg
@@ -222,8 +247,12 @@ def test_purge(
     mocker: pytest_mock.MockerFixture,
 ):
     if sys.version_info.major == 3 and sys.version_info.minor == 7:
-        pytest.skip("Python3.7 issues with shutil.rmtree in local_config fixture")
-    mocker.patch("fair.common.global_config_dir", lambda *args: local_config[0])
+        pytest.skip(
+            "Python3.7 issues with shutil.rmtree in local_config fixture"
+        )
+    mocker.patch(
+        "fair.common.global_config_dir", lambda *args: local_config[0]
+    )
     mocker.patch("fair.common.find_fair_root", lambda *args: local_config[1])
     assert os.path.exists(os.path.join(local_config[0], fdp_com.FAIR_FOLDER))
     assert os.path.exists(os.path.join(local_config[1], fdp_com.FAIR_FOLDER))
@@ -231,11 +260,17 @@ def test_purge(
     _result = click_test.invoke(cli, ["purge", "--debug"], input="Y")
     assert _result.exit_code == 0
     assert os.path.exists(os.path.join(local_config[0], fdp_com.FAIR_FOLDER))
-    assert not os.path.exists(os.path.join(local_config[1], fdp_com.FAIR_FOLDER))
+    assert not os.path.exists(
+        os.path.join(local_config[1], fdp_com.FAIR_FOLDER)
+    )
 
-    _result = click_test.invoke(cli, ["purge", "--debug", "--global"], input="Y")
+    _result = click_test.invoke(
+        cli, ["purge", "--debug", "--global"], input="Y"
+    )
     assert _result.exit_code == 0
-    assert not os.path.exists(os.path.join(local_config[0], fdp_com.FAIR_FOLDER))
+    assert not os.path.exists(
+        os.path.join(local_config[0], fdp_com.FAIR_FOLDER)
+    )
 
 
 @pytest.mark.cli
@@ -244,7 +279,9 @@ def test_registry_cli(
     click_test: click.testing.CliRunner,
     mocker: pytest_mock.MockerFixture,
 ):
-    mocker.patch("fair.common.global_config_dir", lambda *args: local_config[0])
+    mocker.patch(
+        "fair.common.global_config_dir", lambda *args: local_config[0]
+    )
     with tempfile.TemporaryDirectory() as tempd:
         _reg_dir = os.path.join(tempd, "registry")
         _result = click_test.invoke(
@@ -279,7 +316,9 @@ def test_run(
     mocker: pytest_mock.MockerFixture,
 ):
     with local_registry:
-        mocker.patch("fair.common.registry_home", lambda: local_registry._install)
+        mocker.patch(
+            "fair.common.registry_home", lambda: local_registry._install
+        )
         mocker.patch(
             "fair.registry.requests.local_token", lambda: local_registry._token
         )

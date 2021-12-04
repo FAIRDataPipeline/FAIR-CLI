@@ -233,7 +233,7 @@
       <g clip-path="url(#clipPath5)">
         <svg xml:space="preserve" opacity="1" writing-mode="lr-tb" stop-color="rgb(0, 0, 0)" shape-rendering="auto" glyph-orientation-horizontal="0deg" color-profile="auto" lighting-color="rgb(255, 255, 255)" color="rgb(0, 0, 0)" font-weight="400" alignment-baseline="auto" font-style="normal" version="1.1" color-interpolation-filters="linearrgb" text-anchor="start" stroke-linecap="butt" color-interpolation="srgb" font-variant="normal" word-spacing="normal" fill-opacity="1" text-rendering="auto" clip-path="none" text-decoration="none" letter-spacing="normal" viewBox="0 0 57 65" glyph-orientation-vertical="auto" display="inline" font-size-adjust="none" overflow="hidden" fill="rgb(0, 0, 0)" font-stretch="normal" stroke-dasharray="none" id="svg3.Ebene_1" stroke-miterlimit="4" stop-opacity="1" color-rendering="auto" font-size="12" pointer-events="visiblepainted" mask="none" direction="ltr" baseline-shift="baseline" enable-background="new 0 0 57 65" fill-rule="nonzero" image-rendering="auto" stroke-dashoffset="0" width="57px" marker-end="none" clip="auto" cursor="auto" stroke="none" filter="none" visibility="visible" kerning="auto" stroke-width="1" font-family="&quot;Arial&quot;,&quot;Helvetica&quot;,sans-serif" flood-opacity="1" clip-rule="nonzero" src="none" height="65px" unicode-bidi="normal" stroke-linejoin="miter" stroke-opacity="1" flood-color="rgb(0, 0, 0)" dominant-baseline="auto" marker-start="none" x="0px" marker-mid="none" y="0px">
 <g>
-	
+
 		<linearGradient gradientTransform="matrix(1 0 0 1 0.0801 -771.6914)" x1="26.5796" x2="27.8207" gradientUnits="userSpaceOnUse" y1="796.6533" y2="826.4517" id="svg3.SVGID_1_">
 		<stop offset="0.2711" style="stop-color:#FFAB4F"/>
 		<stop offset="1" style="stop-color:#FFD28F"/>
@@ -246,13 +246,13 @@
 	<path fill="#5491CF" d="M45.777,44.924c-1.317-1.568-5.11-9.424-6.604-6.617c0.516,1.025,3.617,3.693,3.617,6.617   c0,5.186-10.266,8.576-16.693,9.145c1.429,4.934,11.367,1.293,13.804-0.316c3.563-2.354,4.557-5.133,7.852-3.705   C47.754,50.045,48.006,47.574,45.777,44.924z" stroke="#2068A3"/>
 	<path fill="none" d="M30.777,55.167c0.357,0.836-0.153,1.983-0.352,2.813   c-0.256,1.084-0.072,2.104,0.102,3.186c0.164,1.02,0.156,2.107,0.25,3.167c0.082,0.916,0.482,1.849,0.357,2.75" stroke="#2068A3" stroke-linecap="round"/>
 	<path fill="none" d="M23.695,54.417c-0.508,0.584-0.476,2.209-0.398,3   c0.116,1.183,0.456,2.099,0.333,3.333c-0.192,1.943,0.154,4.479-0.436,6.333" stroke="#2068A3" stroke-linecap="round"/>
-	
+
 		<radialGradient gradientTransform="matrix(1 0 0 1 0.0801 -771.6914)" gradientUnits="userSpaceOnUse" r="23.4236" cx="27.8228" id="svg3.face_x5F_white_1_" cy="798.418" fx="23.2533" fy="795.9283">
 		<stop offset="0" style="stop-color:#FFD28F"/>
 		<stop offset="1" style="stop-color:#FFAB4F"/>
 	</radialGradient>
 	<path fill="url(#svg3.face_x5F_white_1_)" id="svg3.face_x5F_white_3_" d="M43.676,24.357   c0.086,10.2-6.738,18.52-15.245,18.586c-8.504,0.068-15.468-8.146-15.554-18.344C12.794,14.4,19.618,6.079,28.123,6.012   C36.627,5.945,43.59,14.158,43.676,24.357z" stroke-miterlimit="10" stroke="#ED9135"/>
-	
+
 		<linearGradient gradientTransform="matrix(0.275 0 0 -0.2733 -589.5001 -1032.9376)" x1="2236.3486" x2="2259.9785" gradientUnits="userSpaceOnUse" y1="-3813.3281" y2="-3906.7793" id="svg3.face_highlight_2_">
 		<stop offset="0" style="stop-color:#FFFFFF;stop-opacity:0.72"/>
 		<stop offset="1" style="stop-color:#FFFFFF;stop-opacity:0.2067"/>

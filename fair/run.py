@@ -37,7 +37,10 @@ logger = logging.getLogger("FAIRDataPipeline.Run")
 SHELLS: typing.Dict[str, str] = {
     "pwsh": {"exec": "pwsh -command \". '{0}'\"", "extension": "ps1"},
     "batch": {"exec": "{0}", "extension": "bat"},
-    "powershell": {"exec": "powershell -command \". '{0}'\"", "extension": "ps1"},
+    "powershell": {
+        "exec": "powershell -command \". '{0}'\"",
+        "extension": "ps1",
+    },
     "python2": {"exec": "python2 {0}", "extension": "py"},
     "python3": {"exec": "python3 {0}", "extension": "py"},
     "python": {"exec": "python {0}", "extension": "py"},
@@ -76,7 +79,9 @@ def run_command(
     """
 
     if not config_yaml:
-        config_yaml = os.path.join(fdp_com.find_fair_root(), fdp_com.USER_CONFIG_FILE)
+        config_yaml = os.path.join(
+            fdp_com.find_fair_root(), fdp_com.USER_CONFIG_FILE
+        )
 
     logger.debug("Using user configuration file: %s", config_yaml)
     click.echo(f"Updating registry from {config_yaml}", err=True)
@@ -289,7 +294,8 @@ def get_job_hash(job_dir: str) -> str:
     """
     if not os.path.exists(job_dir):
         raise fdp_exc.FileNotFoundError(
-            "Failed to find hash for job, " f"directory '{job_dir}' does not exist."
+            "Failed to find hash for job, "
+            f"directory '{job_dir}' does not exist."
         )
     _directory = os.path.abspath(job_dir)
     return hashlib.sha1(_directory.encode("utf-8")).hexdigest()

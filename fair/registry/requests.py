@@ -46,7 +46,9 @@ SEARCH_KEYS = {
 logger = logging.getLogger("FAIRDataPipeline.Requests")
 
 
-def split_api_url(request_url: str, splitter: str = "api") -> typing.Tuple[str]:
+def split_api_url(
+    request_url: str, splitter: str = "api"
+) -> typing.Tuple[str]:
     """Split a request URL into endpoint and path
 
     Parameters
@@ -129,7 +131,9 @@ def _access(
                 _url, headers=_headers, params=params, *args, **kwargs
             )
         elif method == "post":
-            _request = requests.post(_url, headers=_headers, data=data, *args, **kwargs)
+            _request = requests.post(
+                _url, headers=_headers, data=data, *args, **kwargs
+            )
         else:
             _request = getattr(requests, method)(
                 _url, headers=_headers, *args, **kwargs
@@ -156,7 +160,8 @@ def _access(
 
     if _request.status_code == 403:
         raise fdp_exc.RegistryAPICallError(
-            f"Failed to run method '{method}' for url {_url}, " f"request forbidden",
+            f"Failed to run method '{method}' for url {_url}, "
+            f"request forbidden",
             error_code=403,
         )
     elif _request.status_code == 409:
@@ -184,7 +189,8 @@ def _access(
         if not _info:
             _info = _result
         raise fdp_exc.RegistryAPICallError(
-            f"Request failed with status code {_request.status_code}:" f" {_info}",
+            f"Request failed with status code {_request.status_code}:"
+            f" {_info}",
             error_code=_request.status_code,
         )
     return _result
@@ -298,7 +304,9 @@ def get(
 
     if "namespace" in params and isinstance(params["namespace"], str):
         _namespaces = get(
-            uri, "namespace", params={SEARCH_KEYS["namespace"]: params["namespace"]}
+            uri,
+            "namespace",
+            params={SEARCH_KEYS["namespace"]: params["namespace"]},
         )
 
         if len(_namespaces) > 1:
@@ -310,10 +318,14 @@ def get(
                 f"No hits for namespace '{params['namespace']}'"
             )
 
-        _results = re.search(r"^" + uri + r"/?namespace/(\d+)/$", _namespaces[0]["url"])
+        _results = re.search(
+            r"^" + uri + r"/?namespace/(\d+)/$", _namespaces[0]["url"]
+        )
 
         if not _results:
-            raise fdp_exc.InternalError("Failed to parse namespace identifiers")
+            raise fdp_exc.InternalError(
+                "Failed to parse namespace identifiers"
+            )
 
         params["namespace"] = int(_results.group(1))
 
@@ -328,7 +340,9 @@ def get(
         )
 
         _results = [
-            re.search(r"^" + uri + r"/?data_product/(\d+)/$", _data_product["url"])
+            re.search(
+                r"^" + uri + r"/?data_product/(\d+)/$", _data_product["url"]
+            )
             for _data_product in _data_products
         ]
 

@@ -82,7 +82,9 @@ def status(verbose, debug) -> None:
 def create(debug, output: str) -> None:
     """Generate a new FAIR repository user YAML config file"""
     output = (
-        os.path.join(os.getcwd(), fdp_com.USER_CONFIG_FILE) if not output else output[0]
+        os.path.join(os.getcwd(), fdp_com.USER_CONFIG_FILE)
+        if not output
+        else output[0]
     )
     click.echo(f"Generating new user configuration file" f" '{output}'")
     with fdp_session.FAIR(os.getcwd(), debug=debug) as fair_session:
@@ -108,12 +110,21 @@ def create(debug, output: str) -> None:
     show_default=True,
 )
 @click.option(
-    "--ci/--standard", help="Run in testing mode for a CI system", default=False
+    "--ci/--standard",
+    help="Run in testing mode for a CI system",
+    default=False,
 )
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
-@click.option("--export", help="Export the CLI configuration to a file", default="")
+@click.option(
+    "--export", help="Export the CLI configuration to a file", default=""
+)
 def init(
-    config: str, debug: bool, using: str, registry: str, ci: bool, export: str = ""
+    config: str,
+    debug: bool,
+    using: str,
+    registry: str,
+    ci: bool,
+    export: str = "",
 ) -> None:
     """Initialise repository in current location"""
     try:
@@ -154,10 +165,14 @@ def init(
     default=False,
 )
 @click.option(
-    "--data/--no-data", help="Also delete the local data directory", default=False
+    "--data/--no-data",
+    help="Also delete the local data directory",
+    default=False,
 )
 @click.option(
-    "--all/--not-all", help="Remove all FAIR interfaces and registry", default=False
+    "--all/--not-all",
+    help="Remove all FAIR interfaces and registry",
+    default=False,
 )
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
 def purge(glob: bool, debug: bool, yes: bool, data: bool, all: bool) -> None:
@@ -171,7 +186,8 @@ def purge(glob: bool, debug: bool, yes: bool, data: bool, all: bool) -> None:
         )
     else:
         _purge = click.confirm(
-            "Are you sure you want to reset FAIR tracking, " "this is not reversible?"
+            "Are you sure you want to reset FAIR tracking, "
+            "this is not reversible?"
         )
         if data:
             data = click.confirm(
@@ -184,7 +200,10 @@ def purge(glob: bool, debug: bool, yes: bool, data: bool, all: bool) -> None:
     try:
         with fdp_session.FAIR(os.getcwd()) as fair_session:
             fair_session.purge(
-                global_cfg=glob, local_cfg=_purge, clear_data=data, clear_all=all
+                global_cfg=glob,
+                local_cfg=_purge,
+                clear_data=data,
+                clear_all=all,
             )
     except fdp_exc.FAIRCLIException as e:
         if debug:
@@ -241,7 +260,9 @@ def install(debug: bool, force: bool, directory: str):
 def start(debug) -> None:
     """Start the local registry server"""
     try:
-        fdp_session.FAIR(os.getcwd(), server_mode=fdp_svr.SwitchMode.USER_START)
+        fdp_session.FAIR(
+            os.getcwd(), server_mode=fdp_svr.SwitchMode.USER_START
+        )
     except fdp_exc.FAIRCLIException as e:
         if debug:
             raise e
@@ -255,7 +276,11 @@ def start(debug) -> None:
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
 def stop(force: bool, debug: bool) -> None:
     """Stop the local registry server"""
-    _mode = fdp_svr.SwitchMode.FORCE_STOP if force else fdp_svr.SwitchMode.USER_STOP
+    _mode = (
+        fdp_svr.SwitchMode.FORCE_STOP
+        if force
+        else fdp_svr.SwitchMode.USER_STOP
+    )
     try:
         fdp_session.FAIR(os.getcwd(), server_mode=_mode)
     except fdp_exc.FAIRCLIException as e:
@@ -319,7 +344,9 @@ def addjob(job_ids: typing.List[str], debug: bool) -> None:
     default=False,
     help="remove from tracking but do not delete from file system",
 )
-def rm(job_ids: typing.List[str], cached: bool = False, debug: bool = False) -> None:
+def rm(
+    job_ids: typing.List[str], cached: bool = False, debug: bool = False
+) -> None:
     """Removes jobs from system or just tracking"""
     pass
 
@@ -495,7 +522,10 @@ def pull(config: str, debug: bool):
         config = fdp_com.local_user_config(os.getcwd())
     try:
         with fdp_session.FAIR(
-            os.getcwd(), config, server_mode=fdp_svr.SwitchMode.CLI, debug=debug
+            os.getcwd(),
+            config,
+            server_mode=fdp_svr.SwitchMode.CLI,
+            debug=debug,
         ) as fair:
             fair.run_job(mode=fdp_run.CMD_MODE.PULL)
     except fdp_exc.FAIRCLIException as e:
