@@ -1,5 +1,6 @@
 import os
 import typing
+import tempfile
 
 import deepdiff
 import pytest
@@ -75,8 +76,16 @@ def test_get_remote_uri(local_config: typing.Tuple[str, str]):
 
 
 @pytest.mark.configuration
-def test_get_remote_token(local_config: typing.Tuple[str, str]):
-    assert fdp_conf.get_remote_token(local_config[0]) == "t35tt0k3n"
+def test_get_remote_token(mocker: pytest_mock.MockerFixture):
+    with tempfile.TemporaryDirectory() as tempd:
+        _token = "t35tt0k3n"
+        _token_file = os.path.join(tempd, "token")
+        open(_token_file, "w").write(_token)
+        mocker.patch(
+            "fair.configuration.read_local_fdpconfig",
+            lambda *args: {"registries": {"origin": {"token": _token_file}}}
+        )
+        assert fdp_conf.get_remote_token("") == _token
 
 
 @pytest.mark.configuration
