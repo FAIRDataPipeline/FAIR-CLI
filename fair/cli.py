@@ -51,6 +51,19 @@ def complete_yamls(ctx, param, incomplete):
     ]
 
 
+def complete_jobs_data_products(ctx, param, incomplete) -> typing.List[str]:
+    _staging_file = fdp_com.staging_cache(os.getcwd())
+    if not os.path.exists(_staging_file):
+        return []
+    _staging_data = yaml.safe_load(open(_staging_file))
+    _candidates = [d for d in _staging_data["data_product"].keys()]
+    return [
+        click.shell_completion.CompletionItem(c)
+        for c in _candidates 
+        if c.startswith(incomplete)
+    ]
+
+
 @click.group()
 @click.version_option()
 def cli():
@@ -323,16 +336,15 @@ def unstage(identifier: str, debug: bool, job: bool) -> None:
 
 
 @cli.command()
-@click.argument("identifier")
+@click.argument("identifier", shell_complete=complete_jobs_data_products)
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
-@click.option("-j", "--job/--no-job", help="Stage entire job", default=False)
-def add(identifier: str, debug: bool, job: bool) -> None:
-    """Add a data product or job to staging"""
+def add(identifier: str, debug: bool) -> None:
+    """Add a data product to staging"""
     try:
         with fdp_session.FAIR(os.getcwd(), debug=debug,) as fair_session:
             fair_session.change_staging_state(
                 identifier,
-                "job" if job else "data_product",
+                "data_product",
             )
     except fdp_exc.FAIRCLIException as e:
         if debug:
@@ -372,10 +384,7 @@ def rm(job_ids: typing.List[str], cached: bool = False, debug: bool = False) -> 
 def run(config: str, script: str, debug: bool, ci: bool, dirty: bool):
     """Initialises a job with the option to specify a bash command"""
     # Allow no config to be specified, if that is the case use default local
-    if len(config) > 0:
-        config = config[0]
-    else:
-        config = fdp_com.local_user_config(os.getcwd())
+    config = config[0] if config else fdp_com.local_user_config(os.getcwd())
     _run_mode = fdp_run.CMD_MODE.RUN if not ci else fdp_run.CMD_MODE.PASS
     try:
         with fdp_session.FAIR(
@@ -486,7 +495,7 @@ def modify(ctx, label: str, url: str, debug: bool) -> None:
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
 def push(remote: str, debug: bool):
     """Push data between the local and remote registry"""
-    remote = "origin" if len(remote) == 0 else remote[0]
+    remote = "origin" if not remote else remote[0]
     try:
         with fdp_session.FAIR(os.getcwd(), debug=debug, server_mode=fdp_svr.SwitchMode.CLI) as fair_session:
             fair_session.push(remote)
@@ -521,10 +530,7 @@ def config_email(user_email: str) -> None:
 @click.option("--debug/--no-debug")
 def pull(config: str, debug: bool):
     """Update local registry from remotes and sources"""
-    if len(config) > 0:
-        config = config[0]
-    else:
-        config = fdp_com.local_user_config(os.getcwd())
+    config = config[0] if config != '' else fdp_com.local_user_config(os.getcwd())
     try:
         with fdp_session.FAIR(
             os.getcwd(), config, server_mode=fdp_svr.SwitchMode.CLI, debug=debug
