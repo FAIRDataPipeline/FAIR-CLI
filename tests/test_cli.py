@@ -319,5 +319,6 @@ def test_run(
         _result = click_test.invoke(
             cli, ["run", "--debug", "--dirty", "--script", 'echo "Hello World!"']
         )
+        assert _result.output
 
         assert _result.exit_code == 0
