@@ -384,7 +384,7 @@ def rm(job_ids: typing.List[str], cached: bool = False, debug: bool = False) -> 
 def run(config: str, script: str, debug: bool, ci: bool, dirty: bool):
     """Initialises a job with the option to specify a bash command"""
     # Allow no config to be specified, if that is the case use default local
-    config = config[0] if config != '' else fdp_com.local_user_config(os.getcwd())
+    config = config[0] if config else fdp_com.local_user_config(os.getcwd())
     _run_mode = fdp_run.CMD_MODE.RUN if not ci else fdp_run.CMD_MODE.PASS
     try:
         with fdp_session.FAIR(
