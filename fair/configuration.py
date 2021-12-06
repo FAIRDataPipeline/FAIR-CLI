@@ -413,7 +413,7 @@ def get_local_uri() -> str:
 
 def set_local_uri(uri: str) -> str:
     """Sets the local URI
-    
+
     Parameters
     ----------
     uri: str
@@ -449,7 +449,7 @@ def update_local_port() -> str:
     _old_local_port = get_local_port()
     _current_port = fdp_com.registry_session_port()
 
-    _new_url = _local_uri.replace(f':{_old_local_port}', f':{_current_port}')
+    _new_url = _local_uri.replace(f":{_old_local_port}", f":{_current_port}")
 
     if os.path.exists(fdp_com.global_fdpconfig()) and read_global_fdpconfig():
         _glob_conf = read_global_fdpconfig()
@@ -458,6 +458,7 @@ def update_local_port() -> str:
             yaml.dump(_glob_conf, out_f)
 
     return _new_url
+
 
 def _handle_orcid(user_orcid: str) -> typing.Tuple[typing.Dict, str]:
     """Extract the name information from an ORCID selection
@@ -487,9 +488,9 @@ def _handle_orcid(user_orcid: str) -> typing.Tuple[typing.Dict, str]:
         f"Found entry: {_user_info['given_names']} " f"{_user_info['family_name']}"
     )
 
-    _def_ospace = ''.join(_user_info['given_names']).lower()
+    _def_ospace = "".join(_user_info["given_names"]).lower()
 
-    _def_ospace += _user_info['family_name'].lower().replace(' ', '')
+    _def_ospace += _user_info["family_name"].lower().replace(" ", "")
 
     return _user_info, _def_ospace
 
@@ -571,9 +572,9 @@ def _handle_uuid() -> typing.Tuple[typing.Dict, str]:
     _user_info = {}
     if len(_full_name.split()) > 1:
         _given_name, _family_name = _full_name.split(" ", 1)
-        _def_ospace = _full_name.lower().replace(' ', '')
-        _user_info['given_names'] = _given_name.strip()
-        _user_info['family_name'] = _family_name.strip()
+        _def_ospace = _full_name.lower().replace(" ", "")
+        _user_info["given_names"] = _given_name.strip()
+        _user_info["family_name"] = _family_name.strip()
     else:
         _def_ospace += _full_name
         _user_info["given_names"] = _full_name
@@ -611,9 +612,7 @@ def _get_user_info_and_namespaces() -> typing.Dict[str, typing.Dict]:
     _user_info["email"] = _user_email
 
     _def_ospace = _def_ospace.lower().replace(" ", "").strip()
-    _def_ospace = click.prompt(
-        "Default output namespace", default=_def_ospace
-    )
+    _def_ospace = click.prompt("Default output namespace", default=_def_ospace)
     _def_ispace = click.prompt("Default input namespace", default=_def_ospace)
 
     _namespaces = {"input": _def_ispace, "output": _def_ospace}
@@ -640,7 +639,9 @@ def global_config_query(registry: str = None) -> typing.Dict[str, typing.Any]:
             _reg_loc = click.prompt("Local registry directory")
             _manage_script = os.path.join(_reg_loc, "manage.py")
             while not os.path.exists(_manage_script):
-                click.echo(f"Error: Location '{_reg_loc}' is not a valid registry installation")
+                click.echo(
+                    f"Error: Location '{_reg_loc}' is not a valid registry installation"
+                )
                 _reg_loc = click.prompt("Local registry directory")
                 _manage_script = os.path.join(_reg_loc, "manage.py")
         else:
@@ -650,12 +651,8 @@ def global_config_query(registry: str = None) -> typing.Dict[str, typing.Any]:
         click.echo(f"Will install registry to '{registry}'")
         fdp_serv.install_registry(install_dir=registry)
 
-    _local_port: int = click.prompt(
-        "Local Registry Port", default="8000"
-    )
-    _local_uri = fdp_com.DEFAULT_LOCAL_REGISTRY_URL.replace(
-        ':8000', f':{_local_port}'
-    )
+    _local_port: int = click.prompt("Local Registry Port", default="8000")
+    _local_uri = fdp_com.DEFAULT_LOCAL_REGISTRY_URL.replace(":8000", f":{_local_port}")
 
     _default_rem = urljoin(fdp_com.DEFAULT_REGISTRY_DOMAIN, "api/")
     _remote_url = click.prompt("Remote API URL", default=_default_rem)
@@ -669,10 +666,7 @@ def global_config_query(registry: str = None) -> typing.Dict[str, typing.Any]:
     )
     _rem_key_file = os.path.expandvars(_rem_key_file)
 
-    while (
-        not os.path.exists(_rem_key_file)
-        or not open(_rem_key_file).read().strip()
-        ):
+    while not os.path.exists(_rem_key_file) or not open(_rem_key_file).read().strip():
         click.echo(
             f"Token file '{_rem_key_file}' does not exist or is empty, "
             "please provide a valid token file."
@@ -682,7 +676,8 @@ def global_config_query(registry: str = None) -> typing.Dict[str, typing.Any]:
 
     if not fdp_serv.check_server_running():
         _run_server = click.confirm(
-            "Local registry is offline, would you like to start it?", default=False
+            "Local registry is offline, would you like to start it?",
+            default=False,
         )
         if _run_server:
             fdp_serv.launch_server(registry_dir=registry)
@@ -703,7 +698,8 @@ def global_config_query(registry: str = None) -> typing.Dict[str, typing.Any]:
                 )
 
     _loc_data_store = click.prompt(
-        "Default Data Store", default=os.path.join(fdp_com.USER_FAIR_DIR, "data/")
+        "Default Data Store",
+        default=os.path.join(fdp_com.USER_FAIR_DIR, "data/"),
     )
     if _loc_data_store[-1] != os.path.sep:
         _loc_data_store += os.path.sep
@@ -764,9 +760,7 @@ def local_config_query(
     # Allow the user to continue without an input namespace as some
     # functionality does not require this.
     if "input" not in global_config["namespaces"] or not global_config["namespaces"]:
-        click.echo(
-            f"Will use '{_def_ospace}' as default input namespace"
-        )
+        click.echo(f"Will use '{_def_ospace}' as default input namespace")
         _def_ispace = _def_ospace
     else:
         _def_ispace = global_config["namespaces"]["input"]
@@ -831,10 +825,7 @@ def local_config_query(
         _def_rem_key = click.prompt("Remote API Token File", default=_def_rem_key)
         _def_rem_key = os.path.expandvars(_def_rem_key)
 
-        while (
-            not os.path.exists(_def_rem_key)
-            or not open(_def_rem_key).read().strip()
-        ):
+        while not os.path.exists(_def_rem_key) or not open(_def_rem_key).read().strip():
             click.echo(
                 f"Token file '{_def_rem_key}' does not exist or is empty, "
                 "please provide a valid token file."
@@ -864,8 +855,8 @@ def local_config_query(
     # Local registry is a globally defined entity
     del _local_config["registries"]["local"]
 
-    _local_config['registries']['origin']['uri'] =  _def_remote
-    _local_config['registries']['origin']['token'] = _def_rem_key
+    _local_config["registries"]["origin"]["uri"] = _def_remote
+    _local_config["registries"]["origin"]["token"] = _def_rem_key
 
     _local_config["user"] = _def_user
 

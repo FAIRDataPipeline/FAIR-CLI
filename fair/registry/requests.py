@@ -299,7 +299,9 @@ def get(
 
     if "namespace" in params and isinstance(params["namespace"], str):
         _namespaces = get(
-            uri, "namespace", params={SEARCH_KEYS["namespace"]: params["namespace"]}
+            uri,
+            "namespace",
+            params={SEARCH_KEYS["namespace"]: params["namespace"]},
         )
 
         if len(_namespaces) > 1:
@@ -350,14 +352,7 @@ def get(
             )
         return _output
 
-    return _access(
-        uri,
-        "get",
-        obj_path,
-        headers=headers,
-        params=params,
-        token=token
-    )
+    return _access(uri, "get", obj_path, headers=headers, params=params, token=token)
 
 
 def post_else_get(
@@ -436,7 +431,7 @@ def filter_object_dependencies(
         list of object type paths
     """
     try:
-        _actions = _access(uri, 'options', obj_path)['actions']['POST']
+        _actions = _access(uri, "options", obj_path)["actions"]["POST"]
     except KeyError:
         # No 'actions' key means no dependencies
         return []
@@ -471,7 +466,7 @@ def get_filter_variables(uri: str, obj_path: str) -> typing.List[str]:
         list of filterable fields
     """
     try:
-        _filters = _access(uri, 'options', obj_path)['filter_fields']
+        _filters = _access(uri, "options", obj_path)["filter_fields"]
     except KeyError:
         # No 'filter_fields' key means no filters
         return []

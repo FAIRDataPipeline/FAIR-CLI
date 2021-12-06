@@ -167,19 +167,19 @@ Initialising FAIR repository, setup will now ask for basic info:
 
 Checking for local registry
 Local registry found
-Remote Data Storage Root [http://data.scrc.uk/data/]: 
+Remote Data Storage Root [http://data.scrc.uk/data/]:
 Remote API Token File: $HOME/scrc_token.txt
-Local API URL [http://127.0.0.1:8000/api/]: 
+Local API URL [http://127.0.0.1:8000/api/]:
 Local registry is offline, would you like to start it? [y/N]: y
-Default Data Store:  [/home/joebloggs/.fair/data]: 
+Default Data Store:  [/home/joebloggs/.fair/data]:
 Email: jbloggs@noreply.uk
-ORCID [None]: 
+ORCID [None]:
 Full Name: Joe Bloggs
 Default output namespace [joebloggs]: 
 Default input namespace [joebloggs]: SCRC
 Project description: Test project
-Local Git repository [/home/joebloggs/Documents/AnalysisProject]: 
-Git remote name [origin]: 
+Local Git repository [/home/joebloggs/Documents/AnalysisProject]:
+Git remote name [origin]:
 Using git repository remote 'origin': git@notagit.com:jbloggs/AnalysisProject.git
 Initialised empty fair repository in /home/joebloggs/Documents/AnalysisProject/.fair
 ```
@@ -193,8 +193,8 @@ $ fair init
 Initialising FAIR repository, setup will now ask for basic info:
 
 Project description: Test Project
-Local Git repository [/home/joebloggs/Documents/AnalysisProject]: 
-Git remote name [origin]: 
+Local Git repository [/home/joebloggs/Documents/AnalysisProject]:
+Git remote name [origin]:
 Using git repository remote 'origin': git@nogit.com:joebloggs/AnalysisProject.git
 Remote API URL [http://data.scrc.uk/api/]: 
 Remote API Token File [/home/kristian/scrc_token.txt]: 
@@ -223,7 +223,7 @@ the user then only needs to add a `script` or `script_path` entry to execute a c
 CLI configuration can be read directly from a file which should contain the following:
 
 ```yaml
-namespaces: 
+namespaces:
   input: testing
   output: testing
 registries:
@@ -336,7 +336,7 @@ register:
   unique_name: Scottish deaths involving COVID19
   file_type: csv
   release_date: ${{DATETIME}}
-  version: 0.${{DATE}}.0       
+  version: 0.${{DATE}}.0
   primary: True
 ```
 
@@ -428,7 +428,7 @@ you do not need to specify the full SHA but rather the first few characters:
 
 ```text
 --------------------------------
- Commenced = Wed Jun 30 09:09:30 2021 
+ Commenced = Wed Jun 30 09:09:30 2021
  Author    = Joe Bloggs <jbloggs@noreply.uk>
  Namespace = joebloggs
  Command   = bash -eo pipefail /home/jbloggs/.fair/data/coderun/2021-06-30_09_09_30_721358/script.sh

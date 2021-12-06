@@ -55,7 +55,14 @@ def fetch_registrations(
     typing.List[str]
         list of registered object URLs
     """
-    _expected_keys = ["root", "path", "file_type", "primary", "version", "public"]
+    _expected_keys = [
+        "root",
+        "path",
+        "file_type",
+        "primary",
+        "version",
+        "public",
+    ]
     _logger = logging.getLogger("FAIRDataPipeline.Run")
 
     _stored_objects: typing.List[str] = []
@@ -167,12 +174,16 @@ def fetch_registrations(
         elif _is_present != "absent":
             _results = _is_present
             _user_version = fdp_ver.get_correct_version(
-                results_list=_results, free_write=True, version=entry["use"]["version"]
+                results_list=_results,
+                free_write=True,
+                version=entry["use"]["version"],
             )
             _logger.debug("Found results for %s", str(_results))
         else:
             _user_version = fdp_ver.get_correct_version(
-                results_list=None, free_write=True, version=entry["use"]["version"]
+                results_list=None,
+                free_write=True,
+                version=entry["use"]["version"],
             )
             _logger.debug("Found nothing for %s", str(_search_data))
 

@@ -41,8 +41,7 @@ def create_configurations(
         registry_dir = fdp_com.DEFAULT_REGISTRY_LOCATION
     if not remote_reg_dir:
         remote_reg_dir = os.path.join(
-            os.path.dirname(fdp_com.DEFAULT_REGISTRY_LOCATION),
-            'registry-rem'
+            os.path.dirname(fdp_com.DEFAULT_REGISTRY_LOCATION), "registry-rem"
         )
 
     _loc_data_store = os.path.join(testing_dir, "data_store") + os.path.sep

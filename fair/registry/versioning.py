@@ -89,7 +89,9 @@ def undo_incrementer(incrementer: str) -> str:
     for component in BUMP_FUNCS:
         if re.findall(r"\$\{\{\s*" + component + r"\s*\}\}", incrementer):
             return re.sub(
-                r"\$\{\{\s*" + component + r"\s*\}\}", "${{ LATEST }}", incrementer
+                r"\$\{\{\s*" + component + r"\s*\}\}",
+                "${{ LATEST }}",
+                incrementer,
             )
 
     return incrementer

@@ -62,7 +62,8 @@ def local_config(mocker: pytest_mock.MockerFixture):
         _cfgg = fdp_test.create_configurations(tempg, None, None, tempg, True)
         yaml.dump(_cfgg, open(_gconfig_path, "w"))
         mocker.patch(
-            "fair.common.global_config_dir", lambda: os.path.dirname(_gconfig_path)
+            "fair.common.global_config_dir",
+            lambda: os.path.dirname(_gconfig_path),
         )
         mocker.patch("fair.common.global_fdpconfig", lambda: _gconfig_path)
 
@@ -76,7 +77,9 @@ def local_config(mocker: pytest_mock.MockerFixture):
             )
             _cfgl = fdp_test.create_configurations(templ, None, None, templ, True)
             yaml.dump(_cfgl, open(_lconfig_path, "w"))
-            with open(os.path.join(templ, fdp_com.USER_CONFIG_FILE), "w") as conf:
+            with open(
+                os.path.join(templ, fdp_com.USER_CONFIG_FILE), "w"
+            ) as conf:
                 yaml.dump({"run_metadata": {}}, conf)
             mocker.patch("fair.common.find_fair_root", lambda *args: templ)
             yield (tempg, templ)
@@ -136,7 +139,9 @@ class RegistryTest:
         os.kill(_process.pid, signal.SIGTERM)
 
     def rebuild(self):
-        test_reg.rebuild_local(os.path.join(self._venv, "bin", "python"), self._install)
+        test_reg.rebuild_local(
+            os.path.join(self._venv, "bin", "python"), self._install
+        )
 
     def __enter__(self):
         try:

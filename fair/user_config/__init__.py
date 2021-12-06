@@ -251,8 +251,7 @@ class JobConfiguration(MutableMapping):
             raise fdp_exc.FDPRepositoryError(
                 "Failed to retrieve latest commit for local "
                 f"repository '{self.local_repository}'",
-                hint="Have any changes been committed "
-                "in the project repository?",
+                hint="Have any changes been committed " "in the project repository?",
             )
 
         if _repository.is_dirty():
@@ -357,8 +356,11 @@ class JobConfiguration(MutableMapping):
         self._config = yaml.safe_load(_config_str)
 
     def prepare(
-        self, job_dir: str, time_stamp: datetime.datetime, job_mode: CMD_MODE,
-        allow_dirty: bool = False
+        self,
+        job_dir: str,
+        time_stamp: datetime.datetime,
+        job_mode: CMD_MODE,
+        allow_dirty: bool = False,
     ) -> None:
         """Initiate a job execution"""
         self._logger.debug("Preparing configuration")
@@ -405,7 +407,7 @@ class JobConfiguration(MutableMapping):
 
         if _unparsed:
             raise fdp_exc.InternalError(f"Failed to parse variables '{_unparsed}'")
-        
+
         self["run_metadata.latest_commit"] = self._fetch_latest_commit(allow_dirty)
 
         # Perform config validation
@@ -467,7 +469,9 @@ class JobConfiguration(MutableMapping):
         _fmt_res: typing.Optional[typing.List[str]] = _regex_fmt.findall(_config_str)
 
         self._logger.debug(
-            "Found datetime substitutions: %s %s", _dt_fmt_res or "", _fmt_res or ""
+            "Found datetime substitutions: %s %s",
+            _dt_fmt_res or "",
+            _fmt_res or "",
         )
 
         # The two regex searches should match lengths
@@ -544,7 +548,10 @@ class JobConfiguration(MutableMapping):
             if f"default_{action}_version" in _new_config["run_metadata"]:
                 del _new_config["run_metadata"][f"default_{action}_version"]
 
-        _namespaces = (self.default_input_namespace, self.default_output_namespace)
+        _namespaces = (
+            self.default_input_namespace,
+            self.default_output_namespace,
+        )
 
         for namespace, block_type in zip(_namespaces, ["read", "write"]):
             if block_type not in self._config:

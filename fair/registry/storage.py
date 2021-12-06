@@ -317,7 +317,11 @@ def store_namespace(
     str
         URL of the created namespace
     """
-    _data = {"name": namespace_label, "full_name": full_name, "website": website}
+    _data = {
+        "name": namespace_label,
+        "full_name": full_name,
+        "website": website,
+    }
     return fdp_req.post_else_get(
         uri, "namespace", data=_data, params={"name": namespace_label}
     )
@@ -543,7 +547,10 @@ def get_storage_root_obj_address(
     """
     try:
         _results = fdp_req.get(
-            remote_uri, "storage_root", params={"root": address_str}, token=remote_token
+            remote_uri,
+            "storage_root",
+            params={"root": address_str},
+            token=remote_token,
         )
         if not _results:
             raise AssertionError

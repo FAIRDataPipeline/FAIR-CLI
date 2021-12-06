@@ -37,7 +37,10 @@ logger = logging.getLogger("FAIRDataPipeline.Run")
 SHELLS: typing.Dict[str, str] = {
     "pwsh": {"exec": "pwsh -command \". '{0}'\"", "extension": "ps1"},
     "batch": {"exec": "{0}", "extension": "bat"},
-    "powershell": {"exec": "powershell -command \". '{0}'\"", "extension": "ps1"},
+    "powershell": {
+        "exec": "powershell -command \". '{0}'\"",
+        "extension": "ps1",
+    },
     "python2": {"exec": "python2 {0}", "extension": "py"},
     "python3": {"exec": "python3 {0}", "extension": "py"},
     "python": {"exec": "python {0}", "extension": "py"},
@@ -57,7 +60,7 @@ def run_command(
     config_yaml: str = None,
     mode: CMD_MODE = CMD_MODE.RUN,
     bash_cmd: str = "",
-    allow_dirty: bool = False
+    allow_dirty: bool = False,
 ) -> str:
     """Execute a process as part of job
 

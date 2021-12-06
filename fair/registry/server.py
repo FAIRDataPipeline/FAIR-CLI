@@ -23,7 +23,6 @@ import enum
 import glob
 import logging
 import os
-import pathlib
 import platform
 import shutil
 import subprocess
@@ -95,7 +94,8 @@ def check_server_running(local_uri: str = None) -> bool:
         return False
 
 
-def launch_server(port: int = 8000, registry_dir: str = None, verbose: bool = False
+def launch_server(
+    port: int = 8000, registry_dir: str = None, verbose: bool = False
 ) -> int:
     """Start the registry server.
 
@@ -407,7 +407,10 @@ def uninstall_registry() -> None:
         logger.debug("Uninstalling registry, removing '%s'", fdp_com.registry_home())
         shutil.rmtree(fdp_com.registry_home())
     elif os.path.exists(fdp_com.DEFAULT_REGISTRY_LOCATION):
-        logger.debug("Uninstalling registry, removing '%s'", fdp_com.DEFAULT_REGISTRY_LOCATION)
+        logger.debug(
+            "Uninstalling registry, removing '%s'",
+            fdp_com.DEFAULT_REGISTRY_LOCATION,
+        )
         shutil.rmtree(fdp_com.DEFAULT_REGISTRY_LOCATION)
     else:
         raise fdp_exc.RegistryError(

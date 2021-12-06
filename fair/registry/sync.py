@@ -162,13 +162,10 @@ def push_dependency_chain(
             and k not in _url_fields
         }
 
-
         _logger.debug(f"Pushing member '{object_url}' to '{dest_uri}'")
 
         if dest_uri == local_uri:
-            raise fdp_exc.InternalError(
-                "Cannot push object to its source address"
-            )
+            raise fdp_exc.InternalError("Cannot push object to its source address")
 
         _new_url = fdp_req.post_else_get(
             dest_uri, _obj_type, data=_new_obj_data, token=dest_token, params=_filters

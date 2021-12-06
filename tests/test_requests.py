@@ -72,7 +72,9 @@ def test_post_else_get(
         mock_post = mocker.patch("fair.registry.requests.post")
         mock_get = mocker.patch("fair.registry.requests.get")
         # Perform method twice, first should post, second retrieve
-        assert fdp_req.post_else_get(LOCAL_URL, _obj_path, data=_data, params=_params)
+        assert fdp_req.post_else_get(
+            LOCAL_URL, _obj_path, data=_data, params=_params
+        )
 
         mock_post.assert_called_once()
         mock_get.assert_not_called()
@@ -82,7 +84,9 @@ def test_post_else_get(
         def raise_it(*kwargs, **args):
             raise fdp_exc.RegistryAPICallError("woops", error_code=409)
 
-        mocker.patch("fair.common.registry_home", lambda: local_registry._install)
+        mocker.patch(
+            "fair.common.registry_home", lambda: local_registry._install
+        )
         mocker.patch("fair.registry.requests.post", raise_it)
         mock_get = mocker.patch("fair.registry.requests.get")
 

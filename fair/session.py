@@ -170,7 +170,7 @@ class FAIR:
             fdp_conf.get_local_uri(),
             fdp_conf.get_remote_uri(self._session_loc, remote),
             fdp_conf.get_remote_token(self._session_loc, remote),
-            _staged_data_products
+            _staged_data_products,
         )
 
     def purge(
@@ -213,7 +213,7 @@ class FAIR:
                 click.echo(f"Removing directory '{fdp_com.USER_FAIR_DIR}'")
             shutil.rmtree(fdp_com.USER_FAIR_DIR)
             return
-        if (clear_data or clear_all):
+        if clear_data or clear_all:
             try:
                 if verbose and os.path.exists(fdp_com.default_data_dir()):
                     click.echo(f"Removing directory '{fdp_com.default_data_dir()}'")
@@ -224,7 +224,7 @@ class FAIR:
                     "Cannot remove local data store, a global CLI configuration "
                     "is required to identify its location"
                 )
-        if (global_cfg or clear_all):
+        if global_cfg or clear_all:
             if verbose:
                 click.echo(f"Removing directory '{fdp_com.global_config_dir()}'")
             _global_dirs = fdp_com.global_config_dir()
@@ -251,11 +251,13 @@ class FAIR:
         if os.path.exists(_cache_addr):
             os.remove(_cache_addr)
         click.echo("Stopping local registry server.")
-        if (os.listdir(fdp_com.session_cache_dir()) 
-            and self._run_mode != fdp_serv.SwitchMode.FORCE_STOP):
+        if (
+            os.listdir(fdp_com.session_cache_dir())
+            and self._run_mode != fdp_serv.SwitchMode.FORCE_STOP
+        ):
             raise fdp_exc.UnexpectedRegistryServerState(
                 "Cannot stop registry, a process may still be running",
-                hint="You can force stop using '--force'"
+                hint="You can force stop using '--force'",
             )
         fdp_serv.stop_server(
             force=self._run_mode == fdp_serv.SwitchMode.FORCE_STOP,
@@ -306,7 +308,7 @@ class FAIR:
         self,
         bash_cmd: str = "",
         mode: fdp_run.CMD_MODE = fdp_run.CMD_MODE.RUN,
-        allow_dirty: bool = False
+        allow_dirty: bool = False,
     ) -> str:
         """Execute a run using the given user configuration file"""
         self.check_is_repo()
@@ -329,7 +331,7 @@ class FAIR:
             config_yaml=self._session_config,
             bash_cmd=bash_cmd,
             mode=mode,
-            allow_dirty=allow_dirty
+            allow_dirty=allow_dirty,
         )
 
         self._logger.debug(f"Tracking job hash {_hash}")
@@ -350,9 +352,8 @@ class FAIR:
             )
 
     def check_git_repo_state(
-        self,
-        remote_label: str = "origin",
-        allow_dirty: bool = False) -> bool:
+        self, remote_label: str = "origin", allow_dirty: bool = False
+    ) -> bool:
         """Checks the git repository is clean and that local matches remote"""
         _repo_root = fdp_com.find_git_root(self._session_loc)
         _repo = git.Repo(_repo_root)
@@ -369,15 +370,15 @@ class FAIR:
             if allow_dirty:
                 click.echo(f"Warning: {' '.join(e.args)}")
             else:
-                raise fdp_exc.FDPRepositoryError(
-                    ' '.join(e.args)
-                )
+                raise fdp_exc.FDPRepositoryError(" ".join(e.args))
 
         # Get the latest commit on this branch on remote
-        
+
         try:
             if _current_branch:
-                _rem_commit = _repo.remotes[remote_label].refs[_current_branch].commit.hexsha
+                _rem_commit = (
+                    _repo.remotes[remote_label].refs[_current_branch].commit.hexsha
+                )
         except git.InvalidGitRepositoryError:
             raise fdp_exc.FDPRepositoryError(
                 f"Location '{self._session_loc}' is not a valid git repository"
@@ -390,7 +391,7 @@ class FAIR:
         except IndexError:
             _msg = f"Failed to find branch '{_current_branch}' on remote repository"
             if allow_dirty:
-                click.echo(f'Warning: {_msg}')
+                click.echo(f"Warning: {_msg}")
             else:
                 raise fdp_exc.FDPRepositoryError(_msg)
 
@@ -399,9 +400,7 @@ class FAIR:
 
         if not _com_match:
             if allow_dirty:
-                click.echo(
-                    "Warning: local git repository is ahead/behind remote"
-                )
+                click.echo("Warning: local git repository is ahead/behind remote")
             else:
                 raise fdp_exc.FDPRepositoryError(
                     "Cannot run job, local git repository not level with "
@@ -409,9 +408,7 @@ class FAIR:
                 )
         if _repo.is_dirty():
             if allow_dirty:
-                click.echo(
-                    "Warning: running with uncommitted changes"
-                )
+                click.echo("Warning: running with uncommitted changes")
             else:
                 raise fdp_exc.FDPRepositoryError(
                     "Cannot run job, git repository contains uncommitted changes"
@@ -672,7 +669,10 @@ class FAIR:
             yaml.dump(_cli_config, f)
 
     def initialise(
-        self, using: typing.Dict = None, registry: str = None, export_as: str = None
+        self,
+        using: typing.Dict = None,
+        registry: str = None,
+        export_as: str = None,
     ) -> None:
         """Initialise an fair repository within the current location
 

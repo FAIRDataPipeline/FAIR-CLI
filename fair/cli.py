@@ -108,12 +108,19 @@ def create(debug, output: str) -> None:
     show_default=True,
 )
 @click.option(
-    "--ci/--standard", help="Run in testing mode for a CI system", default=False
+    "--ci/--standard",
+    help="Run in testing mode for a CI system",
+    default=False,
 )
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
 @click.option("--export", help="Export the CLI configuration to a file", default="")
 def init(
-    config: str, debug: bool, using: str, registry: str, ci: bool, export: str = ""
+    config: str,
+    debug: bool,
+    using: str,
+    registry: str,
+    ci: bool,
+    export: str = "",
 ) -> None:
     """Initialise repository in current location"""
     try:
@@ -154,10 +161,14 @@ def init(
     default=False,
 )
 @click.option(
-    "--data/--no-data", help="Also delete the local data directory", default=False
+    "--data/--no-data",
+    help="Also delete the local data directory",
+    default=False,
 )
 @click.option(
-    "--all/--not-all", help="Remove all FAIR interfaces and registry", default=False
+    "--all/--not-all",
+    help="Remove all FAIR interfaces and registry",
+    default=False,
 )
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
 def purge(glob: bool, debug: bool, yes: bool, data: bool, all: bool) -> None:
@@ -183,9 +194,7 @@ def purge(glob: bool, debug: bool, yes: bool, data: bool, all: bool) -> None:
 
     try:
         with fdp_session.FAIR(os.getcwd()) as fair_session:
-            fair_session.purge(
-                global_cfg=glob, clear_data=data, clear_all=all
-            )
+            fair_session.purge(global_cfg=glob, clear_data=data, clear_all=all)
     except fdp_exc.FAIRCLIException as e:
         if debug:
             raise e
@@ -246,7 +255,7 @@ def start(debug: bool, port: int) -> None:
             os.getcwd(),
             server_mode=fdp_svr.SwitchMode.USER_START,
             debug=debug,
-            server_port=port
+            server_port=port,
         )
     except fdp_exc.FAIRCLIException as e:
         if debug:
@@ -308,7 +317,10 @@ def view(job_id: str, debug: bool) -> None:
 def unstage(identifier: str, debug: bool, job: bool) -> None:
     """Remove data products or jobs from staging"""
     try:
-        with fdp_session.FAIR(os.getcwd(), debug=debug,) as fair_session:
+        with fdp_session.FAIR(
+            os.getcwd(),
+            debug=debug,
+        ) as fair_session:
             fair_session.change_staging_state(
                 identifier,
                 "job" if job else "data_product",
@@ -329,7 +341,10 @@ def unstage(identifier: str, debug: bool, job: bool) -> None:
 def add(identifier: str, debug: bool, job: bool) -> None:
     """Add a data product or job to staging"""
     try:
-        with fdp_session.FAIR(os.getcwd(), debug=debug,) as fair_session:
+        with fdp_session.FAIR(
+            os.getcwd(),
+            debug=debug,
+        ) as fair_session:
             fair_session.change_staging_state(
                 identifier,
                 "job" if job else "data_product",
@@ -368,7 +383,9 @@ def rm(job_ids: typing.List[str], cached: bool = False, debug: bool = False) -> 
     help="Calls run passively without executing any commands for a CI system",
     default=False,
 )
-@click.option("--dirty/--clean", help="Allow running with uncommitted changes", default=False)
+@click.option(
+    "--dirty/--clean", help="Allow running with uncommitted changes", default=False
+)
 def run(config: str, script: str, debug: bool, ci: bool, dirty: bool):
     """Initialises a job with the option to specify a bash command"""
     # Allow no config to be specified, if that is the case use default local
@@ -488,7 +505,9 @@ def push(remote: str, debug: bool):
     """Push data between the local and remote registry"""
     remote = "origin" if len(remote) == 0 else remote[0]
     try:
-        with fdp_session.FAIR(os.getcwd(), debug=debug, server_mode=fdp_svr.SwitchMode.CLI) as fair_session:
+        with fdp_session.FAIR(
+            os.getcwd(), debug=debug, server_mode=fdp_svr.SwitchMode.CLI
+        ) as fair_session:
             fair_session.push(remote)
     except fdp_exc.FAIRCLIException as e:
         if debug:
@@ -527,7 +546,10 @@ def pull(config: str, debug: bool):
         config = fdp_com.local_user_config(os.getcwd())
     try:
         with fdp_session.FAIR(
-            os.getcwd(), config, server_mode=fdp_svr.SwitchMode.CLI, debug=debug
+            os.getcwd(),
+            config,
+            server_mode=fdp_svr.SwitchMode.CLI,
+            debug=debug,
         ) as fair:
             fair.run_job(mode=fdp_run.CMD_MODE.PULL)
     except fdp_exc.FAIRCLIException as e:

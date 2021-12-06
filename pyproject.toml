@@ -78,6 +78,8 @@ requests-mock = "^1.9.3"
 deepdiff = "^5.5.0"
 pytest-virtualenv = "^1.7.0"
 loremipsum = "^1.0.5"
+pre-commit = "^2.16.0"
+isort = "^5.10.1"
 
 [tool.poetry.scripts]
 fair = 'fair.cli:cli'

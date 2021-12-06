@@ -110,7 +110,9 @@ def expand_dict(
     return _out_dict
 
 
-def remove_dictlist_dupes(dicts: typing.List[typing.Dict]) -> typing.List[typing.Dict]:
+def remove_dictlist_dupes(
+    dicts: typing.List[typing.Dict],
+) -> typing.List[typing.Dict]:
     """Remove duplicate dictionaries from a list of dictionaries
 
     Note: this will only work with single layer dictionaries!
@@ -196,7 +198,7 @@ def is_api_url(uri: str, string: str) -> bool:
     logger.debug(
         "Checking if '%s' is a valid API URL against net location '%s'",
         string,
-        _uri.netloc
+        _uri.netloc,
     )
 
     return _url.netloc == _uri.netloc
