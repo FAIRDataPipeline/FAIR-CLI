@@ -1,12 +1,13 @@
 # Unreleased
-- Add `config.yaml` file validation.
-- Add initialisation from existing registry.
+- Added `--dirty` option to `fair run` to allow running with uncommitted changes.
+- Added `config.yaml` file validation.
+- Added initialisation from existing registry.
 - Switch to setting port not local URI during initialisation.
-- Add option to specify port on `fair registry start`.
+- Added option to specify port on `fair registry start`.
 
 # 2021-11-17 [v0.2.3](https://github.com/FAIRDataPipeline/FAIR-CLI/releases/tag/v0.2.3)
 - Move handling of the user `config.yaml` file to a separate class `JobConfiguration`.
-- Add various fixes to improve functionality within Windows.
+- Added various fixes to improve functionality within Windows.
 - Move registry installation from script execution to internal function which sets up virtual environment etc.
 - Added a test suite to the project.
 - Added additional recognised identifiers for author setup from an organisation GRID and ROR.
