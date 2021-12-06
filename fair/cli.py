@@ -495,7 +495,7 @@ def modify(ctx, label: str, url: str, debug: bool) -> None:
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
 def push(remote: str, debug: bool):
     """Push data between the local and remote registry"""
-    remote = "origin" if remote == '' else remote[0]
+    remote = "origin" if not remote else remote[0]
     try:
         with fdp_session.FAIR(os.getcwd(), debug=debug, server_mode=fdp_svr.SwitchMode.CLI) as fair_session:
             fair_session.push(remote)
