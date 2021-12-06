@@ -75,7 +75,7 @@ fair init --export
 the created file can then be re-read at a later point during setup. Alternatively, if creating a configuration from scratch the YAML file should contain the following information:
 
 ```yaml
-namespaces: 
+namespaces:
   input: testing
   output: testing
 registries:

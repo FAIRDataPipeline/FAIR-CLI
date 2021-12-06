@@ -89,7 +89,9 @@ def undo_incrementer(incrementer: str) -> str:
     for component in BUMP_FUNCS:
         if re.findall(r"\$\{\{\s*" + component + r"\s*\}\}", incrementer):
             return re.sub(
-                r"\$\{\{\s*" + component + r"\s*\}\}", "${{ LATEST }}", incrementer
+                r"\$\{\{\s*" + component + r"\s*\}\}",
+                "${{ LATEST }}",
+                incrementer,
             )
 
     return incrementer
@@ -100,7 +102,9 @@ def get_latest_version(results_list: typing.List = None) -> semver.VersionInfo:
         return semver.VersionInfo.parse("0.0.0")
 
     _versions = [
-        semver.VersionInfo.parse(i["version"]) for i in results_list if "version" in i
+        semver.VersionInfo.parse(i["version"])
+        for i in results_list
+        if "version" in i
     ]
 
     if not _versions:
@@ -135,7 +139,9 @@ def get_correct_version(
             )
         _max_ver = max(_versions)
 
-        _new_version = getattr(_max_ver, _bump_func)() if _bump_func else _max_ver
+        _new_version = (
+            getattr(_max_ver, _bump_func)() if _bump_func else _max_ver
+        )
     except fdp_exc.UserConfigError:  # Not a command, try an exact version
         _new_version = semver.VersionInfo.parse(version)
 

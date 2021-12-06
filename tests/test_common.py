@@ -38,7 +38,9 @@ def test_staging_cache():
     with tempfile.TemporaryDirectory() as tempd:
         _fair_dir = os.path.join(tempd, fdp_com.FAIR_FOLDER)
         os.makedirs(_fair_dir)
-        assert fdp_com.staging_cache(tempd) == os.path.join(_fair_dir, "staging")
+        assert fdp_com.staging_cache(tempd) == os.path.join(
+            _fair_dir, "staging"
+        )
 
 
 @pytest.mark.common
@@ -56,7 +58,10 @@ def test_default_data(mocker: pytest_mock.MockerFixture):
             _fair_dir, f"data{os.path.sep}"
         )
         with open(_glob_conf, "w") as out_f:
-            yaml.dump({"registries": {"local": {"data_store": "data_store_1"}}}, out_f)
+            yaml.dump(
+                {"registries": {"local": {"data_store": "data_store_1"}}},
+                out_f,
+            )
         assert fdp_com.default_data_dir() == "data_store_1"
 
 
@@ -78,5 +83,7 @@ def test_registry_home(mocker: pytest_mock.MockerFixture):
         with pytest.raises(fdp_exc.CLIConfigurationError):
             fdp_com.registry_home()
         with open(_glob_conf, "w") as out_f:
-            yaml.dump({"registries": {"local": {"directory": "registry"}}}, out_f)
+            yaml.dump(
+                {"registries": {"local": {"directory": "registry"}}}, out_f
+            )
         assert fdp_com.registry_home() == "registry"

@@ -63,7 +63,9 @@ def get_write_storage(uri: str, write_data_store: str) -> str:
         _write_store_root += os.path.sep
 
     # Check if the data store already exists by querying for it
-    _search_root = fdp_req.get(uri, "storage_root", params={"root": _write_store_root})
+    _search_root = fdp_req.get(
+        uri, "storage_root", params={"root": _write_store_root}
+    )
 
     # If the data store already exists just return the URI else create it
     # and then do the same
@@ -100,7 +102,9 @@ def store_user(repo_dir: str, uri: str) -> str:
     except fdp_exc.CLIConfigurationError:
         _uuid = fdp_conf.get_current_user_uuid(repo_dir)
         _data["uuid"] = _uuid
-        return fdp_req.post_else_get(uri, "author", data=_data, params={"uuid": _uuid})
+        return fdp_req.post_else_get(
+            uri, "author", data=_data, params={"uuid": _uuid}
+        )
 
 
 def populate_file_type(uri: str) -> typing.List[typing.Dict]:
@@ -188,7 +192,9 @@ def store_working_config(repo_dir: str, uri: str, work_cfg_yml: str) -> str:
     }
 
     try:
-        _post_store_loc = fdp_req.post(uri, "storage_location", data=_storage_loc_data)
+        _post_store_loc = fdp_req.post(
+            uri, "storage_location", data=_storage_loc_data
+        )
     except fdp_exc.RegistryAPICallError as e:
         if not e.error_code == 409:
             raise e
@@ -266,7 +272,9 @@ def store_working_script(
     }
 
     try:
-        _post_store_loc = fdp_req.post(uri, "storage_location", data=_storage_loc_data)
+        _post_store_loc = fdp_req.post(
+            uri, "storage_location", data=_storage_loc_data
+        )
     except fdp_exc.RegistryAPICallError as e:
         if not e.error_code == 409:
             raise e
@@ -317,7 +325,11 @@ def store_namespace(
     str
         URL of the created namespace
     """
-    _data = {"name": namespace_label, "full_name": full_name, "website": website}
+    _data = {
+        "name": namespace_label,
+        "full_name": full_name,
+        "website": website,
+    }
     return fdp_req.post_else_get(
         uri, "namespace", data=_data, params={"name": namespace_label}
     )
@@ -379,7 +391,9 @@ def store_data_file(
         "full_name": data["namespace_full_name"]
         if "namespace_full_name" in data
         else None,
-        "website": data["namespace_website"] if "namespace_website" in data else None,
+        "website": data["namespace_website"]
+        if "namespace_website" in data
+        else None,
     }
 
     _namespace_url = store_namespace(**_namespace_args)
@@ -431,13 +445,16 @@ def store_data_file(
     }
 
     try:
-        _data_prod_url = fdp_req.post(uri, "data_product", data=_data_prod_data)["url"]
+        _data_prod_url = fdp_req.post(
+            uri, "data_product", data=_data_prod_data
+        )["url"]
     except fdp_exc.RegistryAPICallError as e:
         if not e.error_code == 409:
             raise e
         else:
             raise fdp_exc.RegistryAPICallError(
-                f"Cannot post data_product " f"'{_name}', duplicate already exists",
+                f"Cannot post data_product "
+                f"'{_name}', duplicate already exists",
                 error_code=409,
             )
     except KeyError:
@@ -467,7 +484,8 @@ def store_data_file(
     if not _identifier:
         if "unique_name" not in data:
             raise fdp_exc.UserConfigError(
-                "No identifier/alternate_identifier given for " f"item '{local_file}'",
+                "No identifier/alternate_identifier given for "
+                f"item '{local_file}'",
                 hint="You must provide either a URL 'identifier', or "
                 "'unique_name' and 'source_name' keys",
             )
@@ -543,7 +561,10 @@ def get_storage_root_obj_address(
     """
     try:
         _results = fdp_req.get(
-            remote_uri, "storage_root", params={"root": address_str}, token=remote_token
+            remote_uri,
+            "storage_root",
+            params={"root": address_str},
+            token=remote_token,
         )
         if not _results:
             raise AssertionError
@@ -608,7 +629,9 @@ def check_if_object_exists(
             del search_data["version"]
 
     # Obtain list of storage_locations for the given data_product
-    _results = fdp_req.get(local_uri, obj_type, params=search_data, token=token)
+    _results = fdp_req.get(
+        local_uri, obj_type, params=search_data, token=token
+    )
 
     try:
         fdp_ver.get_correct_version(

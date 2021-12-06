@@ -129,7 +129,9 @@ class JobConfiguration(MutableMapping):
                         "full_name": item.get("namespace_full_name", None),
                         "website": item.get("namespace_website", None),
                     }
-                elif "namespace" in item and isinstance(item["namespace"], dict):
+                elif "namespace" in item and isinstance(
+                    item["namespace"], dict
+                ):
                     _namespace_store_args = item["namespace"]
                 _new_register_block.append(item)
             elif "namespace" in item:
@@ -146,18 +148,22 @@ class JobConfiguration(MutableMapping):
     def _unpack_register_namespaces(self) -> None:
         self._logger.debug("Unpacking 'register' namespaces")
         for i, item in enumerate(self._config["register"]):
-            if all(it not in item for it in ["external_object", "data_product"]):
+            if all(
+                it not in item for it in ["external_object", "data_product"]
+            ):
                 continue
 
             if "namespace" not in item:
                 continue
 
             if isinstance(item["namespace"], str):
-                self._config["register"][i]["namespace_name"] = item["namespace"]
-            elif isinstance(item["namespace"], dict):
-                self._config["register"][i]["namespace_name"] = item["namespace"][
-                    "name"
+                self._config["register"][i]["namespace_name"] = item[
+                    "namespace"
                 ]
+            elif isinstance(item["namespace"], dict):
+                self._config["register"][i]["namespace_name"] = item[
+                    "namespace"
+                ]["name"]
                 self._config["register"][i]["namespace_full_name"] = None
                 self._config["register"][i]["namespace_website"] = None
                 del self._config["register"][i]["namespace"]
@@ -207,7 +213,9 @@ class JobConfiguration(MutableMapping):
             raise fdp_exc.UserConfigError("Output namespace cannot be None")
 
         fdp_store.store_namespace(self.local_uri, self.default_input_namespace)
-        fdp_store.store_namespace(self.local_uri, self.default_output_namespace)
+        fdp_store.store_namespace(
+            self.local_uri, self.default_output_namespace
+        )
 
         for block_type in self._block_types:
             if block_type not in self:
@@ -285,13 +293,17 @@ class JobConfiguration(MutableMapping):
         if fair_repo_dir:
             # Combine global and remote CLI configurations by overwriting global
             # with changes in the local version
-            _fdpconfig = fdp_util.flatten_dict(fdp_conf.read_global_fdpconfig())
+            _fdpconfig = fdp_util.flatten_dict(
+                fdp_conf.read_global_fdpconfig()
+            )
             _local_fdpconfig = fdp_util.flatten_dict(
                 fdp_conf.read_local_fdpconfig(fair_repo_dir)
             )
             _fdpconfig.update(_local_fdpconfig)
         else:
-            _fdpconfig = fdp_util.flatten_dict(fdp_conf.read_global_fdpconfig())
+            _fdpconfig = fdp_util.flatten_dict(
+                fdp_conf.read_global_fdpconfig()
+            )
 
         for key in JOB2CLI_MAPPINGS:
             if key not in self:
@@ -308,14 +320,18 @@ class JobConfiguration(MutableMapping):
             _url = _git_repo.remotes[_remote].url
             self["run_metadata.remote_repo"] = _url
 
-    def pop(self, key: str, default: typing.Optional[typing.Any] = None) -> typing.Any:
+    def pop(
+        self, key: str, default: typing.Optional[typing.Any] = None
+    ) -> typing.Any:
         """Remove item from configuration"""
         try:
             del self[key]
         except fdp_exc.KeyPathError:
             return default
 
-    def get(self, key: str, default: typing.Optional[typing.Any] = None) -> typing.Any:
+    def get(
+        self, key: str, default: typing.Optional[typing.Any] = None
+    ) -> typing.Any:
         """Retrieve item if exists, else return default"""
         try:
             _value = self[key]
@@ -324,7 +340,9 @@ class JobConfiguration(MutableMapping):
         self._logger.debug(f"Returning '{key}={_value}'")
         return _value
 
-    def set_command(self, cmd: str, shell: typing.Optional[str] = None) -> None:
+    def set_command(
+        self, cmd: str, shell: typing.Optional[str] = None
+    ) -> None:
         """Set a BASH command to be executed"""
         if not shell:
             shell = "batch" if platform.system() == "Windows" else "sh"
@@ -401,7 +419,9 @@ class JobConfiguration(MutableMapping):
         _unparsed = self._check_for_unparsed()
 
         if _unparsed:
-            raise fdp_exc.InternalError(f"Failed to parse variables '{_unparsed}'")
+            raise fdp_exc.InternalError(
+                f"Failed to parse variables '{_unparsed}'"
+            )
 
         self["run_metadata.latest_commit"] = self._fetch_latest_commit()
 
@@ -414,7 +434,9 @@ class JobConfiguration(MutableMapping):
 
         return _regex_fmt.findall(_conf_str)
 
-    def _subst_cli_vars(self, job_dir: str, job_time: datetime.datetime) -> str:
+    def _subst_cli_vars(
+        self, job_dir: str, job_time: datetime.datetime
+    ) -> str:
         self._logger.debug("Searching for CLI variables")
 
         def _get_id():
@@ -434,7 +456,9 @@ class JobConfiguration(MutableMapping):
         _substitutes: typing.Dict[str, typing.Callable] = {
             "DATE": lambda: job_time.strftime("%Y%m%d"),
             "DATETIME": lambda: job_time.strftime("%Y-%m-%dT%H:%M:%S%Z"),
-            "USER": lambda: fdp_conf.get_current_user_name(self.local_repository),
+            "USER": lambda: fdp_conf.get_current_user_name(
+                self.local_repository
+            ),
             "USER_ID": lambda: _get_id(),
             "REPO_DIR": lambda: self.local_repository,
             "CONFIG_DIR": lambda: job_dir + os.path.sep,
@@ -453,15 +477,21 @@ class JobConfiguration(MutableMapping):
         _dt_fmt_res: typing.Optional[typing.List[str]] = _regex_dt_fmt.findall(
             _config_str
         )
-        _fmt_res: typing.Optional[typing.List[str]] = _regex_fmt.findall(_config_str)
+        _fmt_res: typing.Optional[typing.List[str]] = _regex_fmt.findall(
+            _config_str
+        )
 
         self._logger.debug(
-            "Found datetime substitutions: %s %s", _dt_fmt_res or "", _fmt_res or ""
+            "Found datetime substitutions: %s %s",
+            _dt_fmt_res or "",
+            _fmt_res or "",
         )
 
         # The two regex searches should match lengths
         if len(_dt_fmt_res) != len(_fmt_res):
-            raise fdp_exc.UserConfigError("Failed to parse formatted datetime variable")
+            raise fdp_exc.UserConfigError(
+                "Failed to parse formatted datetime variable"
+            )
 
         if _dt_fmt_res:
             for i, _ in enumerate(_dt_fmt_res):
@@ -533,7 +563,10 @@ class JobConfiguration(MutableMapping):
             if f"default_{action}_version" in _new_config["run_metadata"]:
                 del _new_config["run_metadata"][f"default_{action}_version"]
 
-        _namespaces = (self.default_input_namespace, self.default_output_namespace)
+        _namespaces = (
+            self.default_input_namespace,
+            self.default_output_namespace,
+        )
 
         for namespace, block_type in zip(_namespaces, ["read", "write"]):
             if block_type not in self._config:
@@ -544,10 +577,16 @@ class JobConfiguration(MutableMapping):
             for item in self[block_type]:
                 for use_item in [*item["use"]]:
                     # Get rid of duplicates
-                    if use_item in item and item["use"][use_item] == item[use_item]:
+                    if (
+                        use_item in item
+                        and item["use"][use_item] == item[use_item]
+                    ):
                         item["use"].pop(use_item)
 
-                if block_type == "write" and item["public"] == self.is_public_global:
+                if (
+                    block_type == "write"
+                    and item["public"] == self.is_public_global
+                ):
                     item.pop("public")
 
                 if item["use"]["namespace"] == namespace:
@@ -593,7 +632,10 @@ class JobConfiguration(MutableMapping):
             _version = item["use"]["version"]
 
             if "data_product" not in item["use"]:
-                if "external_object" in item and "*" in item["external_object"]:
+                if (
+                    "external_object" in item
+                    and "*" in item["external_object"]
+                ):
                     _name = item["external_object"]
                 elif "data_product" in item and "*" in item["data_product"]:
                     _name = item["data_product"]
@@ -637,7 +679,9 @@ class JobConfiguration(MutableMapping):
                     raise e
 
             if "${{" in _version:
-                self._logger.error(f"Found a version ({_version}) that needs resolving")
+                self._logger.error(
+                    f"Found a version ({_version}) that needs resolving"
+                )
 
             if str(_version) != item["use"]["version"]:
                 item["use"]["version"] = str(_version)
@@ -683,7 +727,10 @@ class JobConfiguration(MutableMapping):
             else:  # 'write' or 'register'
                 _new_item["use"]["version"] = self.default_write_version
 
-        if "data_product" not in item["use"] and "*" not in item["data_product"]:
+        if (
+            "data_product" not in item["use"]
+            and "*" not in item["data_product"]
+        ):
             _new_item["use"]["data_product"] = item["data_product"]
 
         if block_type == "register" and "external_object" in item:
@@ -691,7 +738,9 @@ class JobConfiguration(MutableMapping):
 
         return _new_item
 
-    def _fill_block_item(self, block_type: str, item: typing.Dict) -> typing.Dict:
+    def _fill_block_item(
+        self, block_type: str, item: typing.Dict
+    ) -> typing.Dict:
         _new_item = copy.deepcopy(item)
         _new_item["use"] = item.get("use", {})
 

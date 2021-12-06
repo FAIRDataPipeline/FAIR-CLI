@@ -55,7 +55,14 @@ def fetch_registrations(
     typing.List[str]
         list of registered object URLs
     """
-    _expected_keys = ["root", "path", "file_type", "primary", "version", "public"]
+    _expected_keys = [
+        "root",
+        "path",
+        "file_type",
+        "primary",
+        "version",
+        "public",
+    ]
     _logger = logging.getLogger("FAIRDataPipeline.Run")
 
     _stored_objects: typing.List[str] = []
@@ -68,7 +75,9 @@ def fetch_registrations(
                 )
 
         _identifier: str = entry["identifier"] if "identifier" in entry else ""
-        _unique_name: str = entry["unique_name"] if "unique_name" in entry else ""
+        _unique_name: str = (
+            entry["unique_name"] if "unique_name" in entry else ""
+        )
 
         _data_product = None
         _external_object = None
@@ -137,7 +146,8 @@ def fetch_registrations(
                 _temp_data_file = fdp_req.download_file(_url)
             except requests.HTTPError as r_in:
                 raise fdp_exc.UserConfigError(
-                    f"Failed to fetch item '{_url}' with exit code " f"{r_in.response}"
+                    f"Failed to fetch item '{_url}' with exit code "
+                    f"{r_in.response}"
                 )
 
         # Need to fix the path for Windows
@@ -167,12 +177,16 @@ def fetch_registrations(
         elif _is_present != "absent":
             _results = _is_present
             _user_version = fdp_ver.get_correct_version(
-                results_list=_results, free_write=True, version=entry["use"]["version"]
+                results_list=_results,
+                free_write=True,
+                version=entry["use"]["version"],
             )
             _logger.debug("Found results for %s", str(_results))
         else:
             _user_version = fdp_ver.get_correct_version(
-                results_list=None, free_write=True, version=entry["use"]["version"]
+                results_list=None,
+                free_write=True,
+                version=entry["use"]["version"],
             )
             _logger.debug("Found nothing for %s", str(_search_data))
 
@@ -180,7 +194,9 @@ def fetch_registrations(
         # as multiple version files can exist
         os.makedirs(_local_dir, exist_ok=True)
 
-        _local_file = os.path.join(_local_dir, f"{_user_version}.{entry['file_type']}")
+        _local_file = os.path.join(
+            _local_dir, f"{_user_version}.{entry['file_type']}"
+        )
 
         # Copy the temporary file into the data store
         # then remove temporary file to save space

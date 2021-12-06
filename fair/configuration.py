@@ -330,7 +330,9 @@ def get_session_git_remote(repo_loc: str, url: bool = False) -> str:
     try:
         _remote_label = _local_conf["git"]["remote"]
     except KeyError:
-        raise fdp_exc.InternalError("Failed to retrieve project git repository remote")
+        raise fdp_exc.InternalError(
+            "Failed to retrieve project git repository remote"
+        )
 
     if not url:
         return _remote_label
@@ -443,7 +445,8 @@ def _handle_orcid(user_orcid: str) -> typing.Tuple[typing.Dict, str]:
     _user_info["orcid"] = user_orcid
 
     click.echo(
-        f"Found entry: {_user_info['given_names']} " f"{_user_info['family_name']}"
+        f"Found entry: {_user_info['given_names']} "
+        f"{_user_info['family_name']}"
     )
 
     _def_ospace = _user_info["given_names"][0]
@@ -551,7 +554,9 @@ def _get_user_info_and_namespaces() -> typing.Dict[str, typing.Dict]:
     _invalid_input = True
 
     while _invalid_input:
-        _id_type = click.prompt("User ID system (ORCID/ROR/GRID/None)", default="None")
+        _id_type = click.prompt(
+            "User ID system (ORCID/ROR/GRID/None)", default="None"
+        )
 
         if _id_type.upper() == "ORCID":
             _user_orcid = click.prompt("ORCID")
@@ -588,7 +593,9 @@ def global_config_query(registry: str = None) -> typing.Dict[str, typing.Any]:
     """Ask user question set for creating global FAIR config"""
     if not registry:
         registry = fdp_serv.DEFAULT_REGISTRY_LOCATION
-    logger.debug("Running global configuration query with registry at '%s'", registry)
+    logger.debug(
+        "Running global configuration query with registry at '%s'", registry
+    )
     click.echo("Checking for local registry")
     if check_registry_exists(registry):
         click.echo("Local registry found")
@@ -616,12 +623,15 @@ def global_config_query(registry: str = None) -> typing.Dict[str, typing.Any]:
     )
 
     _default_token = os.path.join(registry, "remote-token")
-    _rem_key_file = click.prompt("Remote API Token File", default=_default_token)
+    _rem_key_file = click.prompt(
+        "Remote API Token File", default=_default_token
+    )
     _rem_key_file = os.path.expandvars(_rem_key_file)
 
     # TODO fix search for valid token
     while False and (
-        not os.path.exists(_rem_key_file) or not open(_rem_key_file).read().strip()
+        not os.path.exists(_rem_key_file)
+        or not open(_rem_key_file).read().strip()
     ):
         click.echo(
             f"Token file '{_rem_key_file}' does not exist or is empty, "
@@ -632,7 +642,8 @@ def global_config_query(registry: str = None) -> typing.Dict[str, typing.Any]:
 
     if not fdp_serv.check_server_running(_local_uri):
         _run_server = click.confirm(
-            "Local registry is offline, would you like to start it?", default=False
+            "Local registry is offline, would you like to start it?",
+            default=False,
         )
         if _run_server:
             fdp_serv.launch_server(_local_uri, registry_dir=registry)
@@ -653,7 +664,8 @@ def global_config_query(registry: str = None) -> typing.Dict[str, typing.Any]:
                 )
 
     _loc_data_store = click.prompt(
-        "Default Data Store", default=os.path.join(fdp_com.USER_FAIR_DIR, "data/")
+        "Default Data Store",
+        default=os.path.join(fdp_com.USER_FAIR_DIR, "data/"),
     )
     if _loc_data_store[-1] != os.path.sep:
         _loc_data_store += os.path.sep
@@ -702,7 +714,8 @@ def local_config_query(
         _def_user = global_config["user"]
     except KeyError:
         click.echo(
-            "Error: Failed to read global configuration," " re-running global setup."
+            "Error: Failed to read global configuration,"
+            " re-running global setup."
         )
         first_time_setup = True
         global_config = global_config_query()
@@ -713,7 +726,10 @@ def local_config_query(
 
     # Allow the user to continue without an input namespace as some
     # functionality does not require this.
-    if "input" not in global_config["namespaces"] or not global_config["namespaces"]:
+    if (
+        "input" not in global_config["namespaces"]
+        or not global_config["namespaces"]
+    ):
         click.echo(
             "Warning: No global input namespace declared,"
             " in order to use the registry you will need to specify one"
@@ -774,13 +790,17 @@ def local_config_query(
 
     _git_remote_repo = _repo.remotes[_git_remote].url
 
-    click.echo(f"Using git repository remote '{_git_remote}': " f"{_git_remote_repo}")
+    click.echo(
+        f"Using git repository remote '{_git_remote}': " f"{_git_remote_repo}"
+    )
 
     # If this is not the first setup it means globals are available so these
     # can be suggested as defaults during local setup
     if not first_time_setup:
         _def_remote = click.prompt("Remote API URL", default=_def_remote)
-        _def_rem_key = click.prompt("Remote API Token File", default=_def_rem_key)
+        _def_rem_key = click.prompt(
+            "Remote API Token File", default=_def_rem_key
+        )
         _def_rem_key = os.path.expandvars(_def_rem_key)
 
         # TODO fix search for valid token
@@ -795,8 +815,12 @@ def local_config_query(
             )
             _def_rem_key = click.prompt("Remote API Token File")
             _def_rem_key = os.path.expandvars(_def_rem_key)
-        _def_ospace = click.prompt("Default output namespace", default=_def_ospace)
-        _def_ispace = click.prompt("Default input namespace", default=_def_ispace)
+        _def_ospace = click.prompt(
+            "Default output namespace", default=_def_ospace
+        )
+        _def_ispace = click.prompt(
+            "Default input namespace", default=_def_ispace
+        )
 
     _local_config: typing.Dict[str, typing.Any] = {}
 

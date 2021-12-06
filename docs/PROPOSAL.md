@@ -72,4 +72,3 @@ $ fair reset --hard
 
 ## Removing files
 Again, alike to git have `fair rm` and `fair rm --cached`, to remove from tracking and the file system, or just tracking.
-

@@ -52,7 +52,9 @@ class Stager:
         """
         self._root = repo_root
         self._staging_file = fdp_com.staging_cache(self._root)
-        self._logger.debug("Creating stager for FAIR repository '%s'", repo_root)
+        self._logger.debug(
+            "Creating stager for FAIR repository '%s'", repo_root
+        )
 
     def initialise(self) -> None:
         """Initialise the stager, creating a staging cache file if one does not exist"""
@@ -88,7 +90,9 @@ class Stager:
         stage : bool, optional
             whether job is staged, default True
         """
-        self._logger.debug("Setting job '%s' status to staged=%s", job_id, stage)
+        self._logger.debug(
+            "Setting job '%s' status to staged=%s", job_id, stage
+        )
 
         if not os.path.exists(self._staging_file):
             raise fdp_exc.FileNotFoundError(
@@ -102,14 +106,18 @@ class Stager:
         # When a job is completed by a language implementation the CLI should
         # have already registered it into staging with a status of staged=False
         if not fdp_run.get_job_dir(job_id):
-            raise fdp_exc.StagingError(f"Failed to recognise job with ID '{job_id}'")
+            raise fdp_exc.StagingError(
+                f"Failed to recognise job with ID '{job_id}'"
+            )
 
         _staging_dict["job"][job_id] = stage
 
         with open(self._staging_file, "w") as f:
             yaml.dump(_staging_dict, f)
 
-    def find_registry_entry_for_file(self, local_uri: str, file_path: str) -> str:
+    def find_registry_entry_for_file(
+        self, local_uri: str, file_path: str
+    ) -> str:
         """Performs a rough search for a file in the local registry
 
         Parameters
@@ -122,17 +130,22 @@ class Stager:
         str
             URL of local registry entry
         """
-        self._logger.debug("Retrieving registry entry for file '%s'", file_path)
+        self._logger.debug(
+            "Retrieving registry entry for file '%s'", file_path
+        )
 
         # Will search storage locations for a similar path by using
         # parent_directory/file_name
         _obj_type = "storage_location"
 
-        _results = fdp_req.get(local_uri, _obj_type, params={"path": file_path})
+        _results = fdp_req.get(
+            local_uri, _obj_type, params={"path": file_path}
+        )
 
         if not _results:
             raise fdp_exc.StagingError(
-                "Failed to find local registry entry for file " f"'{file_path}'"
+                "Failed to find local registry entry for file "
+                f"'{file_path}'"
             )
 
         if len(_results) > 1:
@@ -145,7 +158,9 @@ class Stager:
 
         return _results[0]
 
-    def _get_code_run_entries(self, local_uri: str, job_dir: str) -> typing.List[str]:
+    def _get_code_run_entries(
+        self, local_uri: str, job_dir: str
+    ) -> typing.List[str]:
         """Retrieve code_run URL list from a given CLI run directory
 
         Parameters
@@ -172,12 +187,17 @@ class Stager:
         _code_run_file = os.path.join(job_dir, "coderuns.txt")
         _code_run_urls = []
 
-        if os.path.exists(_code_run_file) and open(_code_run_file).read().strip():
+        if (
+            os.path.exists(_code_run_file)
+            and open(_code_run_file).read().strip()
+        ):
             self._logger.debug("Found coderuns file, extracting runs")
             _runs = [i.strip() for i in open(_code_run_file).readlines()]
 
             for run in _runs:
-                _results = fdp_req.get(local_uri, "code_run", params={"uuid": run})
+                _results = fdp_req.get(
+                    local_uri, "code_run", params={"uuid": run}
+                )
 
                 if not _results:
                     raise fdp_exc.ImplementationError(
@@ -189,7 +209,9 @@ class Stager:
 
         return _code_run_urls
 
-    def _get_written_obj_entries(self, local_uri: str, config_dict: typing.Dict):
+    def _get_written_obj_entries(
+        self, local_uri: str, config_dict: typing.Dict
+    ):
         if "write" not in config_dict:
             return []
 
@@ -211,7 +233,9 @@ class Stager:
 
         return _data_product_urls
 
-    def get_job_data(self, local_uri, identifier: str) -> typing.Dict[str, str]:
+    def get_job_data(
+        self, local_uri, identifier: str
+    ) -> typing.Dict[str, str]:
         self._logger.debug("Fetching job data for job %s", identifier)
         # Firstly find the job directory
         _directory = fdp_run.get_job_dir(identifier)
@@ -271,7 +295,9 @@ class Stager:
         self._logger.debug("Retrieving code runs and written objects")
 
         _code_run_urls = self._get_code_run_entries(local_uri, _directory)
-        _user_written_obj_urls = self._get_written_obj_entries(local_uri, _config_dict)
+        _user_written_obj_urls = self._get_written_obj_entries(
+            local_uri, _config_dict
+        )
 
         return {
             "jobs": _code_run_urls,
@@ -280,7 +306,9 @@ class Stager:
             "script_file": _script_url,
         }
 
-    def remove_staging_entry(self, identifier: str, stage_type: str = "job") -> None:
+    def remove_staging_entry(
+        self, identifier: str, stage_type: str = "job"
+    ) -> None:
         """Remove an item of type 'stage_type' from staging
 
         Parameters

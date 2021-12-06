@@ -23,7 +23,6 @@ import enum
 import glob
 import logging
 import os
-import pathlib
 import platform
 import shutil
 import subprocess
@@ -110,7 +109,9 @@ def launch_server(
     if not registry_dir:
         registry_dir = fdp_com.registry_home()
 
-    _server_start_script = os.path.join(registry_dir, "scripts", "start_fair_registry")
+    _server_start_script = os.path.join(
+        registry_dir, "scripts", "start_fair_registry"
+    )
 
     if platform.system() == "Windows":
         _server_start_script += "_windows.bat"
@@ -121,7 +122,11 @@ def launch_server(
             " is the FAIR data pipeline properly installed on this system?"
         )
 
-    _cmd = [_server_start_script, "-p", f"{fdp_conf.get_local_port(local_uri)}"]
+    _cmd = [
+        _server_start_script,
+        "-p",
+        f"{fdp_conf.get_local_port(local_uri)}",
+    ]
 
     logger.debug("Launching server with command '%s'", " ".join(_cmd))
 
@@ -175,7 +180,9 @@ def stop_server(
             "Could not stop registry server, processes still running."
         )
 
-    _server_stop_script = os.path.join(registry_dir, "scripts", "stop_fair_registry")
+    _server_stop_script = os.path.join(
+        registry_dir, "scripts", "stop_fair_registry"
+    )
 
     if platform.system() == "Windows":
         _server_stop_script += "_windows.bat"
@@ -223,7 +230,9 @@ def rebuild_local(python: str, install_dir: str = None, silent: bool = False):
     if not install_dir:
         install_dir = fdp_com.DEFAULT_REGISTRY_LOCATION
 
-    _migration_files = glob.glob(os.path.join(install_dir, "*", "migrations", "*.py*"))
+    _migration_files = glob.glob(
+        os.path.join(install_dir, "*", "migrations", "*.py*")
+    )
 
     logger.debug("Removing migration files: %s", _migration_files)
 
@@ -363,7 +372,9 @@ def install_registry(
     _python_exe = "python.exe" if platform.system() == "Windows" else "python"
     _binary_loc = "Scripts" if platform.system() == "Windows" else "bin"
 
-    _venv_python = shutil.which(_python_exe, path=os.path.join(venv_dir, _binary_loc))
+    _venv_python = shutil.which(
+        _python_exe, path=os.path.join(venv_dir, _binary_loc)
+    )
 
     if not _venv_python:
         raise FileNotFoundError(
@@ -406,10 +417,15 @@ def uninstall_registry() -> None:
     if os.path.exists(fdp_com.global_fdpconfig()) and os.path.exists(
         fdp_com.registry_home()
     ):
-        logger.debug("Uninstalling registry, removing '%s'", fdp_com.registry_home())
+        logger.debug(
+            "Uninstalling registry, removing '%s'", fdp_com.registry_home()
+        )
         shutil.rmtree(fdp_com.registry_home())
     elif os.path.exists(fdp_com.DEFAULT_REGISTRY_LOCATION):
-        logger.debug("Uninstalling registry, removing '%s'", fdp_com.DEFAULT_REGISTRY_LOCATION)
+        logger.debug(
+            "Uninstalling registry, removing '%s'",
+            fdp_com.DEFAULT_REGISTRY_LOCATION,
+        )
         shutil.rmtree(fdp_com.DEFAULT_REGISTRY_LOCATION)
     else:
         raise fdp_exc.RegistryError(
@@ -417,7 +433,9 @@ def uninstall_registry() -> None:
         )
 
 
-def update_registry_post_setup(repo_dir: str, global_setup: bool = False) -> None:
+def update_registry_post_setup(
+    repo_dir: str, global_setup: bool = False
+) -> None:
     """Add user namespace and file types after CLI setup
 
     Parameters

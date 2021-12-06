@@ -125,7 +125,11 @@ def push_dependency_chain(
 
         _logger.debug(f"Pushing member '{object}' to '{dest_uri}'")
         _new_url = fdp_req.post_else_get(
-            dest_uri, _obj_type, data=_writable_data, token=dest_token, params=_filters
+            dest_uri,
+            _obj_type,
+            data=_writable_data,
+            token=dest_token,
+            params=_filters,
         )
 
         _new_urls[object] = _new_url
@@ -160,7 +164,9 @@ def push_from_config(
                 _usable_fields["title"] = object["title"]
             if "version" in object:
                 _usable_fields["version"] = object["version"]
-            _entries = fdp_req.get(local_uri, "external_object", params=_usable_fields)
+            _entries = fdp_req.get(
+                local_uri, "external_object", params=_usable_fields
+            )
 
             if not _entries or len(_entries) > 1:
                 raise fdp_exc.InternalError(
@@ -176,7 +182,9 @@ def push_from_config(
             if "version" in object:
                 _usable_fields["version"] = object["version"]
 
-            _entries = fdp_req.get(local_uri, "data_product", params=_usable_fields)
+            _entries = fdp_req.get(
+                local_uri, "data_product", params=_usable_fields
+            )
 
             if not _entries or len(_entries) > 1:
                 raise fdp_exc.InternalError(

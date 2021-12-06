@@ -60,7 +60,8 @@ def local_config(mocker: pytest_mock.MockerFixture):
         _cfgg = fdp_test.create_configurations(tempg, None, tempg, True)
         yaml.dump(_cfgg, open(_gconfig_path, "w"))
         mocker.patch(
-            "fair.common.global_config_dir", lambda: os.path.dirname(_gconfig_path)
+            "fair.common.global_config_dir",
+            lambda: os.path.dirname(_gconfig_path),
         )
         mocker.patch("fair.common.global_fdpconfig", lambda: _gconfig_path)
 
@@ -71,7 +72,9 @@ def local_config(mocker: pytest_mock.MockerFixture):
             )
             _cfgl = fdp_test.create_configurations(templ, None, templ, True)
             yaml.dump(_cfgl, open(_lconfig_path, "w"))
-            with open(os.path.join(templ, fdp_com.USER_CONFIG_FILE), "w") as conf:
+            with open(
+                os.path.join(templ, fdp_com.USER_CONFIG_FILE), "w"
+            ) as conf:
                 yaml.dump({"run_metadata": {}}, conf)
             mocker.patch("fair.common.find_fair_root", lambda *args: templ)
             yield (tempg, templ)
@@ -121,14 +124,18 @@ class TestRegistry:
             )
 
     def rebuild(self):
-        test_reg.rebuild_local(os.path.join(self._venv, "bin", "python"), self._install)
+        test_reg.rebuild_local(
+            os.path.join(self._venv, "bin", "python"), self._install
+        )
 
     def __enter__(self):
         try:
             self._process = test_reg.launch(
                 self._install, silent=True, venv_dir=self._venv
             )
-            self._token = open(os.path.join(self._install, "token")).read().strip()
+            self._token = (
+                open(os.path.join(self._install, "token")).read().strip()
+            )
         except KeyboardInterrupt as e:
             os.kill(self._process.pid, signal.SIGTERM)
             raise e
@@ -141,5 +148,7 @@ class TestRegistry:
 @pytest.fixture(scope="session")
 def local_registry(session_virtualenv: pytest_virtualenv.VirtualEnv):
     with tempfile.TemporaryDirectory() as tempd:
-        session_virtualenv.env = test_reg.django_environ(session_virtualenv.env)
+        session_virtualenv.env = test_reg.django_environ(
+            session_virtualenv.env
+        )
         yield TestRegistry(tempd, session_virtualenv.workspace)
