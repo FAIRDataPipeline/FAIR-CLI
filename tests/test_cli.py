@@ -43,7 +43,7 @@ def click_test():
 @pytest.mark.cli
 def test_status(
     local_config: typing.Tuple[str, str],
-    local_registry: conf.TestRegistry,
+    local_registry: conf.RegistryTest,
     click_test: click.testing.CliRunner,
     mocker: pytest_mock.MockerFixture,
 ):
@@ -90,7 +90,7 @@ def test_status(
 
 @pytest.mark.cli
 def test_create(
-    local_registry: conf.TestRegistry,
+    local_registry: conf.RegistryTest,
     click_test: click.testing.CliRunner,
     local_config: typing.Tuple[str, str],
     mocker: pytest_mock.MockerFixture,
@@ -110,7 +110,7 @@ def test_create(
 
 @pytest.mark.cli
 def test_init_from_existing(
-    local_registry: conf.TestRegistry,
+    local_registry: conf.RegistryTest,
     click_test: click.testing.CliRunner,
     mocker: pytest_mock.MockerFixture,
 ):
@@ -154,7 +154,7 @@ def test_init_from_existing(
 
 @pytest.mark.cli
 def test_init_full(
-    local_registry: conf.TestRegistry,
+    local_registry: conf.RegistryTest,
     click_test: click.testing.CliRunner,
     mocker: pytest_mock.MockerFixture,
 ):
@@ -183,7 +183,7 @@ def test_init_full(
                 "",
             ]
 
-            res = click_test.invoke(
+            click_test.invoke(
                 cli, ["init", "--debug", "--registry", local_registry._install], input="\n".join(_args)
             )
 
@@ -280,7 +280,7 @@ def test_registry_cli(
 
 def test_run(
     local_config: typing.Tuple[str, str],
-    local_registry: conf.TestRegistry,
+    local_registry: conf.RegistryTest,
     click_test: click.testing.CliRunner,
     mocker: pytest_mock.MockerFixture,
 ):

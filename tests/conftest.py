@@ -8,9 +8,11 @@ import pytest_fixture_config
 import pytest_mock
 import pytest_virtualenv
 import yaml
+import time
 
 import fair.common as fdp_com
 import fair.testing as fdp_test
+import fair.registry.server as fdp_serv
 
 from . import registry_install as test_reg
 
@@ -57,7 +59,7 @@ def local_config(mocker: pytest_mock.MockerFixture):
         _gconfig_path = os.path.join(
             tempg, fdp_com.FAIR_FOLDER, fdp_com.FAIR_CLI_CONFIG
         )
-        _cfgg = fdp_test.create_configurations(tempg, None, tempg, True)
+        _cfgg = fdp_test.create_configurations(tempg, None, None, tempg, True)
         yaml.dump(_cfgg, open(_gconfig_path, "w"))
         mocker.patch(
             "fair.common.global_config_dir", lambda: os.path.dirname(_gconfig_path)
@@ -72,7 +74,7 @@ def local_config(mocker: pytest_mock.MockerFixture):
             _lconfig_path = os.path.join(
                 templ, fdp_com.FAIR_FOLDER, fdp_com.FAIR_CLI_CONFIG
             )
-            _cfgl = fdp_test.create_configurations(templ, None, templ, True)
+            _cfgl = fdp_test.create_configurations(templ, None, None, templ, True)
             yaml.dump(_cfgl, open(_lconfig_path, "w"))
             with open(os.path.join(templ, fdp_com.USER_CONFIG_FILE), "w") as conf:
                 yaml.dump({"run_metadata": {}}, conf)
@@ -113,15 +115,25 @@ def job_log(mocker: pytest_mock.MockerFixture) -> str:
         yield tempd
 
 
-class TestRegistry:
-    def __init__(self, install_loc: str, venv_dir: str):
+class RegistryTest:
+    def __init__(self, install_loc: str, venv_dir: str, port: int = 8000):
         self._install = install_loc
         self._venv = os.path.join(venv_dir, ".env")
         self._process = None
+        self._port = port
         if not os.path.exists(os.path.join(install_loc, "manage.py")):
             test_reg.install_registry(
                 install_dir=install_loc, silent=True, venv_dir=self._venv
             )
+        # Start then stop to generate key
+        _process = test_reg.launch(
+            self._install, silent=True, venv_dir=self._venv, port=self._port
+        )
+        while not os.path.exists(os.path.join(self._install, "token")):
+            time.sleep(5)
+        self._token = open(os.path.join(self._install, "token")).read().strip()
+        assert self._token
+        os.kill(_process.pid, signal.SIGTERM)
 
     def rebuild(self):
         test_reg.rebuild_local(os.path.join(self._venv, "bin", "python"), self._install)
@@ -129,9 +141,8 @@ class TestRegistry:
     def __enter__(self):
         try:
             self._process = test_reg.launch(
-                self._install, silent=True, venv_dir=self._venv
+                self._install, silent=True, venv_dir=self._venv, port=self._port
             )
-            self._token = open(os.path.join(self._install, "token")).read().strip()
         except KeyboardInterrupt as e:
             os.kill(self._process.pid, signal.SIGTERM)
             raise e
@@ -143,6 +154,17 @@ class TestRegistry:
 
 @pytest.fixture(scope="session")
 def local_registry(session_virtualenv: pytest_virtualenv.VirtualEnv):
+    if fdp_serv.check_server_running('http://127.0.0.1:8000'):
+        pytest.skip("Cannot run registry tests, a server is already running on port 8000")
     with tempfile.TemporaryDirectory() as tempd:
         session_virtualenv.env = test_reg.django_environ(session_virtualenv.env)
-        yield TestRegistry(tempd, session_virtualenv.workspace)
+        yield RegistryTest(tempd, session_virtualenv.workspace, port=8000)
+
+
+@pytest.fixture(scope="session")
+def remote_registry(session_virtualenv: pytest_virtualenv.VirtualEnv):
+    if fdp_serv.check_server_running('http://127.0.0.1:8001'):
+        pytest.skip("Cannot run registry tests, a server is already running on port 8001")
+    with tempfile.TemporaryDirectory() as tempd:
+        session_virtualenv.env = test_reg.django_environ(session_virtualenv.env)
+        yield RegistryTest(tempd, session_virtualenv.workspace, port=8001)

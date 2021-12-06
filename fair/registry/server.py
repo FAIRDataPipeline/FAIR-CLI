@@ -355,7 +355,7 @@ def install_registry(
         venv.create(
             venv_dir,
             with_pip=True,
-            prompt="TestRegistry",
+            prompt="RegistryTest",
         )
 
     _python_exe = "python.exe" if platform.system() == "Windows" else "python"

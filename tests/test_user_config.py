@@ -60,7 +60,7 @@ def test_preparation(
     mocker: pytest_mock.MockerFixture,
     make_config: fdp_user.JobConfiguration,
     local_config: typing.Tuple[str, str],
-    local_registry: conf.TestRegistry,
+    local_registry: conf.RegistryTest,
 ):
     mocker.patch("fair.common.registry_home", lambda: local_registry._install)
     with local_registry:
