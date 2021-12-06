@@ -14,7 +14,6 @@ import os
 import pathlib
 import sys
 import typing
-import glob
 
 import click
 import click.shell_completion
@@ -340,13 +339,12 @@ def unstage(identifier: str, debug: bool, job: bool) -> None:
 @click.argument("identifier", shell_complete=complete_jobs_data_products)
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
 def add(identifier: str, debug: bool) -> None:
-    """Add a data product or job to staging"""
-    _obj_type = "job" if identifier[0] == "#" else 'data_product'
+    """Add a data product to staging"""
     try:
         with fdp_session.FAIR(os.getcwd(), debug=debug,) as fair_session:
             fair_session.change_staging_state(
                 identifier,
-                _obj_type,
+                "data_product",
             )
     except fdp_exc.FAIRCLIException as e:
         if debug:
