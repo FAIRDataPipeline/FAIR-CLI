@@ -50,9 +50,9 @@ def test_registry_entry_for_file(
         if uri != LOCAL_REGISTRY_URL:
             raise fdp_exc.RegistryError("No such registry")
         if obj_path != "storage_location":
-            raise fdp_exc.RegistryAPICallError("Invalid object type")
+            raise fdp_exc.RegistryError("Invalid object type")
         if "path" not in params:
-            raise fdp_exc.RegistryAPICallError("Invalid call")
+            raise fdp_exc.RegistryError("Invalid call")
         return [_url]
 
     mocker.patch(

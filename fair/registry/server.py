@@ -355,7 +355,7 @@ def install_registry(
         venv.create(
             venv_dir,
             with_pip=True,
-            prompt="TestRegistry",
+            prompt="RegistryTest",
         )
 
     _python_exe = "python.exe" if platform.system() == "Windows" else "python"
@@ -447,7 +447,7 @@ def update_registry_post_setup(repo_dir: str, global_setup: bool = False) -> Non
             fdp_conf.get_local_uri(), "users", params={"username": "admin"}
         )[0]["url"]
     except (KeyError, IndexError):
-        raise fdp_exc.RegistryAPICallError(
+        raise fdp_exc.RegistryError(
             "Failed to retrieve 'admin' user from registry database"
         )
 

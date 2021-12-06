@@ -285,7 +285,8 @@ def get_remote_token(repo_dir: str, remote: str = "origin") -> str:
 
     if not os.path.exists(_token_file):
         raise fdp_exc.FileNotFoundError(
-            f"Cannot read token for registry '{remote}', no such token file"
+            f"Cannot read token for registry '{remote}', token file '{_token_file}'"
+            " does not exist"
         )
 
     _token = open(_token_file).read().strip()
@@ -663,14 +664,15 @@ def global_config_query(registry: str = None) -> typing.Dict[str, typing.Any]:
         "Remote Data Storage Root", default=_remote_url.replace("api", "data")
     )
 
-    _default_token = os.path.join(registry, "remote-token")
-    _rem_key_file = click.prompt("Remote API Token File", default=_default_token)
+    _rem_key_file = click.prompt(
+        "Remote API Token File",
+    )
     _rem_key_file = os.path.expandvars(_rem_key_file)
 
-    # TODO fix search for valid token
-    while False and (
-        not os.path.exists(_rem_key_file) or not open(_rem_key_file).read().strip()
-    ):
+    while (
+        not os.path.exists(_rem_key_file)
+        or not open(_rem_key_file).read().strip()
+        ):
         click.echo(
             f"Token file '{_rem_key_file}' does not exist or is empty, "
             "please provide a valid token file."
@@ -829,11 +831,9 @@ def local_config_query(
         _def_rem_key = click.prompt("Remote API Token File", default=_def_rem_key)
         _def_rem_key = os.path.expandvars(_def_rem_key)
 
-        # TODO fix search for valid token
         while (
-            False
-            # not os.path.exists(_def_rem_key)
-            # or not open(_def_rem_key).read().strip()
+            not os.path.exists(_def_rem_key)
+            or not open(_def_rem_key).read().strip()
         ):
             click.echo(
                 f"Token file '{_def_rem_key}' does not exist or is empty, "
@@ -864,7 +864,8 @@ def local_config_query(
     # Local registry is a globally defined entity
     del _local_config["registries"]["local"]
 
-    _local_config["registries"]["origin"]["uri"] = _def_remote
+    _local_config['registries']['origin']['uri'] =  _def_remote
+    _local_config['registries']['origin']['token'] = _def_rem_key
 
     _local_config["user"] = _def_user
 

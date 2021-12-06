@@ -13,6 +13,7 @@ import fair.common as fdp_com
 def create_configurations(
     registry_dir: str,
     local_git_dir: str = None,
+    remote_reg_dir: str = None,
     testing_dir: str = tempfile.mkdtemp(),
     tokenless: bool = False,
 ) -> typing.Dict:
@@ -38,6 +39,11 @@ def create_configurations(
     """
     if not registry_dir:
         registry_dir = fdp_com.DEFAULT_REGISTRY_LOCATION
+    if not remote_reg_dir:
+        remote_reg_dir = os.path.join(
+            os.path.dirname(fdp_com.DEFAULT_REGISTRY_LOCATION),
+            'registry-rem'
+        )
 
     _loc_data_store = os.path.join(testing_dir, "data_store") + os.path.sep
     _proj_dir = os.path.join(testing_dir, "project")
@@ -53,9 +59,6 @@ def create_configurations(
     os.makedirs(_loc_data_store, exist_ok=True)
     _local_uri = "http://127.0.0.1:8000/api/"
     _origin_uri = "http://127.0.0.1:8001/api/"
-    if platform.system() == "Windows":
-        _local_uri = "http://127.0.0.1:8000/api/"
-        _origin_uri = "http://127.0.0.1:8001/api/"
     return {
         "namespaces": {"input": "testing", "output": "testing"},
         "registries": {
@@ -65,8 +68,8 @@ def create_configurations(
                 "uri": _local_uri,
             },
             "origin": {
-                "data_store": None,
-                "token": os.path.join(registry_dir, "token.txt"),
+                "data_store": os.path.join(remote_reg_dir, "data"),
+                "token": os.path.join(remote_reg_dir, "token"),
                 "uri": _origin_uri,
             },
         },

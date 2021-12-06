@@ -38,9 +38,13 @@ import typing
 import uuid
 
 import click
+import re
+import rich
 import git
 import rich
 import yaml
+from rich.console import Console
+from rich.table import Table
 
 import fair.common as fdp_com
 import fair.configuration as fdp_conf
@@ -161,15 +165,12 @@ class FAIR:
         self._setup_server(server_port)
 
     def push(self, remote: str = "origin"):
-        self._logger.debug(
-            f"Pushing items in '{self._session_config}:write' to remote"
-            f" registry '{remote}'"
-        )
-        fdp_sync.push_from_config(
+        _staged_data_products = self._stager.get_item_list(True, "data_product")
+        fdp_sync.push_data_products(
             fdp_conf.get_local_uri(),
             fdp_conf.get_remote_uri(self._session_loc, remote),
             fdp_conf.get_remote_token(self._session_loc, remote),
-            self._session_config,
+            _staged_data_products
         )
 
     def purge(
@@ -203,7 +204,7 @@ class FAIR:
             try:
                 if fdp_serv.check_server_running():
                     fdp_serv.stop_server()
-            except fdp_exc.CLIConfigurationError:
+            except (fdp_exc.FileNotFoundError, fdp_exc.CLIConfigurationError):
                 click.echo(
                     "Warning: Unable to check if server is running, "
                     "you may need to manually terminate the Django process"
@@ -212,7 +213,7 @@ class FAIR:
                 click.echo(f"Removing directory '{fdp_com.USER_FAIR_DIR}'")
             shutil.rmtree(fdp_com.USER_FAIR_DIR)
             return
-        if clear_data:
+        if (clear_data or clear_all):
             try:
                 if verbose and os.path.exists(fdp_com.default_data_dir()):
                     click.echo(f"Removing directory '{fdp_com.default_data_dir()}'")
@@ -223,8 +224,8 @@ class FAIR:
                     "Cannot remove local data store, a global CLI configuration "
                     "is required to identify its location"
                 )
-        if global_cfg:
-            if verbose and os.path.exists(fdp_com.global_config_dir()):
+        if (global_cfg or clear_all):
+            if verbose:
                 click.echo(f"Removing directory '{fdp_com.global_config_dir()}'")
             _global_dirs = fdp_com.global_config_dir()
             if os.path.exists(_global_dirs):
@@ -232,8 +233,6 @@ class FAIR:
 
     def _setup_server(self, port: int) -> None:
         """Start or stop the server if required"""
-
-
         self._logger.debug(f"Running server setup for run mode {self._run_mode}")
         if self._run_mode == fdp_serv.SwitchMode.CLI:
             self._setup_server_cli_mode(port)
@@ -435,7 +434,9 @@ class FAIR:
         if os.path.exists(fdp_com.local_fdpconfig(self._session_loc)):
             self._local_config = fdp_conf.read_local_fdpconfig(self._session_loc)
 
-    def change_staging_state(self, job_to_stage: str, stage: bool = True) -> None:
+    def change_staging_state(
+        self, identifier: str, type_to_stage: str = "data_product", stage: bool = True
+    ) -> None:
         """Change the staging status of a given run
 
         Parameters
@@ -446,7 +447,10 @@ class FAIR:
             whether to stage/unstage run, by default True (staged)
         """
         self.check_is_repo()
-        self._stager.change_job_stage_status(job_to_stage, stage)
+        if type_to_stage == "data_product":
+            self._stager.change_data_product_stage_status(identifier, stage)
+        else:
+            self._stager.change_job_stage_status(identifier, stage)
 
     def remove_job(self, job_id: str, cached: bool = False) -> None:
         """Remove a job from tracking
@@ -523,9 +527,62 @@ class FAIR:
         rich.print("\n".join(_remote_print))
         return _remote_print
 
-    def status(self, verbose: bool = False) -> None:
-        """Get the status of staging"""
-        self._logger.debug("Updating staging status")
+    def status_data_products(self) -> None:
+        """Get the stageing status of DataProducts"""
+        self._logger.debug("Getting DataProducts staging status")
+        self.check_is_repo()
+
+        self._stager.update_data_product_staging()  # TODO: Move to pull and run methods, here for development
+        _staged_data_products = self._stager.get_item_list(True, "data_product")
+        _unstaged_data_products = self._stager.get_item_list(False, "data_product")
+
+        if _staged_data_products:
+            self.show_data_products(
+                _staged_data_products,
+                "Changes to be synchronized",
+            )
+
+        if _unstaged_data_products:
+            self.show_data_products(
+                _unstaged_data_products,
+                "Data products not staged for synchronization:",
+                style="red",
+            )
+            click.echo(
+                rich.print('(use "fair add <DataProduct>..." to stage DataProducts)')
+            )
+
+        if not _unstaged_data_products and not _staged_data_products:
+            click.echo("No DataProducts marked for tracking.")
+
+    def show_data_products(
+        self, data_products: typing.List[str], title: str, style="green"
+    ) -> None:
+        console = Console()
+        table = Table(
+            title=title,
+            title_style="bold",
+            title_justify="left",
+            box=rich.box.SIMPLE,
+        )
+        table.add_column("Namespace", style=style, no_wrap=True)
+        table.add_column("Name", style=style, no_wrap=True)
+        table.add_column("Version", style=style, no_wrap=True)
+        for i, data_product in enumerate(data_products):
+            namespace, name, version = re.split("[:@]", data_product)
+            table.add_row(namespace, name, version)
+            if i == 9 and i != len(data_products) - 1:
+                table.add_row(
+                    f"+ {len(data_products) - i - 1} more...",
+                    "",
+                    "",
+                )
+                break
+        click.echo(console.print(table))
+
+    def status_jobs(self, verbose: bool = False) -> None:
+        """Get the staging status of jobs"""
+        self._logger.debug("Getting job staging status")
         self.check_is_repo()
 
         _staged_jobs = self._stager.get_item_list(True, "job")
@@ -576,7 +633,7 @@ class FAIR:
                         click.echo(click.style(f"\t\t\t\t{value}", fg="red"))
 
         if not _unstaged_jobs and not _staged_jobs:
-            click.echo("Nothing marked for tracking.")
+            click.echo("No jobs marked for tracking.")
 
     def make_starter_config(self, output_file_name: str = None) -> None:
         """Create a starter config.yaml"""
@@ -705,10 +762,12 @@ class FAIR:
             )
             os.remove(_cache_addr)
 
-        with open(fdp_com.global_fdpconfig(), "w") as f:
-            yaml.dump(self._global_config, f)
-        with open(fdp_com.local_fdpconfig(self._session_loc), "w") as f:
-            yaml.dump(self._local_config, f)
+        if os.path.exists(fdp_com.global_config_dir()):
+            with open(fdp_com.global_fdpconfig(), "w") as f:
+                yaml.dump(self._global_config, f)
+        if os.path.exists(os.path.dirname(fdp_com.local_fdpconfig())):
+            with open(fdp_com.local_fdpconfig(self._session_loc), "w") as f:
+                yaml.dump(self._local_config, f)
 
     def _validate_and_load_cli_config(self, cli_config: typing.Dict):
         _exp_keys = ["registries", "namespaces", "user", "git"]

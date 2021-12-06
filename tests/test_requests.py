@@ -39,7 +39,7 @@ def test_local_token(mocker: pytest_mock.MockerFixture):
 
 @pytest.mark.requests
 @pytest.mark.dependency(name="post")
-def test_post(local_registry: conf.TestRegistry, mocker: pytest_mock.MockerFixture):
+def test_post(local_registry: conf.RegistryTest, mocker: pytest_mock.MockerFixture):
     mocker.patch("fair.common.registry_home", lambda: local_registry._install)
     _name = "Joseph Bloggs"
     _orcid = "https://orcid.org/0000-0000-0000-0000"
@@ -52,7 +52,7 @@ def test_post(local_registry: conf.TestRegistry, mocker: pytest_mock.MockerFixtu
 
 @pytest.mark.requests
 @pytest.mark.dependency(name="get", depends=["post"])
-def test_get(local_registry: conf.TestRegistry, mocker: pytest_mock.MockerFixture):
+def test_get(local_registry: conf.RegistryTest, mocker: pytest_mock.MockerFixture):
     mocker.patch("fair.common.registry_home", lambda: local_registry._install)
     with local_registry:
         assert fdp_req.get(LOCAL_URL, "author")
@@ -60,7 +60,7 @@ def test_get(local_registry: conf.TestRegistry, mocker: pytest_mock.MockerFixtur
 
 @pytest.mark.requests
 def test_post_else_get(
-    local_registry: conf.TestRegistry, mocker: pytest_mock.MockerFixture
+    local_registry: conf.RegistryTest, mocker: pytest_mock.MockerFixture
 ):
     mocker.patch("fair.common.registry_home", lambda: local_registry._install)
     with local_registry:
@@ -98,7 +98,7 @@ def test_post_else_get(
 
 @pytest.mark.requests
 def test_filter_variables(
-    local_registry: conf.TestRegistry, mocker: pytest_mock.MockerFixture
+    local_registry: conf.RegistryTest, mocker: pytest_mock.MockerFixture
 ):
     mocker.patch("fair.common.registry_home", lambda: local_registry._install)
     with local_registry:
@@ -107,7 +107,7 @@ def test_filter_variables(
 
 @pytest.mark.requests
 def test_writable_fields(
-    local_registry: conf.TestRegistry, mocker: pytest_mock.MockerFixture
+    local_registry: conf.RegistryTest, mocker: pytest_mock.MockerFixture
 ):
     mocker.patch("fair.common.registry_home", lambda: local_registry._install)
     with local_registry:
@@ -117,7 +117,7 @@ def test_writable_fields(
 
 
 @pytest.mark.requests
-def test_download(local_registry: conf.TestRegistry, mocker: pytest_mock.MockerFixture):
+def test_download(local_registry: conf.RegistryTest, mocker: pytest_mock.MockerFixture):
     mocker.patch("fair.common.registry_home", lambda: local_registry._install)
     with local_registry:
         _example_file = "https://data.scrc.uk/static/localregistry.sh"
@@ -127,7 +127,7 @@ def test_download(local_registry: conf.TestRegistry, mocker: pytest_mock.MockerF
 
 @pytest.mark.requests
 def test_dependency_list(
-    local_registry: conf.TestRegistry, mocker: pytest_mock.MockerFixture
+    local_registry: conf.RegistryTest, mocker: pytest_mock.MockerFixture
 ):
     mocker.patch("fair.common.registry_home", lambda: local_registry._install)
     with local_registry:
@@ -137,7 +137,7 @@ def test_dependency_list(
 
 @pytest.mark.requests
 def test_object_type_fetch(
-    local_registry: conf.TestRegistry, mocker: pytest_mock.MockerFixture
+    local_registry: conf.RegistryTest, mocker: pytest_mock.MockerFixture
 ):
     mocker.patch("fair.common.registry_home", lambda: local_registry._install)
     with local_registry:

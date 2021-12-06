@@ -90,7 +90,7 @@ def _access(
     uri: str,
     method: str,
     obj_path: str = None,
-    response_code: int = 200,
+    response_codes: typing.List[int] = [201, 200],
     token: str = None,
     headers: typing.Dict[str, typing.Any] = None,
     params: typing.Dict = None,
@@ -125,10 +125,12 @@ def _access(
 
     try:
         if method == "get":
+            logger.debug("Query parameters: %s", params)
             _request = requests.get(
                 _url, headers=_headers, params=params, *args, **kwargs
             )
         elif method == "post":
+            logger.debug("Post data: %s", data)
             _request = requests.post(_url, headers=_headers, data=data, *args, **kwargs)
         else:
             _request = getattr(requests, method)(
@@ -177,7 +179,7 @@ def _access(
             error_code=_request.status_code,
         )
 
-    if _request.status_code != response_code:
+    if _request.status_code not in response_codes:
         _info = ""
         if isinstance(_result, dict) and "detail" in _result:
             _info = _result["detail"]
@@ -228,7 +230,6 @@ def post(
         uri,
         "post",
         obj_path,
-        201,
         headers=headers,
         data=json.dumps(data, cls=fdp_util.JSONDateTimeEncoder),
         token=token,
@@ -350,7 +351,12 @@ def get(
         return _output
 
     return _access(
-        uri, "get", obj_path, 200, headers=headers, params=params, token=token
+        uri,
+        "get",
+        obj_path,
+        headers=headers,
+        params=params,
+        token=token
     )
 
 
@@ -388,19 +394,21 @@ def post_else_get(
         token = local_token()
 
     try:
+        logger.debug("Attempting to post an instance of '%s' to '%s'", obj_path, uri)
         _loc = post(uri, obj_path, data=data, token=token)
     except fdp_exc.RegistryAPICallError as e:
         # If the item is already in the registry then ignore the
         # conflict error and continue, else raise exception
         if e.error_code == 409:
-            _loc = get(uri, obj_path, params=params)
+            logger.debug("Object already exists, retrieving entry")
+            _loc = get(uri, obj_path, params=params, token=token)
         else:
             raise e
 
     if isinstance(_loc, list):
         if not _loc:
-            raise fdp_exc.RegistryAPICallError(
-                "Expected to receieve a URL location from registry post"
+            raise fdp_exc.RegistryError(
+                "Expected to receive a URL location from registry post"
             )
         _loc = _loc[0]
     if isinstance(_loc, dict):
@@ -428,7 +436,7 @@ def filter_object_dependencies(
         list of object type paths
     """
     try:
-        _actions = _access(uri, "options", obj_path, 200)["actions"]["POST"]
+        _actions = _access(uri, 'options', obj_path)['actions']['POST']
     except KeyError:
         # No 'actions' key means no dependencies
         return []
@@ -463,7 +471,7 @@ def get_filter_variables(uri: str, obj_path: str) -> typing.List[str]:
         list of filterable fields
     """
     try:
-        _filters = _access(uri, "options", obj_path, 200)["filter_fields"]
+        _filters = _access(uri, 'options', obj_path)['filter_fields']
     except KeyError:
         # No 'filter_fields' key means no filters
         return []

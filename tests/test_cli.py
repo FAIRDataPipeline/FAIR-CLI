@@ -43,7 +43,7 @@ def click_test():
 @pytest.mark.cli
 def test_status(
     local_config: typing.Tuple[str, str],
-    local_registry: conf.TestRegistry,
+    local_registry: conf.RegistryTest,
     click_test: click.testing.CliRunner,
     mocker: pytest_mock.MockerFixture,
 ):
@@ -51,13 +51,15 @@ def test_status(
         os.path.join(local_config[0], fdp_com.FAIR_FOLDER, "sessions"), exist_ok=True
     )
     os.makedirs(os.path.join(os.getcwd(), fdp_com.FAIR_FOLDER), exist_ok=True)
-    os.makedirs(os.path.join(os.getcwd(), "jobs"))
-    with open(
-        os.path.join(local_config[1], fdp_com.FAIR_FOLDER, "staging"), "w"
-    ) as staged:
-        yaml.dump({"job": {}}, staged)
-    mocker.patch("fair.run.get_job_dir", lambda x: os.path.join(os.getcwd(), "jobs", x))
-    _dummy_config = {"run_metadata": {"script": 'echo "Hello World!"'}}
+    os.makedirs(os.path.join(os.getcwd(), 'jobs'))
+    with open(os.path.join(local_config[1], fdp_com.FAIR_FOLDER, 'staging'), 'w') as staged:
+            yaml.dump({'job': {}, 'data_product': {}}, staged)
+    mocker.patch('fair.run.get_job_dir', lambda x: os.path.join(os.getcwd(), 'jobs', x))
+    _dummy_config = {
+        'run_metadata': {
+            'script': 'echo "Hello World!"'
+        }
+    }
     _dummy_job_staging = {
         "job": {
             str(uuid.uuid4()): True,
@@ -66,37 +68,29 @@ def test_status(
             str(uuid.uuid4()): False,
             str(uuid.uuid4()): False,
         },
-        "file": {},
+        'file': {},
+        'data_product': {},
     }
 
-    _urls_list = {i: "http://dummyurl.com" for i in _dummy_job_staging["job"]}
-    mocker.patch.object(fair.staging.Stager, "get_job_data", lambda *args: _urls_list)
+    _urls_list = {i: 'http://dummyurl.com' for i in _dummy_job_staging['job']}
+    mocker.patch.object(fair.staging.Stager, 'get_job_data', lambda *args: _urls_list)
 
-    mocker.patch("fair.registry.requests.local_token", lambda: str(uuid.uuid4()))
-    mocker.patch("fair.registry.server.stop_server", lambda *args: None)
-    for identifier in _dummy_job_staging["job"]:
-        os.makedirs(os.path.join(os.getcwd(), "jobs", identifier))
-        yaml.dump(
-            _dummy_config,
-            open(
-                os.path.join(os.getcwd(), "jobs", identifier, fdp_com.USER_CONFIG_FILE),
-                "w",
-            ),
-        )
-    yaml.dump(
-        _dummy_job_staging,
-        open(os.path.join(os.getcwd(), fdp_com.FAIR_FOLDER, "staging"), "w"),
-    )
+    mocker.patch('fair.registry.server.stop_server', lambda *args: None)
+    for identifier in _dummy_job_staging['job']:
+        os.makedirs(os.path.join(os.getcwd(), 'jobs', identifier))
+        yaml.dump(_dummy_config, open(os.path.join(os.getcwd(), 'jobs', identifier, fdp_com.USER_CONFIG_FILE), 'w'))
+    yaml.dump(_dummy_job_staging, open(os.path.join(os.getcwd(), fdp_com.FAIR_FOLDER, "staging"), 'w'))
     with local_registry:
-        mocker.patch("fair.common.registry_home", lambda: local_registry._install)
-        _result = click_test.invoke(cli, ["status", "--debug", "--verbose"])
+        mocker.patch('fair.common.registry_home', lambda: local_registry._install)
+        mocker.patch('fair.registry.requests.local_token', lambda: local_registry._token)
+        _result = click_test.invoke(cli, ['status', '--debug', '--verbose'])
 
         assert _result.exit_code == 0
 
 
 @pytest.mark.cli
 def test_create(
-    local_registry: conf.TestRegistry,
+    local_registry: conf.RegistryTest,
     click_test: click.testing.CliRunner,
     local_config: typing.Tuple[str, str],
     mocker: pytest_mock.MockerFixture,
@@ -116,7 +110,7 @@ def test_create(
 
 @pytest.mark.cli
 def test_init_from_existing(
-    local_registry: conf.TestRegistry,
+    local_registry: conf.RegistryTest,
     click_test: click.testing.CliRunner,
     mocker: pytest_mock.MockerFixture,
 ):
@@ -160,7 +154,7 @@ def test_init_from_existing(
 
 @pytest.mark.cli
 def test_init_full(
-    local_registry: conf.TestRegistry,
+    local_registry: conf.RegistryTest,
     click_test: click.testing.CliRunner,
     mocker: pytest_mock.MockerFixture,
 ):
@@ -168,6 +162,8 @@ def test_init_full(
     mocker.patch("fair.registry.server.update_registry_post_setup", lambda *args: None)
     with local_registry:
         with tempfile.TemporaryDirectory() as tempd:
+            with open(os.path.join(tempd, "token"), "w") as tok_f:
+                tok_f.write("hjasdi324ji7823jdsf78234")
             mocker.patch("fair.common.USER_FAIR_DIR", tempd)
             _dummy_name = "Joseph Bloggs"
             _dummy_email = "jbloggs@nowhere.com"
@@ -175,7 +171,7 @@ def test_init_full(
                 "8007",
                 "",
                 "",
-                "",
+                os.path.join(tempd, "token"),
                 "",
                 "",
                 _dummy_email,
@@ -187,7 +183,7 @@ def test_init_full(
                 "",
             ]
 
-            res = click_test.invoke(
+            click_test.invoke(
                 cli, ["init", "--debug", "--registry", local_registry._install], input="\n".join(_args)
             )
 
@@ -284,7 +280,7 @@ def test_registry_cli(
 
 def test_run(
     local_config: typing.Tuple[str, str],
-    local_registry: conf.TestRegistry,
+    local_registry: conf.RegistryTest,
     click_test: click.testing.CliRunner,
     mocker: pytest_mock.MockerFixture,
 ):

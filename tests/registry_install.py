@@ -112,7 +112,7 @@ def install_registry(
         venv.create(
             venv_dir,
             with_pip=True,
-            prompt="TestRegistry",
+            prompt="RegistryTest",
         )
 
     _venv_python = shutil.which("python", path=os.path.join(venv_dir, "bin"))

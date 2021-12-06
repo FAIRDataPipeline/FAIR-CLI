@@ -19,7 +19,7 @@ LOCAL_REGISTRY_URL = "http://127.0.0.1:8000/api"
 @pytest.mark.dependency(name="store_author")
 def test_store_user(
     local_config: typing.Tuple[str, str],
-    local_registry: conf.TestRegistry,
+    local_registry: conf.RegistryTest,
     mocker: pytest_mock.MockerFixture,
 ):
     mocker.patch("fair.common.registry_home", lambda: local_registry._install)
@@ -30,7 +30,7 @@ def test_store_user(
 @pytest.mark.storage
 def test_populate_file_type(
     local_config: typing.Tuple[str, str],
-    local_registry: conf.TestRegistry,
+    local_registry: conf.RegistryTest,
     mocker: pytest_mock.MockerFixture,
 ):
     mocker.patch("fair.common.registry_home", lambda: local_registry._install)
@@ -41,7 +41,7 @@ def test_populate_file_type(
 @pytest.mark.storage
 def test_store_working_config(
     local_config: typing.Tuple[str, str],
-    local_registry: conf.TestRegistry,
+    local_registry: conf.RegistryTest,
     mocker: pytest_mock.MockerFixture,
 ):
     mocker.patch("fair.common.registry_home", lambda: local_registry._install)
@@ -57,7 +57,7 @@ def test_store_working_config(
 @pytest.mark.storage
 def test_store_working_script(
     local_config: typing.Tuple[str, str],
-    local_registry: conf.TestRegistry,
+    local_registry: conf.RegistryTest,
     mocker: pytest_mock.MockerFixture,
 ):
     mocker.patch("fair.common.registry_home", lambda: local_registry._install)
@@ -76,7 +76,7 @@ def test_store_working_script(
 
 @pytest.mark.storage
 def test_store_namespace(
-    local_registry: conf.TestRegistry, mocker: pytest_mock.MockerFixture
+    local_registry: conf.RegistryTest, mocker: pytest_mock.MockerFixture
 ):
     mocker.patch("fair.common.registry_home", lambda: local_registry._install)
     with local_registry:
