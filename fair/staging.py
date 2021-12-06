@@ -93,9 +93,6 @@ class Stager:
             "Setting %s '%s' status to staged=%s", item_type, identifier, stage
         )
 
-        if item_type == "job" and identifier[0] != "#":
-            identifier = f"#{identifier}"
-
         if not os.path.exists(self._staging_file):
             raise fdp_exc.FileNotFoundError(
                 "Failed to update tracking, expected staging file"
@@ -322,13 +319,13 @@ class Stager:
                 f"Cannot remove staging item of unrecognised type '{stage_type}'"
             )
 
-        if f"#{identifier}" not in _staging_dict[stage_type]:
+        if identifier not in _staging_dict[stage_type]:
             raise fdp_exc.StagingError(
                 f"Cannot remove item '{identifier}' of stage type '{stage_type}', "
                 "item is not in staging."
             )
 
-        del _staging_dict[stage_type][f'#{identifier}']
+        del _staging_dict[stage_type][identifier]
 
         with open(self._staging_file, "w") as f:
             yaml.dump(_staging_dict, f)
