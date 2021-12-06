@@ -125,10 +125,12 @@ def _access(
 
     try:
         if method == "get":
+            logger.debug("Query parameters: %s", params)
             _request = requests.get(
                 _url, headers=_headers, params=params, *args, **kwargs
             )
         elif method == "post":
+            logger.debug("Post data: %s", data)
             _request = requests.post(_url, headers=_headers, data=data, *args, **kwargs)
         else:
             _request = getattr(requests, method)(
@@ -392,11 +394,13 @@ def post_else_get(
         token = local_token()
 
     try:
+        logger.debug("Attempting to post an instance of '%s' to '%s'", obj_path, uri)
         _loc = post(uri, obj_path, data=data, token=token)
     except fdp_exc.RegistryAPICallError as e:
         # If the item is already in the registry then ignore the
         # conflict error and continue, else raise exception
         if e.error_code == 409:
+            logger.debug("Object already exists, retrieving entry")
             _loc = get(uri, obj_path, params=params, token=token)
         else:
             raise e

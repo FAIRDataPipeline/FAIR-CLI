@@ -44,3 +44,14 @@ def test_json_datetime_encoder():
 def test_trailing_slash(test_input, expected):
     result = fdp_util.check_trailing_slash(test_input)
     assert result == expected
+
+
+@pytest.mark.utilities
+def test_api_url_check():
+    _test_url = "http://127.0.0.1:8000/api/test-url"
+    _not_url = "notaurl"
+    _wrong_endpoint = "http://127.0.0.1:8001/api/"
+    _test_endpoint = "http://127.0.0.1:8000"
+    assert fdp_util.is_api_url(_test_endpoint, _test_url)
+    assert not fdp_util.is_api_url(_test_endpoint, _not_url)
+    assert not fdp_util.is_api_url(_test_endpoint, _wrong_endpoint)

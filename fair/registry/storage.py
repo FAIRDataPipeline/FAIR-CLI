@@ -548,7 +548,7 @@ def get_storage_root_obj_address(
         if not _results:
             raise AssertionError
     except (AssertionError, fdp_exc.RegistryAPICallError):
-        raise fdp_exc.RegistryAPICallError(
+        raise fdp_exc.RegistryError(
             f"Cannot find a match for path '{address_str}' "
             f"from endpoint '{remote_uri}."
         )

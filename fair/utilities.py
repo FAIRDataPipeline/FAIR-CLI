@@ -29,7 +29,13 @@ __date__ = "2021-08-04"
 
 import datetime
 import json
+import logging
 import typing
+import validators
+import urllib.parse
+
+
+logger = logging.getLogger("FAIRDataPipeline.Utilities")
 
 
 def flatten_dict(
@@ -165,3 +171,32 @@ def check_trailing_slash(string: str):
     if string[-1] != "/":
         string += "/"
     return string
+
+
+def is_api_url(uri: str, string: str) -> bool:
+    """Checks if given string is a valid API URL
+
+    Parameters
+    ----------
+    uri : str
+        the URI of the API to check against
+    string : str
+        URL candidate to check
+
+    Returns
+    -------
+    bool
+        if a valid URL for the given API endpoint
+    """
+    if not validators.url(string):
+        return False
+    _url = urllib.parse.urlparse(string)
+    _uri = urllib.parse.urlparse(uri)
+
+    logger.debug(
+        "Checking if '%s' is a valid API URL against net location '%s'",
+        string,
+        _uri.netloc
+    )
+
+    return _url.netloc == _uri.netloc
