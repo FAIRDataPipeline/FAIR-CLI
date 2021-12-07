@@ -14,6 +14,7 @@ import os
 import pathlib
 import sys
 import typing
+import glob
 
 import click
 import click.shell_completion
@@ -51,7 +52,7 @@ def complete_yamls(ctx, param, incomplete):
     ]
 
 
-def complete_jobs_data_products(ctx, param, incomplete) -> typing.List[str]:
+def complete_data_products(ctx, param, incomplete) -> typing.List[str]:
     _staging_file = fdp_com.staging_cache(os.getcwd())
     if not os.path.exists(_staging_file):
         return []
@@ -61,6 +62,20 @@ def complete_jobs_data_products(ctx, param, incomplete) -> typing.List[str]:
         click.shell_completion.CompletionItem(c)
         for c in _candidates 
         if c.startswith(incomplete)
+    ]
+
+
+def complete_jobs(ctx, param, incomplete) -> typing.List[str]:
+    _log_dir = fdp_hist.history_directory(os.getcwd())
+    _job_dir = fdp_com.default_jobs_dir()
+    if not os.path.isdir(_log_dir) or not os.path.isdir(_job_dir):
+        return []
+    _job_dirs = glob.glob(os.path.join(_job_dir, "*"))
+    _jobs = [fdp_run.get_job_hash(jd) for jd in _job_dirs]
+    return [
+        click.shell_completion.CompletionItem(j)
+        for j in _jobs
+        if j.startswith(incomplete)
     ]
 
 
@@ -310,7 +325,7 @@ def log(debug: bool) -> None:
 
 @cli.command()
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
-@click.argument("job_id")
+@click.argument("job_id", shell_complete=complete_jobs)
 def view(job_id: str, debug: bool) -> None:
     """View log for a given job"""
     try:
@@ -348,7 +363,7 @@ def unstage(identifier: str, debug: bool, job: bool) -> None:
 
 
 @cli.command()
-@click.argument("identifier", shell_complete=complete_jobs_data_products)
+@click.argument("identifier", shell_complete=complete_data_products)
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
 def add(identifier: str, debug: bool) -> None:
     """Add a data product to staging"""

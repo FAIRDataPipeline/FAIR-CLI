@@ -35,6 +35,7 @@ import os
 import pathlib
 import shutil
 import typing
+import datetime
 import uuid
 
 import click
@@ -56,6 +57,7 @@ import fair.run as fdp_run
 import fair.staging as fdp_stage
 import fair.templates as fdp_tpl
 import fair.testing as fdp_test
+import fair.logging as fdp_log
 
 
 class FAIR:
@@ -165,13 +167,19 @@ class FAIR:
         self._setup_server(server_port)
 
     def push(self, remote: str = "origin"):
-        _staged_data_products = self._stager.get_item_list(True, "data_product")
-        fdp_sync.push_data_products(
-            fdp_conf.get_local_uri(),
-            fdp_conf.get_remote_uri(self._session_loc, remote),
-            fdp_conf.get_remote_token(self._session_loc, remote),
-            _staged_data_products,
-        )
+        _logs_dir = fdp_hist.history_directory(self._session_loc)
+        _now = datetime.datetime.now()
+        with fdp_log.JobLogger(_now, _logs_dir, 'fair push', self._session_loc) as out_log:
+            _staged_data_products = self._stager.get_item_list(True, "data_product")
+            for data_product in _staged_data_products:
+                out_log.append(f"Pushing '{data_product}'")
+            fdp_sync.push_data_products(
+                fdp_conf.get_local_uri(),
+                fdp_conf.get_remote_uri(self._session_loc, remote),
+                fdp_conf.get_remote_token(self._session_loc, remote),
+                _staged_data_products,
+            )
+            out_log.append("Push successful")
 
     def purge(
         self,

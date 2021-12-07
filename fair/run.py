@@ -29,6 +29,7 @@ import fair.configuration as fdp_conf
 import fair.exceptions as fdp_exc
 import fair.history as fdp_hist
 import fair.user_config as fdp_user
+import fair.logging as fdp_log
 from fair.common import CMD_MODE
 
 logger = logging.getLogger("FAIRDataPipeline.Run")
@@ -87,16 +88,10 @@ def run_command(
     logger.debug("Using user configuration file: %s", config_yaml)
     click.echo(f"Updating registry from {config_yaml}", err=True)
 
-    # Record the time the job was commenced, create a log and both
-    # print output and write it to the log file
-    _now = datetime.datetime.now()
-    _timestamp = _now.strftime("%Y-%m-%d_%H_%M_%S_%f")
     _logs_dir = fdp_hist.history_directory(repo_dir)
 
     if not os.path.exists(_logs_dir):
         os.mkdir(_logs_dir)
-
-    _log_file = os.path.join(_logs_dir, f"job_{_timestamp}.log")
 
     # Check that the specified user config file for a job actually exists
     if not os.path.exists(config_yaml):
@@ -113,6 +108,9 @@ def run_command(
 
     if bash_cmd:
         _job_cfg.set_command(bash_cmd)
+
+    _now = datetime.datetime.now()
+    _timestamp = _now.strftime("%Y-%m-%d_%H_%M_%S_%f")
 
     _job_dir = os.path.join(fdp_com.default_jobs_dir(), _timestamp)
     logger.debug("Using job directory: %s", _job_dir)
@@ -140,17 +138,8 @@ def run_command(
         # If not a fair run then the log file will have less metadata
         # all commands should produce a log so that the 'fair log' history
         # can be displayed
-        with open(_log_file, "a") as f:
-            _out_str = _now.strftime("%a %b %d %H:%M:%S %Y %Z")
-            f.writelines(
-                [
-                    "--------------------------------\n",
-                    f" Commenced = {_out_str}\n",
-                    f" Author    = {' '.join(_user)} <{_email}>\n",
-                    " Command   = fair pull\n",
-                    "--------------------------------\n",
-                ]
-            )
+        with fdp_log.JobLogger(_now, _logs_dir, "fair pull", repo_dir) as out_log:
+            out_log.write()
 
     _job_cfg.write(_work_cfg_yml)
 
@@ -182,37 +171,14 @@ def run_command(
         # Generate a local job log for the CLI, this is NOT
         # related to metadata sent to the registry
         # this log is viewable via the `fair view <run-cli-sha>`
-        with open(_log_file, "a") as f:
-            _out_str = _now.strftime("%a %b %d %H:%M:%S %Y %Z")
-            _user = _user[0] if not _user[1] else " ".join(_user)
-            f.writelines(
-                [
-                    "--------------------------------\n",
-                    f" Commenced = {_out_str}\n",
-                    f" Author    = {_user} <{_email}>\n",
-                    f" Namespace = {_job_cfg.default_output_namespace}\n",
-                    f" Command   = {' '.join(_cmd_list)}\n",
-                    "--------------------------------\n",
-                ]
-            )
-
-        if mode == CMD_MODE.RUN:
-            execute_run(_cmd_list, _job_cfg, _log_file, _now)
-        else:  # CMD_MODE.PASS
-            _end_time = datetime.datetime.now()
-            with open(_log_file, "a") as f:
-                _duration = _end_time - _now
-                f.writelines(
-                    [
-                        "Operating in ci mode without running script\n",
-                        f"------- time taken {_duration} -------\n",
-                    ]
-                )
+        with fdp_log.JobLogger(_now, _logs_dir, ' '.join(_cmd_list), repo_dir) as out_log:
+            if mode == CMD_MODE.RUN:
+                execute_run(_cmd_list, _job_cfg, out_log)
+            else:  # CMD_MODE.PASS
+                out_log.append("Operating in ci mode without running script\n")
     else:
-        _end_time = datetime.datetime.now()
-        with open(_log_file, "a") as f:
-            _duration = _end_time - _now
-            f.writelines([f"------- time taken {_duration} -------\n"])
+        with fdp_log.JobLogger(_now, _logs_dir, 'Unknown', repo_dir) as out_log:
+            out_log.write()
 
     return get_job_hash(_job_dir)
 
@@ -220,8 +186,7 @@ def run_command(
 def execute_run(
     command: typing.List[str],
     job_config: fdp_user.JobConfiguration,
-    log_file: str,
-    timestamp: datetime.datetime,
+    output_log: fdp_log.JobLogger,
 ) -> None:
     """Execute a run initialised by a CLI run of mode RUN
 
@@ -258,15 +223,10 @@ def execute_run(
 
     # Write any stdout to the job log
     for line in iter(_process.stdout.readline, ""):
-        with open(log_file, "a") as f:
-            f.writelines([line])
+        output_log.append(line)
         click.echo(line, nl=False)
         sys.stdout.flush()
     _process.wait()
-    _end_time = datetime.datetime.now()
-    with open(log_file, "a") as f:
-        _duration = _end_time - timestamp
-        f.writelines([f"------- time taken {_duration} -------\n"])
 
     # Exit the session if the job failed
     if _process.returncode != 0:
