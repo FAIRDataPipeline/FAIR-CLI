@@ -103,6 +103,23 @@ def create(debug, output: str) -> None:
 
 
 @cli.command()
+@click.option("--debug/--no-debug", help="Run in debug mode", default=False)
+def reset(debug: bool) -> None:
+    """Unstage all items marked for staging"""
+    try:
+        with fdp_session.FAIR(
+            os.getcwd(), debug=debug, server_mode=fdp_svr.SwitchMode.CLI
+        ) as fair_session:
+            fair_session.reset_staging()
+    except fdp_exc.FAIRCLIException as e:
+        if debug:
+            raise e
+        e.err_print()
+        if e.level.lower() == "error":
+            sys.exit(e.exit_code)
+
+
+@cli.command()
 @click.option(
     "--config",
     help="Create a starter user config.yaml file during initialisation",

@@ -86,6 +86,14 @@ class Stager:
         }
         yaml.dump(_staging_dict, open(self._staging_file, "w"))
 
+    def reset_staged(self) -> None:
+        """Change staging state of all items to unstaged"""
+        _staging_dict = yaml.safe_load(open(self._staging_file))
+        for obj_type in _staging_dict:
+            for item in _staging_dict[obj_type]:
+                _staging_dict[obj_type][item] = False
+        yaml.dump(_staging_dict, open(self._staging_file, "w"))
+
     def change_stage_status(
         self, identifier: str, item_type: str, stage: bool = True
     ) -> None:
