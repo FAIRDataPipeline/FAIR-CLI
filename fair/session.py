@@ -431,6 +431,10 @@ class FAIR:
         if os.path.exists(fdp_com.local_fdpconfig(self._session_loc)):
             self._local_config = fdp_conf.read_local_fdpconfig(self._session_loc)
 
+    def reset_staging(self) -> None:
+        """Reset all staged items"""
+        self._stager.reset_staged()
+
     def change_staging_state(
         self, identifier: str, type_to_stage: str = "data_product", stage: bool = True
     ) -> None:

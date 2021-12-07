@@ -40,6 +40,11 @@ def test_job_status_change(
     with open(stager._staging_file) as stage_f:
         _dict = yaml.safe_load(stage_f)
         assert _dict["job"][str(_id)]
+    stager.reset_staged()
+
+    with open(stager._staging_file) as stage_f:
+        _dict = yaml.safe_load(stage_f)
+        assert not any(_dict["job"].values())
 
 
 @pytest.mark.staging
