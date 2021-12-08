@@ -484,9 +484,7 @@ def _handle_orcid(user_orcid: str) -> typing.Tuple[typing.Dict, str]:
 
     _user_info["orcid"] = user_orcid
 
-    click.echo(
-        f"Found entry: {_user_info['given_names']} " f"{_user_info['family_name']}"
-    )
+    click.echo(f"Found entry: {_user_info['given_names']} {_user_info['family_name']}")
 
     _def_ospace = "".join(_user_info["given_names"]).lower()
 
@@ -710,6 +708,7 @@ def global_config_query(registry: str = None) -> typing.Dict[str, typing.Any]:
             "uri": _local_uri,
             "directory": os.path.abspath(registry),
             "data_store": _loc_data_store,
+            "token": os.path.join(os.path.abspath(registry), "token"),
         },
         "origin": {
             "uri": _remote_url,
@@ -748,7 +747,7 @@ def local_config_query(
         _def_user = global_config["user"]
     except KeyError:
         click.echo(
-            "Error: Failed to read global configuration," " re-running global setup."
+            "Error: Failed to read global configuration, re-running global setup."
         )
         first_time_setup = True
         global_config = global_config_query()
@@ -816,7 +815,7 @@ def local_config_query(
 
     _git_remote_repo = _repo.remotes[_git_remote].url
 
-    click.echo(f"Using git repository remote '{_git_remote}': " f"{_git_remote_repo}")
+    click.echo(f"Using git repository remote '{_git_remote}': {_git_remote_repo}")
 
     # If this is not the first setup it means globals are available so these
     # can be suggested as defaults during local setup
@@ -835,22 +834,15 @@ def local_config_query(
         _def_ospace = click.prompt("Default output namespace", default=_def_ospace)
         _def_ispace = click.prompt("Default input namespace", default=_def_ispace)
 
-    _local_config: typing.Dict[str, typing.Any] = {}
-
-    _local_config["namespaces"] = {
-        "output": _def_ospace,
-        "input": _def_ispace,
+    _local_config: typing.Dict[str, typing.Any] = {
+        "namespaces": {"output": _def_ospace, "input": _def_ispace},
+        "git": {
+            "remote": _git_remote,
+            "local_repo": _git_repo,
+            "remote_repo": _git_remote_repo,
+        },
+        "registries": copy.deepcopy(global_config["registries"]),
     }
-
-    _local_config["git"] = {
-        "remote": _git_remote,
-        "local_repo": _git_repo,
-        "remote_repo": _git_remote_repo,
-    }
-
-    # Copy the global configuration then substitute updated
-    # configurations
-    _local_config["registries"] = copy.deepcopy(global_config["registries"])
 
     # Local registry is a globally defined entity
     del _local_config["registries"]["local"]

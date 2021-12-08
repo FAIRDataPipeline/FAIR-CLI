@@ -132,10 +132,11 @@ def push_dependency_chain(
         # For the first object there should be no URL values at all.
         for key, value in _writable_data.items():
             # Check if value is URL
-            if not isinstance(value, str):
-                _new_obj_data[key] = value
-                continue
-            elif isinstance(value, str) and not fdp_util.is_api_url(local_uri, value):
+            _not_str = not isinstance(value, str)
+            _not_url = isinstance(value, str) and not fdp_util.is_api_url(
+                local_uri, value
+            )
+            if _not_str or _not_url:
                 _new_obj_data[key] = value
                 continue
             # Store which fields have URLs to use later
@@ -185,7 +186,6 @@ def push_dependency_chain(
 def push_data_products(
     local_uri: str, dest_uri: str, dest_token: str, data_products: typing.List[str]
 ) -> None:
-    _logger = logging.getLogger("FAIRDataPipeline.Sync")
     for data_product in data_products:
         namespace, name, version = re.split("[:@]", data_product)
         query_params = {"namespace": namespace, "name": name, "version": version}

@@ -441,7 +441,7 @@ def store_data_file(
             raise e
         else:
             raise fdp_exc.RegistryAPICallError(
-                f"Cannot post data_product " f"'{_name}', duplicate already exists",
+                f"Cannot post data_product '{_name}', duplicate already exists",
                 error_code=409,
             )
     except KeyError:

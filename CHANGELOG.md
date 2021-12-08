@@ -4,6 +4,9 @@
 - Added initialisation from existing registry.
 - Switch to setting port not local URI during initialisation.
 - Added option to specify port on `fair registry start`.
+- Added `cli-config.yaml` file validation during initialisation.
+- Added `fair reset` to list of commands.
+- Add tab completion for staging data products.
 
 # 2021-11-17 [v0.2.3](https://github.com/FAIRDataPipeline/FAIR-CLI/releases/tag/v0.2.3)
 - Move handling of the user `config.yaml` file to a separate class `JobConfiguration`.

@@ -158,7 +158,7 @@ def _access(
 
     if _request.status_code == 403:
         raise fdp_exc.RegistryAPICallError(
-            f"Failed to run method '{method}' for url {_url}, " f"request forbidden",
+            f"Failed to run method '{method}' for url {_url}, request forbidden",
             error_code=403,
         )
     elif _request.status_code == 409:
@@ -186,7 +186,7 @@ def _access(
         if not _info:
             _info = _result
         raise fdp_exc.RegistryAPICallError(
-            f"Request failed with status code {_request.status_code}:" f" {_info}",
+            f"Request failed with status code {_request.status_code}: {_info}",
             error_code=_request.status_code,
         )
     return _result

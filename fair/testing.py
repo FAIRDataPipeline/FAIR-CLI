@@ -12,8 +12,8 @@ import fair.common as fdp_com
 
 def create_configurations(
     registry_dir: str,
-    local_git_dir: str = None,
-    remote_reg_dir: str = None,
+    local_git_dir: typing.Optional[str] = None,
+    remote_reg_dir: typing.Optional[str] = None,
     testing_dir: str = tempfile.mkdtemp(),
     tokenless: bool = False,
 ) -> typing.Dict:
@@ -64,6 +64,7 @@ def create_configurations(
             "local": {
                 "data_store": _loc_data_store,
                 "directory": registry_dir,
+                "token": os.path.join(registry_dir, "token"),
                 "uri": _local_uri,
             },
             "origin": {
@@ -73,14 +74,14 @@ def create_configurations(
             },
         },
         "user": {
-            "email": "test@noreply",
+            "email": "test@noreply.com",
             "family_name": "Test",
             "given_names": "Interface",
             "orcid": "000-0000-0000-0000",
             "uri": f'{fdp_id.ID_URIS["orcid"]}000-0000-0000-0000',
             "uuid": "2ddb2358-84bf-43ff-b2aa-3ac7dc3b49f1",
         },
-        "git": {"local_repo": local_git_dir, "remote": "origin"},
+        "git": {"local_repo": local_git_dir, "remote": "origin", "remote_repo": "git@notagit.com/user/project.git"},
     }
 
 

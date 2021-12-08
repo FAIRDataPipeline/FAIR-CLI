@@ -1,8 +1,8 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
 """
-Config Validation
-=================
+User Config Validation
+======================
 
 validation of the user configuration 'config.yaml' to a defined schema. Uses
 pydantic to construct base models which form the components of the configuration.

@@ -41,6 +41,7 @@ import click
 import re
 import rich
 import git
+import pydantic
 import rich
 import yaml
 from rich.console import Console
@@ -56,6 +57,7 @@ import fair.run as fdp_run
 import fair.staging as fdp_stage
 import fair.templates as fdp_tpl
 import fair.testing as fdp_test
+import fair.configuration.validation as fdp_clivalid
 
 
 class FAIR:
@@ -213,7 +215,7 @@ class FAIR:
                 click.echo(f"Removing directory '{fdp_com.USER_FAIR_DIR}'")
             shutil.rmtree(fdp_com.USER_FAIR_DIR)
             return
-        if clear_data or clear_all:
+        if clear_data:
             try:
                 if verbose and os.path.exists(fdp_com.default_data_dir()):
                     click.echo(f"Removing directory '{fdp_com.default_data_dir()}'")
@@ -224,7 +226,7 @@ class FAIR:
                     "Cannot remove local data store, a global CLI configuration "
                     "is required to identify its location"
                 )
-        if global_cfg or clear_all:
+        if global_cfg:
             if verbose:
                 click.echo(f"Removing directory '{fdp_com.global_config_dir()}'")
             _global_dirs = fdp_com.global_config_dir()
@@ -745,14 +747,33 @@ class FAIR:
 
         fdp_serv.update_registry_post_setup(self._session_loc, _first_time)
 
+        try:
+            fdp_clivalid.LocalCLIConfig(**self._local_config)
+        except pydantic.ValidationError as e:
+            self._logger.debug(f"Local CLI validator returned: {e.json()}")
+            self._clean_reset(_fair_dir, local_only=True)
+            raise fdp_exc.InternalError(
+                "Initialisation failed, validation of local CLI config file did not pass"
+            )
+
+        try:
+            fdp_clivalid.GlobalCLIConfig(**self._global_config)
+        except pydantic.ValidationError as e:
+            self._logger.debug(f"Global CLI validator returned: {e.json()}")
+            self._clean_reset(_fair_dir, local_only=False)
+            raise fdp_exc.InternalError(
+                "Initialisation failed, validation of global CLI config file did not pass"
+            )
+
         click.echo(f"Initialised empty fair repository in {_fair_dir}")
 
-    def _clean_reset(self, _fair_dir, e, local_only: bool = False):
+    def _clean_reset(self, _fair_dir, e: Exception = None, local_only: bool = False):
         if not local_only:
             shutil.rmtree(fdp_com.session_cache_dir(), ignore_errors=True)
             shutil.rmtree(fdp_com.global_config_dir(), ignore_errors=True)
         shutil.rmtree(_fair_dir)
-        raise e
+        if e:
+            raise e
 
     def close_session(self) -> None:
         """Upon exiting, dump all configurations to file"""
