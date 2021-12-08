@@ -710,6 +710,7 @@ def global_config_query(registry: str = None) -> typing.Dict[str, typing.Any]:
             "uri": _local_uri,
             "directory": os.path.abspath(registry),
             "data_store": _loc_data_store,
+            "token": os.path.join(os.path.abspath(registry), "token")
         },
         "origin": {
             "uri": _remote_url,

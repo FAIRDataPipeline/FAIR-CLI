@@ -64,6 +64,7 @@ def create_configurations(
             "local": {
                 "data_store": _loc_data_store,
                 "directory": registry_dir,
+                "token": os.path.join(registry_dir, "token"),
                 "uri": _local_uri,
             },
             "origin": {
@@ -73,7 +74,7 @@ def create_configurations(
             },
         },
         "user": {
-            "email": "test@noreply",
+            "email": "test@noreply.com",
             "family_name": "Test",
             "given_names": "Interface",
             "orcid": "000-0000-0000-0000",
