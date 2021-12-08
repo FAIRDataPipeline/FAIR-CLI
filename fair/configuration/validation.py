@@ -20,95 +20,82 @@ import pydantic
 import typing
 import pathlib
 
+
 class Git(pydantic.BaseModel):
     local_repo: pathlib.Path = pydantic.Field(
-        ...,
-        title="local repository",
-        description="Local project git repository"
+        ..., title="local repository", description="Local project git repository"
     )
     remote: str = pydantic.Field(
-        ...,
-        title="remote label",
-        description="label of git repository remote to use"
+        ..., title="remote label", description="label of git repository remote to use"
     )
 
     class Config:
         extra = "forbid"
+
 
 class Namespaces(pydantic.BaseModel):
     input: str = pydantic.Field(
         ...,
         title="input namespace",
-        description="namespace label to use for registry inputs"
+        description="namespace label to use for registry inputs",
     )
     output: str = pydantic.Field(
         ...,
         title="output namespace",
-        description="namespace label to use for registry outputs"
+        description="namespace label to use for registry outputs",
     )
 
     class Config:
         extra = "forbid"
+
 
 class Registry(pydantic.BaseModel):
     data_store: pathlib.Path = pydantic.Field(
         ...,
         title="data store path",
-        description="location of data storage directory for registry"
+        description="location of data storage directory for registry",
     )
     token: pathlib.Path = pydantic.Field(
         ...,
         title="token file path",
-        description="path of file containing token for the registry"
+        description="path of file containing token for the registry",
     )
     uri: pydantic.AnyHttpUrl = pydantic.Field(
-        ...,
-        title="registry URL",
-        description="URL of the data registry"
+        ..., title="registry URL", description="URL of the data registry"
     )
     directory: typing.Optional[pathlib.Path] = pydantic.Field(
         None,
         title="local directory",
-        description="local location of registry on system"
+        description="local location of registry on system",
     )
 
     class Config:
         extra = "forbid"
+
 
 class User(pydantic.BaseModel):
     email: pydantic.EmailStr = pydantic.Field(
-        ...,
-        title="user email",
-        description="email address of the user"
+        ..., title="user email", description="email address of the user"
     )
     family_name: str = pydantic.Field(
-        ...,
-        title="user surname",
-        description="family name of the user"
+        ..., title="user surname", description="family name of the user"
     )
     given_names: str = pydantic.Field(
-        ...,
-        title="user forenames",
-        description="given names of the user"
+        ..., title="user forenames", description="given names of the user"
     )
     orcid: typing.Optional[str] = pydantic.Field(
-        None,
-        title="ORCID for the user",
-        description="The users ORCID if applicable"
+        None, title="ORCID for the user", description="The users ORCID if applicable"
     )
     uri: typing.Optional[str] = pydantic.Field(
-        None,
-        title="user URI",
-        description="Full URL identifier for the user"
+        None, title="user URI", description="Full URL identifier for the user"
     )
     uuid: typing.Optional[pydantic.UUID4] = pydantic.Field(
-        None,
-        title="user UUID",
-        description="The users UUID if applicable"
+        None, title="user UUID", description="The users UUID if applicable"
     )
 
     class Config:
         extra = "forbid"
+
 
 class LocalCLIConfig(pydantic.BaseModel):
     git: Git
@@ -118,6 +105,7 @@ class LocalCLIConfig(pydantic.BaseModel):
 
     class Config:
         extra = "forbid"
+
 
 class GlobalCLIConfig(pydantic.BaseModel):
     namespaces: Namespaces

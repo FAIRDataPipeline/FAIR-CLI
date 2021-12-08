@@ -35,7 +35,7 @@ def glob_read_write(
     blocktype: str,
     version: str,
     registry_url: str,
-    search_key: str = None,
+    search_key: typing.Optional[str] = None,
     remove_wildcard: bool = False,
 ) -> typing.List:
     """Substitute glob expressions in the 'read' or 'write' part of a user config

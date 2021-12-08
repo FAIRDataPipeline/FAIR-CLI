@@ -12,8 +12,8 @@ import fair.common as fdp_com
 
 def create_configurations(
     registry_dir: str,
-    local_git_dir: str = None,
-    remote_reg_dir: str = None,
+    local_git_dir: typing.Optional[str] = None,
+    remote_reg_dir: typing.Optional[str] = None,
     testing_dir: str = tempfile.mkdtemp(),
     tokenless: bool = False,
 ) -> typing.Dict:

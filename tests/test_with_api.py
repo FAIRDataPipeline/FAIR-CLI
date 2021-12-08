@@ -93,6 +93,8 @@ def test_push(local_config: typing.Tuple[str, str],
                 print("\tRUNNING: fair add testing:SEIRS_model/parameters@v1.0.0")
 
             _res = _cli_runner.invoke(cli, ["add", "testing:SEIRS_model/parameters@v1.0.0"])
+
+            assert _res.exit_code == 0
             
             with capsys.disabled():
                 print("\tRUNNING: fair push")

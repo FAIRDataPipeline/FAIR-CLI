@@ -144,7 +144,7 @@ def fetch_registrations(
                 _temp_data_file = fdp_req.download_file(_url)
             except requests.HTTPError as r_in:
                 raise fdp_exc.UserConfigError(
-                    f"Failed to fetch item '{_url}' with exit code " f"{r_in.response}"
+                    f"Failed to fetch item '{_url}' with exit code {r_in.response}"
                 )
 
         # Need to fix the path for Windows

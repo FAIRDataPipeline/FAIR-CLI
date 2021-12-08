@@ -59,7 +59,7 @@ def complete_jobs_data_products(ctx, param, incomplete) -> typing.List[str]:
     _candidates = [d for d in _staging_data["data_product"].keys()]
     return [
         click.shell_completion.CompletionItem(c)
-        for c in _candidates 
+        for c in _candidates
         if c.startswith(incomplete)
     ]
 
@@ -566,7 +566,7 @@ def config_email(user_email: str) -> None:
 @click.option("--debug/--no-debug")
 def pull(config: str, debug: bool):
     """Update local registry from remotes and sources"""
-    config = config[0] if config != '' else fdp_com.local_user_config(os.getcwd())
+    config = config[0] if config != "" else fdp_com.local_user_config(os.getcwd())
     try:
         with fdp_session.FAIR(
             os.getcwd(),
