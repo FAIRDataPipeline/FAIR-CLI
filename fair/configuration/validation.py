@@ -28,6 +28,9 @@ class Git(pydantic.BaseModel):
     remote: str = pydantic.Field(
         ..., title="remote label", description="label of git repository remote to use"
     )
+    remote_repo: str = pydantic.Field(
+        ..., title="URL of remote repo", description="URL for the given remote repository"
+    )
 
     class Config:
         extra = "forbid"

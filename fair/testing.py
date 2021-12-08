@@ -81,7 +81,7 @@ def create_configurations(
             "uri": f'{fdp_id.ID_URIS["orcid"]}000-0000-0000-0000',
             "uuid": "2ddb2358-84bf-43ff-b2aa-3ac7dc3b49f1",
         },
-        "git": {"local_repo": local_git_dir, "remote": "origin"},
+        "git": {"local_repo": local_git_dir, "remote": "origin", "remote_repo": "git@notagit.com/user/project.git"},
     }
 
 
