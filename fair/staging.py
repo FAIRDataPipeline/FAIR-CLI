@@ -143,7 +143,7 @@ class Stager:
     def change_data_product_stage_status(
         self, data_product_id: str, stage: bool = True
     ) -> None:
-        self.change_stage_status(data_product_id, "data_product", stage, add_entry=False)
+        self.change_stage_status(data_product_id, "data_product", stage)
 
     def change_job_stage_status(self, job_id: str, stage: bool = True) -> None:
         """Stage a local code job ready to be pushed to the remote registry
