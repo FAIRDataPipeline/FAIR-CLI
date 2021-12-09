@@ -161,7 +161,8 @@ class Stager:
         if not fdp_run.get_job_dir(job_id):
             raise fdp_exc.StagingError(f"Failed to recognise job with ID '{job_id}'")
 
-        self.change_stage_status(job_id, "job", stage, add_entry=True)
+        self.add_to_staging(job_id, "job")
+        self.change_stage_status(job_id, "job", stage)
 
     def find_registry_entry_for_file(self, local_uri: str, file_path: str) -> str:
         """Performs a rough search for a file in the local registry
