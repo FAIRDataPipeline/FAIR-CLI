@@ -35,6 +35,8 @@ def test_job_status_change(
 
     mocker.patch("fair.run.get_job_dir", lambda x: True)
 
+    stager.add_to_staging(str(_id), "job")
+
     stager.change_job_stage_status(str(_id), True)
 
     with open(stager._staging_file) as stage_f:

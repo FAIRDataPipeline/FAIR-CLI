@@ -24,8 +24,9 @@ import re
 import fair.exceptions as fdp_exc
 import fair.registry.requests as fdp_req
 import fair.utilities as fdp_util
-import fair.configuration as fdp_conf
+from fair.register import SEARCH_KEYS
 
+logger = logging.getLogger("FAIRDataPipeline.Sync")
 
 def get_dependency_chain(object_url: str) -> collections.deque:
     """Get all objects relating to an object in order of dependency
@@ -188,8 +189,23 @@ def push_data_products(
 ) -> None:
     for data_product in data_products:
         namespace, name, version = re.split("[:@]", data_product)
-        query_params = {"namespace": namespace, "name": name, "version": version}
-        result = fdp_req.get(local_uri, "data_product", query_params)
+
+        # Convert namespace name to an ID for retrieval
+        _namespaces = fdp_req.get(
+            local_uri,
+            "namespace",
+            params={SEARCH_KEYS["namespace"]: namespace}
+        )
+
+        _namespace_id = fdp_req.get_obj_id_from_url(_namespaces[0]["url"])
+
+        query_params = {
+            "namespace": _namespace_id,
+            "name": name,
+            "version": version.replace("v", "")
+        }
+
+        result = fdp_req.get(local_uri, "data_product", params=query_params)
 
         if not result:
             raise fdp_exc.RegistryError(

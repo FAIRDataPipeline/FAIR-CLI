@@ -35,14 +35,6 @@ import fair.common as fdp_com
 import fair.exceptions as fdp_exc
 import fair.utilities as fdp_util
 
-SEARCH_KEYS = {
-    "data_product": "name",
-    "namespace": "name",
-    "file_type": "extension",
-    "storage_root": "root",
-    "storage_location": "hash",
-}
-
 logger = logging.getLogger("FAIRDataPipeline.Requests")
 
 
@@ -254,7 +246,6 @@ def url_get(url: str, *args, **kwargs) -> typing.Dict:
     """
     return _access(url, "get", *args, **kwargs)
 
-
 def get(
     uri: str,
     obj_path: str,
@@ -296,61 +287,6 @@ def get(
 
     if not token:
         token = local_token()
-
-    if "namespace" in params and isinstance(params["namespace"], str):
-        _namespaces = get(
-            uri,
-            "namespace",
-            params={SEARCH_KEYS["namespace"]: params["namespace"]},
-        )
-
-        if len(_namespaces) > 1:
-            raise fdp_exc.UserConfigError(
-                f"Multiple ({len(_namespaces)}) hits for namespace '{params['namespace']}'"
-            )
-        elif len(_namespaces) == 0:
-            raise fdp_exc.UserConfigError(
-                f"No hits for namespace '{params['namespace']}'"
-            )
-
-        _results = re.search(r"^" + uri + r"/?namespace/(\d+)/$", _namespaces[0]["url"])
-
-        if not _results:
-            raise fdp_exc.InternalError("Failed to parse namespace identifiers")
-
-        params["namespace"] = int(_results.group(1))
-
-    if "data_product" in params:
-        _data_products = get(
-            uri,
-            "data_product",
-            params={
-                SEARCH_KEYS["data_product"]: params["data_product"],
-                "namespace": params["namespace"],
-            },
-        )
-
-        _results = [
-            re.search(r"^" + uri + r"/?data_product/(\d+)/$", _data_product["url"])
-            for _data_product in _data_products
-        ]
-
-        _output = []
-        del params["namespace"]
-        for data_product in _results:
-            params["data_product"] = int(data_product.group(1))
-            _output.extend(
-                _access(
-                    uri,
-                    "get",
-                    obj_path,
-                    [200],
-                    headers=headers,
-                    params=params,
-                    token=token,
-                )
-            )
-        return _output
 
     return _access(uri, "get", obj_path, headers=headers, params=params, token=token)
 
@@ -546,6 +482,23 @@ def get_dependency_listing(uri: str) -> typing.Dict:
         )
         for obj in _registry_objs
     }
+
+
+def get_obj_id_from_url(object_url: str) -> int:
+    """Retrieves the ID from an object url
+
+    Parameters
+    ----------
+    object_url : str
+        URL for an object on the registry
+
+    Returns
+    -------
+    int
+        integer ID for that object
+    """
+    _url = urllib.parse.urlparse(object_url)
+    return [i for i in _url.path.split("/") if i.strip()][-1]
 
 
 def get_obj_type_from_url(request_url: str) -> str:
