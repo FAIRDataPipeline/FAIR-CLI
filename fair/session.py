@@ -338,8 +338,13 @@ class FAIR:
 
         self._logger.debug(f"Tracking job hash {_hash}")
 
+        self._logger.debug("Updating staging post-run")
+
+        if mode in [fdp_com.CMD_MODE.RUN, fdp_com.CMD_MODE.PULL]:
+            self._stager.update_data_product_staging()
+
         # Automatically add the run to tracking but unstaged
-        self._stager.change_job_stage_status(_hash, False)
+        self._stager.add_to_staging(_hash, "job")
 
         return _hash
 
@@ -451,7 +456,7 @@ class FAIR:
         """
         self.check_is_repo()
         if type_to_stage == "data_product":
-            self._stager.change_data_product_stage_status(identifier, stage)
+            self._stager.change_stage_status(identifier, type_to_stage, stage)
         else:
             self._stager.change_job_stage_status(identifier, stage)
 
@@ -535,7 +540,7 @@ class FAIR:
         self._logger.debug("Getting DataProducts staging status")
         self.check_is_repo()
 
-        self._stager.update_data_product_staging()  # TODO: Move to pull and run methods, here for development
+        self._stager.update_data_product_staging()
         _staged_data_products = self._stager.get_item_list(True, "data_product")
         _unstaged_data_products = self._stager.get_item_list(False, "data_product")
 
