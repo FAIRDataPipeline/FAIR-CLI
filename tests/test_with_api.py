@@ -106,6 +106,7 @@ def test_run(local_config: typing.Tuple[str, str],
     with _cli_runner.isolated_filesystem(_proj_dir):
         with remote_registry, local_registry:
             os.makedirs(os.path.join(_proj_dir, FAIR_FOLDER), exist_ok=True)
+            fdp_serv.update_registry_post_setup(_proj_dir, True)
             _data = os.path.join(local_registry._install, "data")
             mocker.patch("fair.configuration.get_local_data_store", lambda *args: _data)
             os.makedirs(_data, exist_ok=True)
@@ -260,6 +261,8 @@ def test_push_postrun(local_config: typing.Tuple[str, str],
 
             _res = _cli_runner.invoke(cli, ["push", "--debug"])
 
+            assert not _res.output
+            assert _res.output
             assert _res.exit_code == 0
 
             assert get(
