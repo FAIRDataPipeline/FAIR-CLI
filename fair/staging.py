@@ -86,8 +86,35 @@ class Stager:
         }
         yaml.dump(_staging_dict, open(self._staging_file, "w"))
 
+    def reset_staged(self) -> None:
+        """Change staging state of all items to unstaged"""
+        _staging_dict = yaml.safe_load(open(self._staging_file))
+        for obj_type in _staging_dict:
+            for item in _staging_dict[obj_type]:
+                _staging_dict[obj_type][item] = False
+        yaml.dump(_staging_dict, open(self._staging_file, "w"))
+
+    def add_to_staging(self, identifier: str, item_type: str) -> None:
+        """Add an item to tracking
+
+        Parameters
+        ----------
+        identifier : str
+            unique identifier for the item
+        item_type : str
+            the item type
+        """
+        # Open the staging dictionary first
+        with open(self._staging_file) as f:
+            _staging_dict = yaml.safe_load(f)
+
+        _staging_dict[item_type][identifier] = False
+
+        with open(self._staging_file, "w") as f:
+            yaml.dump(_staging_dict, f)
+
     def change_stage_status(
-        self, identifier: str, item_type: str, stage: bool = True
+        self, identifier: str, item_type: str, stage: bool = True,
     ) -> None:
         self._logger.debug(
             "Setting %s '%s' status to staged=%s", item_type, identifier, stage
@@ -101,6 +128,12 @@ class Stager:
 
         # Open the staging dictionary first
         _staging_dict = yaml.safe_load(open(self._staging_file))
+
+        if identifier not in _staging_dict[item_type]:
+            raise fdp_exc.StagingError(
+                f"Cannot stage '{item_type}' with label '{identifier}', "
+                "item does not exist."
+            )
 
         _staging_dict[item_type][identifier] = stage
 
@@ -128,6 +161,7 @@ class Stager:
         if not fdp_run.get_job_dir(job_id):
             raise fdp_exc.StagingError(f"Failed to recognise job with ID '{job_id}'")
 
+        self.add_to_staging(job_id, "job")
         self.change_stage_status(job_id, "job", stage)
 
     def find_registry_entry_for_file(self, local_uri: str, file_path: str) -> str:
@@ -365,7 +399,7 @@ class Stager:
             key = f"{namespace}:{name}@v{version}"
             if key not in _staging_dict["data_product"]:
                 _staging_dict["data_product"][key] = False
-
+        
         with open(self._staging_file, "w") as f:
             yaml.dump(_staging_dict, f)
 

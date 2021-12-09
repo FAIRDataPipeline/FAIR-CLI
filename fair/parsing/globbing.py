@@ -28,6 +28,7 @@ import fair.exceptions as fdp_exc
 import fair.registry.requests as fdp_req
 import fair.registry.versioning as fdp_ver
 import fair.utilities as fdp_util
+import fair.register as fdp_reg
 
 
 def glob_read_write(
@@ -35,7 +36,7 @@ def glob_read_write(
     blocktype: str,
     version: str,
     registry_url: str,
-    search_key: str = None,
+    search_key: typing.Optional[str] = None,
     remove_wildcard: bool = False,
 ) -> typing.List:
     """Substitute glob expressions in the 'read' or 'write' part of a user config
@@ -91,7 +92,7 @@ def glob_read_write(
         _key_glob, _globbable = _glob_vals[0]
 
         if not search_key:
-            search_key = fdp_req.SEARCH_KEYS[_key_glob]
+            search_key = fdp_reg.SEARCH_KEYS[_key_glob]
 
         _search_dict = {search_key: _globbable}
 

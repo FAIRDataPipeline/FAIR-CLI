@@ -42,6 +42,7 @@ import click
 import re
 import rich
 import git
+import pydantic
 import rich
 import yaml
 from rich.console import Console
@@ -58,6 +59,7 @@ import fair.staging as fdp_stage
 import fair.templates as fdp_tpl
 import fair.testing as fdp_test
 import fair.logging as fdp_log
+import fair.configuration.validation as fdp_clivalid
 
 
 class FAIR:
@@ -221,7 +223,7 @@ class FAIR:
                 click.echo(f"Removing directory '{fdp_com.USER_FAIR_DIR}'")
             shutil.rmtree(fdp_com.USER_FAIR_DIR)
             return
-        if clear_data or clear_all:
+        if clear_data:
             try:
                 if verbose and os.path.exists(fdp_com.default_data_dir()):
                     click.echo(f"Removing directory '{fdp_com.default_data_dir()}'")
@@ -232,7 +234,7 @@ class FAIR:
                     "Cannot remove local data store, a global CLI configuration "
                     "is required to identify its location"
                 )
-        if global_cfg or clear_all:
+        if global_cfg:
             if verbose:
                 click.echo(f"Removing directory '{fdp_com.global_config_dir()}'")
             _global_dirs = fdp_com.global_config_dir()
@@ -344,8 +346,13 @@ class FAIR:
 
         self._logger.debug(f"Tracking job hash {_hash}")
 
+        self._logger.debug("Updating staging post-run")
+
+        if mode in [fdp_com.CMD_MODE.RUN, fdp_com.CMD_MODE.PULL]:
+            self._stager.update_data_product_staging()
+
         # Automatically add the run to tracking but unstaged
-        self._stager.change_job_stage_status(_hash, False)
+        self._stager.add_to_staging(_hash, "job")
 
         return _hash
 
@@ -439,6 +446,10 @@ class FAIR:
         if os.path.exists(fdp_com.local_fdpconfig(self._session_loc)):
             self._local_config = fdp_conf.read_local_fdpconfig(self._session_loc)
 
+    def reset_staging(self) -> None:
+        """Reset all staged items"""
+        self._stager.reset_staged()
+
     def change_staging_state(
         self, identifier: str, type_to_stage: str = "data_product", stage: bool = True
     ) -> None:
@@ -453,7 +464,7 @@ class FAIR:
         """
         self.check_is_repo()
         if type_to_stage == "data_product":
-            self._stager.change_data_product_stage_status(identifier, stage)
+            self._stager.change_stage_status(identifier, type_to_stage, stage)
         else:
             self._stager.change_job_stage_status(identifier, stage)
 
@@ -537,7 +548,7 @@ class FAIR:
         self._logger.debug("Getting DataProducts staging status")
         self.check_is_repo()
 
-        self._stager.update_data_product_staging()  # TODO: Move to pull and run methods, here for development
+        self._stager.update_data_product_staging()
         _staged_data_products = self._stager.get_item_list(True, "data_product")
         _unstaged_data_products = self._stager.get_item_list(False, "data_product")
 
@@ -749,14 +760,33 @@ class FAIR:
 
         fdp_serv.update_registry_post_setup(self._session_loc, _first_time)
 
+        try:
+            fdp_clivalid.LocalCLIConfig(**self._local_config)
+        except pydantic.ValidationError as e:
+            self._logger.debug(f"Local CLI validator returned: {e.json()}")
+            self._clean_reset(_fair_dir, local_only=True)
+            raise fdp_exc.InternalError(
+                "Initialisation failed, validation of local CLI config file did not pass"
+            )
+
+        try:
+            fdp_clivalid.GlobalCLIConfig(**self._global_config)
+        except pydantic.ValidationError as e:
+            self._logger.debug(f"Global CLI validator returned: {e.json()}")
+            self._clean_reset(_fair_dir, local_only=False)
+            raise fdp_exc.InternalError(
+                "Initialisation failed, validation of global CLI config file did not pass"
+            )
+
         click.echo(f"Initialised empty fair repository in {_fair_dir}")
 
-    def _clean_reset(self, _fair_dir, e, local_only: bool = False):
+    def _clean_reset(self, _fair_dir, e: Exception = None, local_only: bool = False):
         if not local_only:
             shutil.rmtree(fdp_com.session_cache_dir(), ignore_errors=True)
             shutil.rmtree(fdp_com.global_config_dir(), ignore_errors=True)
         shutil.rmtree(_fair_dir)
-        raise e
+        if e:
+            raise e
 
     def close_session(self) -> None:
         """Upon exiting, dump all configurations to file"""

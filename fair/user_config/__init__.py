@@ -33,7 +33,6 @@ JOB2CLI_MAPPINGS = {
     "run_metadata.write_data_store": "registries.local.data_store",
 }
 
-
 class JobConfiguration(MutableMapping):
     _logger = logging.getLogger("FAIRDataPipeline.ConfigYAML")
     _block_types = ("register", "write", "read")
@@ -621,12 +620,17 @@ class JobConfiguration(MutableMapping):
 
             _name = item["use"]["data_product"]
             _namespace = item["use"]["namespace"]
+            _id_namespace = fdp_reg.convert_key_value_to_id(
+                self.local_uri,
+                "namespace",
+                _namespace
+            )
 
             if "${{" in _version:
                 _results = fdp_req.get(
                     self.local_uri,
                     "data_product",
-                    params={"name": _name, "namespace": _namespace},
+                    params={"name": _name, "namespace": _id_namespace},
                 )
             else:
                 _results = fdp_req.get(
@@ -634,7 +638,7 @@ class JobConfiguration(MutableMapping):
                     "data_product",
                     params={
                         "name": _name,
-                        "namespace": _namespace,
+                        "namespace": _id_namespace,
                         "version": _version,
                     },
                 )

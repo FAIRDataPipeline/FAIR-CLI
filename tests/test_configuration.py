@@ -238,6 +238,7 @@ def test_global_config_query(
                 "uri": "http://127.0.0.1:8001/api/",
                 "directory": local_config[0],
                 "data_store": _override["Default Data Store"],
+                "token": os.path.join(local_config[0], "token")
             },
             "origin": {
                 "uri": _override["Remote API URL"],

@@ -34,6 +34,41 @@ import fair.registry.storage as fdp_store
 import fair.registry.versioning as fdp_ver
 
 
+SEARCH_KEYS = {
+    "data_product": "name",
+    "namespace": "name",
+    "file_type": "extension",
+    "storage_root": "root",
+    "storage_location": "hash",
+}
+
+
+def convert_key_value_to_id(uri: str, obj_type: str, value: str, check: bool = False) -> int:
+    """Converts a config key value to the relevant URL on the local registry
+
+    Parameters
+    ----------
+    uri: str
+        registry endpoint to use for obtaining URL 
+    obj_type : str
+        object type
+    value : str
+        search term to use
+
+    Returns
+    -------
+    int
+        ID on the local registry matching the entry
+    """
+    _params = {SEARCH_KEYS[obj_type]: value}
+    _result = fdp_req.get(uri, obj_type, params=_params)
+    if not _result:
+        raise fdp_exc.RegistryError(
+            f"Failed to obtain result for '{obj_type}' with parameters '{_params}'"
+        )
+    return fdp_req.get_obj_id_from_url(_result[0]["url"])
+
+
 # flake8: noqa: C901
 def fetch_registrations(
     local_uri: str,
@@ -79,6 +114,7 @@ def fetch_registrations(
 
         _data_product = None
         _external_object = None
+        _is_present = None
 
         _search_data = {}
 
@@ -112,8 +148,12 @@ def fetch_registrations(
                     "Expected either 'identifier', or 'unique_name' and "
                     f"'alternate_identifier_type' in external object '{_name}'"
                 )
-            _search_data["namespace"] = entry["use"]["namespace"]
-            _search_data["data_product"] = entry["use"]["data_product"]
+            try:
+                _data_product_id = convert_key_value_to_id(local_uri, "data_product", entry["use"]["data_product"])
+                _search_data["data_product"] = _data_product_id
+            except fdp_exc.RegistryError:
+                _is_present = "absent"
+
         else:
             _name = entry["use"]["data_product"]
             _obj_type = "data_product"
@@ -144,7 +184,7 @@ def fetch_registrations(
                 _temp_data_file = fdp_req.download_file(_url)
             except requests.HTTPError as r_in:
                 raise fdp_exc.UserConfigError(
-                    f"Failed to fetch item '{_url}' with exit code " f"{r_in.response}"
+                    f"Failed to fetch item '{_url}' with exit code {r_in.response}"
                 )
 
         # Need to fix the path for Windows
@@ -192,10 +232,10 @@ def fetch_registrations(
         os.makedirs(_local_dir, exist_ok=True)
 
         _local_file = os.path.join(_local_dir, f"{_user_version}.{entry['file_type']}")
-
         # Copy the temporary file into the data store
         # then remove temporary file to save space
         shutil.copy(_temp_data_file, _local_file)
+
         if "cache" not in entry:
             os.remove(_temp_data_file)
 

@@ -60,7 +60,7 @@ def complete_data_products(ctx, param, incomplete) -> typing.List[str]:
     _candidates = [d for d in _staging_data["data_product"].keys()]
     return [
         click.shell_completion.CompletionItem(c)
-        for c in _candidates 
+        for c in _candidates
         if c.startswith(incomplete)
     ]
 
@@ -115,6 +115,23 @@ def create(debug, output: str) -> None:
     click.echo(f"Generating new user configuration file" f" '{output}'")
     with fdp_session.FAIR(os.getcwd(), debug=debug) as fair_session:
         fair_session.make_starter_config(output)
+
+
+@cli.command()
+@click.option("--debug/--no-debug", help="Run in debug mode", default=False)
+def reset(debug: bool) -> None:
+    """Unstage all items marked for staging"""
+    try:
+        with fdp_session.FAIR(
+            os.getcwd(), debug=debug, server_mode=fdp_svr.SwitchMode.CLI
+        ) as fair_session:
+            fair_session.reset_staging()
+    except fdp_exc.FAIRCLIException as e:
+        if debug:
+            raise e
+        e.err_print()
+        if e.level.lower() == "error":
+            sys.exit(e.exit_code)
 
 
 @cli.command()
@@ -564,7 +581,7 @@ def config_email(user_email: str) -> None:
 @click.option("--debug/--no-debug")
 def pull(config: str, debug: bool):
     """Update local registry from remotes and sources"""
-    config = config[0] if config != '' else fdp_com.local_user_config(os.getcwd())
+    config = config[0] if config != "" else fdp_com.local_user_config(os.getcwd())
     try:
         with fdp_session.FAIR(
             os.getcwd(),
