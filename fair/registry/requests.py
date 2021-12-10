@@ -348,7 +348,7 @@ def post_else_get(
 
 
 def filter_object_dependencies(
-    uri: str, obj_path: str, filter: typing.Dict[str, typing.Any]
+    uri: str, obj_path: str, filter: typing.Dict[str, typing.Any], *args, **kwargs
 ) -> typing.List[str]:
     """Filter dependencies of an API object based on a set of conditions
 
@@ -367,7 +367,7 @@ def filter_object_dependencies(
         list of object type paths
     """
     try:
-        _actions = _access(uri, "options", obj_path)["actions"]["POST"]
+        _actions = _access(uri, "options", obj_path, *args, **kwargs)["actions"]["POST"]
     except KeyError:
         # No 'actions' key means no dependencies
         return []
@@ -386,7 +386,7 @@ def filter_object_dependencies(
     return _fields
 
 
-def get_filter_variables(uri: str, obj_path: str) -> typing.List[str]:
+def get_filter_variables(uri: str, obj_path: str, *args, **kwargs) -> typing.List[str]:
     """Retrieves a list of variables you can filter by for a given object
 
     Parameters
@@ -402,14 +402,14 @@ def get_filter_variables(uri: str, obj_path: str) -> typing.List[str]:
         list of filterable fields
     """
     try:
-        _filters = _access(uri, "options", obj_path)["filter_fields"]
+        _filters = _access(uri, "options", obj_path, *args, **kwargs)["filter_fields"]
     except KeyError:
         # No 'filter_fields' key means no filters
         return []
     return [*_filters]
 
 
-def get_writable_fields(uri: str, obj_path: str) -> typing.List[str]:
+def get_writable_fields(uri: str, obj_path: str, *args, **kwargs) -> typing.List[str]:
     """Retrieve a list of writable fields for the given RestAPI object
 
     Parameters
@@ -424,7 +424,7 @@ def get_writable_fields(uri: str, obj_path: str) -> typing.List[str]:
     typing.List[str]
         list of object type paths
     """
-    return filter_object_dependencies(uri, obj_path, {"read_only": False})
+    return filter_object_dependencies(uri, obj_path, {"read_only": False}, *args, **kwargs)
 
 
 def download_file(url: str, chunk_size: int = 8192) -> str:
@@ -460,7 +460,7 @@ def download_file(url: str, chunk_size: int = 8192) -> str:
     return _fname
 
 
-def get_dependency_listing(uri: str) -> typing.Dict:
+def get_dependency_listing(uri: str, *args, **kwargs) -> typing.Dict:
     """Get complete listing of all objects and their registry based dependencies
 
     Parameters
@@ -474,11 +474,11 @@ def get_dependency_listing(uri: str) -> typing.Dict:
         dictionary of object types and their registry based dependencies
     """
 
-    _registry_objs = url_get(uri)
+    _registry_objs = url_get(uri, *args, **kwargs)
 
     return {
         obj: filter_object_dependencies(
-            uri, obj, {"read_only": False, "type": "field", "local": True}
+            uri, obj, {"read_only": False, "type": "field", "local": True}, *args, **kwargs
         )
         for obj in _registry_objs
     }

@@ -53,6 +53,7 @@ import fair.exceptions as fdp_exc
 import fair.history as fdp_hist
 import fair.registry.server as fdp_serv
 import fair.registry.sync as fdp_sync
+import fair.registry.requests as fdp_req
 import fair.run as fdp_run
 import fair.staging as fdp_stage
 import fair.templates as fdp_tpl
@@ -169,10 +170,11 @@ class FAIR:
     def push(self, remote: str = "origin"):
         _staged_data_products = self._stager.get_item_list(True, "data_product")
         fdp_sync.push_data_products(
-            fdp_conf.get_local_uri(),
-            fdp_conf.get_remote_uri(self._session_loc, remote),
-            fdp_conf.get_remote_token(self._session_loc, remote),
-            _staged_data_products,
+            origin_uri=fdp_conf.get_local_uri(),
+            dest_uri=fdp_conf.get_remote_uri(self._session_loc, remote),
+            dest_token=fdp_conf.get_remote_token(self._session_loc, remote),
+            origin_token=fdp_req.local_token(),
+            data_products=_staged_data_products,
         )
 
     def purge(
