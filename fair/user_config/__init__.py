@@ -535,13 +535,13 @@ class JobConfiguration(MutableMapping):
             )
 
             _read_block.append(_readable)
-
         return _read_block
 
     def _clean(self) -> typing.Dict:
         self._logger.debug("Cleaning configuration")
-        _new_config: typing.Dict = {}
-        _new_config["run_metadata"] = copy.deepcopy(self["run_metadata"])
+        _new_config: typing.Dict = {
+            'run_metadata': copy.deepcopy(self["run_metadata"])
+        }
 
         for action in ("read", "write"):
             if f"default_{action}_version" in _new_config["run_metadata"]:
@@ -632,6 +632,8 @@ class JobConfiguration(MutableMapping):
                     "data_product",
                     params={"name": _name, "namespace": _id_namespace},
                 )
+                if "LATEST" in _version:
+                    _version = fdp_ver.get_latest_version(_results)
             else:
                 _results = fdp_req.get(
                     self.local_uri,

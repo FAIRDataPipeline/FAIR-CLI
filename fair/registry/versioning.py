@@ -115,6 +115,10 @@ def get_correct_version(
     version: str, results_list: typing.List = None, free_write: bool = True
 ) -> semver.VersionInfo:
 
+    # Version is already specified
+    if isinstance(version, semver.VersionInfo):
+        return version
+
     _zero = semver.VersionInfo.parse("0.0.0")
 
     if results_list:
