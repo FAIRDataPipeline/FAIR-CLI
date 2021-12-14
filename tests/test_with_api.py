@@ -16,6 +16,7 @@ import fair.registry.server as fdp_serv
 
 PYTHON_API_GIT = "https://github.com/FAIRDataPipeline/pyDataPipeline.git"
 REPO_ROOT = pathlib.Path(os.path.dirname(__file__)).parent
+PULL_TEST_CFG = os.path.join(os.path.dirname(__file__), "data", "test_pull_config.yaml")
 
 
 @pytest.mark.with_api
@@ -37,7 +38,7 @@ def test_pull(local_config: typing.Tuple[str, str],
         with remote_registry, local_registry:
             os.makedirs(os.path.join(_proj_dir, FAIR_FOLDER), exist_ok=True)
             _data = os.path.join(local_registry._install, "data")
-            os.makedirs(_data)
+            os.makedirs(_data, exist_ok=True)
             fdp_serv.update_registry_post_setup(_proj_dir, True)
             with open(os.path.join(_proj_dir, FAIR_FOLDER, "staging"), "w") as sf:
                 yaml.dump({"data_product": {}, "file": {}, "job": {}}, sf)
@@ -83,6 +84,54 @@ def test_pull(local_config: typing.Tuple[str, str],
                 "user_author"
             )
 
+
+@pytest.mark.with_api
+def test_pull_new(local_config: typing.Tuple[str, str],
+    local_registry: RegistryTest,
+    remote_registry: RegistryTest,
+    mocker: pytest_mock.MockerFixture,
+    capsys):
+    _manage = os.path.join(remote_registry._install, "manage.py")
+    remote_registry._venv.run(f"python {_manage} add_example_data")
+    mocker.patch("fair.configuration.get_remote_token", lambda *args: remote_registry._token)
+    mocker.patch("fair.registry.requests.local_token", lambda *args: local_registry._token)
+    mocker.patch("fair.registry.server.launch_server", lambda *args, **kwargs: True)
+    mocker.patch("fair.registry.server.stop_server", lambda *args: True)
+    _cli_runner = click.testing.CliRunner()
+    _proj_dir = os.path.join(local_config[1], "code")
+    _repo = git.Repo.clone_from(PYTHON_API_GIT, to_path=_proj_dir)
+    _repo.git.checkout("dev")
+    with _cli_runner.isolated_filesystem(_proj_dir):
+        with remote_registry, local_registry:
+            os.makedirs(os.path.join(_proj_dir, FAIR_FOLDER), exist_ok=True)
+            _data = os.path.join(local_registry._install, "data")
+            os.makedirs(_data, exist_ok=True)
+            fdp_serv.update_registry_post_setup(_proj_dir, True)
+            with open(os.path.join(_proj_dir, FAIR_FOLDER, "staging"), "w") as sf:
+                yaml.dump({"data_product": {}, "file": {}, "job": {}}, sf)
+            mocker.patch("fair.common.staging_cache", lambda *args: os.path.join(_proj_dir, FAIR_FOLDER, "staging"))
+            mocker.patch("fair.configuration.get_local_data_store", lambda *args: _data)
+            with open(PULL_TEST_CFG) as cfg_file:
+                _cfg = yaml.safe_load(cfg_file)
+            _cfg_path = os.path.join(remote_registry._install, "config.yaml")
+            
+            _cfg["run_metadata"]["write_data_store"] = _data
+            with open(_cfg_path, "w") as cfg_file:
+                yaml.dump(_cfg, cfg_file)
+            with capsys.disabled():
+                print(f"\tRUNNING: fair pull {_cfg_path} --debug")
+            _res = _cli_runner.invoke(cli, ["pull", _cfg_path, "--debug"])
+
+            assert not _res.output
+            assert _res.output
+            assert _res.exit_code == 0
+            assert get(
+                "http://127.0.0.1:8000/api/",
+                "data_product",
+                params={
+                    "name": "disease/sars_cov2/SEINRD_model/parameters/efoi",
+                }
+            )
 
 @pytest.mark.with_api
 @pytest.mark.dependency(name='run', depends=['pull'])
@@ -260,6 +309,8 @@ def test_push_postrun(local_config: typing.Tuple[str, str],
 
             _res = _cli_runner.invoke(cli, ["push", "--debug"])
 
+            assert _res.output
+            assert not _res.output
             assert _res.exit_code == 0
 
             assert get(

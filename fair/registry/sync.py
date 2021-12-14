@@ -223,6 +223,11 @@ def push_data_products(
             token=origin_token
         )
 
+        if not _namespaces:
+            raise fdp_exc.RegistryError(
+                f"Failed to find namespace '{namespace}' on registry {origin_uri}"
+            )
+
         _namespace_id = fdp_req.get_obj_id_from_url(_namespaces[0]["url"])
 
         query_params = {

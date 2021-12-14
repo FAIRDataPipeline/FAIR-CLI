@@ -419,7 +419,6 @@ def run(config: str, script: str, debug: bool, ci: bool, dirty: bool):
     """Initialises a job with the option to specify a bash command"""
     # Allow no config to be specified, if that is the case use default local
     config = config[0] if config else fdp_com.local_user_config(os.getcwd())
-    _run_mode = fdp_run.CMD_MODE.RUN if not ci else fdp_run.CMD_MODE.PASS
     try:
         with fdp_session.FAIR(
             os.getcwd(),
@@ -427,7 +426,7 @@ def run(config: str, script: str, debug: bool, ci: bool, dirty: bool):
             debug=debug,
             server_mode=fdp_svr.SwitchMode.CLI,
         ) as fair_session:
-            _hash = fair_session.run_job(script, mode=_run_mode, allow_dirty=dirty)
+            _hash = fair_session.run(script, passive=ci, allow_dirty=dirty)
             if ci:
                 click.echo(fdp_run.get_job_dir(_hash))
     except fdp_exc.FAIRCLIException as e:
@@ -574,7 +573,7 @@ def pull(config: str, debug: bool):
             server_mode=fdp_svr.SwitchMode.CLI,
             debug=debug,
         ) as fair:
-            fair.run_job(mode=fdp_run.CMD_MODE.PULL)
+            fair.pull()
     except fdp_exc.FAIRCLIException as e:
         if debug:
             raise e

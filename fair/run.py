@@ -28,7 +28,6 @@ import fair.common as fdp_com
 import fair.configuration as fdp_conf
 import fair.exceptions as fdp_exc
 import fair.history as fdp_hist
-import fair.user_config as fdp_user
 from fair.common import CMD_MODE
 
 logger = logging.getLogger("FAIRDataPipeline.Run")
@@ -55,171 +54,165 @@ SHELLS: typing.Dict[str, str] = {
 }
 
 
-def run_command(
-    repo_dir: str,
-    config_yaml: str = None,
-    mode: CMD_MODE = CMD_MODE.RUN,
-    bash_cmd: str = "",
-    allow_dirty: bool = False,
-) -> str:
-    """Execute a process as part of job
+# def run_command(
+#     repo_dir: str,
+#     mode: CMD_MODE = CMD_MODE.RUN,
+#     bash_cmd: str = "",
+#     allow_dirty: bool = False,
+# ) -> str:
+#     """Execute a process as part of job
 
-    Executes a command from the given job config file, if a command is
-    given this is job instead and overwrites that in the job config file.
+#     Executes a command from the given job config file, if a command is
+#     given this is job instead and overwrites that in the job config file.
 
-    Parameters
-    ----------
-    local_uri : str
-        local registry endpoint
-    repo_dir : str
-        directory of repository to run from
-    config_yaml : str, optional
-        run from a given config.yaml file
-    bash_cmd : str, optional
-        override execution command with a bash command
-    allow_dirty : bool, optional
-            allow runs with uncommitted changes, default is False
-    """
+#     Parameters
+#     ----------
+#     local_uri : str
+#         local registry endpoint
+#     repo_dir : str
+#         directory of repository to run from
+#     config_yaml : str, optional
+#         run from a given config.yaml file
+#     bash_cmd : str, optional
+#         override execution command with a bash command
+#     allow_dirty : bool, optional
+#             allow runs with uncommitted changes, default is False
+#     """
+#     logger.debug("Using user configuration file: %s", config_yaml)
+#     click.echo(f"Updating registry from {config_yaml}", err=True)
 
-    if not config_yaml:
-        config_yaml = os.path.join(fdp_com.find_fair_root(), fdp_com.USER_CONFIG_FILE)
+#     # Record the time the job was commenced, create a log and both
+#     # print output and write it to the log file
+#     _now = datetime.datetime.now()
+#     _timestamp = _now.strftime("%Y-%m-%d_%H_%M_%S_%f")
+#     _logs_dir = fdp_hist.history_directory(repo_dir)
 
-    logger.debug("Using user configuration file: %s", config_yaml)
-    click.echo(f"Updating registry from {config_yaml}", err=True)
+#     if not os.path.exists(_logs_dir):
+#         os.mkdir(_logs_dir)
 
-    # Record the time the job was commenced, create a log and both
-    # print output and write it to the log file
-    _now = datetime.datetime.now()
-    _timestamp = _now.strftime("%Y-%m-%d_%H_%M_%S_%f")
-    _logs_dir = fdp_hist.history_directory(repo_dir)
+#     _log_file = os.path.join(_logs_dir, f"job_{_timestamp}.log")
 
-    if not os.path.exists(_logs_dir):
-        os.mkdir(_logs_dir)
+#     # Check that the specified user config file for a job actually exists
+#     if not os.path.exists(config_yaml):
+#         raise fdp_exc.FileNotFoundError(
+#             "Failed to read user configuration, "
+#             f"file '{config_yaml}' does not exist."
+#         )
 
-    _log_file = os.path.join(_logs_dir, f"job_{_timestamp}.log")
+#     logger.debug(f"Creating user configuration job object from {config_yaml}")
 
-    # Check that the specified user config file for a job actually exists
-    if not os.path.exists(config_yaml):
-        raise fdp_exc.FileNotFoundError(
-            "Failed to read user configuration, "
-            f"file '{config_yaml}' does not exist."
-        )
+#     _job_cfg = fdp_user.JobConfiguration(config_yaml)
 
-    logger.debug(f"Creating user configuration job object from {config_yaml}")
+#     _job_cfg.update_from_fair(repo_dir)
 
-    _job_cfg = fdp_user.JobConfiguration(config_yaml)
+#     if bash_cmd:
+#         _job_cfg.set_command(bash_cmd)
 
-    _job_cfg.update_from_fair(repo_dir)
+#     _job_dir = os.path.join(fdp_com.default_jobs_dir(), _timestamp)
+#     logger.debug("Using job directory: %s", _job_dir)
+#     os.makedirs(_job_dir, exist_ok=True)
 
-    if bash_cmd:
-        _job_cfg.set_command(bash_cmd)
+#     _job_cfg.prepare(_job_dir, _timestamp, mode, allow_dirty=allow_dirty)
 
-    _job_dir = os.path.join(fdp_com.default_jobs_dir(), _timestamp)
-    logger.debug("Using job directory: %s", _job_dir)
-    os.makedirs(_job_dir, exist_ok=True)
+#     _run_executable = (
+#         "script" in _job_cfg["run_metadata"]
+#         or "script_path" in _job_cfg["run_metadata"]
+#     )
+#     _run_executable = _run_executable and mode in [CMD_MODE.RUN, CMD_MODE.PASS]
 
-    _job_cfg.prepare(_job_dir, _timestamp, mode, allow_dirty=allow_dirty)
+#     if mode == CMD_MODE.PASS:
+#         logger.debug("Run called in passive mode, no command will be executed")
 
-    _run_executable = (
-        "script" in _job_cfg["run_metadata"]
-        or "script_path" in _job_cfg["run_metadata"]
-    )
-    _run_executable = _run_executable and mode in [CMD_MODE.RUN, CMD_MODE.PASS]
+#     # Set location of working config.yaml to the job directory
+#     _work_cfg_yml = os.path.join(_job_dir, fdp_com.USER_CONFIG_FILE)
 
-    if mode == CMD_MODE.PASS:
-        logger.debug("Run called in passive mode, no command will be executed")
+#     # Fetch the CLI configurations for logging information
+#     _user = fdp_conf.get_current_user_name(repo_dir)
+#     _email = fdp_conf.get_current_user_email(repo_dir)
 
-    # Set location of working config.yaml to the job directory
-    _work_cfg_yml = os.path.join(_job_dir, fdp_com.USER_CONFIG_FILE)
+#     if mode in [CMD_MODE.PULL]:
+#         # If not a fair run then the log file will have less metadata
+#         # all commands should produce a log so that the 'fair log' history
+#         # can be displayed
+#         with open(_log_file, "a") as f:
+#             _out_str = _now.strftime("%a %b %d %H:%M:%S %Y %Z")
+#             f.writelines(
+#                 [
+#                     "--------------------------------\n",
+#                     f" Commenced = {_out_str}\n",
+#                     f" Author    = {' '.join(_user)} <{_email}>\n",
+#                     " Command   = fair pull\n",
+#                     "--------------------------------\n",
+#                 ]
+#             )
 
-    # Fetch the CLI configurations for logging information
-    _user = fdp_conf.get_current_user_name(repo_dir)
-    _email = fdp_conf.get_current_user_email(repo_dir)
+#     _job_cfg.write(_work_cfg_yml)
 
-    if mode in [CMD_MODE.PULL]:
-        # If not a fair run then the log file will have less metadata
-        # all commands should produce a log so that the 'fair log' history
-        # can be displayed
-        with open(_log_file, "a") as f:
-            _out_str = _now.strftime("%a %b %d %H:%M:%S %Y %Z")
-            f.writelines(
-                [
-                    "--------------------------------\n",
-                    f" Commenced = {_out_str}\n",
-                    f" Author    = {' '.join(_user)} <{_email}>\n",
-                    " Command   = fair pull\n",
-                    "--------------------------------\n",
-                ]
-            )
+#     logger.debug("Creating working configuration storage location")
 
-    _job_cfg.write(_work_cfg_yml)
+#     if _run_executable:
 
-    logger.debug("Creating working configuration storage location")
+#         # Create a run script if 'script' is specified instead of 'script_path'
+#         # else use the script
+#         _cmd_setup = setup_job_script(
+#             _job_cfg.content, _job_cfg.env["FDP_CONFIG_DIR"], _job_dir
+#         )
 
-    if _run_executable:
+#         _job_cfg.set_script(_cmd_setup["script"])
+#         _job_cfg.write(_work_cfg_yml)
 
-        # Create a run script if 'script' is specified instead of 'script_path'
-        # else use the script
-        _cmd_setup = setup_job_script(
-            _job_cfg.content, _job_cfg.env["FDP_CONFIG_DIR"], _job_dir
-        )
+#         if _job_cfg.shell not in SHELLS:
+#             raise fdp_exc.UserConfigError(
+#                 f"Unrecognised shell '{_job_cfg.shell}' specified."
+#             )
 
-        _job_cfg.set_script(_cmd_setup["script"])
-        _job_cfg.write(_work_cfg_yml)
+#         _exec = SHELLS[_job_cfg.shell]["exec"]
+#         _cmd_list = _exec.format(_cmd_setup["script"]).split()
 
-        if _job_cfg.shell not in SHELLS:
-            raise fdp_exc.UserConfigError(
-                f"Unrecognised shell '{_job_cfg.shell}' specified."
-            )
+#         if not _job_cfg.command:
+#             click.echo("Nothing to run.")
+#             sys.exit(0)
 
-        _exec = SHELLS[_job_cfg.shell]["exec"]
-        _cmd_list = _exec.format(_cmd_setup["script"]).split()
+#         # Generate a local job log for the CLI, this is NOT
+#         # related to metadata sent to the registry
+#         # this log is viewable via the `fair view <run-cli-sha>`
+#         with open(_log_file, "a") as f:
+#             _out_str = _now.strftime("%a %b %d %H:%M:%S %Y %Z")
+#             _user = _user[0] if not _user[1] else " ".join(_user)
+#             f.writelines(
+#                 [
+#                     "--------------------------------\n",
+#                     f" Commenced = {_out_str}\n",
+#                     f" Author    = {_user} <{_email}>\n",
+#                     f" Namespace = {_job_cfg.default_output_namespace}\n",
+#                     f" Command   = {' '.join(_cmd_list)}\n",
+#                     "--------------------------------\n",
+#                 ]
+#             )
 
-        if not _job_cfg.command:
-            click.echo("Nothing to run.")
-            sys.exit(0)
+#         if mode == CMD_MODE.RUN:
+#             execute_run(_cmd_list, _job_cfg, _log_file, _now)
+#         else:  # CMD_MODE.PASS
+#             _end_time = datetime.datetime.now()
+#             with open(_log_file, "a") as f:
+#                 _duration = _end_time - _now
+#                 f.writelines(
+#                     [
+#                         "Operating in ci mode without running script\n",
+#                         f"------- time taken {_duration} -------\n",
+#                     ]
+#                 )
+#     else:
+#         _end_time = datetime.datetime.now()
+#         with open(_log_file, "a") as f:
+#             _duration = _end_time - _now
+#             f.writelines([f"------- time taken {_duration} -------\n"])
 
-        # Generate a local job log for the CLI, this is NOT
-        # related to metadata sent to the registry
-        # this log is viewable via the `fair view <run-cli-sha>`
-        with open(_log_file, "a") as f:
-            _out_str = _now.strftime("%a %b %d %H:%M:%S %Y %Z")
-            _user = _user[0] if not _user[1] else " ".join(_user)
-            f.writelines(
-                [
-                    "--------------------------------\n",
-                    f" Commenced = {_out_str}\n",
-                    f" Author    = {_user} <{_email}>\n",
-                    f" Namespace = {_job_cfg.default_output_namespace}\n",
-                    f" Command   = {' '.join(_cmd_list)}\n",
-                    "--------------------------------\n",
-                ]
-            )
-
-        if mode == CMD_MODE.RUN:
-            execute_run(_cmd_list, _job_cfg, _log_file, _now)
-        else:  # CMD_MODE.PASS
-            _end_time = datetime.datetime.now()
-            with open(_log_file, "a") as f:
-                _duration = _end_time - _now
-                f.writelines(
-                    [
-                        "Operating in ci mode without running script\n",
-                        f"------- time taken {_duration} -------\n",
-                    ]
-                )
-    else:
-        _end_time = datetime.datetime.now()
-        with open(_log_file, "a") as f:
-            _duration = _end_time - _now
-            f.writelines([f"------- time taken {_duration} -------\n"])
-
-    return get_job_hash(_job_dir)
+#     return get_job_hash(_job_dir)
 
 
 def execute_run(
     command: typing.List[str],
-    job_config: fdp_user.JobConfiguration,
     log_file: str,
     timestamp: datetime.datetime,
 ) -> None:
@@ -322,85 +315,3 @@ def get_job_dir(job_hash: str) -> str:
             return job
 
     return ""
-
-
-def setup_job_script(
-    user_config: typing.Dict, config_dir: str, output_dir: str
-) -> typing.Dict[str, typing.Any]:
-    """Setup a job script from the given configuration.
-
-    Checks the user configuration file for the required 'script' or 'script_path'
-    keys and determines the process to be executed. Also sets up an environment
-    usable when executing the submission script.
-
-    Parameters
-    ----------
-    local_repo : str
-        local FAIR repository
-    script : str
-        script to write to file
-    config_dir : str
-        final location of output config.yaml
-    output_dir : str
-        location to store submission/job script
-
-    Returns
-    -------
-    Dict[str, Any]
-        a dictionary containing information on the command to execute,
-        which shell to run it in and the environment to use
-    """
-    logger.debug("Setting up job script for execution")
-    _cmd = None
-
-    if config_dir[-1] != os.path.sep:
-        config_dir += os.path.sep
-
-    # Check if a specific shell has been defined for the script
-    _shell = None
-    _out_file = None
-
-    if "shell" in user_config["run_metadata"]:
-        _shell = user_config["run_metadata"]["shell"]
-    else:
-        _shell = "batch" if platform.system() == "Windows" else "sh"
-
-    logger.debug("Will use shell: %s", _shell)
-
-    if "script" in user_config["run_metadata"]:
-        _cmd = user_config["run_metadata"]["script"]
-
-        if "extension" not in SHELLS[_shell]:
-            raise fdp_exc.InternalError(
-                f"Failed to retrieve an extension for shell '{_shell}'"
-            )
-        _ext = SHELLS[_shell]["extension"]
-        _out_file = os.path.join(output_dir, f"script.{_ext}")
-        if _cmd:
-            with open(_out_file, "w") as f:
-                f.write(_cmd)
-
-    elif "script_path" in user_config["run_metadata"]:
-        _path = user_config["run_metadata"]["script_path"]
-        if not os.path.exists(_path):
-            raise fdp_exc.CommandExecutionError(
-                f"Failed to execute run, script '{_path}' was not found, or"
-                " failed to be created.",
-                exit_code=1,
-            )
-        _cmd = open(_path).read()
-        _out_file = os.path.join(output_dir, os.path.basename(_path))
-        if _cmd:
-            with open(_out_file, "w") as f:
-                f.write(_cmd)
-
-    logger.debug("Script command: %s", _cmd)
-    logger.debug("Script written to: %s", _out_file)
-
-    if not _cmd or not _out_file:
-        raise fdp_exc.UserConfigError(
-            "Configuration file must contain either a valid "
-            "'script' or 'script_path' entry under 'run_metadata'"
-        )
-
-    return {"shell": _shell, "script": _out_file}

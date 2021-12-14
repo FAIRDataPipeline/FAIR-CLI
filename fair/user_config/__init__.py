@@ -6,6 +6,7 @@ import os.path
 import platform
 import re
 import typing
+import subprocess
 from collections.abc import MutableMapping
 
 import git
@@ -21,6 +22,8 @@ import fair.registry.requests as fdp_req
 import fair.registry.storage as fdp_store
 import fair.registry.versioning as fdp_ver
 import fair.utilities as fdp_util
+import fair.run as fdp_run
+import fair.history as fdp_hist
 from fair.common import CMD_MODE
 from fair.user_config.validation import UserConfigModel
 
@@ -32,6 +35,27 @@ JOB2CLI_MAPPINGS = {
     "run_metadata.remote_data_registry_url": "registries.origin.uri",
     "run_metadata.write_data_store": "registries.local.data_store",
 }
+
+SHELLS: typing.Dict[str, str] = {
+    "pwsh": {"exec": "pwsh -command \". '{0}'\"", "extension": "ps1"},
+    "batch": {"exec": "{0}", "extension": "bat"},
+    "powershell": {
+        "exec": "powershell -command \". '{0}'\"",
+        "extension": "ps1",
+    },
+    "python2": {"exec": "python2 {0}", "extension": "py"},
+    "python3": {"exec": "python3 {0}", "extension": "py"},
+    "python": {"exec": "python {0}", "extension": "py"},
+    "R": {"exec": "R -f {0}", "extension": "R"},
+    "julia": {"exec": "julia {0}", "extension": "jl"},
+    "bash": {
+        "exec": "bash -eo pipefail {0}",
+        "extension": "sh",
+    },
+    "java": {"exec": "java {0}", "extension": "java"},
+    "sh": {"exec": "sh -e {0}", "extension": "sh"},
+}
+
 
 class JobConfiguration(MutableMapping):
     _logger = logging.getLogger("FAIRDataPipeline.ConfigYAML")
@@ -46,11 +70,19 @@ class JobConfiguration(MutableMapping):
 
         self._logger.debug("Loading file '%s'", config_yaml)
 
+        self._input_file = config_yaml
         self._config: typing.Dict = yaml.safe_load(open(config_yaml))
 
         self._fill_missing()
 
+        self._now = datetime.datetime.now()
         self.env = None
+        self._job_dir = None
+        self._log_file = None
+
+        # For registered items which are known to only be available locally
+        # and so are not yet on the remote
+        self._local_only: typing.List[typing.Dict] = []
 
     def __contains__(self, key_addr: str) -> bool:
         return key_addr in fdp_util.flatten_dict(self._config)
@@ -238,7 +270,12 @@ class JobConfiguration(MutableMapping):
         self._logger.debug(
             f"Retrieving latest commit SHA with allow_dirty={allow_dirty}"
         )
-        _repository = git.Repo(fdp_com.find_git_root(self.local_repository))
+        try:
+            _repository = git.Repo(fdp_com.find_git_root(self.local_repository))
+        except git.InvalidGitRepositoryError:
+            raise fdp_exc.FDPRepositoryError(
+                f"Location '{self._local_repository}' is not a valid git repository"
+            )
 
         try:
             _latest = _repository.head.commit.hexsha
@@ -262,6 +299,89 @@ class JobConfiguration(MutableMapping):
             _latest = f"{_latest}-dirty"
 
         return _latest
+
+    def setup_job_script(self) -> typing.Dict[str, typing.Any]:
+        """Setup a job script from the given configuration.
+
+        Checks the user configuration file for the required 'script' or 'script_path'
+        keys and determines the process to be executed. Also sets up an environment
+        usable when executing the submission script.
+
+        Parameters
+        ----------
+        local_repo : str
+            local FAIR repository
+        script : str
+            script to write to file
+        config_dir : str
+            final location of output config.yaml
+        output_dir : str
+            location to store submission/job script
+
+        Returns
+        -------
+        Dict[str, Any]
+            a dictionary containing information on the command to execute,
+            which shell to run it in and the environment to use
+        """
+        self._logger.debug("Setting up job script for execution")
+        _cmd = None
+
+        config_dir = self._job_dir
+
+        if config_dir[-1] != os.path.sep:
+            config_dir += os.path.sep
+
+        # Check if a specific shell has been defined for the script
+        _shell = None
+        _out_file = None
+
+        if "shell" in self["run_metadata"]:
+            _shell = self["run_metadata"]["shell"]
+        else:
+            _shell = "batch" if platform.system() == "Windows" else "sh"
+
+        self._logger.debug("Will use shell: %s", _shell)
+
+        if "script" in self["run_metadata"]:
+            _cmd = self["run_metadata"]["script"]
+
+            if "extension" not in SHELLS[_shell]:
+                raise fdp_exc.InternalError(
+                    f"Failed to retrieve an extension for shell '{_shell}'"
+                )
+            _ext = SHELLS[_shell]["extension"]
+            _out_file = os.path.join(self._job_dir, f"script.{_ext}")
+            if _cmd:
+                with open(_out_file, "w") as f:
+                    f.write(_cmd)
+
+        elif "script_path" in self["run_metadata"]:
+            _path = self["run_metadata"]["script_path"]
+            if not os.path.exists(_path):
+                raise fdp_exc.CommandExecutionError(
+                    f"Failed to execute run, script '{_path}' was not found, or"
+                    " failed to be created.",
+                    exit_code=1,
+                )
+            _cmd = open(_path).read()
+            _out_file = os.path.join(self._job_dir, os.path.basename(_path))
+            if _cmd:
+                with open(_out_file, "w") as f:
+                    f.write(_cmd)
+
+        self._logger.debug("Script command: %s", _cmd)
+        self._logger.debug("Script written to: %s", _out_file)
+
+        if not _cmd or not _out_file:
+            raise fdp_exc.UserConfigError(
+                "Configuration file must contain either a valid "
+                "'script' or 'script_path' entry under 'run_metadata'"
+            )
+
+        self.set_script(_out_file)
+
+        return {"shell": _shell, "script": _out_file}
 
     def update_from_fair(
         self, fair_repo_dir: str = None, remote_label: str = None
@@ -304,7 +424,24 @@ class JobConfiguration(MutableMapping):
 
         if fair_repo_dir and "run_metadata.remote_repo" not in self:
             _remote = _fdpconfig["git.remote"]
-            _git_repo = git.Repo(fair_repo_dir)
+            
+            # If local repository stated in loaded config use that, else if
+            # already defined use existing location, else use specified directory
+            try:
+                _local_repo = _fdpconfig["git.local_repo"]
+            except KeyError:
+                if "run_metadata.local_repo" in self:
+                    _local_repo = self["run_metadata.local_repo"]
+                else:
+                    _local_repo = fair_repo_dir
+
+            try:
+                _git_repo = git.Repo(_local_repo)
+            except git.InvalidGitRepositoryError:
+                raise fdp_exc.FDPRepositoryError(
+                    f"Failed to update job configuration from location '{fair_repo_dir}', "
+                    "not a valid git repository."
+                )
             _url = _git_repo.remotes[_remote].url
             self["run_metadata.remote_repo"] = _url
 
@@ -333,11 +470,11 @@ class JobConfiguration(MutableMapping):
         self["run_metadata.shell"] = shell
         self.pop("run_metadata.script_path")
 
-    def _create_environment(self, output_dir: str) -> None:
+    def _create_environment(self) -> None:
         """Create the environment for running a job"""
         _environment = os.environ.copy()
         _environment["FDP_LOCAL_REPO"] = self.local_repository
-        _environment["FDP_CONFIG_DIR"] = output_dir
+        _environment["FDP_CONFIG_DIR"] = self._job_dir
         _environment["FDP_LOCAL_TOKEN"] = fdp_req.local_token()
         return _environment
 
@@ -347,29 +484,40 @@ class JobConfiguration(MutableMapping):
         self["run_metadata.script_path"] = command_script
         self.pop("run_metadata.script")
 
-    def _substitute_variables(
-        self, job_dir: str, time_stamp: datetime.datetime
-    ) -> None:
-        self._logger.debug("Performing variable substitution")
-        _config_str = self._subst_cli_vars(job_dir, time_stamp)
-        self._config = yaml.safe_load(_config_str)
+    def _create_log(self, command: str = None) -> None:
+        _logs_dir = fdp_hist.history_directory(self.local_repository)
+
+        if not os.path.exists(_logs_dir):
+            os.makedirs(_logs_dir)
+
+        _time_stamp = self._now.strftime("%Y-%m-%d_%H_%M_%S_%f")
+        _log_file = os.path.join(_logs_dir, f"job_{_time_stamp}.log")
+        self._logger.debug(f"Will write session log to '{_log_file}'")
+        command = command or self.command
+        self._log_file = open(_log_file, "w")
 
     def prepare(
         self,
-        job_dir: str,
-        time_stamp: datetime.datetime,
         job_mode: CMD_MODE,
         allow_dirty: bool = False,
-    ) -> None:
+    ) -> str:
         """Initiate a job execution"""
         self._logger.debug("Preparing configuration")
         self._update_namespaces()
-        self._substitute_variables(job_dir, time_stamp)
+        _time_stamp = self._now.strftime("%Y-%m-%d_%H_%M_%S_%f")
+        self._job_dir = os.path.join(fdp_com.default_jobs_dir(), _time_stamp)
+        os.makedirs(self._job_dir)
+        self._create_log()
+        self._subst_cli_vars(self._now)
 
         self._fill_all_block_types()
 
-        if job_mode in [CMD_MODE.PULL, CMD_MODE.PUSH]:
-            self._pull_metadata()
+        if job_mode == CMD_MODE.PULL:
+            _cmd = f'pull {self._input_file}'
+            self._pull_push_log_header(_cmd)
+        elif job_mode == CMD_MODE.PUSH:
+            _cmd = 'push'
+            self._pull_push_log_header(_cmd)
 
         for block_type in ("read", "write"):
             if block_type not in self:
@@ -417,6 +565,24 @@ class JobConfiguration(MutableMapping):
         except pydantic.ValidationError as e:
             raise fdp_exc.ValidationError(e.json())
 
+        return os.path.join(self._job_dir, fdp_com.USER_CONFIG_FILE)
+
+    def _pull_push_log_header(self, _cmd):
+        _cmd = f'fair {_cmd}'
+        _out_str = self._now.strftime("%a %b %d %H:%M:%S %Y %Z")
+        _user = fdp_conf.get_current_user_name(self.local_repository)
+        _email = fdp_conf.get_current_user_email(self.local_repository)
+        self._log_file.writelines(
+            [
+                "--------------------------------\n",
+                f" Commenced = {_out_str}\n",
+                f" Author    = {' '.join(_user)} <{_email}>\n",
+                f" Command   = {_cmd}\n",
+                "--------------------------------\n",
+            ]
+        )
+        self._pull_metadata()
+
     def _check_for_unparsed(self) -> typing.List[str]:
         self._logger.debug("Checking for unparsed variables")
         _conf_str = yaml.dump(self._config)
@@ -426,14 +592,14 @@ class JobConfiguration(MutableMapping):
 
         return _regex_fmt.findall(_conf_str)
 
-    def _subst_cli_vars(self, job_dir: str, job_time: datetime.datetime) -> str:
+    def _subst_cli_vars(self, job_time: datetime.datetime) -> str:
         self._logger.debug("Searching for CLI variables")
 
         def _get_id():
             try:
-                return fdp_conf.get_current_user_uri(job_dir)
+                return fdp_conf.get_current_user_uri(self._job_dir)
             except fdp_exc.CLIConfigurationError:
-                return fdp_conf.get_current_user_uuid(job_dir)
+                return fdp_conf.get_current_user_uuid(self._job_dir)
 
         def _tag_check(*args, **kwargs):
             _repo = git.Repo(fdp_conf.local_git_repo(self.local_repository))
@@ -449,7 +615,7 @@ class JobConfiguration(MutableMapping):
             "USER": lambda: fdp_conf.get_current_user_name(self.local_repository),
             "USER_ID": lambda: _get_id(),
             "REPO_DIR": lambda: self.local_repository,
-            "CONFIG_DIR": lambda: job_dir + os.path.sep,
+            "CONFIG_DIR": lambda: self._job_dir + os.path.sep,
             "LOCAL_TOKEN": lambda: fdp_req.local_token(),
             "GIT_BRANCH": lambda: self.git_branch,
             "GIT_REMOTE": lambda: self.git_remote_uri,
@@ -498,8 +664,7 @@ class JobConfiguration(MutableMapping):
                 _config_str = re.sub(subst, str(_value), _config_str)
                 self._logger.debug("Substituting %s: %s", var, str(_value))
 
-        # Load the YAML (this also verifies the write was successful) and return it
-        return _config_str
+        self._config = yaml.safe_load(_config_str)
 
     def _register_to_read(self) -> typing.Dict:
         """Construct 'read' block entries from 'register' block entries
@@ -535,6 +700,7 @@ class JobConfiguration(MutableMapping):
             )
 
             _read_block.append(_readable)
+            self._local_only.append(_readable)
         return _read_block
 
     def _clean(self) -> typing.Dict:
@@ -657,7 +823,7 @@ class JobConfiguration(MutableMapping):
                         f"Already found this version ({e}), but may be identical"
                     )
                 else:
-                    self._logger.error(str(item))
+                    self._logger.error(f"Failed to find version match for {item}")
                     raise e
 
             if "${{" in _version:
@@ -751,6 +917,11 @@ class JobConfiguration(MutableMapping):
             self._config[block_type] = _new_block
 
     @property
+    def script(self) -> str:
+        """Retrieve path of session executable script"""
+        return self["run_metadata.script_path"]
+
+    @property
     def content(self) -> typing.Dict:
         """Return a copy of the internal dictionary"""
         return copy.deepcopy(self._config)
@@ -841,11 +1012,115 @@ class JobConfiguration(MutableMapping):
         """Returns the job execution environment"""
         return self.env
 
-    def write(self, output_file: str) -> None:
+    def execute(self) -> int:
+        """Execute script/command if specified
+
+        Returns
+        -------
+        int
+            exit code of the executed process
+        """
+        if not self.command:
+            raise fdp_exc.UserConfigError(
+                "No command specified to execute"
+            )
+        _out_str = self._now.strftime("%a %b %d %H:%M:%S %Y %Z")
+        _user = fdp_conf.get_current_user_name(self.local_repository)
+        _email = fdp_conf.get_current_user_email(self.local_repository)
+
+        self._log_file.writelines(
+            [
+                "--------------------------------\n",
+                f" Commenced = {_out_str}\n",
+                f" Author    = {' '.join(_user)} <{_email}>\n",
+                f" Command   = {self.command}\n",
+                "--------------------------------\n",
+            ]
+        )
+
+        _exec = SHELLS[self.shell]["exec"].format(
+            self.script
+        )
+
+        _process = subprocess.Popen(
+            _exec.split(),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            universal_newlines=True,
+            bufsize=1,
+            text=True,
+            shell=False,
+            env=self.environment,
+            cwd=self.local_repository,
+        )
+
+        _process.wait()
+
+        return _process.returncode
+
+    def close_log(self) -> None:
+        _time_finished = datetime.datetime.now()
+        _duration = _time_finished - self._now
+        self._log_file.writelines(
+            [
+                "Operating in ci mode without running script\n",
+                f"------- time taken {_duration} -------\n",
+            ]
+        )
+        self._log_file.close()
+
+    def get_readables(self) -> typing.List[str]:
+        """Returns list form of items to retrieve
+
+        Returns
+        -------
+        typing.List[str]
+            list of data products to retrieve
+        """
+        self._logger.debug("Retrieving list of 'read' items")
+        _readables: typing.List[str] = []
+        if "read" not in self:
+            return _readables
+        
+        #TODO: For now only supports data products
+        for readable in self["read"]:
+            # In this context readables are items to be read from a remote
+            # registry, not items registered locally
+            if readable in self._local_only:
+                continue
+            if "data_product" not in readable:
+                continue
+            if "use" not in readable:
+                raise fdp_exc.UserConfigError(
+                    "Attempt to access 'read' listings before parsing complete"
+                )
+            if any(v not in readable["use"] for v in ("version", "namespace")):
+                raise fdp_exc.UserConfigError(
+                    "Attempt to access 'read' listings before parsing complete"
+                )
+            _version = readable["use"]["version"]
+            _namespace = readable["use"]["namespace"]
+            _name = readable["data_product"]
+            _readables.append(f"{_namespace}:{_name}@v{_version}")
+        return _readables
+
+    @property
+    def hash(self) -> str:
+        """Get job hash"""
+        return fdp_run.get_job_hash(self._job_dir)
+
+    def write(self, output_file: str = None) -> None:
         """Write job configuration to file"""
+        if not output_file:
+            if not self._job_dir:
+                raise fdp_exc.UserConfigError(
+                    "Cannot write new user configuration file, "
+                    "no job directory created and no alternative filename provided"
+                )
+            output_file = os.path.join(self._job_dir, fdp_com.USER_CONFIG_FILE)
         with open(output_file, "w") as out_f:
             yaml.dump(self._config, out_f)
 
-        self.env = self._create_environment(os.path.dirname(output_file))
+        self.env = self._create_environment()
 
         self._logger.debug(f"Configuration written to '{output_file}'")
