@@ -38,7 +38,10 @@ def create_configurations(
         A CLI configuration dictionary that can be loaded for a the CLI session
     """
     if not registry_dir:
-        registry_dir = fdp_com.DEFAULT_REGISTRY_LOCATION
+        if 'FAIR_REGISTRY_DIR' in os.environ:
+            registry_dir = os.environ['FAIR_REGISTRY_DIR']
+        else:
+            registry_dir = fdp_com.DEFAULT_REGISTRY_LOCATION
     if not remote_reg_dir:
         remote_reg_dir = os.path.join(
             os.path.dirname(fdp_com.DEFAULT_REGISTRY_LOCATION), "registry-rem"
