@@ -426,8 +426,9 @@ def run(config: str, script: str, debug: bool, ci: bool, dirty: bool):
             config,
             debug=debug,
             server_mode=fdp_svr.SwitchMode.CLI,
+            allow_dirty=dirty
         ) as fair_session:
-            _hash = fair_session.run_job(script, mode=_run_mode, allow_dirty=dirty)
+            _hash = fair_session.run_job(script, mode=_run_mode)
             if ci:
                 click.echo(fdp_run.get_job_dir(_hash))
     except fdp_exc.FAIRCLIException as e:
