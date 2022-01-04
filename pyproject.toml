@@ -33,6 +33,7 @@ documentation = "https://www.fairdatapipeline.org/docs/interface/fdp/"
 packages = [
     {include = "fair"}
 ]
+
 license = "BSD-2-Clause"
 
 readme = "README.md"
