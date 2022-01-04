@@ -161,15 +161,13 @@ class FAIR:
             "\ttesting        = %s\n"
             "\trun_mode       = %s\n"
             "\tstaging_file   = %s\n"
-            "\tsession_id     = %s\n"
-            "\tallow_dirty    = %s\n",
+            "\tsession_id     = %s\n",
             self._session_loc,
-            self._session_config,
+            _session_config_file,
             self._testing,
             self._run_mode,
             self._stager._staging_file,
             self._session_id,
-            self._allow_dirty
         )
 
         self._load_configurations()
@@ -364,6 +362,7 @@ class FAIR:
         self,
         bash_cmd: str = "",
         passive: bool = False,
+        allow_dirty: bool = False,
     ) -> str:
         """Execute a run using the given user configuration file"""
         self._pre_job_setup()
@@ -379,14 +378,14 @@ class FAIR:
         self._session_config.setup_job_script()
         self._session_config.write()
 
-        if self._allow_dirty:
+        if allow_dirty:
             self._logger.debug("Allowing uncommitted changes during run.")
 
         # Only apply constraint for clean repository when executing a run
         if passive:
             allow_dirty = True
 
-        self.check_git_repo_state()
+        self.check_git_repo_state(allow_dirty=allow_dirty)
 
         self._session_config.execute()
 
@@ -405,7 +404,7 @@ class FAIR:
             )
 
     def check_git_repo_state(
-        self, remote_label: str = "origin"
+        self, remote_label: str = "origin", allow_dirty: bool = False
     ) -> bool:
         """Checks the git repository is clean and that local matches remote"""
         _repo_root = fdp_com.find_git_root(self._session_loc)
@@ -420,7 +419,7 @@ class FAIR:
             # Get the latest commit on the current branch locally
             _loc_commit = _repo.refs[_current_branch].commit.hexsha
         except (TypeError, IndexError) as e:
-            if self._allow_dirty:
+            if allow_dirty:
                 click.echo(f"Warning: {' '.join(e.args)}")
             else:
                 raise fdp_exc.FDPRepositoryError(" ".join(e.args))
@@ -443,7 +442,7 @@ class FAIR:
             )
         except IndexError:
             _msg = f"Failed to find branch '{_current_branch}' on remote repository"
-            if self._allow_dirty:
+            if allow_dirty:
                 click.echo(f"Warning: {_msg}")
             else:
                 raise fdp_exc.FDPRepositoryError(_msg)
@@ -452,7 +451,7 @@ class FAIR:
         _com_match = _loc_commit == _rem_commit
 
         if not _com_match:
-            if self._allow_dirty:
+            if allow_dirty:
                 click.echo("Warning: local git repository is ahead/behind remote")
             else:
                 raise fdp_exc.FDPRepositoryError(
@@ -460,7 +459,7 @@ class FAIR:
                     f"remote '{remote_label}'"
                 )
         if _repo.is_dirty():
-            if self._allow_dirty:
+            if allow_dirty:
                 click.echo("Warning: running with uncommitted changes")
             else:
                 raise fdp_exc.FDPRepositoryError(
