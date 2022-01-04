@@ -158,6 +158,52 @@ def test_init_from_existing(
 
         assert os.path.exists(os.path.join(os.getcwd(), fdp_com.FAIR_FOLDER))
 
+@pytest.mark.cli
+def test_init_from_env(
+    local_registry: conf.RegistryTest,
+    click_test: click.testing.CliRunner,
+    mocker: pytest_mock.MockerFixture,
+):
+    mocker.patch("fair.common.registry_home", lambda: local_registry._install)
+
+    _out_config = os.path.join(os.getcwd(), fdp_com.USER_CONFIG_FILE)
+
+    with tempfile.TemporaryDirectory() as tempd:
+        _out_cli_config = os.path.join(tempd, "cli-config.yaml")
+        _env = os.environ.copy()
+        _env['FAIR_REGISTRY_DIR'] = local_registry._install
+        with local_registry:
+            _result = click_test.invoke(
+                cli,
+                [
+                    "init",
+                    "--debug",
+                    "--ci",
+                    "--config",
+                    _out_config,
+                    "--export",
+                    _out_cli_config,
+                ],
+                env=_env
+            )
+            assert _result.exit_code == 0
+            assert os.path.exists(_out_cli_config)
+            assert os.path.exists(_out_config)
+            assert os.path.exists(
+                os.path.join(os.getcwd(), fdp_com.FAIR_FOLDER)
+            )
+
+            click_test = click.testing.CliRunner()
+            click_test.isolated_filesystem()
+
+            _result = click_test.invoke(
+                cli, ["init", "--debug", "--using", _out_cli_config]
+            )
+
+        assert _result.exit_code == 0
+
+        assert os.path.exists(os.path.join(os.getcwd(), fdp_com.FAIR_FOLDER))
+
 
 @pytest.mark.cli
 def test_init_full(

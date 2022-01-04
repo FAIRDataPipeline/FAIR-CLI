@@ -622,6 +622,8 @@ def global_config_query(registry: str = None) -> typing.Dict[str, typing.Any]:
     """Ask user question set for creating global FAIR config"""
     logger.debug("Running global configuration query with registry at '%s'", registry)
     click.echo("Checking for local registry")
+    if not registry and 'FAIR_REGISTRY_DIR' in os.environ:
+        registry = os.environ['FAIR_REGISTRY_DIR']
     check_reg = check_registry_exists(registry)
     if check_reg:
         registry = check_reg
