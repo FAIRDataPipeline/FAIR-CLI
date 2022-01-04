@@ -45,9 +45,6 @@ def test_pull(local_config: typing.Tuple[str, str],
             mocker.patch("fair.configuration.get_local_data_store", lambda *args: _data)
             _cfg_path = os.path.join(
                 _proj_dir,
-                "src",
-                "org",
-                "fairdatapipeline",
                 "simpleModel",
                 "ext",
                 "SEIRSconfig.yaml"
@@ -131,9 +128,6 @@ def test_run(local_config: typing.Tuple[str, str],
 
             _cfg_path = os.path.join(
                 _proj_dir,
-                "src",
-                "org",
-                "fairdatapipeline",
                 "simpleModel",
                 "ext",
                 "SEIRSconfig.yaml"
