@@ -89,7 +89,7 @@ def test_run(local_config: typing.Tuple[str, str],
     mocker: pytest_mock.MockerFixture,
     capsys):
     try:
-        import org.fairdatapipeline
+        import fairdatapipeline
     except ModuleNotFoundError:
         pytest.skip("Python API implementation not installed")
     mocker.patch("fair.configuration.get_remote_token", lambda *args: remote_registry._token)
