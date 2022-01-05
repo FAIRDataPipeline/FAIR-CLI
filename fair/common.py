@@ -69,7 +69,10 @@ class CMD_MODE(enum.Enum):
 
 def registry_home() -> str:
     if not os.path.exists(global_fdpconfig()):
-        return DEFAULT_REGISTRY_LOCATION
+        if 'FAIR_REGISTRY_DIR' in os.environ:
+            return os.environ['FAIR_REGISTRY_DIR']
+        else:
+            return DEFAULT_REGISTRY_LOCATION
     _glob_conf = yaml.safe_load(open(global_fdpconfig()))
     if not _glob_conf:
         return DEFAULT_REGISTRY_LOCATION
