@@ -785,6 +785,7 @@ optional = false
 python-versions = ">=3.6.1"
 
 [package.dependencies]
+email-validator = {version = ">=1.0.3", optional = true, markers = "extra == \"email\""}
 typing-extensions = ">=3.7.4.3"
 
 [package.extras]
@@ -1236,7 +1237,7 @@ testing = ["pytest (>=4.6)", "pytest-checkdocs (>=2.4)", "pytest-flake8", "pytes
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.7.1,<4.0"
-content-hash = "2ba1c4896f2a4e9e9e2823b21da8e8872b98533d1b3a92eec8619470af80419a"
+content-hash = "07df483f8476cbb131c342e31a4ea247b6b80163cc77e8981884150d48b3495d"
 
 [metadata.files]
 atomicwrites = [
