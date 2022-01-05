@@ -6,13 +6,13 @@ import shutil
 import subprocess
 import time
 import typing
-import venv
 
 import click
 import git
 import requests
 
 from fair.common import FAIR_FOLDER
+from fair.virtualenv import FAIREnv
 
 FAIR_REGISTRY_REPO = "https://github.com/FAIRDataPipeline/data-registry.git"
 
@@ -117,11 +117,9 @@ def install_registry(
     if not venv_dir:
         venv_dir = os.path.join(install_dir, "venv")
 
-        venv.create(
-            venv_dir,
-            with_pip=True,
-            prompt="RegistryTest",
-        )
+        _venv = FAIREnv(with_pip=True, prompt="RegistryTest")
+
+        _venv.create(venv_dir)
 
     _venv_python = shutil.which("python", path=os.path.join(venv_dir, "bin"))
 
