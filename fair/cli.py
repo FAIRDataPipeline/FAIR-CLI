@@ -56,7 +56,7 @@ def complete_jobs_data_products(ctx, param, incomplete) -> typing.List[str]:
     if not os.path.exists(_staging_file):
         return []
     _staging_data = yaml.safe_load(open(_staging_file))
-    _candidates = [d for d in _staging_data["data_product"].keys()]
+    _candidates = list(_staging_data["data_product"].keys())
     return [
         click.shell_completion.CompletionItem(c)
         for c in _candidates
@@ -65,7 +65,7 @@ def complete_jobs_data_products(ctx, param, incomplete) -> typing.List[str]:
 
 
 @click.group()
-@click.version_option()
+@click.version_option(package_name='fair-cli')
 def cli():
     """Welcome to FAIR-CLI, the FAIR data pipeline command-line interface."""
     pass
