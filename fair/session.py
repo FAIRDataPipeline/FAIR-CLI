@@ -421,6 +421,8 @@ class FAIR:
 
         self.check_git_repo_state(allow_dirty=allow_dirty)
 
+        self._session_config.write()
+
         self._session_config.execute()
 
         self._post_job_breakdown()

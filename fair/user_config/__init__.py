@@ -5,12 +5,14 @@ import os
 import os.path
 import platform
 import re
+import sys
 import json
 import typing
 import subprocess
 from collections.abc import MutableMapping
 
 import git
+import click
 import yaml
 import pydantic
 
@@ -235,8 +237,7 @@ class JobConfiguration(MutableMapping):
     def _switch_namespace_name_to_use(self, register_block: typing.List):
         """
         Checks namespace listed in 'namespace_name' if given, if there is a
-        match the entry is removed and replaced with a 'use:namespace' entry
-        
+        match the entry is removed and replaced with a 'use:namespace' entry  
         """
         _new_register_block: typing.List[typing.Dict] = []
         for register_entry in register_block:
@@ -322,6 +323,12 @@ class JobConfiguration(MutableMapping):
 
         if _repository.is_dirty():
             if not allow_dirty:
+                _changes = [i.a_path for i in _repository.index.diff(None)]
+                self._logger.error(
+                    "Cannot retrieve latest commit for repository with allow_dirty=False, "
+                    "the follow files have uncommitted changes:\n\t- %s",
+                    '\n\t- '.join(_changes)
+                )
                 raise fdp_exc.FDPRepositoryError(
                     "Cannot retrieve latest commit, "
                     "repository contains uncommitted changes"
@@ -448,7 +455,6 @@ class JobConfiguration(MutableMapping):
             _fdpconfig.update(_local_fdpconfig)
         for key in JOB2CLI_MAPPINGS:
             if key not in self:
-                print(key)
                 self[key] = _fdpconfig[JOB2CLI_MAPPINGS[key]]
 
         if remote_label:
@@ -508,6 +514,12 @@ class JobConfiguration(MutableMapping):
         """Create the environment for running a job"""
         _environment = os.environ.copy()
         _environment["FDP_LOCAL_REPO"] = self.local_repository
+        if "PYTHONPATH" in _environment:
+            _new_py_path = _environment["PYTHONPATH"]
+            _new_py_path += os.pathsep + self.local_repository
+        else:
+            _new_py_path = self.local_repository
+        _environment["PYTHONPATH"] = _new_py_path
         _environment["FDP_CONFIG_DIR"] = self._job_dir
         _environment["FDP_LOCAL_TOKEN"] = fdp_req.local_token()
         return _environment
@@ -525,10 +537,10 @@ class JobConfiguration(MutableMapping):
             os.makedirs(_logs_dir)
 
         _time_stamp = self._now.strftime("%Y-%m-%d_%H_%M_%S_%f")
-        _log_file = os.path.join(_logs_dir, f"job_{_time_stamp}.log")
-        self._logger.debug(f"Will write session log to '{_log_file}'")
+        self._log_file_path = os.path.join(_logs_dir, f"job_{_time_stamp}.log")
+        self._logger.debug(f"Will write session log to '{self._log_file_path}'")
         command = command or self.command
-        self._log_file = open(_log_file, "w")
+        self._log_file = open(self._log_file_path, "w")
 
     def prepare(
         self,
@@ -574,6 +586,8 @@ class JobConfiguration(MutableMapping):
                 user_config_register=self["register"],
             )
             self._logger.debug("Fetched objects:\n %s", _objs)
+
+        self._parsed_namespaces = self._get_local_namespaces()
 
         if "register" in self:
             if "read" not in self:
@@ -709,8 +723,6 @@ class JobConfiguration(MutableMapping):
             new read entries extract from register statements
         """
         _read_block: typing.List[typing.Dict] = []
-
-        self._parsed_namespaces = self._get_local_namespaces()
 
         for item in register_block:
             _readable = item.copy()
@@ -1120,9 +1132,23 @@ class JobConfiguration(MutableMapping):
             ]
         )
 
+        if not self.env:
+            raise fdp_exc.InternalError("Command execution environment setup failed")
+
         _exec = SHELLS[self.shell]["exec"].format(
             self.script
         )
+
+        self._logger.debug("Executing command: %s", _exec)
+        self._logger.debug(
+            "Environment: %s",
+            "\n\t".join(
+                f"{k}: {self.env[k]}"
+                for k in sorted(self.env.keys())
+            )
+        )
+
+        _log_tail: typing.List[str] = []
 
         _process = subprocess.Popen(
             _exec.split(),
@@ -1132,20 +1158,35 @@ class JobConfiguration(MutableMapping):
             bufsize=1,
             text=True,
             shell=False,
-            env=self.environment,
+            env=self.env,
             cwd=self.local_repository,
         )
 
+        # Write any stdout to the job log
+        for line in iter(_process.stdout.readline, ""):
+            self._log_file.writelines([line])
+            _log_tail.append(line)
+            click.echo(line, nl=False)
+            sys.stdout.flush()
+
         _process.wait()
 
-        return _process.returncode
+        if _process.returncode != 0:
+            self.close_log()
+            self._logger.error(
+                "Command '%s' failed with exit code %s, log tail:\n\t%s",
+                _exec, _process.returncode, '\n\t'.join(_log_tail)
+            )
+            raise fdp_exc.CommandExecutionError(
+                "Executed command failed with exit code %s",
+                _process.returncode,
+            )
 
     def close_log(self) -> None:
         _time_finished = datetime.datetime.now()
         _duration = _time_finished - self._now
         self._log_file.writelines(
             [
-                "Operating in ci mode without running script\n",
                 f"------- time taken {_duration} -------\n",
             ]
         )
