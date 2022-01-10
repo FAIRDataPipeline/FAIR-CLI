@@ -573,6 +573,7 @@ def pull(config: str, debug: bool):
             config,
             server_mode=fdp_svr.SwitchMode.CLI,
             debug=debug,
+            allow_dirty=True
         ) as fair:
             fair.pull()
     except fdp_exc.FAIRCLIException as e:
