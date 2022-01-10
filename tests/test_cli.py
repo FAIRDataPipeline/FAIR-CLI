@@ -345,7 +345,7 @@ def test_registry_cli(
         assert not glob.glob(os.path.join(tempd, "*"))
 
 
-def test_run(
+def test_cli_run(
     local_config: typing.Tuple[str, str],
     local_registry: conf.RegistryTest,
     click_test: click.testing.CliRunner,

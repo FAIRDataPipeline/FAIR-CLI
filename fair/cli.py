@@ -65,7 +65,7 @@ def complete_jobs_data_products(ctx, param, incomplete) -> typing.List[str]:
 
 
 @click.group()
-@click.version_option()
+@click.version_option(package_name='fair-cli')
 def cli():
     """Welcome to FAIR-CLI, the FAIR data pipeline command-line interface."""
     pass
