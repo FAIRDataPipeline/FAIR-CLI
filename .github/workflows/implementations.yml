@@ -25,6 +25,7 @@ jobs:
         run: |
           pip install poetry
           poetry install
+        working-directory: python_example
 
       - name: run Python Model with fair cli
         run: |
