@@ -45,7 +45,8 @@ def test_post(local_registry: conf.RegistryTest, mocker: pytest_mock.MockerFixtu
     _orcid = "https://orcid.org/0000-0000-0000-0000"
     with local_registry:
         _result = fdp_req.post(
-            LOCAL_URL, "author", data={"name": _name, "identifier": _orcid}
+            LOCAL_URL, "author", local_registry._token, 
+            data={"name": _name, "identifier": _orcid}
         )
         assert _result["url"]
 
@@ -55,7 +56,7 @@ def test_post(local_registry: conf.RegistryTest, mocker: pytest_mock.MockerFixtu
 def test_get(local_registry: conf.RegistryTest, mocker: pytest_mock.MockerFixture):
     mocker.patch("fair.common.registry_home", lambda: local_registry._install)
     with local_registry:
-        assert fdp_req.get(LOCAL_URL, "author")
+        assert fdp_req.get(LOCAL_URL, "author", local_registry._token)
 
 
 @pytest.mark.requests
@@ -73,7 +74,7 @@ def test_post_else_get(
         mock_get = mocker.patch("fair.registry.requests.get")
         # Perform method twice, first should post, second retrieve
         assert fdp_req.post_else_get(
-            LOCAL_URL, _obj_path, data=_data, params=_params
+            LOCAL_URL, _obj_path, local_registry._token, data=_data, params=_params
         )
 
         mock_post.assert_called_once()
@@ -93,6 +94,7 @@ def test_post_else_get(
         assert fdp_req.post_else_get(
             LOCAL_URL,
             "file_type",
+            local_registry._token,
             data={"name": "Comma Separated Values", "extension": "csv"},
             params={"extension": "csv"},
         )
@@ -106,7 +108,7 @@ def test_filter_variables(
 ):
     mocker.patch("fair.common.registry_home", lambda: local_registry._install)
     with local_registry:
-        assert fdp_req.get_filter_variables(LOCAL_URL, "data_product")
+        assert fdp_req.get_filter_variables(LOCAL_URL, "data_product", local_registry._token)
 
 
 @pytest.mark.requests
@@ -116,7 +118,7 @@ def test_writable_fields(
     mocker.patch("fair.common.registry_home", lambda: local_registry._install)
     with local_registry:
         fdp_req.filter_object_dependencies(
-            LOCAL_URL, "data_product", {"read_only": True}
+            LOCAL_URL, "data_product", local_registry._token, {"read_only": True}
         )
 
 
@@ -135,7 +137,7 @@ def test_dependency_list(
 ):
     mocker.patch("fair.common.registry_home", lambda: local_registry._install)
     with local_registry:
-        _reqs = fdp_req.get_dependency_listing(LOCAL_URL)
+        _reqs = fdp_req.get_dependency_listing(LOCAL_URL, local_registry._token)
         assert _reqs["data_product"] == ["object", "namespace"]
 
 
@@ -146,4 +148,4 @@ def test_object_type_fetch(
     mocker.patch("fair.common.registry_home", lambda: local_registry._install)
     with local_registry:
         for obj in ["object", "data_product", "author", "file_type"]:
-            assert fdp_req.get_obj_type_from_url(f"{LOCAL_URL}/{obj}") == obj
+            assert fdp_req.get_obj_type_from_url(f"{LOCAL_URL}/{obj}", local_registry._token) == obj

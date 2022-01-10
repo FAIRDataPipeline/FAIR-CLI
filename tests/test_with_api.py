@@ -2,6 +2,7 @@ import os.path
 import pathlib
 import typing
 import yaml
+import shutil
 
 import click.testing
 import git
@@ -14,41 +15,144 @@ from fair.registry.requests import get
 from tests.conftest import RegistryTest
 import fair.registry.server as fdp_serv
 
-PYTHON_API_GIT = "https://github.com/FAIRDataPipeline/pyDataPipeline.git"
 REPO_ROOT = pathlib.Path(os.path.dirname(__file__)).parent
 PULL_TEST_CFG = os.path.join(os.path.dirname(__file__), "data", "test_pull_config.yaml")
 
+def get_example_entries(registry_dir: str):
+    """
+    With the registry examples regularly changing this function parses the 
+    relevant file in the reg repository to obtain all example object metadata
+    """
+    SEARCH_STR = "StorageLocation.objects.get_or_create"
+    _example_file = os.path.join(
+        registry_dir,
+        "data_management",
+        "management",
+        "commands",
+        "_example_data.py"
+    )
+
+    _objects: typing.List[typing.Tuple[str, str, str]] = []
+
+    with open(_example_file) as in_f:
+        _lines = in_f.readlines()
+        for i, line in enumerate(_lines):
+            if SEARCH_STR in line:
+                _path_line_offset = 0
+                while "path" not in _lines[i+_path_line_offset]:
+                    _path_line_offset += 1
+                _candidate = _lines[i+_path_line_offset]
+                _candidate = _candidate.replace('"', "")
+                _candidate = _candidate.replace("path=", "")
+                _metadata, _file = _candidate.rsplit("/", 1)
+                _metadata = _metadata.replace("path=", "")
+                _version = ".".join(_file.split(".")[:3])
+                _objects.append((*_metadata.split("/", 1), _version))
+    
+    return _objects
+
 
 @pytest.mark.with_api
-@pytest.mark.dependency(name='pull')
-def test_pull(local_config: typing.Tuple[str, str],
+@pytest.mark.pull
+@pytest.mark.dependency(name='pull_new')
+def test_pull_new(local_config: typing.Tuple[str, str],
     local_registry: RegistryTest,
     remote_registry: RegistryTest,
     mocker: pytest_mock.MockerFixture,
+    pyDataPipeline: str,
+    capsys):
+    _manage = os.path.join(remote_registry._install, "manage.py")
+    mocker.patch("fair.configuration.get_remote_token", lambda *args: remote_registry._token)
+    mocker.patch("fair.registry.requests.local_token", lambda *args: local_registry._token)
+    mocker.patch("fair.registry.server.launch_server", lambda *args, **kwargs: True)
+    mocker.patch("fair.registry.server.stop_server", lambda *args: True)
+    _cli_runner = click.testing.CliRunner()
+    with _cli_runner.isolated_filesystem(pyDataPipeline):
+        with remote_registry, local_registry:
+            assert not get(
+                "http://127.0.0.1:8001/api/",
+                "data_product",
+                remote_registry._token,
+                params={}
+            )
+            remote_registry._venv.run(f"python {_manage} add_example_data", capture=True)
+            os.makedirs(os.path.join(pyDataPipeline, FAIR_FOLDER), exist_ok=True)
+            _data = os.path.join(local_registry._install, "data")
+            os.makedirs(_data, exist_ok=True)
+            fdp_serv.update_registry_post_setup(pyDataPipeline, True)
+            with open(os.path.join(pyDataPipeline, FAIR_FOLDER, "staging"), "w") as sf:
+                yaml.dump({"data_product": {}, "file": {}, "job": {}}, sf)
+            mocker.patch("fair.common.staging_cache", lambda *args: os.path.join(pyDataPipeline, FAIR_FOLDER, "staging"))
+            mocker.patch("fair.configuration.get_local_data_store", lambda *args: _data)
+            _namespace, _path, _version = get_example_entries(remote_registry._install)[0]
+
+            with open(PULL_TEST_CFG) as cfg_file:
+                _cfg_str = cfg_file.read()
+
+            _cfg_str = _cfg_str.replace("<NAMESPACE>", _namespace)
+            _cfg_str = _cfg_str.replace("<VERSION>", _version)
+            _cfg_str = _cfg_str.replace("<PATH>", _path)
+            
+            _cfg = yaml.safe_load(_cfg_str)
+
+            _cfg_path = os.path.join(remote_registry._install, "config.yaml")
+
+            assert get(
+                "http://127.0.0.1:8001/api/",
+                "data_product",
+                remote_registry._token,
+                params={
+                    "name": _path,
+                }
+            )
+            
+            _cfg["run_metadata"]["write_data_store"] = _data
+            with open(_cfg_path, "w") as cfg_file:
+                yaml.dump(_cfg, cfg_file)
+
+            with capsys.disabled():
+                print(f"\tRUNNING: fair pull {_cfg_path} --debug")
+            _res = _cli_runner.invoke(cli, ["pull", _cfg_path, "--debug"])
+
+            assert _res.exit_code == 0
+
+            assert get(
+                "http://127.0.0.1:8000/api/",
+                "data_product",
+                local_registry._token,
+                params={
+                    "name": _path,
+                }
+            )
+
+
+@pytest.mark.with_api
+@pytest.mark.run
+@pytest.mark.push
+@pytest.mark.dependency(name='pull')
+def test_pull_existing(local_config: typing.Tuple[str, str],
+    local_registry: RegistryTest,
+    remote_registry: RegistryTest,
+    mocker: pytest_mock.MockerFixture,
+    pyDataPipeline: str,
     capsys):
     mocker.patch("fair.configuration.get_remote_token", lambda *args: remote_registry._token)
     mocker.patch("fair.registry.requests.local_token", lambda *args: local_registry._token)
     mocker.patch("fair.registry.server.launch_server", lambda *args, **kwargs: True)
     mocker.patch("fair.registry.server.stop_server", lambda *args: True)
     _cli_runner = click.testing.CliRunner()
-    _proj_dir = os.path.join(local_config[1], "code")
-    _repo = git.Repo.clone_from(PYTHON_API_GIT, to_path=_proj_dir)
-    _repo.git.checkout("dev")
-    with _cli_runner.isolated_filesystem(_proj_dir):
+    with _cli_runner.isolated_filesystem(pyDataPipeline):
         with remote_registry, local_registry:
-            os.makedirs(os.path.join(_proj_dir, FAIR_FOLDER), exist_ok=True)
+            os.makedirs(os.path.join(pyDataPipeline, FAIR_FOLDER), exist_ok=True)
             _data = os.path.join(local_registry._install, "data")
             os.makedirs(_data, exist_ok=True)
-            fdp_serv.update_registry_post_setup(_proj_dir, True)
-            with open(os.path.join(_proj_dir, FAIR_FOLDER, "staging"), "w") as sf:
+            fdp_serv.update_registry_post_setup(pyDataPipeline, True)
+            with open(os.path.join(pyDataPipeline, FAIR_FOLDER, "staging"), "w") as sf:
                 yaml.dump({"data_product": {}, "file": {}, "job": {}}, sf)
-            mocker.patch("fair.common.staging_cache", lambda *args: os.path.join(_proj_dir, FAIR_FOLDER, "staging"))
+            mocker.patch("fair.common.staging_cache", lambda *args: os.path.join(pyDataPipeline, FAIR_FOLDER, "staging"))
             mocker.patch("fair.configuration.get_local_data_store", lambda *args: _data)
             _cfg_path = os.path.join(
-                _proj_dir,
-                "src",
-                "org",
-                "fairdatapipeline",
+                pyDataPipeline,
                 "simpleModel",
                 "ext",
                 "SEIRSconfig.yaml"
@@ -57,88 +161,59 @@ def test_pull(local_config: typing.Tuple[str, str],
                 _cfg = yaml.safe_load(cfg_file)
             
             _cfg["run_metadata"]["write_data_store"] = _data
+
             with open(_cfg_path, "w") as cfg_file:
                 yaml.dump(_cfg, cfg_file)
+
             with capsys.disabled():
                 print(f"\tRUNNING: fair pull {_cfg_path} --debug")
             _res = _cli_runner.invoke(cli, ["pull", _cfg_path, "--debug"])
 
             assert _res.exit_code == 0
+
             assert get(
                 "http://127.0.0.1:8000/api/",
                 "data_product",
+                local_registry._token,
                 params={
                     "name": "SEIRS_model/parameters",
                 }
             )
+
             assert get(
                 "http://127.0.0.1:8000/api/",
                 "namespace",
+                local_registry._token,
                 params={
-                    "name": "testing"
+                    "name": "PSU"
                 }
             )
 
             assert get(
                 "http://127.0.0.1:8000/api/",
-                "user_author"
+                "user_author",
+                local_registry._token
+            )
+
+            assert os.path.exists(
+                os.path.join(
+                    _data,
+                    "PSU",
+                    "SEIRS_model",
+                    "parameters",
+                    "1.0.0.csv"
+                )
             )
 
 
 @pytest.mark.with_api
-def test_pull_new(local_config: typing.Tuple[str, str],
-    local_registry: RegistryTest,
-    remote_registry: RegistryTest,
-    mocker: pytest_mock.MockerFixture,
-    capsys):
-    _manage = os.path.join(remote_registry._install, "manage.py")
-    remote_registry._venv.run(f"python {_manage} add_example_data")
-    mocker.patch("fair.configuration.get_remote_token", lambda *args: remote_registry._token)
-    mocker.patch("fair.registry.requests.local_token", lambda *args: local_registry._token)
-    mocker.patch("fair.registry.server.launch_server", lambda *args, **kwargs: True)
-    mocker.patch("fair.registry.server.stop_server", lambda *args: True)
-    _cli_runner = click.testing.CliRunner()
-    _proj_dir = os.path.join(local_config[1], "code")
-    _repo = git.Repo.clone_from(PYTHON_API_GIT, to_path=_proj_dir)
-    _repo.git.checkout("dev")
-    with _cli_runner.isolated_filesystem(_proj_dir):
-        with remote_registry, local_registry:
-            os.makedirs(os.path.join(_proj_dir, FAIR_FOLDER), exist_ok=True)
-            _data = os.path.join(local_registry._install, "data")
-            os.makedirs(_data, exist_ok=True)
-            fdp_serv.update_registry_post_setup(_proj_dir, True)
-            with open(os.path.join(_proj_dir, FAIR_FOLDER, "staging"), "w") as sf:
-                yaml.dump({"data_product": {}, "file": {}, "job": {}}, sf)
-            mocker.patch("fair.common.staging_cache", lambda *args: os.path.join(_proj_dir, FAIR_FOLDER, "staging"))
-            mocker.patch("fair.configuration.get_local_data_store", lambda *args: _data)
-            with open(PULL_TEST_CFG) as cfg_file:
-                _cfg = yaml.safe_load(cfg_file)
-            _cfg_path = os.path.join(remote_registry._install, "config.yaml")
-            
-            _cfg["run_metadata"]["write_data_store"] = _data
-            with open(_cfg_path, "w") as cfg_file:
-                yaml.dump(_cfg, cfg_file)
-            with capsys.disabled():
-                print(f"\tRUNNING: fair pull {_cfg_path} --debug")
-            _res = _cli_runner.invoke(cli, ["pull", _cfg_path, "--debug"])
-
-            assert not _res.output
-            assert _res.output
-            assert _res.exit_code == 0
-            assert get(
-                "http://127.0.0.1:8000/api/",
-                "data_product",
-                params={
-                    "name": "disease/sars_cov2/SEINRD_model/parameters/efoi",
-                }
-            )
-
-@pytest.mark.with_api
+@pytest.mark.run
 @pytest.mark.dependency(name='run', depends=['pull'])
 def test_run(local_config: typing.Tuple[str, str],
     local_registry: RegistryTest,
     remote_registry: RegistryTest,
     mocker: pytest_mock.MockerFixture,
+    pyDataPipeline: str,
     capsys):
     try:
         import fairdatapipeline
@@ -149,40 +224,27 @@ def test_run(local_config: typing.Tuple[str, str],
     mocker.patch("fair.registry.server.launch_server", lambda *args, **kwargs: True)
     mocker.patch("fair.registry.server.stop_server", lambda *args: True)
     _cli_runner = click.testing.CliRunner()
-    _proj_dir = os.path.join(local_config[1], "code")
-    _repo = git.Repo.clone_from(PYTHON_API_GIT, to_path=_proj_dir)
-    _repo.git.checkout("dev")
-    with _cli_runner.isolated_filesystem(_proj_dir):
+    with _cli_runner.isolated_filesystem(pyDataPipeline):
         with remote_registry, local_registry:
-            os.makedirs(os.path.join(_proj_dir, FAIR_FOLDER), exist_ok=True)
+            os.makedirs(os.path.join(pyDataPipeline, FAIR_FOLDER), exist_ok=True)
             _data = os.path.join(local_registry._install, "data")
             mocker.patch("fair.configuration.get_local_data_store", lambda *args: _data)
+            shutil.rmtree(_data)
             os.makedirs(_data, exist_ok=True)
 
-            assert os.path.exists(
-                os.path.join(
-                    _data,
-                    "testing",
-                    "SEIRS_model",
-                    "parameters",
-                    "1.0.0.csv"
-                )
-            )
-            with open(os.path.join(_proj_dir, FAIR_FOLDER, "staging"), "w") as sf:
+            with open(os.path.join(pyDataPipeline, FAIR_FOLDER, "staging"), "w") as sf:
                 yaml.dump({"data_product": {"testing:SEIRS_model/parameters@v1.0.0": False}, "file": {}, "job": {}}, sf)
-            mocker.patch("fair.common.staging_cache", lambda *args: os.path.join(_proj_dir, FAIR_FOLDER, "staging"))
+            mocker.patch("fair.common.staging_cache", lambda *args: os.path.join(pyDataPipeline, FAIR_FOLDER, "staging"))
             
             assert get(
                 "http://127.0.0.1:8000/api/",
-                "user_author"
+                "user_author",
+                local_registry._token
             )
             
 
             _cfg_path = os.path.join(
-                _proj_dir,
-                "src",
-                "org",
-                "fairdatapipeline",
+                pyDataPipeline,
                 "simpleModel",
                 "ext",
                 "SEIRSconfig.yaml"
@@ -191,7 +253,7 @@ def test_run(local_config: typing.Tuple[str, str],
             with open(_cfg_path) as cfg_file:
                 _cfg = yaml.safe_load(cfg_file)
             
-            _cfg["run_metadata"]["script"] = _cfg["run_metadata"]["script"].replace("src", f"{_proj_dir}/src")
+            _cfg["run_metadata"]["script"] = _cfg["run_metadata"]["script"].replace("src", f"{pyDataPipeline}/src")
             _cfg["run_metadata"]["write_data_store"] = _data
 
             with open(_cfg_path, "w") as cfg_file:
@@ -204,9 +266,16 @@ def test_run(local_config: typing.Tuple[str, str],
 
             assert _res.exit_code == 0
 
+            print(
+                get("http://127.0.0.1:8000/api/",
+                "data_product",
+                local_registry._token)
+            )
+
             assert get(
                 "http://127.0.0.1:8000/api/",
                 "data_product",
+                local_registry._token,
                 params={
                     "name": "SEIRS_model/results/figure/python",
                     "version": "0.0.1"
@@ -215,30 +284,30 @@ def test_run(local_config: typing.Tuple[str, str],
 
 
 @pytest.mark.with_api
+@pytest.mark.push
 @pytest.mark.dependency(name='push', depends=['pull'])
 def test_push_initial(local_config: typing.Tuple[str, str],
     local_registry: RegistryTest,
     remote_registry: RegistryTest,
     mocker: pytest_mock.MockerFixture,
+    pyDataPipeline: str,
     capsys):
     mocker.patch("fair.configuration.get_remote_token", lambda *args: remote_registry._token)
     mocker.patch("fair.registry.requests.local_token", lambda *args: local_registry._token)
     mocker.patch("fair.registry.server.launch_server", lambda *args, **kwargs: True)
     mocker.patch("fair.registry.server.stop_server", lambda *args: True)
     _cli_runner = click.testing.CliRunner()
-    _proj_dir = os.path.join(local_config[1], "code")
-    _repo = git.Repo.clone_from(PYTHON_API_GIT, to_path=_proj_dir)
-    _repo.git.checkout("dev")
-    with _cli_runner.isolated_filesystem(_proj_dir):
+    with _cli_runner.isolated_filesystem(pyDataPipeline):
         with remote_registry, local_registry:
-            os.makedirs(os.path.join(_proj_dir, FAIR_FOLDER), exist_ok=True)
+            os.makedirs(os.path.join(pyDataPipeline, FAIR_FOLDER), exist_ok=True)
             _data = os.path.join(local_registry._install, "data")
             mocker.patch("fair.configuration.get_local_data_store", lambda *args: _data)
+            shutil.rmtree(_data)
             os.makedirs(_data, exist_ok=True)
-            with open(os.path.join(_proj_dir, FAIR_FOLDER, "staging"), "w") as sf:
+            with open(os.path.join(pyDataPipeline, FAIR_FOLDER, "staging"), "w") as sf:
                 yaml.dump({"data_product": {"testing:SEIRS_model/parameters@v1.0.0": False}, "file": {}, "job": {}}, sf)
-            mocker.patch("fair.common.staging_cache", lambda *args: os.path.join(_proj_dir, FAIR_FOLDER, "staging"))
-            fdp_serv.update_registry_post_setup(_proj_dir, True)
+            mocker.patch("fair.common.staging_cache", lambda *args: os.path.join(pyDataPipeline, FAIR_FOLDER, "staging"))
+            fdp_serv.update_registry_post_setup(pyDataPipeline, True)
 
             with capsys.disabled():
                 print("\tRUNNING: fair add testing:SEIRS_model/parameters@v1.0.0")
@@ -257,34 +326,33 @@ def test_push_initial(local_config: typing.Tuple[str, str],
             assert get(
                 "http://127.0.0.1:8001/api/",
                 "data_product",
+                remote_registry._token,
                 params={"name": "SEIRS_model/parameters", "version": "1.0.0"},
-                token=remote_registry._token
             )
 
 
 @pytest.mark.with_api
-@pytest.mark.dependency(name='push', depends=['pull', 'run'])
+@pytest.mark.push
+@pytest.mark.dependency(name='push', depends=['test_pull_existing', 'run'])
 def test_push_postrun(local_config: typing.Tuple[str, str],
     local_registry: RegistryTest,
     remote_registry: RegistryTest,
     mocker: pytest_mock.MockerFixture,
+    pyDataPipeline: str,
     capsys):
     mocker.patch("fair.configuration.get_remote_token", lambda *args: remote_registry._token)
     mocker.patch("fair.registry.requests.local_token", lambda *args: local_registry._token)
     mocker.patch("fair.registry.server.launch_server", lambda *args, **kwargs: True)
     mocker.patch("fair.registry.server.stop_server", lambda *args: True)
     _cli_runner = click.testing.CliRunner()
-    _proj_dir = os.path.join(local_config[1], "code")
-    _repo = git.Repo.clone_from(PYTHON_API_GIT, to_path=_proj_dir)
-    _repo.git.checkout("dev")
-    with _cli_runner.isolated_filesystem(_proj_dir):
+    with _cli_runner.isolated_filesystem(pyDataPipeline):
         with remote_registry, local_registry:
-            os.makedirs(os.path.join(_proj_dir, FAIR_FOLDER), exist_ok=True)
-            with open(os.path.join(_proj_dir, FAIR_FOLDER, "staging"), "w") as sf:
+            os.makedirs(os.path.join(pyDataPipeline, FAIR_FOLDER), exist_ok=True)
+            with open(os.path.join(pyDataPipeline, FAIR_FOLDER, "staging"), "w") as sf:
                 yaml.dump({"data_product": {"testing:SEIRS_model/results/figure/python@v0.0.1": False}, "file": {}, "job": {}}, sf)
-            mocker.patch("fair.common.staging_cache", lambda *args: os.path.join(_proj_dir, FAIR_FOLDER, "staging"))
-            fdp_serv.update_registry_post_setup(_proj_dir, True)
-            with open(os.path.join(_proj_dir, FAIR_FOLDER, "staging")) as cfg:
+            mocker.patch("fair.common.staging_cache", lambda *args: os.path.join(pyDataPipeline, FAIR_FOLDER, "staging"))
+            fdp_serv.update_registry_post_setup(pyDataPipeline, True)
+            with open(os.path.join(pyDataPipeline, FAIR_FOLDER, "staging")) as cfg:
                 _staging = yaml.safe_load(cfg)
             assert "testing:SEIRS_model/results/figure/python@v0.0.1" in _staging["data_product"]
             mocker.patch("fair.configuration.get_local_data_store", lambda *args: os.path.join(local_registry._install, "data"))
@@ -294,6 +362,7 @@ def test_push_postrun(local_config: typing.Tuple[str, str],
             assert get(
                 "http://127.0.0.1:8000/api/",
                 "data_product",
+                local_registry._token,
                 params={
                     "name": "SEIRS_model/results/figure/python",
                     "version": "0.0.1"
@@ -309,13 +378,11 @@ def test_push_postrun(local_config: typing.Tuple[str, str],
 
             _res = _cli_runner.invoke(cli, ["push", "--debug"])
 
-            assert _res.output
-            assert not _res.output
             assert _res.exit_code == 0
 
             assert get(
                 "http://127.0.0.1:8001/api/",
                 "data_product",
+                remote_registry._token,
                 params={"name": "SEIRS_model/results/figure/python", "version": "0.0.1"},
-                token=remote_registry._token
             )

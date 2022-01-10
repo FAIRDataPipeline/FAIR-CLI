@@ -119,6 +119,12 @@ def get_correct_version(
     if isinstance(version, semver.VersionInfo):
         return version
 
+    try:
+        return semver.VersionInfo.parse(version)
+    except ValueError:
+        pass
+
+
     _zero = semver.VersionInfo.parse("0.0.0")
 
     if results_list:

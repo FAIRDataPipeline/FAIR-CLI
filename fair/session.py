@@ -55,7 +55,6 @@ import fair.history as fdp_hist
 import fair.registry.server as fdp_serv
 import fair.registry.sync as fdp_sync
 import fair.registry.requests as fdp_req
-import fair.run as fdp_run
 import fair.staging as fdp_stage
 import fair.templates as fdp_tpl
 import fair.testing as fdp_test
@@ -113,6 +112,8 @@ class FAIR:
         """
         if debug:
             logging.getLogger("FAIRDataPipeline").setLevel(logging.DEBUG)
+        else:
+            logging.getLogger("FAIRDataPipeline").setLevel(logging.CRITICAL)
         self._logger.debug("Starting new session.")
         self._testing = testing
         self._session_loc = repo_loc
@@ -341,21 +342,54 @@ class FAIR:
         self._post_job_breakdown()
 
     def pull(self, remote: str = "origin"):
+        self._logger.debug("Performing pull on remote '%s'", remote)
+
+        self._logger.debug("Retrieving namespaces from remote")
+
+        try:
+            fdp_sync.pull_all_namespaces(
+                fdp_conf.get_local_uri(),
+                fdp_conf.get_remote_uri(self._session_loc, remote),
+                fdp_req.local_token(),
+                fdp_conf.get_remote_token(self._session_loc, remote)
+            )
+        except fdp_exc.FileNotFoundError as e:
+            self._logger.warning(
+                "Cannot update namespaces from remote registry '%s', "
+                "due to missing token",
+                remote
+            )
+        self._logger.debug("Performing pre-job setup")
+
         self._pre_job_setup()
-        self._session_config.setup_job_script()
-        _readables = self._session_config.get_readables()
+
         self._session_config.prepare(
             fdp_com.CMD_MODE.PULL,
             allow_dirty=self._allow_dirty
         )
+
+        _readables = self._session_config.get_readables()
+
         self._session_config.write()
-        fdp_sync.push_data_products(
-            origin_uri=fdp_conf.get_remote_uri(self._session_loc, remote),
-            dest_uri=fdp_conf.get_local_uri(),
-            dest_token=fdp_req.local_token(),
-            origin_token=fdp_conf.get_remote_token(self._session_loc, remote),
-            data_products=_readables,
-        )
+
+        self._logger.debug("Preparing to retrieve %s items", len(_readables))
+
+        self._logger.debug("Pulling data products locally")
+
+        # Only push data products if there are any to do so, this covers the
+        # case whereby no remote has been setup and we just want to register
+        # items on the local registry
+        if _readables:
+            fdp_sync.push_data_products(
+                origin_uri=fdp_conf.get_remote_uri(self._session_loc, remote),
+                dest_uri=fdp_conf.get_local_uri(),
+                dest_token=fdp_req.local_token(),
+                origin_token=fdp_conf.get_remote_token(self._session_loc, remote),
+                data_products=_readables,
+            )
+
+        self._logger.debug("Performing post-job breakdown")
+
         self._post_job_breakdown()
 
     def run(
@@ -366,6 +400,7 @@ class FAIR:
     ) -> str:
         """Execute a run using the given user configuration file"""
         self._pre_job_setup()
+
         self._session_config.prepare(
             fdp_com.CMD_MODE.PASS if passive else fdp_com.CMD_MODE.RUN,
             allow_dirty=self._allow_dirty
@@ -376,7 +411,6 @@ class FAIR:
             self._session_config.set_command(bash_cmd)
         
         self._session_config.setup_job_script()
-        self._session_config.write()
 
         if allow_dirty:
             self._logger.debug("Allowing uncommitted changes during run.")
@@ -745,7 +779,8 @@ class FAIR:
 
         if self._testing:
             using = fdp_test.create_configurations(
-                registry, fdp_com.find_git_root(os.getcwd()), os.getcwd()
+                registry, fdp_com.find_git_root(os.getcwd()), os.getcwd(),
+                os.path.join(os.getcwd(), "data_store")
             )
 
         if os.path.exists(_fair_dir):

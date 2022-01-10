@@ -2,6 +2,7 @@ import logging
 import os
 import signal
 import tempfile
+import git
 
 import pytest
 import pytest_fixture_config
@@ -17,10 +18,20 @@ import fair.registry.server as fdp_serv
 from . import registry_install as test_reg
 
 TEST_JOB_FILE_TIMESTAMP = "2021-10-11_10_0_0_100000"
+PYTHON_API_GIT = "https://github.com/FAIRDataPipeline/pyDataPipeline.git"
 
 
 logging.getLogger("FAIRDataPipeline").setLevel(logging.DEBUG)
 
+
+@pytest.fixture()
+def pyDataPipeline():
+    with tempfile.TemporaryDirectory() as temp_d:
+        _repo_path = os.path.join(temp_d, 'repo')
+        _repo = git.Repo.clone_from(PYTHON_API_GIT, _repo_path)
+        _repo.git.checkout("dev")
+        yield _repo_path
+        
 
 @pytest.fixture(scope="session")
 @pytest_fixture_config.yield_requires_config(

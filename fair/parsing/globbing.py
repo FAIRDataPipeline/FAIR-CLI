@@ -81,7 +81,7 @@ def glob_read_write(
                 "Only one key-value pair in a 'read' list entry may contain a"
                 " globbable value"
             )
-        elif len(_glob_vals) == 0:
+        elif not _glob_vals:
             # If no globbables keep existing statement
             _parsed.append(entry)
             continue
@@ -108,7 +108,7 @@ def glob_read_write(
 
         # Send a request to the relevant registry using the search string
         # and the selected search key
-        _results = fdp_req.get(registry_url, _key_glob, params=_search_dict)
+        _results = fdp_req.get(registry_url, _key_glob, fdp_req.local_token(), params=_search_dict)
 
         # Iterate through all results, make a copy of the entry and swap
         # the globbable statement for the result statement appending this

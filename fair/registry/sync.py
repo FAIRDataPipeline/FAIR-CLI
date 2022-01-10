@@ -28,7 +28,7 @@ from fair.register import SEARCH_KEYS
 
 logger = logging.getLogger("FAIRDataPipeline.Sync")
 
-def get_dependency_chain(object_url: str, *args, **kwargs) -> collections.deque:
+def get_dependency_chain(object_url: str, token: str) -> collections.deque:
     """Get all objects relating to an object in order of dependency
 
     For a given URL this function fetches all component URLs ordering them
@@ -39,24 +39,25 @@ def get_dependency_chain(object_url: str, *args, **kwargs) -> collections.deque:
     ----------
     object_url : str
         Full URL of an object within a registry
+    token: str
+        registry access token
 
     Returns
     -------
     collections.deque
         ordered iterable of component object URLs
     """
-    _logger = logging.getLogger("FAIRDataPipeline.Sync")
-    _logger.debug(f"Retrieving dependency chain for '{object_url}'")
+    logger.debug(f"Retrieving dependency chain for '{object_url}'")
     _local_uri, _ = fdp_req.split_api_url(object_url)
 
-    _dependency_list = fdp_req.get_dependency_listing(_local_uri, *args, **kwargs)
+    _dependency_list = fdp_req.get_dependency_listing(_local_uri, token)
 
     def _dependency_of(url_list: collections.deque, item: str):
         if item in url_list:
             return
         url_list.appendleft(item)
-        _results = fdp_req.url_get(item)
-        _type = fdp_req.get_obj_type_from_url(item)
+        _results = fdp_req.url_get(item, token)
+        _type = fdp_req.get_obj_type_from_url(item, token)
         for req, val in _results.items():
             if req in _dependency_list[_type] and val:
                 if isinstance(val, list):
@@ -70,6 +71,58 @@ def get_dependency_chain(object_url: str, *args, **kwargs) -> collections.deque:
     _dependency_of(_urls, object_url)
 
     return _urls
+
+
+def pull_all_namespaces(
+    local_uri: str,
+    remote_uri: str,
+    local_token: str,
+    remote_token: str
+) -> typing.List[str]:
+    """Pull all namespaces from a remote registry
+    
+    This ensures a user does not try to register locally a namespace that
+    already exists on the remote and so lowers the risk of conflicting
+    metadata when running a pull
+
+    Parameters
+    ----------
+    local_uri : str
+        endpoint of the local registry
+    remote_uri : str
+        endpoint of the remote registry
+    local_token : str
+        access token for the local registry
+    remote_token : str
+        access token for the remote registry
+
+    Returns
+    -------
+    typing.List[str]
+        list of identified namespaces
+    """
+    logger.debug("Pulling all namespaces to local registry")
+
+    _remote_namespaces = fdp_req.get(remote_uri, "namespace", remote_token)
+    
+    logger.debug(
+        "Found %s namespace%s on remote", len(_remote_namespaces),
+        "s" if len(_remote_namespaces) != 1 else ""
+    )
+
+    if not _remote_namespaces:
+        return
+
+    _writable_fields = fdp_req.get_writable_fields(local_uri, "namespace", local_token)
+
+    for namespace in _remote_namespaces:
+        _writable_data = {
+            k: v
+            for k, v in namespace.items()
+            if k in _writable_fields
+        }
+        logger.debug("Writable local object data: %s", _writable_data)
+        fdp_req.post_else_get(local_uri, "namespace", local_token, _writable_data)
 
 
 def push_dependency_chain(
@@ -91,7 +144,7 @@ def push_dependency_chain(
     dest_uri : str
         endpoint of the destination registry
     origin_uri : str
-        endpoint of the local registry
+        endpoint of the origin registry
     dest_token : str
         access token for the destination registry
     origin_token : str
@@ -102,35 +155,47 @@ def push_dependency_chain(
     typing.Dict[str, str]
         dictionary showing conversion from source registry URL to destination
     """
-    _logger = logging.getLogger("FAIRDataPipeline.Sync")
-    _logger.debug(f"Attempting to push object '{object_url}' to '{dest_uri}'")
+    logger.debug(f"Attempting to push object '{object_url}' to '{dest_uri}'")
+
+    if not origin_token:
+        raise fdp_exc.InternalError("Expected an origin token to be provided")
 
     _dependency_chain: collections.deque = get_dependency_chain(
         object_url,
-        token=origin_token
+        origin_token
     )
+
     _new_urls: typing.Dict[str, str] = {k: "" for k in _dependency_chain}
+    _writable_fields: typing.Dict[str, str] ={}
+
     # For every object (and the order) in the dependency chain
     # post the object then store the URL so it can be used to assemble those
     # further down the chain
     for object_url in _dependency_chain:
-        _logger.debug("Preparing object '%s'", object_url)
+        logger.debug("Preparing object '%s'", object_url)
         # Retrieve the data for the object from the registry
         _obj_data = fdp_req.url_get(object_url, token=origin_token)
         # Get the URI from the URL
         _uri, _ = fdp_req.split_api_url(object_url)
 
         # Deduce the object type from its URL
-        _obj_type = fdp_req.get_obj_type_from_url(object_url)
+        _obj_type = fdp_req.get_obj_type_from_url(object_url, token=origin_token)
+
+        if _obj_type not in _writable_fields:
+            _writable_fields[_obj_type] = fdp_req.get_writable_fields(
+                _uri,
+                _obj_type,
+                origin_token
+            )
 
         # Filter object data to only the writable fields
         _writable_data = {
             k: v
             for k, v in _obj_data.items()
-            if k in fdp_req.get_writable_fields(_uri, _obj_type, token=origin_token)
+            if k in _writable_fields[_obj_type]
         }
 
-        _logger.debug("Writable local object data: %s", _writable_data)
+        logger.debug("Writable local object data: %s", _writable_data)
         _new_obj_data: typing.Dict[str, typing.Any] = {}
         _url_fields: typing.List[str] = []
 
@@ -165,12 +230,12 @@ def push_dependency_chain(
         _filters = {
             k: v
             for k, v in _new_obj_data.items()
-            if k in fdp_req.get_filter_variables(_uri, _obj_type, token=origin_token)
+            if k in fdp_req.get_filter_variables(_uri, _obj_type, origin_token)
             and isinstance(v, str)
             and k not in _url_fields
         }
 
-        _logger.debug(f"Pushing member '{object_url}' to '{dest_uri}'")
+        logger.debug(f"Pushing member '{object_url}' to '{dest_uri}'")
 
         if dest_uri == origin_uri:
             raise fdp_exc.InternalError("Cannot push object to its source address")

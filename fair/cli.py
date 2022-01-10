@@ -56,7 +56,7 @@ def complete_jobs_data_products(ctx, param, incomplete) -> typing.List[str]:
     if not os.path.exists(_staging_file):
         return []
     _staging_data = yaml.safe_load(open(_staging_file))
-    _candidates = [d for d in _staging_data["data_product"].keys()]
+    _candidates = list(_staging_data["data_product"].keys())
     return [
         click.shell_completion.CompletionItem(c)
         for c in _candidates
@@ -266,7 +266,8 @@ def uninstall(debug: bool):
 def install(debug: bool, force: bool, directory: str):
     """Install the local registry on the system"""
     try:
-        fdp_svr.install_registry(install_dir=directory, force=force)
+        _version = fdp_svr.install_registry(install_dir=directory, force=force)
+        click.echo(f"Installed registry version '{_version}'")
     except fdp_exc.FAIRCLIException as e:
         if debug:
             raise e

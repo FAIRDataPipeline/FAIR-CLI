@@ -5,6 +5,7 @@ import os
 import os.path
 import platform
 import re
+import json
 import typing
 import subprocess
 from collections.abc import MutableMapping
@@ -25,7 +26,7 @@ import fair.utilities as fdp_util
 import fair.run as fdp_run
 import fair.history as fdp_hist
 from fair.common import CMD_MODE
-from fair.user_config.validation import UserConfigModel
+import fair.user_config.validation as fdp_valid
 
 JOB2CLI_MAPPINGS = {
     "run_metadata.local_repo": "git.local_repo",
@@ -60,6 +61,15 @@ SHELLS: typing.Dict[str, str] = {
 class JobConfiguration(MutableMapping):
     _logger = logging.getLogger("FAIRDataPipeline.ConfigYAML")
     _block_types = ("register", "write", "read")
+    _final_permitted = {
+        "all": ("data_product",
+            "public",
+            "use",
+            "description"
+        ),
+        "write": ("file_type",),
+    }
+    _status_tags = ("registered",)
 
     def __init__(self, config_yaml: str) -> None:
         if not os.path.exists(config_yaml):
@@ -76,21 +86,30 @@ class JobConfiguration(MutableMapping):
         self._fill_missing()
 
         self._now = datetime.datetime.now()
+        self._parsed_namespaces = []
         self.env = None
         self._job_dir = None
         self._log_file = None
 
-        # For registered items which are known to only be available locally
-        # and so are not yet on the remote
-        self._local_only: typing.List[typing.Dict] = []
+    def _get_local_namespaces(self) -> typing.List[str]:
+        _namespaces = fdp_req.get(self.local_uri, "namespace", fdp_req.local_token())
+        if not _namespaces:
+            return []
+        else:
+            return [n["name"] for n in _namespaces]
 
     def __contains__(self, key_addr: str) -> bool:
-        return key_addr in fdp_util.flatten_dict(self._config)
+        return any(
+            [
+                key_addr in self._config,
+                key_addr in fdp_util.flatten_dict(self._config)
+            ]
+        )
 
     def __setitem__(
         self, key_addr: str, value: typing.Any, separator: str = "."
     ) -> None:
-        if key_addr in self._config:
+        if key_addr in self:
             self._config[key_addr] = value
         _flat_cfg = fdp_util.flatten_dict(self._config, separator)
         _flat_cfg[key_addr] = value
@@ -127,7 +146,7 @@ class JobConfiguration(MutableMapping):
 
     def _fill_missing(self) -> None:
         self._logger.debug("Filling missing metadata")
-        if "run_metadata" not in self._config:
+        if "run_metadata" not in self:
             self._logger.debug(
                 "Failed to find 'run_metadata' in configuration, creating"
             )
@@ -152,48 +171,43 @@ class JobConfiguration(MutableMapping):
                 self[item[0]] = item[1]
 
     def _handle_register_namespaces(self) -> typing.Dict:
-        self._logger.debug("Handling 'register' namespaces")
+        self._logger.debug("Handling 'register:namespace'")
         _new_register_block: typing.List[typing.Dict] = []
+
+        # Register explicit namespace objects and remove from config
         for item in self["register"]:
-            if any(i in item for i in ("external_object", "data_product")):
-                if "namespace_name" in item:
-                    _namespace_store_args = {
-                        "namespace_label": item["namespace_name"],
-                        "full_name": item.get("namespace_full_name", None),
-                        "website": item.get("namespace_website", None),
-                    }
-                elif "namespace" in item and isinstance(item["namespace"], dict):
-                    _namespace_store_args = item["namespace"]
+            # Not a namespace
+            if 'namespace' not in item:
                 _new_register_block.append(item)
-            elif "namespace" in item:
-                _namespace_store_args = {
-                    "namespace_label": item["namespace"],
-                    "full_name": item.get("full_name", None),
-                    "website": item.get("website", None),
-                }
-            else:
-                _new_register_block.append(item)
-            fdp_store.store_namespace(self.local_uri, **_namespace_store_args)
+                continue
+
+            if any(n in item for n in ["data_product", "external_object"]):
+                raise fdp_exc.UserConfigError(
+                    "Invalid use of tag 'namespace' in non-namespace registration",
+                    "Did you mean 'namespace_name'?"
+                )
+        
+            _namespace_metadata = {
+                "name": item["namespace"],
+                "full_name": item.get("full_name", None),
+                "website": item.get("website", None)
+            }
+
+            if item["namespace"] in self._parsed_namespaces:
+                self._logger.warning(
+                    "Ignoring registration of namespace '%s' as it already exists",
+                    item["namespace"]
+                )
+                continue
+
+            fdp_store.store_namespace(
+                self.local_uri, fdp_req.local_token(), **_namespace_metadata
+            )
+
+            self._parsed_namespaces.append(_namespace_metadata["name"])
+
         return _new_register_block
 
-    def _unpack_register_namespaces(self) -> None:
-        self._logger.debug("Unpacking 'register' namespaces")
-        for i, item in enumerate(self._config["register"]):
-            if all(it not in item for it in ["external_object", "data_product"]):
-                continue
-
-            if "namespace" not in item:
-                continue
-
-            if isinstance(item["namespace"], str):
-                self._config["register"][i]["namespace_name"] = item["namespace"]
-            elif isinstance(item["namespace"], dict):
-                self._config["register"][i]["namespace_name"] = item["namespace"][
-                    "name"
-                ]
-                self._config["register"][i]["namespace_full_name"] = None
-                self._config["register"][i]["namespace_website"] = None
-                del self._config["register"][i]["namespace"]
 
     def _fill_namespaces(self, block_type: str) -> typing.List[typing.Dict]:
         self._logger.debug("Filling all namespaces")
@@ -211,16 +225,6 @@ class JobConfiguration(MutableMapping):
             _new_item = copy.deepcopy(item)
             _new_item["use"] = item.get("use", {})
 
-            # --------------------------------------------------------------- #
-            # FIXME: Schema needs to be finalised, allowing item:namespace and
-            # also item:use:namespace will cause confusion.
-
-            if "namespace" in item and "namespace" not in _new_item["use"]:
-                _new_item["use"]["namespace"] = _new_item["namespace"]
-                _new_item.pop("namespace")
-
-            # --------------------------------------------------------------- #
-
             if "namespace" not in _new_item["use"]:
                 _new_item["use"]["namespace"] = _default_ns
 
@@ -228,10 +232,42 @@ class JobConfiguration(MutableMapping):
 
         return _entries
 
+    def _switch_namespace_name_to_use(self, register_block: typing.List):
+        """
+        Checks namespace listed in 'namespace_name' if given, if there is a
+        match the entry is removed and replaced with a 'use:namespace' entry
+        
+        """
+        _new_register_block: typing.List[typing.Dict] = []
+        for register_entry in register_block:
+            _new_entry = register_entry.copy()
+            if "namespace_name" not in register_entry:
+                continue
+            if register_entry["namespace_name"] not in self._parsed_namespaces:
+                self._logger.error(
+                    "'%s' not in available namespaces:\n\t-%s",
+                    register_entry['namespace_name'],
+                    '\n\t-'.join(self._parsed_namespaces)
+                )
+                raise fdp_exc.UserConfigError(
+                    "Attempt to register object with unknown namespace "
+                    "'"+register_entry["namespace_name"]+"'",
+                    "Add new 'namespace' as separate 'register' entry"
+                )
+            if "use" not in _new_entry:
+                _new_entry["use"] = {}
+            _new_entry["use"]["namespace"] = register_entry["namespace_name"]
+            _new_register_block.append(_new_entry)
+
+        return _new_register_block
+
     def _update_namespaces(self) -> None:
         self._logger.debug("Updating namespace list")
-        if "register" in self._config:
+
+        # Only allow namespaces to be registered directly
+        if "register" in self:
             self["register"] = self._handle_register_namespaces()
+            self["register"] = self._switch_namespace_name_to_use(self["register"])
 
         if not self.default_input_namespace:
             raise fdp_exc.UserConfigError("Input namespace cannot be None")
@@ -239,16 +275,10 @@ class JobConfiguration(MutableMapping):
         if not self.default_output_namespace:
             raise fdp_exc.UserConfigError("Output namespace cannot be None")
 
-        fdp_store.store_namespace(self.local_uri, self.default_input_namespace)
-        fdp_store.store_namespace(self.local_uri, self.default_output_namespace)
-
         for block_type in self._block_types:
             if block_type not in self:
                 continue
             self[block_type] = self._fill_namespaces(block_type)
-
-        if "register" in self._config:
-            self._unpack_register_namespaces()
 
     def _expand_wildcards_from_local_reg(self, block_type: str) -> None:
         self._logger.debug("Expanding wildcards using local registry")
@@ -327,6 +357,9 @@ class JobConfiguration(MutableMapping):
         self._logger.debug("Setting up job script for execution")
         _cmd = None
 
+        if not self._job_dir:
+            raise fdp_exc.InternalError("Job directory initialisation failed")
+
         config_dir = self._job_dir
 
         if config_dir[-1] != os.path.sep:
@@ -337,14 +370,14 @@ class JobConfiguration(MutableMapping):
         _out_file = None
 
         if "shell" in self["run_metadata"]:
-            _shell = self["run_metadata"]["shell"]
+            _shell = self["run_metadata.shell"]
         else:
             _shell = "batch" if platform.system() == "Windows" else "sh"
 
         self._logger.debug("Will use shell: %s", _shell)
 
         if "script" in self["run_metadata"]:
-            _cmd = self["run_metadata"]["script"]
+            _cmd = self["run_metadata.script"]
 
             if "extension" not in SHELLS[_shell]:
                 raise fdp_exc.InternalError(
@@ -357,7 +390,7 @@ class JobConfiguration(MutableMapping):
                     f.write(_cmd)
 
         elif "script_path" in self["run_metadata"]:
-            _path = self["run_metadata"]["script_path"]
+            _path = self["run_metadata.script_path"]
             if not os.path.exists(_path):
                 raise fdp_exc.CommandExecutionError(
                     f"Failed to execute run, script '{_path}' was not found, or"
@@ -415,6 +448,7 @@ class JobConfiguration(MutableMapping):
             _fdpconfig.update(_local_fdpconfig)
         for key in JOB2CLI_MAPPINGS:
             if key not in self:
+                print(key)
                 self[key] = _fdpconfig[JOB2CLI_MAPPINGS[key]]
 
         if remote_label:
@@ -531,15 +565,8 @@ class JobConfiguration(MutableMapping):
             if block_type in self:
                 self[block_type] = self._fill_versions(block_type)
 
-        if "register" in self:
-            if "read" not in self:
-                self["read"] = []
-            self["read"] += self._register_to_read()
-
-        if job_mode in [CMD_MODE.PULL, CMD_MODE.PUSH]:
-            self._pull_data()
-
         if job_mode == CMD_MODE.PULL and "register" in self:
+            self._logger.debug("Fetching registrations")
             _objs = fdp_reg.fetch_registrations(
                 local_uri=self.local_uri,
                 repo_dir=self.local_repository,
@@ -548,22 +575,22 @@ class JobConfiguration(MutableMapping):
             )
             self._logger.debug("Fetched objects:\n %s", _objs)
 
+        if "register" in self:
+            if "read" not in self:
+                self["read"] = []
+            self["read"] += self._register_to_read(self["register"])
+
+        if "read" in self:
+            self["read"] = self._update_use_sections(self["read"])
+
         self._config = self._clean()
 
-        _unparsed = self._check_for_unparsed()
-
-        if _unparsed:
-            raise fdp_exc.InternalError(f"Failed to parse variables '{_unparsed}'")
+        self._check_for_unparsed()
 
         self["run_metadata.latest_commit"] = self._fetch_latest_commit(allow_dirty)
 
         # Perform config validation
         self._logger.debug("Running configuration validation")
-
-        try:
-            UserConfigModel(**self._config)
-        except pydantic.ValidationError as e:
-            raise fdp_exc.ValidationError(e.json())
 
         return os.path.join(self._job_dir, fdp_com.USER_CONFIG_FILE)
 
@@ -581,7 +608,6 @@ class JobConfiguration(MutableMapping):
                 "--------------------------------\n",
             ]
         )
-        self._pull_metadata()
 
     def _check_for_unparsed(self) -> typing.List[str]:
         self._logger.debug("Checking for unparsed variables")
@@ -590,7 +616,10 @@ class JobConfiguration(MutableMapping):
         # Additional parser for formatted datetime
         _regex_fmt = re.compile(r"\$\{\{\s*([^}${\s]+)\s*\}\}")
 
-        return _regex_fmt.findall(_conf_str)
+        _unparsed = _regex_fmt.findall(_conf_str)
+
+        if _unparsed:
+            raise fdp_exc.InternalError(f"Failed to parse variables '{_unparsed}'")
 
     def _subst_cli_vars(self, job_time: datetime.datetime) -> str:
         self._logger.debug("Searching for CLI variables")
@@ -601,7 +630,7 @@ class JobConfiguration(MutableMapping):
             except fdp_exc.CLIConfigurationError:
                 return fdp_conf.get_current_user_uuid(self._job_dir)
 
-        def _tag_check(*args, **kwargs):
+        def _tag_check():
             _repo = git.Repo(fdp_conf.local_git_repo(self.local_repository))
             if len(_repo.tags) < 1:
                 fdp_exc.UserConfigError(
@@ -666,7 +695,7 @@ class JobConfiguration(MutableMapping):
 
         self._config = yaml.safe_load(_config_str)
 
-    def _register_to_read(self) -> typing.Dict:
+    def _register_to_read(self, register_block: typing.List[typing.Dict]) -> typing.List[typing.Dict]:
         """Construct 'read' block entries from 'register' block entries
 
         Parameters
@@ -676,32 +705,74 @@ class JobConfiguration(MutableMapping):
 
         Returns
         -------
-        typing.Dict
+        typing.List[typing.Dict]
             new read entries extract from register statements
         """
         _read_block: typing.List[typing.Dict] = []
 
-        for item in self._config["register"]:
-            _readable = {}
-            if "use" in item:
-                _readable["use"] = copy.deepcopy(item["use"])
+        self._parsed_namespaces = self._get_local_namespaces()
+
+        for item in register_block:
+            _readable = item.copy()
             if "external_object" in item:
                 _readable["data_product"] = item["external_object"]
-            elif "data_product" in item:
-                _readable["data_product"] = item["data_product"]
-            elif "namespace" in item:
-                fdp_store.store_namespace(**item)
+                _readable.pop("external_object")
+            elif "namespace" in item and "data_product" not in item:
+                try:
+                    fdp_valid.Namespace(**_readable)
+                except pydantic.ValidationError as e:
+                    raise fdp_exc.ValidationError(e.json())
+
+                if item["namespace"] in self._parsed_namespaces:
+                    self._logger.warning(
+                        "Namespace '%s' already added, ignoring duplicate",
+                        item["namespace"]
+                    )
+                else:
+                    _readable["name"] = item["namespace"]
+                    _readable.pop("namespace")
+
+                    fdp_store.store_namespace(
+                        self.local_uri,
+                        fdp_req.local_token(),
+                        **_readable
+                    )
+
+                    # We do not want to register a namespace twice so
+                    # keep track of which we have
+                    self._parsed_namespaces.append(_readable["name"])
+
             else:  # unknown
                 raise fdp_exc.UserConfigError(
                     f"Found registration for unknown item with keys {[*item]}"
                 )
-            _readable["use"]["version"] = fdp_ver.undo_incrementer(
-                _readable["use"]["version"]
-            )
+
+            # 'public' only valid for writables
+            if "public" in _readable:
+                _readable.pop("public")
+            
+            # Add extra tag for tracking objects which have been registered
+            # as opposed to pulled from a remote
+            _readable["registered"] = True
 
             _read_block.append(_readable)
-            self._local_only.append(_readable)
         return _read_block
+
+    def _update_use_sections(self, read_block: typing.List[typing.Dict]) -> typing.List[typing.Dict]:
+        _new_read_block: typing.List[typing.Dict] = []
+
+        for entry in read_block:
+            _new_entry = entry.copy()
+            _new_entry["use"]["version"] = fdp_ver.undo_incrementer(
+                entry["use"]["version"]
+            )
+            if "namespace" not in entry["use"]:
+                if "namespace_name" in entry:
+                    _new_entry["use"]["namespace"] = entry["namespace_name"]
+                else:
+                    _new_entry["use"]["namespace"] = self.default_input_namespace
+            _new_read_block.append(_new_entry)
+        return _new_read_block
 
     def _clean(self) -> typing.Dict:
         self._logger.debug("Cleaning configuration")
@@ -713,30 +784,27 @@ class JobConfiguration(MutableMapping):
             if f"default_{action}_version" in _new_config["run_metadata"]:
                 del _new_config["run_metadata"][f"default_{action}_version"]
 
-        _namespaces = (
-            self.default_input_namespace,
-            self.default_output_namespace,
-        )
-
-        for namespace, block_type in zip(_namespaces, ["read", "write"]):
-            if block_type not in self._config:
+        for block_type in ("read", "write"):
+            if block_type not in self:
                 continue
 
             _new_config[block_type] = []
 
             for item in self[block_type]:
-                for use_item in [*item["use"]]:
-                    # Get rid of duplicates
-                    if use_item in item and item["use"][use_item] == item[use_item]:
-                        item["use"].pop(use_item)
+                _new_item = item.copy()
+                # Keep only the final permitted keys, this may vary depending
+                # on block type, also allow internal status check tags to
+                # pass at this stage
+                _allowed = list(self._final_permitted["all"])
+                if block_type in self._final_permitted:
+                    _allowed += list(self._final_permitted[block_type])
+                _allowed += list(self._status_tags)
 
-                if block_type == "write" and item["public"] == self.is_public_global:
-                    item.pop("public")
+                for key in item.keys():
+                    if key not in _allowed:
+                        _new_item.pop(key)
 
-                if item["use"]["namespace"] == namespace:
-                    item["use"].pop("namespace")
-
-                _new_config[block_type].append(item)
+                _new_config[block_type].append(_new_item)
 
         for block in self._block_types:
             if block in _new_config and not _new_config[block]:
@@ -752,8 +820,8 @@ class JobConfiguration(MutableMapping):
             _default_ver = self.default_read_version
         else:
             _default_ver = self.default_write_version
-
-        for item in self._config[block_type]:
+    
+        for item in self[block_type]:
             if all(i not in item for i in ("data_product", "external_object")):
                 _entries.append(item)
                 continue
@@ -786,30 +854,39 @@ class JobConfiguration(MutableMapping):
 
             _name = item["use"]["data_product"]
             _namespace = item["use"]["namespace"]
-            _id_namespace = fdp_reg.convert_key_value_to_id(
-                self.local_uri,
-                "namespace",
-                _namespace
-            )
 
-            if "${{" in _version:
-                _results = fdp_req.get(
+            # If no ID exists for the namespace then this object has not yet
+            # been written to the target registry and so a version number
+            # cannot be deduced this way
+            try:
+                _id_namespace = fdp_reg.convert_key_value_to_id(
                     self.local_uri,
-                    "data_product",
-                    params={"name": _name, "namespace": _id_namespace},
+                    "namespace",
+                    _namespace,
+                    fdp_req.local_token()
                 )
-                if "LATEST" in _version:
-                    _version = fdp_ver.get_latest_version(_results)
-            else:
-                _results = fdp_req.get(
-                    self.local_uri,
-                    "data_product",
-                    params={
-                        "name": _name,
-                        "namespace": _id_namespace,
-                        "version": _version,
-                    },
-                )
+                if "${{" in _version:
+                    _results = fdp_req.get(
+                        self.local_uri,
+                        "data_product",
+                        fdp_req.local_token(),
+                        params={"name": _name, "namespace": _id_namespace},
+                    )
+                    if "LATEST" in _version:
+                        _version = fdp_ver.get_latest_version(_results)
+                else:
+                    _results = fdp_req.get(
+                        self.local_uri,
+                        "data_product",
+                        fdp_req.local_token(),
+                        params={
+                            "name": _name,
+                            "namespace": _id_namespace,
+                            "version": _version,
+                        },
+                    )
+            except fdp_exc.RegistryError:
+                _results = []
 
             try:
                 _version = fdp_ver.get_correct_version(
@@ -830,19 +907,11 @@ class JobConfiguration(MutableMapping):
                 self._logger.error(f"Found a version ({_version}) that needs resolving")
 
             if str(_version) != item["use"]["version"]:
-                item["use"]["version"] = str(_version)
+                _new_item["use"]["version"] = str(_version)
 
-            _entries.append(item)
+            _entries.append(_new_item)
 
         return _entries
-
-    def _pull_metadata(self) -> None:
-        self._logger.debug("Pulling metadata from remote registry")
-        self._logger.warning("Remote registry pulls are not yet implemented")
-
-    def _pull_data(self) -> None:
-        self._logger.debug("Pulling data from remote registry")
-        self._logger.warning("Remote registry pulls are not yet implemented")
 
     def _fill_block_data_product(
         self, block_type: str, item: typing.Dict
@@ -907,6 +976,7 @@ class JobConfiguration(MutableMapping):
         for block_type in self._block_types:
             self._logger.debug(f"Filling '{block_type}' block")
             _new_block: typing.List[typing.Dict] = []
+
             if block_type not in self:
                 continue
 
@@ -914,7 +984,19 @@ class JobConfiguration(MutableMapping):
                 _new_item = self._fill_block_item(block_type, item)
                 _new_block.append(_new_item)
 
-            self._config[block_type] = _new_block
+            self[block_type] = _new_block
+
+    def _remove_status_tags(self) -> bool:
+        """
+        Removes any internal tags added by the config class for
+        tracking status of objects
+        """
+        for block in self._block_types:
+            if block not in self:
+                continue
+            for i, _ in enumerate(self[block]):
+                for key in self._status_tags:
+                    self[block][i].pop(key, None)
 
     @property
     def script(self) -> str:
@@ -1086,15 +1168,24 @@ class JobConfiguration(MutableMapping):
         for readable in self["read"]:
             # In this context readables are items to be read from a remote
             # registry, not items registered locally
-            if readable in self._local_only:
+            if "registered" in readable:
                 continue
+
             if "data_product" not in readable:
                 continue
             if "use" not in readable:
+                self._logger.error(
+                    "Incomplete read block, expected key 'use' in:\n"
+                    f'\t{readable}'
+                )
                 raise fdp_exc.UserConfigError(
                     "Attempt to access 'read' listings before parsing complete"
                 )
             if any(v not in readable["use"] for v in ("version", "namespace")):
+                self._logger.error(
+                    "Incomplete read block, expected keys 'namespace' and 'version' in:\n"
+                    f'\t{readable["use"]}'
+                )
                 raise fdp_exc.UserConfigError(
                     "Attempt to access 'read' listings before parsing complete"
                 )
@@ -1109,8 +1200,22 @@ class JobConfiguration(MutableMapping):
         """Get job hash"""
         return fdp_run.get_job_hash(self._job_dir)
 
-    def write(self, output_file: str = None) -> None:
+    def write(self, output_file: str = None) -> str:
         """Write job configuration to file"""
+        self._remove_status_tags()
+
+        # Validate the file before writing
+        try:
+            fdp_valid.UserConfigModel(**self._config)
+        except pydantic.ValidationError as e:
+            self._logger.error(
+                "Validation of generated user configuration file failed:"
+                "\nCONFIG:\n%s\n\nRESULT:\n%s",
+                self._config,
+                json.loads(e.json())
+            )
+            raise fdp_exc.ValidationError(e.json())
+
         if not output_file:
             if not self._job_dir:
                 raise fdp_exc.UserConfigError(
@@ -1124,3 +1229,5 @@ class JobConfiguration(MutableMapping):
         self.env = self._create_environment()
 
         self._logger.debug(f"Configuration written to '{output_file}'")
+
+        return output_file

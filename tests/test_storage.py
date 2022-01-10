@@ -24,7 +24,7 @@ def test_store_user(
 ):
     mocker.patch("fair.common.registry_home", lambda: local_registry._install)
     with local_registry:
-        assert fdp_store.store_user(local_config[1], LOCAL_URL)
+        assert fdp_store.store_user(local_config[1], LOCAL_URL, local_registry._token)
 
 
 @pytest.mark.storage
@@ -35,7 +35,7 @@ def test_populate_file_type(
 ):
     mocker.patch("fair.common.registry_home", lambda: local_registry._install)
     with local_registry:
-        assert len(fdp_store.populate_file_type(LOCAL_URL)) == len(
+        assert len(fdp_store.populate_file_type(LOCAL_URL, local_registry._token)) == len(
             fdp_file.FILE_TYPES
         )
 
@@ -56,7 +56,7 @@ def test_store_working_config(
             )
 
         assert fdp_store.store_working_config(
-            local_config[1], LOCAL_URL, tempf.name
+            local_config[1], LOCAL_URL, tempf.name, local_registry._token
         )
 
 
@@ -78,7 +78,7 @@ def test_store_working_script(
         _temp_script = tempfile.NamedTemporaryFile(suffix=".sh", delete=False)
 
         assert fdp_store.store_working_script(
-            local_config[1], LOCAL_URL, _temp_script.name, tempf.name
+            local_config[1], LOCAL_URL, _temp_script.name, tempf.name, local_registry._token
         )
 
 
@@ -90,6 +90,7 @@ def test_store_namespace(
     with local_registry:
         assert fdp_store.store_namespace(
             LOCAL_URL,
+            local_registry._token,
             "test_namespace",
             "Testing Namespace",
             "https://www.notarealsite.com",

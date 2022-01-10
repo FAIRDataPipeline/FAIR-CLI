@@ -30,6 +30,9 @@ __date__ = "2021-06-28"
 
 import click
 import typing
+import json
+import logging
+
 
 
 class FAIRCLIException(Exception):
@@ -152,10 +155,11 @@ class ValidationError(FAIRCLIException):
     def __init__(self, info: typing.List[typing.Dict]) -> None:
         _invalid_data: typing.List[typing.Dict] = []
 
-        for data in info:
-            _location = ":".join(data["loc"])
-            _type = data["type"]
-            _msg = data["msg"]
+        for data in json.loads(info):
+            _location = map(str, data["loc"])
+            _location = ":".join(_location)
+            _type = str(data["type"])
+            _msg = str(data["msg"])
             _invalid_data.append(f"{_location:<50}  {_type:<20}  {_msg:<20}")
 
         _msg = "User 'config.yaml' file validation failed with:\n"
