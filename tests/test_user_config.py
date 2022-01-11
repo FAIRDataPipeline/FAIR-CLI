@@ -75,7 +75,7 @@ def test_preparation(
     mocker.patch("fair.common.registry_home", lambda: local_registry._install)
     with local_registry:
         os.makedirs(os.path.join(local_config[1], fdp_com.FAIR_FOLDER, "logs"))
-        make_config.prepare(fdp_com.CMD_MODE.PULL, True)
+        make_config.prepare(fdp_com.CMD_MODE.RUN, True)
 
         _out_dir = os.path.join(conf.TEST_OUT_DIR, "test_preparation")
         os.mkdir(_out_dir)

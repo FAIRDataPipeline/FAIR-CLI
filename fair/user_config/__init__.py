@@ -317,6 +317,7 @@ class JobConfiguration(MutableMapping):
         for block_type in self._block_types:
             if block_type not in self:
                 continue
+            print(self[block_type])
             self[block_type] = self._fill_namespaces(block_type)
 
     def _globular_registry_search(

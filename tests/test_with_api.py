@@ -82,6 +82,8 @@ def test_pull_new(local_config: typing.Tuple[str, str],
                 print(f"\tRUNNING: fair pull {_new_cfg_path} --debug")
             _res = _cli_runner.invoke(cli, ["pull", _new_cfg_path, "--debug"])
 
+            assert not _res.output
+            assert _res.output
             assert _res.exit_code == 0
 
             assert get(
