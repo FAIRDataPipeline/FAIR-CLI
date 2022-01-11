@@ -329,7 +329,8 @@ class JobConfiguration(MutableMapping):
         
         Any '*' wildcards are used to perform 
         """
-        if all('*' not in v for v in block_entry.values()):
+        _vals_to_check = (i for i in block_entry.values() if isinstance(i, str))
+        if all('*' not in v for v in _vals_to_check):
             return block_entry
 
         _new_entries: typing.List[typing.Dict] = []
