@@ -33,6 +33,7 @@ import glob
 import logging
 import os
 import pathlib
+import datetime
 import shutil
 import typing
 import uuid
@@ -53,10 +54,11 @@ import fair.exceptions as fdp_exc
 import fair.history as fdp_hist
 import fair.registry.server as fdp_serv
 import fair.registry.sync as fdp_sync
-import fair.run as fdp_run
+import fair.registry.requests as fdp_req
 import fair.staging as fdp_stage
 import fair.templates as fdp_tpl
 import fair.testing as fdp_test
+import fair.user_config as fdp_user
 import fair.configuration.validation as fdp_clivalid
 
 
@@ -110,6 +112,8 @@ class FAIR:
         """
         if debug:
             logging.getLogger("FAIRDataPipeline").setLevel(logging.DEBUG)
+        else:
+            logging.getLogger("FAIRDataPipeline").setLevel(logging.CRITICAL)
         self._logger.debug("Starting new session.")
         self._testing = testing
         self._session_loc = repo_loc
@@ -120,6 +124,7 @@ class FAIR:
         self._session_id = (
             uuid.uuid4() if server_mode == fdp_serv.SwitchMode.CLI else None
         )
+        self._session_config = None
 
         if user_config and not os.path.exists(user_config):
             raise fdp_exc.FileNotFoundError(
@@ -127,9 +132,8 @@ class FAIR:
                 "file not found."
             )
 
-        self._session_config = user_config or fdp_com.local_user_config(
-            self._session_loc
-        )
+        self._session_config = fdp_user.JobConfiguration(user_config)
+
 
         if server_mode != fdp_serv.SwitchMode.NO_SERVER and not os.path.exists(
             fdp_com.registry_home()
@@ -150,32 +154,23 @@ class FAIR:
 
         self._logger.debug(
             "Initialising session with:\n"
+            "\tlocation       = %s\n"
             "\tsession_config = %s\n"
             "\ttesting        = %s\n"
             "\trun_mode       = %s\n"
             "\tstaging_file   = %s\n"
-            "\tsession_id     = %s\n"
-            "\tallow_dirty    = %s\n",
-            self._session_config,
+            "\tsession_id     = %s\n",
+            self._session_loc,
+            user_config,
             self._testing,
             self._run_mode,
             self._stager._staging_file,
             self._session_id,
-            self._allow_dirty
         )
 
         self._load_configurations()
 
         self._setup_server(server_port)
-
-    def push(self, remote: str = "origin"):
-        _staged_data_products = self._stager.get_item_list(True, "data_product")
-        fdp_sync.push_data_products(
-            fdp_conf.get_local_uri(),
-            fdp_conf.get_remote_uri(self._session_loc, remote),
-            fdp_conf.get_remote_token(self._session_loc, remote),
-            _staged_data_products,
-        )
 
     def purge(
         self,
@@ -308,46 +303,151 @@ class FAIR:
         pathlib.Path(_cache_addr).touch()
         fdp_serv.launch_server(port=port, verbose=True)
 
-    def run_job(
-        self,
-        bash_cmd: str = "",
-        mode: fdp_run.CMD_MODE = fdp_run.CMD_MODE.RUN,
-    ) -> str:
-        """Execute a run using the given user configuration file"""
+    def _pre_job_setup(self, remote: str = None) -> None:
+        self._logger.debug("Running pre-job setup")
         self.check_is_repo()
-        if not os.path.exists(self._session_config):
-            self.make_starter_config()
-
-        self._logger.debug("Setting up command execution")
-
-        if self._allow_dirty:
-            self._logger.debug("Allowing uncommitted changes during run.")
-
-        # Only apply constraint for clean repository when executing a run
-        if mode != fdp_com.CMD_MODE.RUN:
-            self._allow_dirty = True
-
-        self.check_git_repo_state()
-
-        _hash = fdp_run.run_command(
-            repo_dir=self._session_loc,
-            config_yaml=self._session_config,
-            bash_cmd=bash_cmd,
-            mode=mode,
-            allow_dirty=self._allow_dirty,
+        self._session_config.update_from_fair(
+            fdp_com.find_fair_root(self._session_loc), remote
         )
 
-        self._logger.debug(f"Tracking job hash {_hash}")
+    def _post_job_breakdown(self, add_run: bool = False) -> None:
+        if add_run:
+            self._logger.debug(f"Tracking job hash {self._session_config.hash}")
 
         self._logger.debug("Updating staging post-run")
 
-        if mode in [fdp_com.CMD_MODE.RUN, fdp_com.CMD_MODE.PULL]:
-            self._stager.update_data_product_staging()
+        self._stager.update_data_product_staging()
 
-        # Automatically add the run to tracking but unstaged
-        self._stager.add_to_staging(_hash, "job")
+        if add_run:
+            # Automatically add the run to tracking but unstaged
+            self._stager.add_to_staging(self._session_config.hash, "job")
 
-        return _hash
+        self._session_config.close_log()
+    
+    def push(self, remote: str = "origin"):
+        self._pre_job_setup(remote)
+        self._session_config.prepare(
+            fdp_com.CMD_MODE.PUSH,
+            allow_dirty=self._allow_dirty
+        )
+        _staged_data_products = self._stager.get_item_list(True, "data_product")
+
+        if not _staged_data_products:
+            click.echo("Nothing to push.")
+
+        fdp_sync.push_data_products(
+            origin_uri=fdp_conf.get_local_uri(),
+            dest_uri=fdp_conf.get_remote_uri(self._session_loc, remote),
+            dest_token=fdp_conf.get_remote_token(self._session_loc, remote),
+            origin_token=fdp_req.local_token(),
+            remote_label=remote,
+            data_products=_staged_data_products,
+        )
+
+        self._session_config.write_log_lines(
+            [f"Pushing data products to remote '{remote}':"] +
+            [f'\t- {data_product}' for data_product in _staged_data_products]
+        )
+
+        self._post_job_breakdown()
+
+        # When push successful unstage data products again
+        for data_product in _staged_data_products:
+            self._stager.change_stage_status(data_product, "data_product", False)
+
+    def pull(self, remote: str = "origin"):
+        self._logger.debug("Performing pull on remote '%s'", remote)
+
+        self._logger.debug("Retrieving namespaces from remote")
+
+        try:
+            fdp_sync.pull_all_namespaces(
+                fdp_conf.get_local_uri(),
+                fdp_conf.get_remote_uri(self._session_loc, remote),
+                fdp_req.local_token(),
+                fdp_conf.get_remote_token(self._session_loc, remote)
+            )
+        except fdp_exc.FileNotFoundError as e:
+            self._logger.warning(
+                "Cannot update namespaces from remote registry '%s', "
+                "due to missing token",
+                remote
+            )
+        self._logger.debug("Performing pre-job setup")
+
+        self._pre_job_setup(remote)
+
+        self._session_config.prepare(
+            fdp_com.CMD_MODE.PULL,
+            allow_dirty=self._allow_dirty
+        )
+
+        _readables = self._session_config.get_readables()
+
+        self._session_config.write()
+
+        self._logger.debug("Preparing to retrieve %s items", len(_readables))
+
+        self._logger.debug("Pulling data products locally")
+
+        # Only push data products if there are any to do so, this covers the
+        # case whereby no remote has been setup and we just want to register
+        # items on the local registry
+        if _readables:
+            fdp_sync.push_data_products(
+                origin_uri=fdp_conf.get_remote_uri(self._session_loc, remote),
+                dest_uri=fdp_conf.get_local_uri(),
+                dest_token=fdp_req.local_token(),
+                origin_token=fdp_conf.get_remote_token(self._session_loc, remote),
+                remote_label=remote,
+                data_products=_readables,
+            )
+
+            self._session_config.write_log_lines(
+                [f"Pulled data products from remote '{remote}':"] +
+                [f'\t- {data_product}' for data_product in _readables]
+            )
+
+        self._logger.debug("Performing post-job breakdown")
+
+        self._post_job_breakdown()
+
+    def run(
+        self,
+        bash_cmd: str = "",
+        passive: bool = False,
+        allow_dirty: bool = False,
+    ) -> str:
+        """Execute a run using the given user configuration file"""
+        self._pre_job_setup()
+
+        self._session_config.prepare(
+            fdp_com.CMD_MODE.PASS if passive else fdp_com.CMD_MODE.RUN,
+            allow_dirty=self._allow_dirty
+        )
+
+        self._logger.debug("Setting up command execution")
+        if bash_cmd:
+            self._session_config.set_command(bash_cmd)
+        
+        self._session_config.setup_job_script()
+
+        if allow_dirty:
+            self._logger.debug("Allowing uncommitted changes during run.")
+
+        # Only apply constraint for clean repository when executing a run
+        if passive:
+            allow_dirty = True
+
+        self.check_git_repo_state(allow_dirty=allow_dirty)
+
+        self._session_config.write()
+
+        self._session_config.execute()
+
+        self._post_job_breakdown(add_run=True)
+
+        return self._session_config.hash
 
     def check_is_repo(self, location: str = None) -> None:
         """Check that the current location is a FAIR repository"""
@@ -360,7 +460,7 @@ class FAIR:
             )
 
     def check_git_repo_state(
-        self, remote_label: str = "origin"
+        self, remote_label: str = "origin", allow_dirty: bool = False
     ) -> bool:
         """Checks the git repository is clean and that local matches remote"""
         _repo_root = fdp_com.find_git_root(self._session_loc)
@@ -375,7 +475,7 @@ class FAIR:
             # Get the latest commit on the current branch locally
             _loc_commit = _repo.refs[_current_branch].commit.hexsha
         except (TypeError, IndexError) as e:
-            if self._allow_dirty:
+            if allow_dirty:
                 click.echo(f"Warning: {' '.join(e.args)}")
             else:
                 raise fdp_exc.FDPRepositoryError(" ".join(e.args))
@@ -398,7 +498,7 @@ class FAIR:
             )
         except IndexError:
             _msg = f"Failed to find branch '{_current_branch}' on remote repository"
-            if self._allow_dirty:
+            if allow_dirty:
                 click.echo(f"Warning: {_msg}")
             else:
                 raise fdp_exc.FDPRepositoryError(_msg)
@@ -407,7 +507,7 @@ class FAIR:
         _com_match = _loc_commit == _rem_commit
 
         if not _com_match:
-            if self._allow_dirty:
+            if allow_dirty:
                 click.echo("Warning: local git repository is ahead/behind remote")
             else:
                 raise fdp_exc.FDPRepositoryError(
@@ -415,7 +515,7 @@ class FAIR:
                     f"remote '{remote_label}'"
                 )
         if _repo.is_dirty():
-            if self._allow_dirty:
+            if allow_dirty:
                 click.echo("Warning: running with uncommitted changes")
             else:
                 raise fdp_exc.FDPRepositoryError(
@@ -701,7 +801,8 @@ class FAIR:
 
         if self._testing:
             using = fdp_test.create_configurations(
-                registry, fdp_com.find_git_root(os.getcwd()), os.getcwd()
+                registry, fdp_com.find_git_root(os.getcwd()), os.getcwd(),
+                os.path.join(os.getcwd(), "data_store")
             )
 
         if os.path.exists(_fair_dir):
@@ -770,6 +871,8 @@ class FAIR:
             raise fdp_exc.InternalError(
                 "Initialisation failed, validation of global CLI config file did not pass"
             )
+
+        os.makedirs(fdp_hist.history_directory(self._session_loc), exist_ok=True)
 
         click.echo(f"Initialised empty fair repository in {_fair_dir}")
 

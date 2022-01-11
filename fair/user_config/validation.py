@@ -219,6 +219,11 @@ class DataProductWrite(DataProduct):
         title="file type",
         description="extension of type of file the data product is",
     )
+    public: typing.Optional[bool] = pydantic.Field(
+        True,
+        title="public",
+        description="whether items are/should be publically accessible",
+    )
 
     class Config:
         extra = "forbid"
@@ -229,7 +234,7 @@ class Namespace(pydantic.BaseModel):
         ..., title="namespace label", description="label for the namespace"
     )
     full_name: str = pydantic.Field(
-        ..., title="namespace full name", description="longer name for the namespace"
+        None, title="namespace full name", description="longer name for the namespace"
     )
     website: typing.Optional[pydantic.AnyHttpUrl] = pydantic.Field(
         None,

@@ -3,6 +3,7 @@ import shutil
 import tempfile
 import typing
 import uuid
+import git
 
 import pytest
 import pytest_mock
@@ -55,7 +56,7 @@ def test_registry_entry_for_file(
 ):
     _url = "http://127.0.0.1:8000/api/storage_location/1"
 
-    def dummy_get(uri, obj_path, params):
+    def dummy_get(uri, obj_path, token, params):
         if uri != LOCAL_REGISTRY_URL:
             raise fdp_exc.RegistryError("No such registry")
         if obj_path != "storage_location":
@@ -68,6 +69,7 @@ def test_registry_entry_for_file(
         "fair.registry.requests.get",
         lambda *args, **kwargs: dummy_get(*args, **kwargs),
     )
+    mocker.patch("fair.registry.requests.local_token", lambda: "")
     assert (
         stager.find_registry_entry_for_file(LOCAL_REGISTRY_URL, "/not/a/path")
         == _url
@@ -80,6 +82,7 @@ def test_get_job_data(
     stager: fdp_stage.Stager,
     local_config: typing.Tuple[str, str],
     mocker: pytest_mock.MockerFixture,
+    pyDataPipeline: str
 ):
     with local_registry:
         mocker.patch(
@@ -110,8 +113,15 @@ def test_get_job_data(
                 lambda *args, **kwargs: [{"url": _dummy_url}],
             )
 
+            _cfg_path = os.path.join(
+                pyDataPipeline,
+                "simpleModel",
+                "ext",
+                "SEIRSconfig.yaml"
+            )
+
             shutil.copy(
-                os.path.join(TEST_DATA, "test_config.yaml"),
+                _cfg_path,
                 os.path.join(_job_dir, fdp_com.USER_CONFIG_FILE),
             )
 

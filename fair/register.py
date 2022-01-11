@@ -24,6 +24,7 @@ import logging
 import os
 import shutil
 import typing
+import platform
 import urllib.parse
 
 import requests
@@ -42,8 +43,10 @@ SEARCH_KEYS = {
     "storage_location": "hash",
 }
 
+logger = logging.getLogger("FAIRDataPipeline.Register")
 
-def convert_key_value_to_id(uri: str, obj_type: str, value: str, check: bool = False) -> int:
+
+def convert_key_value_to_id(uri: str, obj_type: str, value: str, token: str) -> int:
     """Converts a config key value to the relevant URL on the local registry
 
     Parameters
@@ -54,6 +57,8 @@ def convert_key_value_to_id(uri: str, obj_type: str, value: str, check: bool = F
         object type
     value : str
         search term to use
+    token: str
+        registry access token
 
     Returns
     -------
@@ -61,7 +66,7 @@ def convert_key_value_to_id(uri: str, obj_type: str, value: str, check: bool = F
         ID on the local registry matching the entry
     """
     _params = {SEARCH_KEYS[obj_type]: value}
-    _result = fdp_req.get(uri, obj_type, params=_params)
+    _result = fdp_req.get(uri, obj_type, token, params=_params)
     if not _result:
         raise fdp_exc.RegistryError(
             f"Failed to obtain result for '{obj_type}' with parameters '{_params}'"
@@ -98,7 +103,6 @@ def fetch_registrations(
         "version",
         "public",
     ]
-    _logger = logging.getLogger("FAIRDataPipeline.Run")
 
     _stored_objects: typing.List[str] = []
 
@@ -149,7 +153,11 @@ def fetch_registrations(
                     f"'alternate_identifier_type' in external object '{_name}'"
                 )
             try:
-                _data_product_id = convert_key_value_to_id(local_uri, "data_product", entry["use"]["data_product"])
+                _data_product_id = convert_key_value_to_id(
+                    local_uri, "data_product",
+                    entry["use"]["data_product"],
+                    fdp_req.local_token()
+                )
                 _search_data["data_product"] = _data_product_id
             except fdp_exc.RegistryError:
                 _is_present = "absent"
@@ -182,13 +190,14 @@ def fetch_registrations(
             _url = f"{_root}{_path}"
             try:
                 _temp_data_file = fdp_req.download_file(_url)
+                logger.debug("Downloaded file from '%s' to temporary file", _url)
             except requests.HTTPError as r_in:
                 raise fdp_exc.UserConfigError(
                     f"Failed to fetch item '{_url}' with exit code {r_in.response}"
                 )
 
         # Need to fix the path for Windows
-        if os.path.sep != "/":
+        if platform.system() == "Windows":
             _name = _name.replace("/", os.path.sep)
 
         _local_dir = os.path.join(write_data_store, _namespace, _name)
@@ -197,15 +206,17 @@ def fetch_registrations(
         _is_present = fdp_store.check_if_object_exists(
             local_uri=local_uri,
             file_loc=_temp_data_file,
+            token=fdp_req.local_token(),
             obj_type=_obj_type,
             search_data=_search_data,
         )
 
         # Hash matched version already present
         if _is_present == "hash_match":
-            _logger.debug(
-                f"Skipping item '{_name}' as a hash matched entry is already"
-                " present with this name"
+            logger.debug(
+                "Skipping item '%s' as a hash matched entry is already"
+                " present with this name, deleting temporary data file",
+                _name
             )
             os.remove(_temp_data_file)
             continue
@@ -218,14 +229,14 @@ def fetch_registrations(
                 free_write=True,
                 version=entry["use"]["version"],
             )
-            _logger.debug("Found results for %s", str(_results))
+            logger.debug("Found existing results for %s", _results)
         else:
             _user_version = fdp_ver.get_correct_version(
                 results_list=None,
                 free_write=True,
                 version=entry["use"]["version"],
             )
-            _logger.debug("Found nothing for %s", str(_search_data))
+            logger.debug("No existing results found for %s", _search_data)
 
         # Create object location directory, ignoring if already present
         # as multiple version files can exist
@@ -234,10 +245,10 @@ def fetch_registrations(
         _local_file = os.path.join(_local_dir, f"{_user_version}.{entry['file_type']}")
         # Copy the temporary file into the data store
         # then remove temporary file to save space
+        logger.debug("Saving data file to '%s'", _local_file)
         shutil.copy(_temp_data_file, _local_file)
 
-        if "cache" not in entry:
-            os.remove(_temp_data_file)
+        os.remove(_temp_data_file)
 
         if "public" in entry:
             _public = entry["public"]
@@ -249,6 +260,7 @@ def fetch_registrations(
         _file_url = fdp_store.store_data_file(
             uri=local_uri,
             repo_dir=repo_dir,
+            token=fdp_req.local_token(),
             data=data,
             local_file=_local_file,
             write_data_store=write_data_store,

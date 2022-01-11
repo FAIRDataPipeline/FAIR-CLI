@@ -2,6 +2,7 @@ import logging
 import os
 import signal
 import tempfile
+import git
 
 import pytest
 import pytest_fixture_config
@@ -17,10 +18,20 @@ import fair.registry.server as fdp_serv
 from . import registry_install as test_reg
 
 TEST_JOB_FILE_TIMESTAMP = "2021-10-11_10_0_0_100000"
+PYTHON_API_GIT = "https://github.com/FAIRDataPipeline/pyDataPipeline.git"
 
 
 logging.getLogger("FAIRDataPipeline").setLevel(logging.DEBUG)
 
+
+@pytest.fixture()
+def pyDataPipeline():
+    with tempfile.TemporaryDirectory() as temp_d:
+        _repo_path = os.path.join(temp_d, 'repo')
+        _repo = git.Repo.clone_from(PYTHON_API_GIT, _repo_path)
+        _repo.git.checkout("dev")
+        yield _repo_path
+        
 
 @pytest.fixture(scope="session")
 @pytest_fixture_config.yield_requires_config(
@@ -119,18 +130,19 @@ def job_log(mocker: pytest_mock.MockerFixture) -> str:
 
 
 class RegistryTest:
-    def __init__(self, install_loc: str, venv_dir: str, port: int = 8000):
+    def __init__(self, install_loc: str, venv: pytest_virtualenv.VirtualEnv, port: int = 8000):
         self._install = install_loc
-        self._venv = os.path.join(venv_dir, ".env")
+        self._venv = venv
+        self._venv_dir = os.path.join(venv.workspace, ".env")
         self._process = None
         self._port = port
         if not os.path.exists(os.path.join(install_loc, "manage.py")):
             test_reg.install_registry(
-                install_dir=install_loc, silent=True, venv_dir=self._venv
+                install_dir=install_loc, silent=True, venv_dir=self._venv_dir
             )
         # Start then stop to generate key
         _process = test_reg.launch(
-            self._install, silent=True, venv_dir=self._venv, port=self._port
+            self._install, silent=True, venv_dir=self._venv_dir, port=self._port
         )
         while not os.path.exists(os.path.join(self._install, "token")):
             time.sleep(5)
@@ -140,13 +152,13 @@ class RegistryTest:
 
     def rebuild(self):
         test_reg.rebuild_local(
-            os.path.join(self._venv, "bin", "python"), self._install
+            os.path.join(self._venv_dir, "bin", "python"), self._install
         )
 
     def __enter__(self):
         try:
             self._process = test_reg.launch(
-                self._install, silent=True, venv_dir=self._venv, port=self._port
+                self._install, silent=True, venv_dir=self._venv_dir, port=self._port
             )
         except KeyboardInterrupt as e:
             os.kill(self._process.pid, signal.SIGTERM)
@@ -163,7 +175,7 @@ def local_registry(session_virtualenv: pytest_virtualenv.VirtualEnv):
         pytest.skip("Cannot run registry tests, a server is already running on port 8000")
     with tempfile.TemporaryDirectory() as tempd:
         session_virtualenv.env = test_reg.django_environ(session_virtualenv.env)
-        yield RegistryTest(tempd, session_virtualenv.workspace, port=8000)
+        yield RegistryTest(tempd, session_virtualenv, port=8000)
 
 
 @pytest.fixture(scope="session")
@@ -172,4 +184,4 @@ def remote_registry(session_virtualenv: pytest_virtualenv.VirtualEnv):
         pytest.skip("Cannot run registry tests, a server is already running on port 8001")
     with tempfile.TemporaryDirectory() as tempd:
         session_virtualenv.env = test_reg.django_environ(session_virtualenv.env)
-        yield RegistryTest(tempd, session_virtualenv.workspace, port=8001)
+        yield RegistryTest(tempd, session_virtualenv, port=8001)

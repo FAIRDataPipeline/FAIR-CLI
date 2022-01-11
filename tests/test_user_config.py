@@ -1,25 +1,24 @@
 import os.path
 import typing
-from datetime import datetime
 
 import pytest
 import pytest_mock
 
 import fair.user_config as fdp_user
-from fair.common import CMD_MODE
+import fair.common as fdp_com
 
 from . import conftest as conf
 
-TEST_USER_CONFIG = os.path.join(
-    os.path.dirname(__file__), "data", "test_config.yaml"
-)
-
 
 @pytest.fixture
-def make_config(local_config: typing.Tuple[str, str]):
-    _config = fdp_user.JobConfiguration(
-        TEST_USER_CONFIG,
+def make_config(local_config: typing.Tuple[str, str], pyDataPipeline: str):
+    _cfg_path = os.path.join(
+        pyDataPipeline,
+        "simpleModel",
+        "ext",
+        "SEIRSconfig.yaml"
     )
+    _config = fdp_user.JobConfiguration(_cfg_path)
     _config.update_from_fair(os.path.join(local_config[1], "project"))
     return _config
 
@@ -29,7 +28,7 @@ def test_get_value(
     local_config: typing.Tuple[str, str],
     make_config: fdp_user.JobConfiguration,
 ):
-    assert make_config["run_metadata.description"] == "SEIRS Model R"
+    assert make_config["run_metadata.description"] == "SEIRS Model python"
     assert make_config["run_metadata.local_repo"] == os.path.join(
         local_config[1], "project"
     )
@@ -50,10 +49,9 @@ def test_is_public(make_config: fdp_user.JobConfiguration):
     make_config["run_metadata.public"] = False
     assert not make_config.is_public_global
 
-
 @pytest.mark.user_config
 def test_default_input_namespace(make_config: fdp_user.JobConfiguration):
-    assert make_config.default_input_namespace == "unit_testing"
+    assert make_config.default_input_namespace == "rfield"
 
 
 @pytest.mark.user_config
@@ -70,5 +68,6 @@ def test_preparation(
 ):
     mocker.patch("fair.common.registry_home", lambda: local_registry._install)
     with local_registry:
-        make_config.prepare(local_config[1], datetime.now(), CMD_MODE.PULL)
+        os.makedirs(os.path.join(local_config[1], fdp_com.FAIR_FOLDER, "logs"))
+        make_config.prepare(fdp_com.CMD_MODE.PULL, True)
         make_config.write("test.yaml")
