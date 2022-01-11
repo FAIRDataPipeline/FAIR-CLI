@@ -130,7 +130,8 @@ def test_pull_new(local_config: typing.Tuple[str, str],
 @pytest.mark.with_api
 @pytest.mark.run
 @pytest.mark.push
-@pytest.mark.dependency(name='pull')
+@pytest.mark.pull
+@pytest.mark.dependency(name='pull_existing')
 def test_pull_existing(local_config: typing.Tuple[str, str],
     local_registry: RegistryTest,
     remote_registry: RegistryTest,
@@ -198,18 +199,37 @@ def test_pull_existing(local_config: typing.Tuple[str, str],
                 }
             )
 
-            _param_file_obj = url_get(_param_files[0]["object"], local_registry._token)
-            _store = url_get(_param_file_obj["storage_location"], local_registry._token)
-            _path = _store["path"]
-            _root = url_get(_store["storage_root"], local_registry._token)
-            _root = _root["root"]
 
-            assert os.path.exists(os.path.join(_root.replace("file://", ""), _path))
+@pytest.mark.with_api
+@pytest.mark.pull
+@pytest.mark.fails_ci
+@pytest.mark.dependency(name='check_local_files', depends=['pull_existing'])
+def test_local_files_present(
+    local_registry: RegistryTest
+    ):
+    with local_registry:
+        _param_files = get(
+            "http://127.0.0.1:8000/api/",
+            "data_product",
+            local_registry._token,
+            params={
+                "name": "SEIRS_model/parameters",
+                "version": "1.0.0"
+            }
+        )
+        _param_file_obj = url_get(_param_files[0]["object"], local_registry._token)
+        _store = url_get(_param_file_obj["storage_location"], local_registry._token)
+        _path = _store["path"]
+        _root = url_get(_store["storage_root"], local_registry._token)
+        _root = _root["root"]
+
+    assert os.path.exists(os.path.join(_root.replace("file://", ""), _path))
 
 
 @pytest.mark.with_api
 @pytest.mark.run
-@pytest.mark.dependency(name='run', depends=['pull'])
+@pytest.mark.push
+@pytest.mark.dependency(name='run', depends=['pull_existing'])
 def test_run(local_config: typing.Tuple[str, str],
     local_registry: RegistryTest,
     remote_registry: RegistryTest,
@@ -304,7 +324,7 @@ def test_run(local_config: typing.Tuple[str, str],
 
 @pytest.mark.with_api
 @pytest.mark.push
-@pytest.mark.dependency(name='push', depends=['pull'])
+@pytest.mark.dependency(name='push', depends=['pull_existing'])
 def test_push_initial(local_config: typing.Tuple[str, str],
     local_registry: RegistryTest,
     remote_registry: RegistryTest,
@@ -350,7 +370,7 @@ def test_push_initial(local_config: typing.Tuple[str, str],
 
 @pytest.mark.with_api
 @pytest.mark.push
-@pytest.mark.dependency(name='push', depends=['test_pull_existing', 'run'])
+@pytest.mark.dependency(name='push', depends=['pull_existing', 'run'])
 def test_push_postrun(local_config: typing.Tuple[str, str],
     local_registry: RegistryTest,
     remote_registry: RegistryTest,
