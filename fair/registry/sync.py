@@ -21,6 +21,8 @@ import collections
 import logging
 import re
 
+import click
+
 import fair.exceptions as fdp_exc
 import fair.registry.requests as fdp_req
 import fair.utilities as fdp_util
@@ -260,6 +262,7 @@ def push_data_products(
     dest_uri: str,
     dest_token: str,
     origin_token: str,
+    remote_label: str,
     data_products: typing.List[str]
 ) -> None:
     """Push data products from one registry to another
@@ -274,11 +277,39 @@ def push_data_products(
         path to token for destination data registry
     origin_token : str
         path to token for origin data registry
+    remote_label : str
+        name of remote in listing
     data_products : typing.List[str]
         list of data products to push
     """
     for data_product in data_products:
         namespace, name, version = re.split("[:@]", data_product)
+
+        _existing_namespace = fdp_req.get(
+            dest_uri,
+            "namespace",
+            params={SEARCH_KEYS["namespace"]: namespace},
+            token=dest_token
+        )
+
+        if _existing_namespace:
+            _namespace_id = fdp_req.get_obj_id_from_url(_existing_namespace[0]["url"])
+            _existing = fdp_req.get(
+                dest_uri,
+                "data_product",
+                dest_token,
+                params={
+                    "namespace": _namespace_id,
+                    "name": name,
+                    "version": version.replace("v", "")
+                }
+            )
+            if _existing:
+                click.echo(
+                    f"Data product '{data_product}' already present "
+                    f"on remote '{remote_label}', ignoring.",
+                )
+                continue
 
         # Convert namespace name to an ID for retrieval
         _namespaces = fdp_req.get(

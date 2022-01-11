@@ -124,6 +124,7 @@ class FAIR:
         self._session_id = (
             uuid.uuid4() if server_mode == fdp_serv.SwitchMode.CLI else None
         )
+        self._session_config = None
 
         if user_config and not os.path.exists(user_config):
             raise fdp_exc.FileNotFoundError(
@@ -131,19 +132,8 @@ class FAIR:
                 "file not found."
             )
 
-        _session_config_file = user_config or fdp_com.local_user_config(
-            self._session_loc
-        )
+        self._session_config = fdp_user.JobConfiguration(user_config)
 
-        if not os.path.exists(_session_config_file) and user_config != 'none':
-            self._logger.error("No such configuration file '%s'", _session_config_file)
-            raise fdp_exc.FileNotFoundError(
-                f"Cannot launch session from user configuration file '{_session_config_file}', "
-                "file not found"
-            )
-
-        self._session_config = fdp_user.JobConfiguration(_session_config_file)
-        
 
         if server_mode != fdp_serv.SwitchMode.NO_SERVER and not os.path.exists(
             fdp_com.registry_home()
@@ -171,7 +161,7 @@ class FAIR:
             "\tstaging_file   = %s\n"
             "\tsession_id     = %s\n",
             self._session_loc,
-            _session_config_file,
+            user_config,
             self._testing,
             self._run_mode,
             self._stager._staging_file,
@@ -313,40 +303,57 @@ class FAIR:
         pathlib.Path(_cache_addr).touch()
         fdp_serv.launch_server(port=port, verbose=True)
 
-    def _pre_job_setup(self) -> None:
+    def _pre_job_setup(self, remote: str = None) -> None:
         self._logger.debug("Running pre-job setup")
         self.check_is_repo()
         self._session_config.update_from_fair(
-            fdp_com.find_fair_root(self._session_loc)
+            fdp_com.find_fair_root(self._session_loc), remote
         )
 
-    def _post_job_breakdown(self) -> None:
-        self._logger.debug(f"Tracking job hash {self._session_config.hash}")
+    def _post_job_breakdown(self, add_run: bool = False) -> None:
+        if add_run:
+            self._logger.debug(f"Tracking job hash {self._session_config.hash}")
 
         self._logger.debug("Updating staging post-run")
 
         self._stager.update_data_product_staging()
 
-        # Automatically add the run to tracking but unstaged
-        self._stager.add_to_staging(self._session_config.hash, "job")
+        if add_run:
+            # Automatically add the run to tracking but unstaged
+            self._stager.add_to_staging(self._session_config.hash, "job")
 
         self._session_config.close_log()
     
     def push(self, remote: str = "origin"):
-        self._pre_job_setup()
+        self._pre_job_setup(remote)
         self._session_config.prepare(
             fdp_com.CMD_MODE.PUSH,
             allow_dirty=self._allow_dirty
         )
         _staged_data_products = self._stager.get_item_list(True, "data_product")
+
+        if not _staged_data_products:
+            click.echo("Nothing to push.")
+
         fdp_sync.push_data_products(
             origin_uri=fdp_conf.get_local_uri(),
             dest_uri=fdp_conf.get_remote_uri(self._session_loc, remote),
             dest_token=fdp_conf.get_remote_token(self._session_loc, remote),
             origin_token=fdp_req.local_token(),
+            remote_label=remote,
             data_products=_staged_data_products,
         )
+
+        self._session_config.write_log_lines(
+            [f"Pushing data products to remote '{remote}':"] +
+            [f'\t- {data_product}' for data_product in _staged_data_products]
+        )
+
         self._post_job_breakdown()
+
+        # When push successful unstage data products again
+        for data_product in _staged_data_products:
+            self._stager.change_stage_status(data_product, "data_product", False)
 
     def pull(self, remote: str = "origin"):
         self._logger.debug("Performing pull on remote '%s'", remote)
@@ -368,7 +375,7 @@ class FAIR:
             )
         self._logger.debug("Performing pre-job setup")
 
-        self._pre_job_setup()
+        self._pre_job_setup(remote)
 
         self._session_config.prepare(
             fdp_com.CMD_MODE.PULL,
@@ -392,7 +399,13 @@ class FAIR:
                 dest_uri=fdp_conf.get_local_uri(),
                 dest_token=fdp_req.local_token(),
                 origin_token=fdp_conf.get_remote_token(self._session_loc, remote),
+                remote_label=remote,
                 data_products=_readables,
+            )
+
+            self._session_config.write_log_lines(
+                [f"Pulled data products from remote '{remote}':"] +
+                [f'\t- {data_product}' for data_product in _readables]
             )
 
         self._logger.debug("Performing post-job breakdown")
@@ -432,7 +445,7 @@ class FAIR:
 
         self._session_config.execute()
 
-        self._post_job_breakdown()
+        self._post_job_breakdown(add_run=True)
 
         return self._session_config.hash
 

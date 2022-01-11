@@ -73,17 +73,18 @@ class JobConfiguration(MutableMapping):
     }
     _status_tags = ("registered",)
 
-    def __init__(self, config_yaml: str) -> None:
-        if not os.path.exists(config_yaml):
-            raise fdp_exc.FileNotFoundError(
-                f"Cannot load job configuration from file '{config_yaml}', "
-                "file does not exist"
-            )
-
-        self._logger.debug("Loading file '%s'", config_yaml)
-
+    def __init__(self, config_yaml: str = None) -> None:
+        self._config = {"run_metadata": {}}
         self._input_file = config_yaml
-        self._config: typing.Dict = yaml.safe_load(open(config_yaml))
+        if config_yaml:
+            if not os.path.exists(config_yaml):
+                raise fdp_exc.FileNotFoundError(
+                    f"Cannot load job configuration from file '{config_yaml}', "
+                    "file does not exist"
+                )
+
+            self._logger.debug("Loading file '%s'", config_yaml)
+            self._config: typing.Dict = yaml.safe_load(open(config_yaml))
 
         self._fill_missing()
 
@@ -548,10 +549,18 @@ class JobConfiguration(MutableMapping):
         allow_dirty: bool = False,
     ) -> str:
         """Initiate a job execution"""
-        self._logger.debug("Preparing configuration")
-        self._update_namespaces()
         _time_stamp = self._now.strftime("%Y-%m-%d_%H_%M_%S_%f")
         self._job_dir = os.path.join(fdp_com.default_jobs_dir(), _time_stamp)
+
+        # For push we do not need to do anything to the config as information
+        # is taken from staging
+        if job_mode == CMD_MODE.PUSH:
+            self._create_log()
+            return os.path.join(self._job_dir, fdp_com.USER_CONFIG_FILE)
+
+        self._logger.debug("Preparing configuration")
+        self._update_namespaces()
+
         os.makedirs(self._job_dir)
         self._create_log()
         self._subst_cli_vars(self._now)
@@ -1240,6 +1249,10 @@ class JobConfiguration(MutableMapping):
     def hash(self) -> str:
         """Get job hash"""
         return fdp_run.get_job_hash(self._job_dir)
+
+    def write_log_lines(self, log_file_lines: typing.List[str]) -> None:
+        """Add lines to the current session log file"""
+        self._log_file.writelines(log_file_lines)
 
     def write(self, output_file: str = None) -> str:
         """Write job configuration to file"""
