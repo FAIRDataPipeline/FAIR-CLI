@@ -426,6 +426,7 @@ def run(config: str, script: str, debug: bool, ci: bool, dirty: bool):
             config,
             debug=debug,
             server_mode=fdp_svr.SwitchMode.CLI,
+            allow_dirty=dirty
         ) as fair_session:
             _hash = fair_session.run(script, passive=ci, allow_dirty=dirty)
             if ci:

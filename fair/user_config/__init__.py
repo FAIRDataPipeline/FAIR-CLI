@@ -1178,7 +1178,7 @@ class JobConfiguration(MutableMapping):
                 _exec, _process.returncode, '\n\t'.join(_log_tail)
             )
             raise fdp_exc.CommandExecutionError(
-                "Executed command failed with exit code %s",
+                f"Executed 'run' command failed with exit code {_process.returncode}",
                 _process.returncode,
             )
 
