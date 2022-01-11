@@ -1,3 +1,31 @@
+#!/usr/bin/python3
+# -*- coding: utf-8 -*-
+"""
+User Config Management
+======================
+
+Contains classes for the parsing and preparation of the user's 'config.yaml'
+prior to the execution of a run or synchronisation
+
+Contents
+========
+
+Constants
+---------
+
+    - JOB2CLI_MAPPINGS: mappings from CLI configuration to config.yaml keys
+    - SHELLS: commands for executing scripts depending on specified shell
+
+
+Classes
+-------
+
+    - JobConfiguration: handles the setup of the configuration file
+
+"""
+
+__date__ = "2021-09-10"
+
 import copy
 import datetime
 import logging
@@ -13,7 +41,6 @@ from collections.abc import MutableMapping
 
 import git
 import click
-from semver import VersionInfo
 import yaml
 import pydantic
 
@@ -27,8 +54,11 @@ import fair.registry.versioning as fdp_ver
 import fair.utilities as fdp_util
 import fair.run as fdp_run
 import fair.history as fdp_hist
+
 from fair.common import CMD_MODE
+
 import fair.user_config.validation as fdp_valid
+import fair.user_config.globbing as fdp_glob
 
 JOB2CLI_MAPPINGS = {
     "run_metadata.local_repo": "git.local_repo",
@@ -89,7 +119,7 @@ class JobConfiguration(MutableMapping):
         self._fill_missing()
 
         self._now = datetime.datetime.now()
-        self._parsed = {"namespaces": [], "authors": []}
+        self._parsed = {"namespace": [], "author": []}
         self.env = None
         self._job_dir = None
         self._log_file = None
@@ -291,6 +321,8 @@ class JobConfiguration(MutableMapping):
 
     def _globular_registry_search(
         self,
+        registry_uri: str,
+        registry_token: str,
         block_entry: typing.Dict[str, str],
         block_type: str) -> typing.Dict[str, str]:
         """Performs globular search in the specified registry
@@ -299,20 +331,6 @@ class JobConfiguration(MutableMapping):
         """
         if all('*' not in v for v in block_entry.values()):
             return block_entry
-
-        _disposables = (
-            "name",
-            "object",
-            "last_updated",
-            "namespace",
-            "release_date",
-            "updated_by",
-            "original_store",
-            "prov_report",
-            "external_object",
-            "internal_format",
-            "url"
-        )
 
         _new_entries: typing.List[typing.Dict] = []
         _obj_type = None
@@ -331,7 +349,7 @@ class JobConfiguration(MutableMapping):
 
         try:
             _results_local = fdp_req.get(
-                self.local_uri, _obj_type, fdp_req.local_token(),
+                registry_uri, _obj_type, registry_token,
                 params={_search_key: block_entry[_obj_type]}
             )
         except fdp_exc.RegistryAPICallError:
@@ -344,103 +362,24 @@ class JobConfiguration(MutableMapping):
             # If the object is a namespace or an author then there is no
             # additional info in the registry so we can just add the entries
             # as they are
-            for result in _results_local:
-                _data = result.copy()
-                for key, value in result.items():
-                    if not value:
-                        _data.pop(key, None)
-                _data[_obj_type] = _data["name"]
-
-                for key in _disposables:
-                    _data.pop(key, None)
-
-                _new_entries.append(_data)
+            _new_entries = fdp_glob.get_single_layer_objects(_results_local, _obj_type)
 
         elif _obj_type == "external_object":
             # If the object is an external_object we firstly need to get the
             # name of the data product, version and the namespace of this object
             # as well as the identifier
-            for result in _results_local:
-                _data = result.copy()
+            _version = block_entry.get("version", None)
 
-                for key, value in result.items():
-                    if not value:
-                        _data.pop(key, None)
-
-                _data_product = fdp_req.url_get(
-                    result["data_product"],
-                    fdp_req.local_token()
-                )
-
-                if not _data_product:
-                    raise fdp_exc.InternalError(
-                        "Failed to retrieve data_product for external_object "
-                        f"{result[fdp_reg.SEARCH_KEYS['data_product']]}"
-                    )
-
-                _namespace = fdp_req.url_get(
-                    _data_product["namespace"],
-                    fdp_req.local_token()
-                )
-
-                if not _namespace:
-                    raise fdp_exc.InternalError(
-                        "Failed to retrieve namespace for external_object "
-                        f"{result[fdp_reg.SEARCH_KEYS['data_product']]}"
-                    )
-
-                _version = _data_product["version"]
-
-                if block_type == "write" and "version" in block_entry:
-                    _version = block_entry["version"]
-
-                _data["use"] = {}
-                _data["use"]["namespace"] = _namespace["name"],
-                _data["use"]["version"] = _version
-                _data.pop("name", None)
-                _data.pop("last_updated", None)
-
-                for key in _disposables:
-                    _data.pop(key, None)
-
-                _new_entries.append(_data)
+            _new_entries = fdp_glob.get_external_objects(
+                registry_token, _results_local, block_type, _version
+            )
 
         elif _obj_type == "data_product":
+            _version = block_entry.get("version", None)
 
-            # If a data product need to retrieve the namespace name
-            for entry in _results_local:
-                _data = entry.copy()
-
-                for key, value in entry.items():
-                    if not value:
-                        _data.pop(key, None)
-
-                _namespace = fdp_req.url_get(
-                    entry["namespace"],
-                    fdp_req.local_token()
-                )
-
-                if not _namespace:
-                    raise fdp_exc.InternalError(
-                        "Failed to retrieve namespace for external_object "
-                        f"{entry[fdp_reg.SEARCH_KEYS['data_product']]}"
-                    )
-
-                _version = entry["version"]
-
-                if block_type == "write" and "version" in block_entry:
-                    _version = block_entry["version"]
-
-                _data["use"] = {}
-                _data["use"]["namespace"] = _namespace["name"]
-                _data["data_product"] = _data["name"]
-                _data["use"]["data_product"] = _data["name"]
-                _data["use"]["version"] = _version
-
-                for key in _disposables:
-                    _data.pop(key, None)     
-
-                _new_entries.append(_data)       
+            _new_entries = fdp_glob.get_data_product_objects(
+                registry_token, _results_local, block_type, _version
+            ) 
 
         if block_type == "write":
             _new_entries.append(block_entry)
@@ -448,14 +387,23 @@ class JobConfiguration(MutableMapping):
         return _new_entries
 
 
-    def _expand_wildcards_from_local_reg(self) -> None:
+    def _expand_wildcards(
+        self,
+        registry_uri: str,
+        registry_token: str) -> None:
         self._logger.debug("Expanding wildcards using local registry")
         for block in self._block_types:
             if block not in self:
                 continue
             _new_block: typing.List[typing.Dict] = []
             for block_entry in self[block]:
-                _new_block += self._globular_registry_search(block_entry, block)
+                _new_block = self._globular_registry_search(
+                    registry_uri,
+                    registry_token,
+                    block_entry,
+                    block
+                )
+
             self[block] = _new_block
 
     def _fetch_latest_commit(self, allow_dirty: bool = False) -> None:
@@ -707,6 +655,8 @@ class JobConfiguration(MutableMapping):
         self,
         job_mode: CMD_MODE,
         allow_dirty: bool = False,
+        remote_uri: str = None,
+        remote_token: str = None
     ) -> str:
         """Initiate a job execution"""
         _time_stamp = self._now.strftime("%Y-%m-%d_%H_%M_%S_%f")
@@ -734,7 +684,19 @@ class JobConfiguration(MutableMapping):
             _cmd = 'push'
             self._pull_push_log_header(_cmd)
 
-        self._expand_wildcards_from_local_reg()
+        # If pulling glob from the remote, else glob from local
+        if job_mode == CMD_MODE.PULL:
+            if not remote_uri:
+                raise fdp_exc.InternalError(
+                    "Expected URI during wildcard unpacking for 'pull'"
+                )
+            if not remote_token:
+                raise fdp_exc.InternalError(
+                    "Expected token during wildcard unpacking for 'pull'"
+                )
+            self._expand_wildcards(remote_uri, remote_token)
+        else:
+            self._expand_wildcards(self.local_uri, fdp_req.local_token())
 
         for block_type in self._block_types:
             if block_type in self:

@@ -173,6 +173,7 @@ class RegistryTest:
         self._venv_dir = os.path.join(venv.workspace, ".env")
         self._process = None
         self._port = port
+        self._url = f"http://127.0.0.1:{port}/api/"
         if not os.path.exists(os.path.join(install_loc, "manage.py")):
             test_reg.install_registry(
                 install_dir=install_loc, silent=True, venv_dir=self._venv_dir
