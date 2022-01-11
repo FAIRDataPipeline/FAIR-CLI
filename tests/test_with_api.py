@@ -386,15 +386,15 @@ def test_push_postrun(local_config: typing.Tuple[str, str],
         with remote_registry, local_registry:
             os.makedirs(os.path.join(pyDataPipeline, FAIR_FOLDER), exist_ok=True)
             with open(os.path.join(pyDataPipeline, FAIR_FOLDER, "staging"), "w") as sf:
-                yaml.dump({"data_product": {"rfield:SEIRS_model/results/figure/python@v0.0.1": False}, "file": {}, "job": {}}, sf)
+                yaml.dump({"data_product": {"testing:SEIRS_model/results/figure/python@v0.0.1": False}, "file": {}, "job": {}}, sf)
             mocker.patch("fair.common.staging_cache", lambda *args: os.path.join(pyDataPipeline, FAIR_FOLDER, "staging"))
             fdp_serv.update_registry_post_setup(pyDataPipeline, True)
             with open(os.path.join(pyDataPipeline, FAIR_FOLDER, "staging")) as cfg:
                 _staging = yaml.safe_load(cfg)
-            assert "rfield:SEIRS_model/results/figure/python@v0.0.1" in _staging["data_product"]
+            assert "testing:SEIRS_model/results/figure/python@v0.0.1" in _staging["data_product"]
             mocker.patch("fair.configuration.get_local_data_store", lambda *args: os.path.join(local_registry._install, "data"))
             with capsys.disabled():
-                print("\tRUNNING: fair add rfield:SEIRS_model/results/figure/python@v0.0.1")
+                print("\tRUNNING: fair add testing:SEIRS_model/results/figure/python@v0.0.1")
 
             assert get(
                 "http://127.0.0.1:8000/api/",
@@ -406,10 +406,8 @@ def test_push_postrun(local_config: typing.Tuple[str, str],
                 }
             )
 
-            _res = _cli_runner.invoke(cli, ["add", "rfield:SEIRS_model/results/figure/python@v0.0.1"])
+            _res = _cli_runner.invoke(cli, ["add", "testing:SEIRS_model/results/figure/python@v0.0.1"])
 
-            assert not _res.output
-            assert _res.output
             assert _res.exit_code == 0
 
             with capsys.disabled():

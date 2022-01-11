@@ -49,7 +49,6 @@ def test_is_public(make_config: fdp_user.JobConfiguration):
     make_config["run_metadata.public"] = False
     assert not make_config.is_public_global
 
-
 @pytest.mark.user_config
 def test_default_input_namespace(make_config: fdp_user.JobConfiguration):
     assert make_config.default_input_namespace == "rfield"
