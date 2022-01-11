@@ -135,8 +135,15 @@ class FAIR:
             self._session_loc
         )
 
-        if os.path.exists(_session_config_file):
-            self._session_config = fdp_user.JobConfiguration(_session_config_file)
+        if not os.path.exists(_session_config_file) and user_config != 'none':
+            self._logger.error("No such configuration file '%s'", _session_config_file)
+            raise fdp_exc.FileNotFoundError(
+                f"Cannot launch session from user configuration file '{_session_config_file}', "
+                "file not found"
+            )
+
+        self._session_config = fdp_user.JobConfiguration(_session_config_file)
+        
 
         if server_mode != fdp_serv.SwitchMode.NO_SERVER and not os.path.exists(
             fdp_com.registry_home()

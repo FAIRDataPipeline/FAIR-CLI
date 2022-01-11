@@ -155,7 +155,7 @@ def init(
     """Initialise repository in current location"""
     try:
         with fdp_session.FAIR(
-            os.getcwd(), None, debug=debug, testing=ci
+            os.getcwd(), debug=debug, testing=ci, user_config='none'
         ) as fair_session:
             _use_dict = {}
             if using:
@@ -536,7 +536,11 @@ def push(remote: str, debug: bool, dirty: bool):
     remote = "origin" if not remote else remote[0]
     try:
         with fdp_session.FAIR(
-            os.getcwd(), debug=debug, server_mode=fdp_svr.SwitchMode.CLI, allow_dirty=dirty
+            os.getcwd(),
+            debug=debug,
+            server_mode=fdp_svr.SwitchMode.CLI,
+            user_config='none',
+            allow_dirty=dirty
         ) as fair_session:
             fair_session.push(remote)
     except fdp_exc.FAIRCLIException as e:
