@@ -134,7 +134,7 @@ class JobConfiguration(MutableMapping):
     def _get_local_authors(self) -> typing.List[str]:
         _authors = fdp_req.get(self.local_uri, "author", fdp_req.local_token())
         if not _authors:
-            _authors
+            return _authors
         else:
             return [a["name"] for a in _authors]
 
