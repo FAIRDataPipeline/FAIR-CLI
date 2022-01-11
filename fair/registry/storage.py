@@ -81,6 +81,41 @@ def get_write_storage(uri: str, write_data_store: str, token: str) -> str:
     return _storage_root["url"]
 
 
+def store_author(
+    uri: str,
+    token: str,
+    name: str,
+    identifier: str = None,
+    uuid: str = None) -> str:
+    """Creates an Author entry if one does not exist
+
+    Parameters
+    ----------
+    uri : str
+        registry RestAPI endpoint
+    token: str
+        registry access token
+    data: typing.Dict
+        author data to post
+    params: typing.Dict, optional
+        parameters to search if exists already
+
+    Returns
+    -------
+    str
+        URI for created author
+    """
+    _data = {
+        "name": name,
+        "identifier": identifier,
+        "uuid": uuid
+    }
+
+    return fdp_req.post_else_get(
+        uri, "author", token, _data, {"name": name}
+    )
+
+
 def store_user(repo_dir: str, uri: str, token: str) -> str:
     """Creates an Author entry for the user if one does not exist
 
@@ -100,20 +135,18 @@ def store_user(repo_dir: str, uri: str, token: str) -> str:
     """
 
     _user = fdp_conf.get_current_user_name(repo_dir)
-    _data = {"name": " ".join(_user) if _user[1] else _user[0]}
+    name = " ".join(_user) if _user[1] else _user[0]
+    _id = None
+    _uuid = None
 
-    logger.debug("Storing user '%s'", _data["name"])
+    logger.debug("Storing user '%s'", name)
 
     try:
         _id = fdp_conf.get_current_user_uri(repo_dir)
-        _data["identifier"] = _id
-        return fdp_req.post_else_get(
-            uri, "author", token, data=_data, params={"identifier": _id}
-        )
     except fdp_exc.CLIConfigurationError:
         _uuid = fdp_conf.get_current_user_uuid(repo_dir)
-        _data["uuid"] = _uuid
-        return fdp_req.post_else_get(uri, "author", data=_data, params={"uuid": _uuid})
+    
+    return store_author(uri, token, name, _id, _uuid)
 
 
 def populate_file_type(uri: str, token: str) -> typing.List[typing.Dict]:

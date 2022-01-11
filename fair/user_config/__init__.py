@@ -13,13 +13,13 @@ from collections.abc import MutableMapping
 
 import git
 import click
+from semver import VersionInfo
 import yaml
 import pydantic
 
 import fair.common as fdp_com
 import fair.configuration as fdp_conf
 import fair.exceptions as fdp_exc
-import fair.parsing.globbing as fdp_glob
 import fair.register as fdp_reg
 import fair.registry.requests as fdp_req
 import fair.registry.storage as fdp_store
@@ -89,7 +89,7 @@ class JobConfiguration(MutableMapping):
         self._fill_missing()
 
         self._now = datetime.datetime.now()
-        self._parsed_namespaces = []
+        self._parsed = {"namespaces": [], "authors": []}
         self.env = None
         self._job_dir = None
         self._log_file = None
@@ -97,9 +97,16 @@ class JobConfiguration(MutableMapping):
     def _get_local_namespaces(self) -> typing.List[str]:
         _namespaces = fdp_req.get(self.local_uri, "namespace", fdp_req.local_token())
         if not _namespaces:
-            return []
+            return _namespaces
         else:
             return [n["name"] for n in _namespaces]
+
+    def _get_local_authors(self) -> typing.List[str]:
+        _authors = fdp_req.get(self.local_uri, "author", fdp_req.local_token())
+        if not _authors:
+            _authors
+        else:
+            return [a["name"] for a in _authors]
 
     def __contains__(self, key_addr: str) -> bool:
         return any(
@@ -124,7 +131,7 @@ class JobConfiguration(MutableMapping):
             del self._config[key_addr]
         _flat_cfg = fdp_util.flatten_dict(self._config, separator)
         if key_addr not in _flat_cfg:
-            raise fdp_exc.KeyPathError(key_addr, fdp_com.USER_CONFIG_FILE)
+            raise fdp_exc.KeyPathError(key_addr, f'UserConfig[{self._input_file}]')
         self._logger.debug(f"Removing '{key_addr}'")
         del _flat_cfg[key_addr]
         self._config = fdp_util.expand_dict(_flat_cfg)
@@ -134,7 +141,7 @@ class JobConfiguration(MutableMapping):
             return self._config[key_addr]
         _flat_cfg = fdp_util.flatten_dict(self._config, separator)
         if key_addr not in _flat_cfg:
-            raise fdp_exc.KeyPathError(key_addr, fdp_com.USER_CONFIG_FILE)
+            raise fdp_exc.KeyPathError(key_addr, f'UserConfig[{self._input_file}]')
         return _flat_cfg[key_addr]
 
     def __len__(self) -> int:
@@ -196,7 +203,7 @@ class JobConfiguration(MutableMapping):
                 "website": item.get("website", None)
             }
 
-            if item["namespace"] in self._parsed_namespaces:
+            if item["namespace"] in self._parsed["namespace"]:
                 self._logger.warning(
                     "Ignoring registration of namespace '%s' as it already exists",
                     item["namespace"]
@@ -207,7 +214,7 @@ class JobConfiguration(MutableMapping):
                 self.local_uri, fdp_req.local_token(), **_namespace_metadata
             )
 
-            self._parsed_namespaces.append(_namespace_metadata["name"])
+            self._parsed["namespace"].append(_namespace_metadata["name"])
 
         return _new_register_block
 
@@ -245,11 +252,11 @@ class JobConfiguration(MutableMapping):
             _new_entry = register_entry.copy()
             if "namespace_name" not in register_entry:
                 continue
-            if register_entry["namespace_name"] not in self._parsed_namespaces:
+            if register_entry["namespace_name"] not in self._parsed["namespace"]:
                 self._logger.error(
                     "'%s' not in available namespaces:\n\t-%s",
                     register_entry['namespace_name'],
-                    '\n\t-'.join(self._parsed_namespaces)
+                    '\n\t-'.join(self._parsed["namespace"])
                 )
                 raise fdp_exc.UserConfigError(
                     "Attempt to register object with unknown namespace "
@@ -282,21 +289,174 @@ class JobConfiguration(MutableMapping):
                 continue
             self[block_type] = self._fill_namespaces(block_type)
 
-    def _expand_wildcards_from_local_reg(self, block_type: str) -> None:
+    def _globular_registry_search(
+        self,
+        block_entry: typing.Dict[str, str],
+        block_type: str) -> typing.Dict[str, str]:
+        """Performs globular search in the specified registry
+        
+        Any '*' wildcards are used to perform 
+        """
+        if all('*' not in v for v in block_entry.values()):
+            return block_entry
+
+        _disposables = (
+            "name",
+            "object",
+            "last_updated",
+            "namespace",
+            "release_date",
+            "updated_by",
+            "original_store",
+            "prov_report",
+            "external_object",
+            "internal_format",
+            "url"
+        )
+
+        _new_entries: typing.List[typing.Dict] = []
+        _obj_type = None
+        for obj in fdp_valid.VALID_OBJECTS:
+            # Identify object type
+            if obj in block_entry:
+                _obj_type = obj
+                break
+
+        if not _obj_type:
+            raise fdp_exc.UserConfigError(
+                f"Unrecognised object type for wildcard search in: {block_entry}"
+            )
+
+        _search_key = fdp_reg.SEARCH_KEYS[_obj_type]
+
+        try:
+            _results_local = fdp_req.get(
+                self.local_uri, _obj_type, fdp_req.local_token(),
+                params={_search_key: block_entry[_obj_type]}
+            )
+        except fdp_exc.RegistryAPICallError:
+            raise fdp_exc.UserConfigError(
+                f"Failed to retrieve entries on local registry for {_obj_type}"
+                f" wildcard '{block_entry[_obj_type]}'"
+            )
+
+        if _obj_type in ("namespace", "author"):
+            # If the object is a namespace or an author then there is no
+            # additional info in the registry so we can just add the entries
+            # as they are
+            for result in _results_local:
+                _data = result.copy()
+                for key, value in result.items():
+                    if not value:
+                        _data.pop(key, None)
+                _data[_obj_type] = _data["name"]
+
+                for key in _disposables:
+                    _data.pop(key, None)
+
+                _new_entries.append(_data)
+
+        elif _obj_type == "external_object":
+            # If the object is an external_object we firstly need to get the
+            # name of the data product, version and the namespace of this object
+            # as well as the identifier
+            for result in _results_local:
+                _data = result.copy()
+
+                for key, value in result.items():
+                    if not value:
+                        _data.pop(key, None)
+
+                _data_product = fdp_req.url_get(
+                    result["data_product"],
+                    fdp_req.local_token()
+                )
+
+                if not _data_product:
+                    raise fdp_exc.InternalError(
+                        "Failed to retrieve data_product for external_object "
+                        f"{result[fdp_reg.SEARCH_KEYS['data_product']]}"
+                    )
+
+                _namespace = fdp_req.url_get(
+                    _data_product["namespace"],
+                    fdp_req.local_token()
+                )
+
+                if not _namespace:
+                    raise fdp_exc.InternalError(
+                        "Failed to retrieve namespace for external_object "
+                        f"{result[fdp_reg.SEARCH_KEYS['data_product']]}"
+                    )
+
+                _version = _data_product["version"]
+
+                if block_type == "write" and "version" in block_entry:
+                    _version = block_entry["version"]
+
+                _data["use"] = {}
+                _data["use"]["namespace"] = _namespace["name"],
+                _data["use"]["version"] = _version
+                _data.pop("name", None)
+                _data.pop("last_updated", None)
+
+                for key in _disposables:
+                    _data.pop(key, None)
+
+                _new_entries.append(_data)
+
+        elif _obj_type == "data_product":
+
+            # If a data product need to retrieve the namespace name
+            for entry in _results_local:
+                _data = entry.copy()
+
+                for key, value in entry.items():
+                    if not value:
+                        _data.pop(key, None)
+
+                _namespace = fdp_req.url_get(
+                    entry["namespace"],
+                    fdp_req.local_token()
+                )
+
+                if not _namespace:
+                    raise fdp_exc.InternalError(
+                        "Failed to retrieve namespace for external_object "
+                        f"{entry[fdp_reg.SEARCH_KEYS['data_product']]}"
+                    )
+
+                _version = entry["version"]
+
+                if block_type == "write" and "version" in block_entry:
+                    _version = block_entry["version"]
+
+                _data["use"] = {}
+                _data["use"]["namespace"] = _namespace["name"]
+                _data["data_product"] = _data["name"]
+                _data["use"]["data_product"] = _data["name"]
+                _data["use"]["version"] = _version
+
+                for key in _disposables:
+                    _data.pop(key, None)     
+
+                _new_entries.append(_data)       
+
+        if block_type == "write":
+            _new_entries.append(block_entry)
+
+        return _new_entries
+
+
+    def _expand_wildcards_from_local_reg(self) -> None:
         self._logger.debug("Expanding wildcards using local registry")
-        _version = (
-            self.default_read_version
-            if block_type == "read"
-            else self.default_write_version
-        )
-        fdp_glob.glob_read_write(
-            user_config=self._config,
-            blocktype=block_type,
-            search_key=None,
-            registry_url=self.local_uri,
-            version=_version,
-            remove_wildcard=block_type == "read",
-        )
+        for block in self._block_types:
+            if block not in self:
+                continue
+            _new_block: typing.List[typing.Dict] = []
+            for block_entry in self[block]:
+                _new_block += self._globular_registry_search(block_entry, block)
+            self[block] = _new_block
 
     def _fetch_latest_commit(self, allow_dirty: bool = False) -> None:
         self._logger.debug(
@@ -574,13 +734,7 @@ class JobConfiguration(MutableMapping):
             _cmd = 'push'
             self._pull_push_log_header(_cmd)
 
-        for block_type in ("read", "write"):
-            if block_type not in self:
-                continue
-            try:
-                self._expand_wildcards_from_local_reg(block_type)
-            except fdp_exc.InternalError:
-                continue
+        self._expand_wildcards_from_local_reg()
 
         for block_type in self._block_types:
             if block_type in self:
@@ -596,7 +750,8 @@ class JobConfiguration(MutableMapping):
             )
             self._logger.debug("Fetched objects:\n %s", _objs)
 
-        self._parsed_namespaces = self._get_local_namespaces()
+        self._parsed["namespace"] = self._get_local_namespaces()
+        self._parsed["author"] = self._get_local_authors()
 
         if "register" in self:
             if "read" not in self:
@@ -738,13 +893,13 @@ class JobConfiguration(MutableMapping):
             if "external_object" in item:
                 _readable["data_product"] = item["external_object"]
                 _readable.pop("external_object")
-            elif "namespace" in item and "data_product" not in item:
+            elif "namespace" in item:
                 try:
                     fdp_valid.Namespace(**_readable)
                 except pydantic.ValidationError as e:
                     raise fdp_exc.ValidationError(e.json())
 
-                if item["namespace"] in self._parsed_namespaces:
+                if item["namespace"] in self._parsed["namespace"]:
                     self._logger.warning(
                         "Namespace '%s' already added, ignoring duplicate",
                         item["namespace"]
@@ -761,7 +916,32 @@ class JobConfiguration(MutableMapping):
 
                     # We do not want to register a namespace twice so
                     # keep track of which we have
-                    self._parsed_namespaces.append(_readable["name"])
+                    self._parsed["namespace"].append(_readable["name"])
+            elif "author" in item:
+                try:
+                    fdp_valid.Author(**_readable)
+                except pydantic.ValidationError as e:
+                    raise fdp_exc.ValidationError(e.json())
+
+                if item["author"] in self._parsed["author"]:
+                    self._logger.warning(
+                        "Author '%s' already added, ignoring duplicate",
+                        item["author"]
+                    )
+                else:
+                    _readable["name"] = item["author"]
+                    _readable.pop("author")
+
+                    fdp_store.store_author(
+                        self.local_uri,
+                        fdp_req.local_token(),
+                        **_readable
+                    )
+
+                    # We do not want to register a namespace twice so
+                    # keep track of which we have
+                    self._parsed["author"].append(_readable["name"])
+
 
             else:  # unknown
                 raise fdp_exc.UserConfigError(

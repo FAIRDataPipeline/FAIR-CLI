@@ -11,44 +11,11 @@ import pytest_mock
 from fair.cli import cli
 from fair.common import FAIR_FOLDER
 from fair.registry.requests import get, url_get
-from tests.conftest import RegistryTest
+from tests.conftest import RegistryTest, get_example_entries
 import fair.registry.server as fdp_serv
 
 REPO_ROOT = pathlib.Path(os.path.dirname(__file__)).parent
 PULL_TEST_CFG = os.path.join(os.path.dirname(__file__), "data", "test_pull_config.yaml")
-
-def get_example_entries(registry_dir: str):
-    """
-    With the registry examples regularly changing this function parses the 
-    relevant file in the reg repository to obtain all example object metadata
-    """
-    SEARCH_STR = "StorageLocation.objects.get_or_create"
-    _example_file = os.path.join(
-        registry_dir,
-        "data_management",
-        "management",
-        "commands",
-        "_example_data.py"
-    )
-
-    _objects: typing.List[typing.Tuple[str, str, str]] = []
-
-    with open(_example_file) as in_f:
-        _lines = in_f.readlines()
-        for i, line in enumerate(_lines):
-            if SEARCH_STR in line:
-                _path_line_offset = 0
-                while "path" not in _lines[i+_path_line_offset]:
-                    _path_line_offset += 1
-                _candidate = _lines[i+_path_line_offset]
-                _candidate = _candidate.replace('"', "")
-                _candidate = _candidate.replace("path=", "")
-                _metadata, _file = _candidate.rsplit("/", 1)
-                _metadata = _metadata.replace("path=", "")
-                _version = ".".join(_file.split(".")[:3])
-                _objects.append((*_metadata.split("/", 1), _version))
-    
-    return _objects
 
 
 @pytest.mark.with_api
