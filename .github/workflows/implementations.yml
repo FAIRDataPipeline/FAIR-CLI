@@ -39,7 +39,7 @@ jobs:
           poetry run fair pull --debug simpleModel/ext/SEIRSconfig.yaml
           poetry run fair run --dirty --debug simpleModel/ext/SEIRSconfig.yaml
           poetry run fair add PSU:SEIRS_model/parameters@v1.0.0
-          poetry run fair push
+          poetry run fair push --dirty
         working-directory: python_example
 
   Java:
