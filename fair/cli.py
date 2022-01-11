@@ -528,12 +528,15 @@ def modify(ctx, label: str, url: str, debug: bool) -> None:
 @cli.command()
 @click.argument("remote", nargs=-1)
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
-def push(remote: str, debug: bool):
+@click.option(
+    "--dirty/--clean", help="Allow running with uncommitted changes", default=False
+)
+def push(remote: str, debug: bool, dirty: bool):
     """Push data between the local and remote registry"""
     remote = "origin" if not remote else remote[0]
     try:
         with fdp_session.FAIR(
-            os.getcwd(), debug=debug, server_mode=fdp_svr.SwitchMode.CLI
+            os.getcwd(), debug=debug, server_mode=fdp_svr.SwitchMode.CLI, allow_dirty=dirty
         ) as fair_session:
             fair_session.push(remote)
     except fdp_exc.FAIRCLIException as e:
