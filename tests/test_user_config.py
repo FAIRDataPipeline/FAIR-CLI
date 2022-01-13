@@ -78,7 +78,7 @@ def test_preparation(
         make_config.prepare(fdp_com.CMD_MODE.RUN, True)
 
         _out_dir = os.path.join(conf.TEST_OUT_DIR, "test_preparation")
-        os.mkdir(_out_dir)
+        os.makedirs(_out_dir, exist_ok=True)
 
         make_config.write(os.path.join(_out_dir, "out.yaml"))
 

@@ -35,12 +35,6 @@ def test_pull_new(local_config: typing.Tuple[str, str],
     _cli_runner = click.testing.CliRunner()
     with _cli_runner.isolated_filesystem(pyDataPipeline):
         with remote_registry, local_registry:
-            assert not get(
-                "http://127.0.0.1:8001/api/",
-                "data_product",
-                remote_registry._token,
-                params={}
-            )
             remote_registry._venv.run(f"python {_manage} add_example_data", capture=True)
             os.makedirs(os.path.join(pyDataPipeline, FAIR_FOLDER), exist_ok=True)
             _data = os.path.join(local_registry._install, "data")
@@ -82,8 +76,6 @@ def test_pull_new(local_config: typing.Tuple[str, str],
                 print(f"\tRUNNING: fair pull {_new_cfg_path} --debug")
             _res = _cli_runner.invoke(cli, ["pull", _new_cfg_path, "--debug"])
 
-            assert not _res.output
-            assert _res.output
             assert _res.exit_code == 0
 
             assert get(

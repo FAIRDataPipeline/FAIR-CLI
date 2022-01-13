@@ -317,7 +317,6 @@ class JobConfiguration(MutableMapping):
         for block_type in self._block_types:
             if block_type not in self:
                 continue
-            print(self[block_type])
             self[block_type] = self._fill_namespaces(block_type)
 
     def _globular_registry_search(
@@ -332,7 +331,7 @@ class JobConfiguration(MutableMapping):
         """
         _vals_to_check = (i for i in block_entry.values() if isinstance(i, str))
         if all('*' not in v for v in _vals_to_check):
-            return block_entry
+            return [block_entry]
 
         _new_entries: typing.List[typing.Dict] = []
         _obj_type = None
@@ -393,18 +392,19 @@ class JobConfiguration(MutableMapping):
         self,
         registry_uri: str,
         registry_token: str) -> None:
-        self._logger.debug("Expanding wildcards using local registry")
+        self._logger.debug(f"Expanding wildcards using registry '{registry_uri}")
         for block in self._block_types:
             if block not in self:
                 continue
             _new_block: typing.List[typing.Dict] = []
             for block_entry in self[block]:
-                _new_block = self._globular_registry_search(
+                _new_block_entries = self._globular_registry_search(
                     registry_uri,
                     registry_token,
                     block_entry,
                     block
                 )
+                _new_block += _new_block_entries
 
             self[block] = _new_block
 
@@ -990,6 +990,7 @@ class JobConfiguration(MutableMapping):
             if all(i not in item for i in ("data_product", "external_object")):
                 _entries.append(item)
                 continue
+
             _new_item = copy.deepcopy(item)
             _new_item["use"] = item.get("use", {})
 
