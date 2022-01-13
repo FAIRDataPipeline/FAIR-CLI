@@ -18,7 +18,7 @@ REPO_ROOT = pathlib.Path(os.path.dirname(__file__)).parent
 PULL_TEST_CFG = os.path.join(os.path.dirname(__file__), "data", "test_pull_config.yaml")
 
 
-@pytest.mark.pull
+@pytest.mark.faircli_pull
 @pytest.mark.dependency(name='pull_new')
 def test_pull_new(local_config: typing.Tuple[str, str],
     local_registry: RegistryTest,
@@ -87,9 +87,9 @@ def test_pull_new(local_config: typing.Tuple[str, str],
             )
 
 
-@pytest.mark.run
-@pytest.mark.push
-@pytest.mark.pull
+@pytest.mark.faircli_run
+@pytest.mark.faircli_push
+@pytest.mark.faircli_pull
 @pytest.mark.dependency(name='pull_existing')
 def test_pull_existing(local_config: typing.Tuple[str, str],
     local_registry: RegistryTest,
@@ -159,7 +159,7 @@ def test_pull_existing(local_config: typing.Tuple[str, str],
             )
 
 
-@pytest.mark.pull
+@pytest.mark.faircli_pull
 @pytest.mark.skipif('CI' in os.environ, reason="Fails on GH CI")
 @pytest.mark.dependency(name='check_local_files', depends=['pull_existing'])
 def test_local_files_present(
@@ -184,8 +184,8 @@ def test_local_files_present(
     assert os.path.exists(os.path.join(_root.replace("file://", ""), _path))
 
 
-@pytest.mark.run
-@pytest.mark.push
+@pytest.mark.faircli_run
+@pytest.mark.faircli_push
 @pytest.mark.dependency(name='run', depends=['pull_existing'])
 def test_run(local_config: typing.Tuple[str, str],
     local_registry: RegistryTest,
@@ -277,7 +277,7 @@ def test_run(local_config: typing.Tuple[str, str],
             )
 
 
-@pytest.mark.push
+@pytest.mark.faircli_push
 @pytest.mark.dependency(name='push', depends=['pull_existing'])
 def test_push_initial(local_config: typing.Tuple[str, str],
     local_registry: RegistryTest,
@@ -322,7 +322,7 @@ def test_push_initial(local_config: typing.Tuple[str, str],
             )
 
 
-@pytest.mark.push
+@pytest.mark.faircli_push
 @pytest.mark.dependency(name='push', depends=['pull_existing', 'run'])
 def test_push_postrun(local_config: typing.Tuple[str, str],
     local_registry: RegistryTest,

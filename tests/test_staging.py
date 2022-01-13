@@ -25,7 +25,7 @@ def stager(local_config: typing.Tuple[str, str]):
     return _stager
 
 
-@pytest.mark.staging
+@pytest.mark.faircli_staging
 def test_job_status_change(
     stager: fdp_stage.Stager, mocker: pytest_mock.MockerFixture
 ):
@@ -50,7 +50,7 @@ def test_job_status_change(
         assert not any(_dict["job"].values())
 
 
-@pytest.mark.staging
+@pytest.mark.faircli_staging
 def test_registry_entry_for_file(
     stager: fdp_stage.Stager, mocker: pytest_mock.MockerFixture
 ):
@@ -76,7 +76,7 @@ def test_registry_entry_for_file(
     )
 
 
-@pytest.mark.staging
+@pytest.mark.faircli_staging
 def test_get_job_data(
     local_registry,
     stager: fdp_stage.Stager,

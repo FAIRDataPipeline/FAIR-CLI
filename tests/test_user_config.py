@@ -29,7 +29,7 @@ def make_config(local_config: typing.Tuple[str, str], pyDataPipeline: str):
     return _config
 
 
-@pytest.mark.user_config
+@pytest.mark.faircli_user_config
 def test_get_value(
     local_config: typing.Tuple[str, str],
     make_config: fdp_user.JobConfiguration,
@@ -40,7 +40,7 @@ def test_get_value(
     )
 
 
-@pytest.mark.user_config
+@pytest.mark.faircli_user_config
 def test_set_value(make_config: fdp_user.JobConfiguration):
     make_config["run_metadata.description"] = "a new description"
     assert (
@@ -49,23 +49,23 @@ def test_set_value(make_config: fdp_user.JobConfiguration):
     )
 
 
-@pytest.mark.user_config
+@pytest.mark.faircli_user_config
 def test_is_public(make_config: fdp_user.JobConfiguration):
     assert make_config.is_public_global
     make_config["run_metadata.public"] = False
     assert not make_config.is_public_global
 
-@pytest.mark.user_config
+@pytest.mark.faircli_user_config
 def test_default_input_namespace(make_config: fdp_user.JobConfiguration):
     assert make_config.default_input_namespace == "rfield"
 
 
-@pytest.mark.user_config
+@pytest.mark.faircli_user_config
 def test_default_output_namespace(make_config: fdp_user.JobConfiguration):
     assert make_config.default_output_namespace == "testing"
 
 
-@pytest.mark.user_config
+@pytest.mark.faircli_user_config
 def test_preparation(
     mocker: pytest_mock.MockerFixture,
     make_config: fdp_user.JobConfiguration,
@@ -83,7 +83,7 @@ def test_preparation(
         make_config.write(os.path.join(_out_dir, "out.yaml"))
 
 
-@pytest.mark.user_config
+@pytest.mark.faircli_user_config
 def test_wildcard_unpack_local(
     local_config: typing.Tuple[str, str],
     mocker: pytest_mock.MockerFixture,
@@ -127,7 +127,7 @@ def test_wildcard_unpack_local(
         _config.write(os.path.join(_out_dir, "out.yaml"))
 
 
-@pytest.mark.user_config
+@pytest.mark.faircli_user_config
 def test_wildcard_unpack_remote(
     local_config: typing.Tuple[str, str],
     mocker: pytest_mock.MockerFixture,

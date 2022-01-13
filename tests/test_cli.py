@@ -40,7 +40,7 @@ def click_test():
         yield click_test
 
 
-@pytest.mark.cli
+@pytest.mark.faircli_cli
 def test_status(
     local_config: typing.Tuple[str, str],
     local_registry: conf.RegistryTest,
@@ -89,7 +89,7 @@ def test_status(
         assert _result.exit_code == 0
 
 
-@pytest.mark.cli
+@pytest.mark.faircli_cli
 def test_create(
     local_registry: conf.RegistryTest,
     click_test: click.testing.CliRunner,
@@ -113,7 +113,7 @@ def test_create(
         assert os.path.exists(_out_config)
 
 
-@pytest.mark.cli
+@pytest.mark.faircli_cli
 def test_init_from_existing(
     local_registry: conf.RegistryTest,
     click_test: click.testing.CliRunner,
@@ -158,7 +158,7 @@ def test_init_from_existing(
 
         assert os.path.exists(os.path.join(os.getcwd(), fdp_com.FAIR_FOLDER))
 
-@pytest.mark.cli
+@pytest.mark.faircli_cli
 def test_init_from_env(
     local_registry: conf.RegistryTest,
     click_test: click.testing.CliRunner,
@@ -205,7 +205,7 @@ def test_init_from_env(
         assert os.path.exists(os.path.join(os.getcwd(), fdp_com.FAIR_FOLDER))
 
 
-@pytest.mark.cli
+@pytest.mark.faircli_cli
 def test_init_full(
     local_registry: conf.RegistryTest,
     click_test: click.testing.CliRunner,
@@ -276,7 +276,7 @@ def test_init_full(
             assert _cli_cfg["user"]["uuid"]
 
 
-@pytest.mark.cli
+@pytest.mark.faircli_cli
 def test_purge(
     local_config: typing.Tuple[str, str],
     click_test: click.testing.CliRunner,
@@ -309,7 +309,7 @@ def test_purge(
     )
 
 
-@pytest.mark.cli
+@pytest.mark.faircli_cli
 def test_registry_cli(
     local_config: typing.Tuple[str, str],
     click_test: click.testing.CliRunner,

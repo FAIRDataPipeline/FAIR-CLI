@@ -10,7 +10,7 @@ import fair.common as fdp_com
 import fair.exceptions as fdp_exc
 
 
-@pytest.mark.common
+@pytest.mark.faircli_common
 def test_find_git_root():
     with tempfile.TemporaryDirectory() as tempd:
         with pytest.raises(fdp_exc.UserConfigError):
@@ -22,7 +22,7 @@ def test_find_git_root():
         assert fdp_com.find_git_root(_proj_dir) == tempd
 
 
-@pytest.mark.common
+@pytest.mark.faircli_common
 def test_find_fair_root():
     with tempfile.TemporaryDirectory() as tempd:
         assert not fdp_com.find_fair_root(tempd)
@@ -33,7 +33,7 @@ def test_find_fair_root():
         assert fdp_com.find_fair_root(_proj_dir) == tempd
 
 
-@pytest.mark.common
+@pytest.mark.faircli_common
 def test_staging_cache():
     with tempfile.TemporaryDirectory() as tempd:
         _fair_dir = os.path.join(tempd, fdp_com.FAIR_FOLDER)
@@ -43,7 +43,7 @@ def test_staging_cache():
         )
 
 
-@pytest.mark.common
+@pytest.mark.faircli_common
 def test_default_data(mocker: pytest_mock.MockerFixture):
     with tempfile.TemporaryDirectory() as tempd:
         _glob_conf = os.path.join(tempd, "cli-config.yaml")
@@ -65,7 +65,7 @@ def test_default_data(mocker: pytest_mock.MockerFixture):
         assert fdp_com.default_data_dir() == "data_store_1"
 
 
-@pytest.mark.common
+@pytest.mark.faircli_common
 def test_registry_home(mocker: pytest_mock.MockerFixture):
     with tempfile.TemporaryDirectory() as tempd:
         _glob_conf = os.path.join(tempd, "cli-config.yaml")
