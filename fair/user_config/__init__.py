@@ -1,3 +1,31 @@
+#!/usr/bin/python3
+# -*- coding: utf-8 -*-
+"""
+User Config Management
+======================
+
+Contains classes for the parsing and preparation of the user's 'config.yaml'
+prior to the execution of a run or synchronisation
+
+Contents
+========
+
+Constants
+---------
+
+    - JOB2CLI_MAPPINGS: mappings from CLI configuration to config.yaml keys
+    - SHELLS: commands for executing scripts depending on specified shell
+
+
+Classes
+-------
+
+    - JobConfiguration: handles the setup of the configuration file
+
+"""
+
+__date__ = "2021-09-10"
+
 import copy
 import datetime
 import logging
@@ -19,7 +47,6 @@ import pydantic
 import fair.common as fdp_com
 import fair.configuration as fdp_conf
 import fair.exceptions as fdp_exc
-import fair.parsing.globbing as fdp_glob
 import fair.register as fdp_reg
 import fair.registry.requests as fdp_req
 import fair.registry.storage as fdp_store
@@ -27,8 +54,11 @@ import fair.registry.versioning as fdp_ver
 import fair.utilities as fdp_util
 import fair.run as fdp_run
 import fair.history as fdp_hist
+
 from fair.common import CMD_MODE
+
 import fair.user_config.validation as fdp_valid
+import fair.user_config.globbing as fdp_glob
 
 JOB2CLI_MAPPINGS = {
     "run_metadata.local_repo": "git.local_repo",
@@ -89,17 +119,18 @@ class JobConfiguration(MutableMapping):
         self._fill_missing()
 
         self._now = datetime.datetime.now()
-        self._parsed_namespaces = []
+        self._parsed = {"namespace": [], "author": []}
         self.env = None
         self._job_dir = None
         self._log_file = None
 
     def _get_local_namespaces(self) -> typing.List[str]:
         _namespaces = fdp_req.get(self.local_uri, "namespace", fdp_req.local_token())
-        if not _namespaces:
-            return []
-        else:
-            return [n["name"] for n in _namespaces]
+        return _namespaces if not _namespaces else [n["name"] for n in _namespaces]
+
+    def _get_local_authors(self) -> typing.List[str]:
+        _authors = fdp_req.get(self.local_uri, "author", fdp_req.local_token())
+        return _authors if not _authors else [a["name"] for a in _authors]
 
     def __contains__(self, key_addr: str) -> bool:
         return any(
@@ -124,7 +155,7 @@ class JobConfiguration(MutableMapping):
             del self._config[key_addr]
         _flat_cfg = fdp_util.flatten_dict(self._config, separator)
         if key_addr not in _flat_cfg:
-            raise fdp_exc.KeyPathError(key_addr, fdp_com.USER_CONFIG_FILE)
+            raise fdp_exc.KeyPathError(key_addr, f'UserConfig[{self._input_file}]')
         self._logger.debug(f"Removing '{key_addr}'")
         del _flat_cfg[key_addr]
         self._config = fdp_util.expand_dict(_flat_cfg)
@@ -134,7 +165,7 @@ class JobConfiguration(MutableMapping):
             return self._config[key_addr]
         _flat_cfg = fdp_util.flatten_dict(self._config, separator)
         if key_addr not in _flat_cfg:
-            raise fdp_exc.KeyPathError(key_addr, fdp_com.USER_CONFIG_FILE)
+            raise fdp_exc.KeyPathError(key_addr, f'UserConfig[{self._input_file}]')
         return _flat_cfg[key_addr]
 
     def __len__(self) -> int:
@@ -196,7 +227,7 @@ class JobConfiguration(MutableMapping):
                 "website": item.get("website", None)
             }
 
-            if item["namespace"] in self._parsed_namespaces:
+            if item["namespace"] in self._parsed["namespace"]:
                 self._logger.warning(
                     "Ignoring registration of namespace '%s' as it already exists",
                     item["namespace"]
@@ -207,7 +238,7 @@ class JobConfiguration(MutableMapping):
                 self.local_uri, fdp_req.local_token(), **_namespace_metadata
             )
 
-            self._parsed_namespaces.append(_namespace_metadata["name"])
+            self._parsed["namespace"].append(_namespace_metadata["name"])
 
         return _new_register_block
 
@@ -245,11 +276,11 @@ class JobConfiguration(MutableMapping):
             _new_entry = register_entry.copy()
             if "namespace_name" not in register_entry:
                 continue
-            if register_entry["namespace_name"] not in self._parsed_namespaces:
+            if register_entry["namespace_name"] not in self._parsed["namespace"]:
                 self._logger.error(
                     "'%s' not in available namespaces:\n\t-%s",
                     register_entry['namespace_name'],
-                    '\n\t-'.join(self._parsed_namespaces)
+                    '\n\t-'.join(self._parsed["namespace"])
                 )
                 raise fdp_exc.UserConfigError(
                     "Attempt to register object with unknown namespace "
@@ -282,21 +313,94 @@ class JobConfiguration(MutableMapping):
                 continue
             self[block_type] = self._fill_namespaces(block_type)
 
-    def _expand_wildcards_from_local_reg(self, block_type: str) -> None:
-        self._logger.debug("Expanding wildcards using local registry")
-        _version = (
-            self.default_read_version
-            if block_type == "read"
-            else self.default_write_version
-        )
-        fdp_glob.glob_read_write(
-            user_config=self._config,
-            blocktype=block_type,
-            search_key=None,
-            registry_url=self.local_uri,
-            version=_version,
-            remove_wildcard=block_type == "read",
-        )
+    def _globular_registry_search(
+        self,
+        registry_uri: str,
+        registry_token: str,
+        block_entry: typing.Dict[str, typing.Any],
+        block_type: str) -> typing.List[typing.Dict]:
+        """Performs globular search in the specified registry
+        
+        Any '*' wildcards are used to perform 
+        """
+        _vals_to_check = (i for i in block_entry.values() if isinstance(i, str))
+        if all('*' not in v for v in _vals_to_check):
+            return [block_entry]
+
+        _new_entries: typing.List[typing.Dict] = []
+        _obj_type = None
+        for obj in fdp_valid.VALID_OBJECTS:
+            # Identify object type
+            if obj in block_entry:
+                _obj_type = obj
+                break
+
+        if not _obj_type:
+            raise fdp_exc.UserConfigError(
+                f"Unrecognised object type for wildcard search in: {block_entry}"
+            )
+
+        _search_key = fdp_reg.SEARCH_KEYS[_obj_type]
+
+        try:
+            _results_local = fdp_req.get(
+                registry_uri, _obj_type, registry_token,
+                params={_search_key: block_entry[_obj_type]}
+            )
+        except fdp_exc.RegistryAPICallError:
+            raise fdp_exc.UserConfigError(
+                f"Failed to retrieve entries on local registry for {_obj_type}"
+                f" wildcard '{block_entry[_obj_type]}'"
+            )
+
+        if _obj_type in ("namespace", "author"):
+            # If the object is a namespace or an author then there is no
+            # additional info in the registry so we can just add the entries
+            # as they are
+            _new_entries = fdp_glob.get_single_layer_objects(_results_local, _obj_type)
+
+        elif _obj_type == "external_object":
+            # If the object is an external_object we firstly need to get the
+            # name of the data product, version and the namespace of this object
+            # as well as the identifier
+            _version = block_entry.get("version", None)
+
+            _new_entries = fdp_glob.get_external_objects(
+                registry_token, _results_local, block_type, _version
+            )
+
+        elif _obj_type == "data_product":
+            _version = block_entry.get("version", None)
+
+            _new_entries = fdp_glob.get_data_product_objects(
+                registry_token, _results_local, block_type, _version
+            ) 
+
+        if block_type == "write":
+            _new_entries.append(block_entry)
+
+        return _new_entries
+
+
+    def _expand_wildcards(
+        self,
+        registry_uri: str,
+        registry_token: str) -> None:
+        self._logger.debug(f"Expanding wildcards using registry '{registry_uri}")
+        for block in self._block_types:
+            if block not in self:
+                continue
+            _new_block: typing.List[typing.Dict] = []
+            for block_entry in self[block]:
+                _new_block_entries = self._globular_registry_search(
+                    registry_uri,
+                    registry_token,
+                    block_entry,
+                    block
+                )
+                _new_block += _new_block_entries
+
+            self[block] = _new_block
 
     def _fetch_latest_commit(self, allow_dirty: bool = False) -> None:
         self._logger.debug(
@@ -547,6 +651,8 @@ class JobConfiguration(MutableMapping):
         self,
         job_mode: CMD_MODE,
         allow_dirty: bool = False,
+        remote_uri: str = None,
+        remote_token: str = None
     ) -> str:
         """Initiate a job execution"""
         _time_stamp = self._now.strftime("%Y-%m-%d_%H_%M_%S_%f")
@@ -574,13 +680,19 @@ class JobConfiguration(MutableMapping):
             _cmd = 'push'
             self._pull_push_log_header(_cmd)
 
-        for block_type in ("read", "write"):
-            if block_type not in self:
-                continue
-            try:
-                self._expand_wildcards_from_local_reg(block_type)
-            except fdp_exc.InternalError:
-                continue
+        # If pulling glob from the remote, else glob from local
+        if job_mode == CMD_MODE.PULL:
+            if not remote_uri:
+                raise fdp_exc.InternalError(
+                    "Expected URI during wildcard unpacking for 'pull'"
+                )
+            if not remote_token:
+                raise fdp_exc.InternalError(
+                    "Expected token during wildcard unpacking for 'pull'"
+                )
+            self._expand_wildcards(remote_uri, remote_token)
+        else:
+            self._expand_wildcards(self.local_uri, fdp_req.local_token())
 
         for block_type in self._block_types:
             if block_type in self:
@@ -596,7 +708,8 @@ class JobConfiguration(MutableMapping):
             )
             self._logger.debug("Fetched objects:\n %s", _objs)
 
-        self._parsed_namespaces = self._get_local_namespaces()
+        self._parsed["namespace"] = self._get_local_namespaces()
+        self._parsed["author"] = self._get_local_authors()
 
         if "register" in self:
             if "read" not in self:
@@ -738,13 +851,13 @@ class JobConfiguration(MutableMapping):
             if "external_object" in item:
                 _readable["data_product"] = item["external_object"]
                 _readable.pop("external_object")
-            elif "namespace" in item and "data_product" not in item:
+            elif "namespace" in item:
                 try:
                     fdp_valid.Namespace(**_readable)
                 except pydantic.ValidationError as e:
                     raise fdp_exc.ValidationError(e.json())
 
-                if item["namespace"] in self._parsed_namespaces:
+                if item["namespace"] in self._parsed["namespace"]:
                     self._logger.warning(
                         "Namespace '%s' already added, ignoring duplicate",
                         item["namespace"]
@@ -761,7 +874,32 @@ class JobConfiguration(MutableMapping):
 
                     # We do not want to register a namespace twice so
                     # keep track of which we have
-                    self._parsed_namespaces.append(_readable["name"])
+                    self._parsed["namespace"].append(_readable["name"])
+            elif "author" in item:
+                try:
+                    fdp_valid.Author(**_readable)
+                except pydantic.ValidationError as e:
+                    raise fdp_exc.ValidationError(e.json())
+
+                if item["author"] in self._parsed["author"]:
+                    self._logger.warning(
+                        "Author '%s' already added, ignoring duplicate",
+                        item["author"]
+                    )
+                else:
+                    _readable["name"] = item["author"]
+                    _readable.pop("author")
+
+                    fdp_store.store_author(
+                        self.local_uri,
+                        fdp_req.local_token(),
+                        **_readable
+                    )
+
+                    # We do not want to register a namespace twice so
+                    # keep track of which we have
+                    self._parsed["author"].append(_readable["name"])
+
 
             else:  # unknown
                 raise fdp_exc.UserConfigError(
@@ -846,6 +984,7 @@ class JobConfiguration(MutableMapping):
             if all(i not in item for i in ("data_product", "external_object")):
                 _entries.append(item)
                 continue
+
             _new_item = copy.deepcopy(item)
             _new_item["use"] = item.get("use", {})
 
@@ -1149,13 +1288,6 @@ class JobConfiguration(MutableMapping):
         )
 
         self._logger.debug("Executing command: %s", _exec)
-        self._logger.debug(
-            "Environment: %s",
-            "\n\t".join(
-                f"{k}: {self.env[k]}"
-                for k in sorted(self.env.keys())
-            )
-        )
 
         _log_tail: typing.List[str] = []
 

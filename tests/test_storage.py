@@ -15,7 +15,7 @@ from . import conftest as conf
 LOCAL_REGISTRY_URL = "http://127.0.0.1:8000/api"
 
 
-@pytest.mark.storage
+@pytest.mark.faircli_storage
 @pytest.mark.dependency(name="store_author")
 def test_store_user(
     local_config: typing.Tuple[str, str],
@@ -27,7 +27,7 @@ def test_store_user(
         assert fdp_store.store_user(local_config[1], LOCAL_URL, local_registry._token)
 
 
-@pytest.mark.storage
+@pytest.mark.faircli_storage
 def test_populate_file_type(
     local_config: typing.Tuple[str, str],
     local_registry: conf.RegistryTest,
@@ -40,7 +40,7 @@ def test_populate_file_type(
         )
 
 
-@pytest.mark.storage
+@pytest.mark.faircli_storage
 def test_store_working_config(
     local_config: typing.Tuple[str, str],
     local_registry: conf.RegistryTest,
@@ -60,7 +60,7 @@ def test_store_working_config(
         )
 
 
-@pytest.mark.storage
+@pytest.mark.faircli_storage
 def test_store_working_script(
     local_config: typing.Tuple[str, str],
     local_registry: conf.RegistryTest,
@@ -82,7 +82,7 @@ def test_store_working_script(
         )
 
 
-@pytest.mark.storage
+@pytest.mark.faircli_storage
 def test_store_namespace(
     local_registry: conf.RegistryTest, mocker: pytest_mock.MockerFixture
 ):
@@ -97,7 +97,7 @@ def test_store_namespace(
         )
 
 
-@pytest.mark.storage
+@pytest.mark.faircli_storage
 def test_calc_file_hash():
     with tempfile.NamedTemporaryFile(
         mode="w+", suffix=".txt", delete=False
