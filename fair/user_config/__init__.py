@@ -519,6 +519,8 @@ class JobConfiguration(MutableMapping):
             _new_py_path = self.local_repository
         _environment["PYTHONPATH"] = _new_py_path
         _environment["FDP_CONFIG_DIR"] = self._job_dir
+        _environment["FDP_CONFIG_NAME"] = fdp_com.USER_CONFIG_FILE
+        _environment["FDP_DATA_STORE"] = self.default_data_store
         _environment["FDP_SCRIPT"] = self.script
         _environment["FDP_LOCAL_TOKEN"] = fdp_req.local_token()
         return _environment
