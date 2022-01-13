@@ -1022,7 +1022,7 @@ class JobConfiguration(MutableMapping):
     @property
     def script(self) -> str:
         """Retrieve path of session executable script"""
-        return self["run_metadata.script_path"]
+        return self.get("run_metadata.script_path", None)
 
     @property
     def content(self) -> typing.Dict:
