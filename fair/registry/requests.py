@@ -23,7 +23,6 @@ import copy
 import json
 import logging
 import os
-import re
 import tempfile
 import typing
 import urllib.parse

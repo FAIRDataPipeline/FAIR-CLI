@@ -351,3 +351,53 @@ def push_data_products(
             dest_token=dest_token,
             origin_token=origin_token
         )
+
+
+def fetch_file_using_config_metadata(
+    remote_uri: str,
+    remote_token: str,
+    config_metadata: typing.Dict
+) -> None:
+    """
+    Retrieve a file using the given user configuration metadata
+    
+    Parameters
+    ----------
+
+    remote_uri : str
+        remote registry URI
+    remote_token : str
+        remote registry access token
+    config_metadata : typing.Dict
+        user configuration file block describing an object
+    """
+    if "external_object" in config_metadata:
+        _obj_type = "external_object"
+    elif "data_product" in config_metadata:
+        _obj_type = "data_product"
+    else:
+        logger.debug(
+            "Ignoring item '%s' during file download, "
+            "as not a data_product or external_object",
+            config_metadata
+        )
+        return
+
+    _obj_data_res = fdp_req.get(
+        remote_uri,
+        "external_object",
+        remote_token,
+        params={SEARCH_KEYS["external_object"]: config_metadata['external_object']}
+    )
+
+    if not _obj_data_res:
+        raise fdp_exc.RegistryError(
+            f"Failed to find download object for item:\n{config_metadata}"
+        )
+    
+    if _obj_type == "data_product":
+        _data_product = _obj_data_res
+    else:
+        _data_product_url = _obj_data_res[0]["data_product"]
+        _data_product = fdp_req.url_get(_data_product_url, remote_token)
+
