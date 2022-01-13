@@ -36,7 +36,15 @@ jobs:
             do
               echo "Running tests for marker '$marker'"
               python -m poetry run pytest -m $marker --cov=fair --cov-report=xml --cov-report=term --cov-append -s tests/
+              exit_code=$?
+              if [ "$exit_code" != "0" ]; then
+                echo "ERROR: Tests for marker '$marker' failed"
+              fi             
             done
+            # If no tests found for a marker exit success anyway
+            if [ "$?" == "5" ]; then
+              exit 0
+            fi 
       - uses: codecov/codecov-action@v2
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
