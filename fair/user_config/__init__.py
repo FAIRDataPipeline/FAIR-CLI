@@ -96,10 +96,7 @@ class JobConfiguration(MutableMapping):
 
     def _get_local_namespaces(self) -> typing.List[str]:
         _namespaces = fdp_req.get(self.local_uri, "namespace", fdp_req.local_token())
-        if not _namespaces:
-            return []
-        else:
-            return [n["name"] for n in _namespaces]
+        return [] if not _namespaces else [n["name"] for n in _namespaces]
 
     def __contains__(self, key_addr: str) -> bool:
         return any(
@@ -522,6 +519,7 @@ class JobConfiguration(MutableMapping):
             _new_py_path = self.local_repository
         _environment["PYTHONPATH"] = _new_py_path
         _environment["FDP_CONFIG_DIR"] = self._job_dir
+        _environment["FDP_SCRIPT"] = self.script
         _environment["FDP_LOCAL_TOKEN"] = fdp_req.local_token()
         return _environment
 
