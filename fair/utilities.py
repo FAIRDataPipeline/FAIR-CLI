@@ -128,7 +128,7 @@ def remove_dictlist_dupes(
         new list without duplicates
     """
     # Convert single layer dictionary to a list of key-value tuples
-    _tupleify = [[(k, v) for k, v in d.items()] for d in dicts]
+    _tupleify = [list(d.items()) for d in dicts]
 
     # Only append unique tuple lists
     _set_tupleify = []

@@ -207,7 +207,7 @@ class RegistryTest:
         self._process = None
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def local_registry(session_virtualenv: pytest_virtualenv.VirtualEnv):
     if fdp_serv.check_server_running('http://127.0.0.1:8000'):
         pytest.skip("Cannot run registry tests, a server is already running on port 8000")
@@ -216,7 +216,7 @@ def local_registry(session_virtualenv: pytest_virtualenv.VirtualEnv):
         yield RegistryTest(tempd, session_virtualenv, port=8000)
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def remote_registry(session_virtualenv: pytest_virtualenv.VirtualEnv):
     if fdp_serv.check_server_running('http://127.0.0.1:8001'):
         pytest.skip("Cannot run registry tests, a server is already running on port 8001")

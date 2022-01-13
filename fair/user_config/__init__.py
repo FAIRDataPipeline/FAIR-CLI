@@ -126,17 +126,11 @@ class JobConfiguration(MutableMapping):
 
     def _get_local_namespaces(self) -> typing.List[str]:
         _namespaces = fdp_req.get(self.local_uri, "namespace", fdp_req.local_token())
-        if not _namespaces:
-            return _namespaces
-        else:
-            return [n["name"] for n in _namespaces]
+        return _namespaces if not _namespaces else [n["name"] for n in _namespaces]
 
     def _get_local_authors(self) -> typing.List[str]:
         _authors = fdp_req.get(self.local_uri, "author", fdp_req.local_token())
-        if not _authors:
-            return _authors
-        else:
-            return [a["name"] for a in _authors]
+        return _authors if not _authors else [a["name"] for a in _authors]
 
     def __contains__(self, key_addr: str) -> bool:
         return any(
@@ -323,8 +317,8 @@ class JobConfiguration(MutableMapping):
         self,
         registry_uri: str,
         registry_token: str,
-        block_entry: typing.Dict[str, str],
-        block_type: str) -> typing.Dict[str, str]:
+        block_entry: typing.Dict[str, typing.Any],
+        block_type: str) -> typing.List[typing.Dict]:
         """Performs globular search in the specified registry
         
         Any '*' wildcards are used to perform 
@@ -1294,13 +1288,6 @@ class JobConfiguration(MutableMapping):
         )
 
         self._logger.debug("Executing command: %s", _exec)
-        self._logger.debug(
-            "Environment: %s",
-            "\n\t".join(
-                f"{k}: {self.env[k]}"
-                for k in sorted(self.env.keys())
-            )
-        )
 
         _log_tail: typing.List[str] = []
 

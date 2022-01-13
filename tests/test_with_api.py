@@ -1,8 +1,8 @@
-import os.path
 import pathlib
 import typing
 import yaml
 import shutil
+import os
 
 import click.testing
 import pytest
@@ -18,7 +18,6 @@ REPO_ROOT = pathlib.Path(os.path.dirname(__file__)).parent
 PULL_TEST_CFG = os.path.join(os.path.dirname(__file__), "data", "test_pull_config.yaml")
 
 
-@pytest.mark.with_api
 @pytest.mark.pull
 @pytest.mark.dependency(name='pull_new')
 def test_pull_new(local_config: typing.Tuple[str, str],
@@ -88,7 +87,6 @@ def test_pull_new(local_config: typing.Tuple[str, str],
             )
 
 
-@pytest.mark.with_api
 @pytest.mark.run
 @pytest.mark.push
 @pytest.mark.pull
@@ -161,9 +159,8 @@ def test_pull_existing(local_config: typing.Tuple[str, str],
             )
 
 
-@pytest.mark.with_api
 @pytest.mark.pull
-@pytest.mark.fails_ci
+@pytest.mark.skipif('CI' in os.environ, reason="Fails on GH CI")
 @pytest.mark.dependency(name='check_local_files', depends=['pull_existing'])
 def test_local_files_present(
     local_registry: RegistryTest
@@ -187,7 +184,6 @@ def test_local_files_present(
     assert os.path.exists(os.path.join(_root.replace("file://", ""), _path))
 
 
-@pytest.mark.with_api
 @pytest.mark.run
 @pytest.mark.push
 @pytest.mark.dependency(name='run', depends=['pull_existing'])
@@ -255,8 +251,6 @@ def test_run(local_config: typing.Tuple[str, str],
             with open(_new_cfg_path, "w") as cfg_file:
                 yaml.dump(_cfg, cfg_file)
 
-            print(os.path.join(pyDataPipeline, "simpleModel", "ext", "SEIRSModelRun.py"))
-
             assert os.path.exists(os.path.join(pyDataPipeline, "simpleModel", "ext", "SEIRSModelRun.py"))
 
             with capsys.disabled():
@@ -283,7 +277,6 @@ def test_run(local_config: typing.Tuple[str, str],
             )
 
 
-@pytest.mark.with_api
 @pytest.mark.push
 @pytest.mark.dependency(name='push', depends=['pull_existing'])
 def test_push_initial(local_config: typing.Tuple[str, str],
@@ -329,7 +322,6 @@ def test_push_initial(local_config: typing.Tuple[str, str],
             )
 
 
-@pytest.mark.with_api
 @pytest.mark.push
 @pytest.mark.dependency(name='push', depends=['pull_existing', 'run'])
 def test_push_postrun(local_config: typing.Tuple[str, str],
