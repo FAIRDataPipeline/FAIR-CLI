@@ -441,7 +441,7 @@ def store_data_file(
 
     _namespace_url = _get_url_from_namespace(
         data=data,
-        local_file=local_file,
+        label=local_file,
         registry_uri=uri,
         registry_token=token
     )
