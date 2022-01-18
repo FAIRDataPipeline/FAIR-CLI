@@ -1375,7 +1375,12 @@ class JobConfiguration(MutableMapping):
             _version = readable["use"]["version"]
             _namespace = readable["use"]["namespace"]
             _name = readable["data_product"]
-            _readables.append(f"{_namespace}:{_name}@v{_version}")
+
+            # If the user has requested to use a cached version, do not
+            # add to the list of items to read externally
+            if "cache" not in readable["use"]:
+                _readables.append(f"{_namespace}:{_name}@v{_version}")
+
         return _readables
 
     @property

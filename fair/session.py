@@ -334,7 +334,7 @@ class FAIR:
         if not _staged_data_products:
             click.echo("Nothing to push.")
 
-        fdp_sync.push_data_products(
+        fdp_sync.sync_data_products(
             origin_uri=fdp_conf.get_local_uri(),
             dest_uri=fdp_conf.get_remote_uri(self._session_loc, remote),
             dest_token=fdp_conf.get_remote_token(self._session_loc, remote),
@@ -395,7 +395,7 @@ class FAIR:
         # case whereby no remote has been setup and we just want to register
         # items on the local registry
         if _readables:
-            fdp_sync.push_data_products(
+            fdp_sync.sync_data_products(
                 origin_uri=fdp_conf.get_remote_uri(self._session_loc, remote),
                 dest_uri=fdp_conf.get_local_uri(),
                 dest_token=fdp_req.local_token(),

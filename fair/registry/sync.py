@@ -131,7 +131,7 @@ def pull_all_namespaces(
         fdp_req.post_else_get(local_uri, "namespace", local_token, _writable_data)
 
 
-def push_dependency_chain(
+def sync_dependency_chain(
     object_url: str,
     dest_uri: str,
     origin_uri: str,
@@ -261,7 +261,7 @@ def push_dependency_chain(
     return _new_urls
 
 
-def push_data_products(
+def sync_data_products(
     origin_uri: str,
     dest_uri: str,
     dest_token: str,
@@ -270,7 +270,7 @@ def push_data_products(
     data_products: typing.List[str],
     local_data_store: str = None
 ) -> None:
-    """Push data products from one registry to another
+    """Transfer data products from one registry to another
     
     Parameters
     ----------
@@ -286,9 +286,9 @@ def push_data_products(
         name of remote in listing
     data_products : typing.List[str]
         list of data products to push
+    local_data_store : optional, str
+        specified when pulling from remote registry to local
     """
-    _downloads_urls: typing.List[str] = []
-
     for data_product in data_products:
         namespace, name, version = re.split("[:@]", data_product)
 
@@ -351,7 +351,7 @@ def push_data_products(
                 f"Failed to find data product matching descriptor '{data_product}'"
             )
 
-        push_dependency_chain(
+        sync_dependency_chain(
             object_url=result[0]["url"],
             dest_uri=dest_uri,
             origin_uri=origin_uri,
