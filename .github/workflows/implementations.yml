@@ -190,3 +190,39 @@ jobs:
         poetry run fair pull --debug examples/fdp/SEIRSconfig.yaml
         poetry run fair run --dirty --debug examples/fdp/SEIRSconfig.yaml
       working-directory: julia_example
+
+  CPlusPlus:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Clone CPlusPlus Model
+      uses: actions/checkout@v2
+      with:
+        repository: FAIRDataPipeline/cppSimpleModel
+        path: cpp_example
+        ref: 'main'
+
+    - name: Install requirements
+      run: sudo apt install -y libmemcached-dev graphviz gnuplot
+
+    - name: Install Model
+      run: |
+        cmake -Bbuild
+        cmake --build build
+      working-directory: cpp_example
+
+    - name: install fair-cli
+      run: |
+        pip install poetry
+        poetry install
+      
+    - name: Run Example model with fair-cli
+      run: |
+        poetry run fair registry install
+        poetry run fair init --ci
+        poetry run fair pull --debug data/seirs_config.yaml
+        poetry run fair run --dirty --debug data/seirs_config.yaml
+      working-directory: cpp_example
+
+
