@@ -673,9 +673,9 @@ def _get_identifier_from_data(data: typing.Dict, label: str) -> typing.Dict[str,
     _identifier: typing.Dict[str, str] = {}
 
     if data.get("identifier", None):
-        if not fdp_id.check_id_permitted(_identifier):
+        if not fdp_id.check_id_permitted(data["identifier"]):
             raise fdp_exc.UserConfigError(
-                f"Identifier '{_identifier}' is not a valid identifier"
+                "Identifier '"+data["identifier"]+"' is not a valid identifier"
             )
         _identifier["identifier"] = data["identifier"]
     else:
@@ -688,11 +688,10 @@ def _get_identifier_from_data(data: typing.Dict, label: str) -> typing.Dict[str,
                 hint="You must provide either a URL 'identifier', or "
                 "'unique_name' and 'source_name' keys",
             )
-        if "alternate_identifier_type" in data:
-            _identifier["alternate_identifier"] = data.get(
-                "alternate_identifier_type",
-                "local source descriptor"
-            )
+        _identifier["alternate_identifier"] = data.get(
+            "alternate_identifier_type",
+            "local source descriptor"
+        )
     
     return _identifier
 
