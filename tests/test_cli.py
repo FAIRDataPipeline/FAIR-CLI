@@ -73,7 +73,7 @@ def test_status(
         'data_product': {},
     }
 
-    _urls_list = {i: 'http://dummyurl.com' for i in _dummy_job_staging['job']}
+    _urls_list = {i: 'https://dummyurl.com' for i in _dummy_job_staging['job']}
     mocker.patch.object(fair.staging.Stager, 'get_job_data', lambda *args: _urls_list)
 
     mocker.patch('fair.registry.server.stop_server', lambda *args: None)

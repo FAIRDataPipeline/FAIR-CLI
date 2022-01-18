@@ -36,11 +36,11 @@ def test_fetch_data_product(
             if obj == "storage_location":
                 return [{
                     "path": "/this/is/a/dummy/path",
-                    "storage_root": "http://dummyurl/"
+                    "storage_root": "https://dummyurl/"
                 }]
             elif obj == "storage_root":
                 return [{
-                    "root": "http://fake/root/"
+                    "root": "https://fake/root/"
                 }]
             elif obj == "namespace":
                 return [{
