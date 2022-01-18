@@ -402,6 +402,7 @@ class FAIR:
                 origin_token=fdp_conf.get_remote_token(self._session_loc, remote),
                 remote_label=remote,
                 data_products=_readables,
+                local_data_store=self._session_config.default_data_store
             )
 
             self._session_config.write_log_lines(

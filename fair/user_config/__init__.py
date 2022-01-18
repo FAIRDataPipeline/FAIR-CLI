@@ -55,6 +55,7 @@ import fair.utilities as fdp_util
 import fair.run as fdp_run
 import fair.history as fdp_hist
 
+from fair.registry import SEARCH_KEYS
 from fair.common import CMD_MODE
 
 import fair.user_config.validation as fdp_valid
@@ -340,7 +341,7 @@ class JobConfiguration(MutableMapping):
                 f"Unrecognised object type for wildcard search in: {block_entry}"
             )
 
-        _search_key = fdp_reg.SEARCH_KEYS[_obj_type]
+        _search_key = SEARCH_KEYS[_obj_type]
 
         try:
             _results_local = fdp_req.get(

@@ -19,14 +19,18 @@ __date__ = "2021-08-05"
 import typing
 import collections
 import logging
+import requests
 import re
-
+import os
+import shutil
+import urllib.parse
 import click
 
 import fair.exceptions as fdp_exc
 import fair.registry.requests as fdp_req
 import fair.utilities as fdp_util
-from fair.register import SEARCH_KEYS
+
+from fair.registry import SEARCH_KEYS
 
 logger = logging.getLogger("FAIRDataPipeline.Sync")
 
@@ -263,7 +267,8 @@ def push_data_products(
     dest_token: str,
     origin_token: str,
     remote_label: str,
-    data_products: typing.List[str]
+    data_products: typing.List[str],
+    local_data_store: str = None
 ) -> None:
     """Push data products from one registry to another
     
@@ -282,6 +287,8 @@ def push_data_products(
     data_products : typing.List[str]
         list of data products to push
     """
+    _downloads_urls: typing.List[str] = []
+
     for data_product in data_products:
         namespace, name, version = re.split("[:@]", data_product)
 
@@ -352,11 +359,14 @@ def push_data_products(
             origin_token=origin_token
         )
 
+        if local_data_store:
+            fetch_data_product(origin_token, local_data_store, result)
 
-def fetch_file_using_config_metadata(
-    remote_uri: str,
+
+def fetch_data_product(
     remote_token: str,
-    config_metadata: typing.Dict
+    local_data_store: str,
+    data_product: typing.Dict
 ) -> None:
     """
     Retrieve a file using the given user configuration metadata
@@ -370,34 +380,108 @@ def fetch_file_using_config_metadata(
         remote registry access token
     config_metadata : typing.Dict
         user configuration file block describing an object
-    """
-    if "external_object" in config_metadata:
-        _obj_type = "external_object"
-    elif "data_product" in config_metadata:
-        _obj_type = "data_product"
-    else:
-        logger.debug(
-            "Ignoring item '%s' during file download, "
-            "as not a data_product or external_object",
-            config_metadata
-        )
-        return
+    """    
+    _object = fdp_req.url_get(data_product["object"], remote_token)
+    
+    _endpoint = data_product["object"].split("data_product")[0]
 
-    _obj_data_res = fdp_req.get(
-        remote_uri,
-        "external_object",
-        remote_token,
-        params={SEARCH_KEYS["external_object"]: config_metadata['external_object']}
+    if not _object.get("storage_location", None):
+        logger.debug(
+            "Skipping item '%s' for download "
+            "as there is no physical storage location",
+            data_product
+        )
+
+    _storage_loc = fdp_req.url_get(_object["storage_location"], remote_token)
+
+    _path = _storage_loc["path"]
+    _path = urllib.parse.quote(_path)
+    _root = fdp_req.url_get(_storage_loc["storage_root"], remote_token)
+
+    _reg_parse = urllib.parse.urlparse(_endpoint)
+    _reg_url = f"{_reg_parse.scheme}://{_reg_parse.netloc}"
+
+    _downloaded_file = download_from_registry(_reg_url, _root["root"], _path)
+
+    _namespace = fdp_req.url_get(data_product["namespace"], remote_token)
+    
+    _file_type_url = _object.get("file_type", None)
+
+    if _file_type_url:
+        _file_type = f'.{fdp_req.url_get(_file_type_url, remote_token)["extension"]}'
+    else:
+        _file_type = ""
+
+    _local_dir = os.path.join(
+        local_data_store,
+        _namespace["name"],
+        data_product["data_product"]
     )
 
-    if not _obj_data_res:
-        raise fdp_exc.RegistryError(
-            f"Failed to find download object for item:\n{config_metadata}"
-        )
-    
-    if _obj_type == "data_product":
-        _data_product = _obj_data_res
-    else:
-        _data_product_url = _obj_data_res[0]["data_product"]
-        _data_product = fdp_req.url_get(_data_product_url, remote_token)
+    os.makedirs(_local_dir, exist_ok=True)
 
+    _out_file = os.path.join(
+        _local_dir,
+        f'{data_product["version"]}{_file_type}'
+    )
+
+    if os.path.exists(_out_file):
+        logger.debug("File '%s' already exists skipping download", _out_file)
+        return
+
+    shutil.copy(_downloaded_file, _out_file)
+
+
+def download_from_registry(
+    registry_url: str,
+    root: str,
+    path: str
+) -> str:
+    """
+    Download a file from the registry given the storage root and path.
+
+    If the root starts with '/' assume the file exists on the same location as
+    the registry itself and try to download from that.
+
+    Parameters
+    ----------
+    registry_url : str
+        net location of the registry (not the endpoint of the API)
+    root : str
+        storage root
+    path : str
+        path of file on storage location
+
+    Returns
+    -------
+    str
+        path of downloaded temporary file
+
+    Raises
+    ------
+    fdp_exc.UserConfigError
+        if download failed
+    """
+
+    if root.startswith("/"):
+        logger.warning(
+            "Root of data storage location is '/' assuming data exists"
+            " on registry server"
+        )
+
+        if not registry_url.endswith("/"):
+            registry_url = registry_url[:-1]
+
+        root = f"{registry_url}{root}"
+
+    _download_url = f"{root}{path}"
+
+    try:
+        _temp_data_file = fdp_req.download_file(_download_url)
+        logger.debug("Downloaded file from '%s' to temporary file", _download_url)
+    except requests.HTTPError as r_in:
+        raise fdp_exc.UserConfigError(
+            f"Failed to fetch item '{_download_url}' with exit code {r_in.response}"
+        )
+
+    return _temp_data_file

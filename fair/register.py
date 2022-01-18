@@ -22,26 +22,17 @@ __date__ = "2021-08-16"
 import copy
 import logging
 import os
+import urllib.parse
 import shutil
 import typing
 import platform
-import urllib.parse
 
-import requests
-
+from fair.registry import SEARCH_KEYS
 import fair.exceptions as fdp_exc
 import fair.registry.requests as fdp_req
 import fair.registry.storage as fdp_store
 import fair.registry.versioning as fdp_ver
-
-
-SEARCH_KEYS = {
-    "data_product": "name",
-    "namespace": "name",
-    "file_type": "extension",
-    "storage_root": "root",
-    "storage_location": "hash",
-}
+import fair.registry.sync as fdp_sync
 
 logger = logging.getLogger("FAIRDataPipeline.Register")
 
@@ -180,21 +171,16 @@ def fetch_registrations(
                 "Only one unique identifier may be provided (doi/unique_name)"
             )
 
-        if "cache" in entry:  # Do we have a local cache already?
+        if "cache" in entry:
             _temp_data_file = entry["cache"]
-        else:  # Need to download it
-            _root, _path = entry["root"], entry["path"]
-
-            # Encode the path first
-            _path = urllib.parse.quote_plus(_path)
-            _url = f"{_root}{_path}"
-            try:
-                _temp_data_file = fdp_req.download_file(_url)
-                logger.debug("Downloaded file from '%s' to temporary file", _url)
-            except requests.HTTPError as r_in:
-                raise fdp_exc.UserConfigError(
-                    f"Failed to fetch item '{_url}' with exit code {r_in.response}"
-                )
+        else:
+            _local_parsed = urllib.parse.urlparse(_local_parsed)
+            _local_url = f"{_local_parsed.scheme}://{_local_parsed.netloc}"
+            _temp_data_file = fdp_sync.download_from_registry(
+                _local_url,
+                root=entry["root"],
+                path=entry["path"]
+            )
 
         # Need to fix the path for Windows
         if platform.system() == "Windows":
