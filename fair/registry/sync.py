@@ -181,15 +181,13 @@ def sync_dependency_chain(
         logger.debug("Preparing object '%s'", object_url)
         # Retrieve the data for the object from the registry
         _obj_data = fdp_req.url_get(object_url, token=origin_token)
-        # Get the URI from the URL
-        _uri, _ = fdp_req.split_api_url(object_url)
 
         # Deduce the object type from its URL
         _obj_type = fdp_req.get_obj_type_from_url(object_url, token=origin_token)
 
         if _obj_type not in _writable_fields:
             _writable_fields[_obj_type] = fdp_req.get_writable_fields(
-                _uri,
+                origin_uri,
                 _obj_type,
                 origin_token
             )
@@ -269,7 +267,7 @@ def _get_new_url(
     _filters = {
         k: v
         for k, v in _new_obj_data.items()
-        if k in fdp_req.get_filter_variables(dest_uri, _obj_type, origin_token)
+        if k in fdp_req.get_filter_variables(dest_uri, _obj_type, dest_token)
         and isinstance(v, str)
         and k not in _url_fields
     }
@@ -383,7 +381,8 @@ def sync_data_products(
         )
 
         if local_data_store:
-            fetch_data_product(origin_token, local_data_store, result)
+            logger.debug("Retrieving files from remote registry data storage")
+            fetch_data_product(origin_token, local_data_store, result[0])
 
 
 def fetch_data_product(

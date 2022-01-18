@@ -378,12 +378,12 @@ def filter_object_dependencies(
     _fields: typing.List[str] = []
 
     for name, info in _actions.items():
-        _filter_result: typing.List[bool] = []
-        for filt, value in filter.items():
-            # Some objects may not have the key
-            if filt not in info:
-                continue
-            _filter_result.append(info[filt] == value)
+        _filter_result: typing.List[bool] = [
+            info[filt] == value
+            for filt, value in filter.items()
+            if filt in info
+        ]
+
         if all(_filter_result):
             _fields.append(name)
 
