@@ -269,7 +269,7 @@ def _get_new_url(
     _filters = {
         k: v
         for k, v in _new_obj_data.items()
-        if k in fdp_req.get_filter_variables(_uri, _obj_type, origin_token)
+        if k in fdp_req.get_filter_variables(dest_uri, _obj_type, origin_token)
         and isinstance(v, str)
         and k not in _url_fields
     }
