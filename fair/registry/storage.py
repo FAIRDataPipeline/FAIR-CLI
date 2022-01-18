@@ -672,7 +672,7 @@ def _get_identifier_from_data(data: typing.Dict, label: str) -> typing.Dict[str,
     """Retrieve the identifier metadata from the data entry"""
     _identifier: typing.Dict[str, str] = {}
 
-    if "identifier" in data:
+    if data.get("identifier", None):
         if not fdp_id.check_id_permitted(_identifier):
             raise fdp_exc.UserConfigError(
                 f"Identifier '{_identifier}' is not a valid identifier"

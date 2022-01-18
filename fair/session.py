@@ -366,10 +366,15 @@ class FAIR:
                 fdp_req.local_token(),
                 fdp_conf.get_remote_token(self._session_loc, remote)
             )
-        except fdp_exc.FileNotFoundError as e:
+        except fdp_exc.FileNotFoundError:
             self._logger.warning(
                 "Cannot update namespaces from remote registry '%s', "
                 "due to missing token",
+                remote
+            )
+        except fdp_exc.UnexpectedRegistryServerState:
+            self._logger.warning(
+                "Could not update namespaces from remote registry '%s'",
                 remote
             )
         self._logger.debug("Performing pre-job setup")
@@ -409,6 +414,8 @@ class FAIR:
                 [f"Pulled data products from remote '{remote}':"] +
                 [f'\t- {data_product}' for data_product in _readables]
             )
+        else:
+            click.echo(f"No items to retrieve from remote '{remote}'.")
 
         self._logger.debug("Performing post-job breakdown")
 
