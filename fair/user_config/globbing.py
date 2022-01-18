@@ -18,7 +18,8 @@ import typing
 
 import fair.registry.requests as fdp_req
 import fair.exceptions as fdp_exc
-import fair.register as fdp_reg
+
+from fair.registry import SEARCH_KEYS
 
 __date__ = "2022-01-11"
 
@@ -109,7 +110,7 @@ def get_data_product_objects(
         if not _namespace:
             raise fdp_exc.InternalError(
                 "Failed to retrieve namespace for external_object "
-                f"{entry[fdp_reg.SEARCH_KEYS['data_product']]}"
+                f"{entry[SEARCH_KEYS['data_product']]}"
             )
 
         _version = entry["version"]
@@ -167,7 +168,7 @@ def get_external_objects(
         if not _data_product:
             raise fdp_exc.InternalError(
                 "Failed to retrieve data_product for external_object "
-                f"{result[fdp_reg.SEARCH_KEYS['data_product']]}"
+                f"{result[SEARCH_KEYS['data_product']]}"
             )
 
         _namespace = fdp_req.url_get(
@@ -178,7 +179,7 @@ def get_external_objects(
         if not _namespace:
             raise fdp_exc.InternalError(
                 "Failed to retrieve namespace for external_object "
-                f"{result[fdp_reg.SEARCH_KEYS['data_product']]}"
+                f"{result[SEARCH_KEYS['data_product']]}"
             )
 
         _version = result["version"]

@@ -334,7 +334,7 @@ class FAIR:
         if not _staged_data_products:
             click.echo("Nothing to push.")
 
-        fdp_sync.push_data_products(
+        fdp_sync.sync_data_products(
             origin_uri=fdp_conf.get_local_uri(),
             dest_uri=fdp_conf.get_remote_uri(self._session_loc, remote),
             dest_token=fdp_conf.get_remote_token(self._session_loc, remote),
@@ -366,10 +366,15 @@ class FAIR:
                 fdp_req.local_token(),
                 fdp_conf.get_remote_token(self._session_loc, remote)
             )
-        except fdp_exc.FileNotFoundError as e:
+        except fdp_exc.FileNotFoundError:
             self._logger.warning(
                 "Cannot update namespaces from remote registry '%s', "
                 "due to missing token",
+                remote
+            )
+        except fdp_exc.UnexpectedRegistryServerState:
+            self._logger.warning(
+                "Could not update namespaces from remote registry '%s'",
                 remote
             )
         self._logger.debug("Performing pre-job setup")
@@ -395,19 +400,22 @@ class FAIR:
         # case whereby no remote has been setup and we just want to register
         # items on the local registry
         if _readables:
-            fdp_sync.push_data_products(
+            fdp_sync.sync_data_products(
                 origin_uri=fdp_conf.get_remote_uri(self._session_loc, remote),
                 dest_uri=fdp_conf.get_local_uri(),
                 dest_token=fdp_req.local_token(),
                 origin_token=fdp_conf.get_remote_token(self._session_loc, remote),
                 remote_label=remote,
                 data_products=_readables,
+                local_data_store=self._session_config.default_data_store
             )
 
             self._session_config.write_log_lines(
                 [f"Pulled data products from remote '{remote}':"] +
                 [f'\t- {data_product}' for data_product in _readables]
             )
+        else:
+            click.echo(f"No items to retrieve from remote '{remote}'.")
 
         self._logger.debug("Performing post-job breakdown")
 

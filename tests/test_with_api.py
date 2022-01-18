@@ -31,6 +31,7 @@ def test_pull_new(local_config: typing.Tuple[str, str],
     mocker.patch("fair.registry.requests.local_token", lambda *args: local_registry._token)
     mocker.patch("fair.registry.server.launch_server", lambda *args, **kwargs: True)
     mocker.patch("fair.registry.server.stop_server", lambda *args: True)
+    mocker.patch("fair.registry.sync.fetch_data_product", lambda *args, **kwargs: None)
     _cli_runner = click.testing.CliRunner()
     with _cli_runner.isolated_filesystem(pyDataPipeline):
         with remote_registry, local_registry:
@@ -101,6 +102,7 @@ def test_pull_existing(local_config: typing.Tuple[str, str],
     mocker.patch("fair.registry.requests.local_token", lambda *args: local_registry._token)
     mocker.patch("fair.registry.server.launch_server", lambda *args, **kwargs: True)
     mocker.patch("fair.registry.server.stop_server", lambda *args: True)
+    mocker.patch("fair.registry.sync.fetch_data_product", lambda *args, **kwargs: None)
     _cli_runner = click.testing.CliRunner()
     with _cli_runner.isolated_filesystem(pyDataPipeline):
         with remote_registry, local_registry:
