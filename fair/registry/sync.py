@@ -202,52 +202,15 @@ def sync_dependency_chain(
         }
 
         logger.debug("Writable local object data: %s", _writable_data)
-        _new_obj_data: typing.Dict[str, typing.Any] = {}
-        _url_fields: typing.List[str] = []
 
-        # Iterate through the object data, for any values which are URLs
-        # substitute the local URL for the created remote ones.
-        # For the first object there should be no URL values at all.
-        for key, value in _writable_data.items():
-            # Check if value is URL
-            _not_str = not isinstance(value, str)
-            _not_url = isinstance(value, str) and not fdp_util.is_api_url(
-                origin_uri, value
-            )
-            if _not_str or _not_url:
-                _new_obj_data[key] = value
-                continue
-            # Store which fields have URLs to use later
-            _url_fields.append(key)
-            # Make sure that a URL for the component does exist
-            if value not in _new_urls:
-                raise fdp_exc.RegistryError(
-                    f"Expected URL from remote '{dest_uri}' for component "
-                    f"'{key}' of local object '{value}' during push."
-                )
-
-            # Retrieve from the new URLs the correct value and substitute
-            _new_obj_data[key] = _new_urls[value]
-
-        # Filters are all variables returned by 'filter_fields' request for a
-        # given object minus any variables which have a URL value
-        # (as remote URL will never match local)
-
-        _filters = {
-            k: v
-            for k, v in _new_obj_data.items()
-            if k in fdp_req.get_filter_variables(_uri, _obj_type, origin_token)
-            and isinstance(v, str)
-            and k not in _url_fields
-        }
-
-        logger.debug(f"Pushing member '{object_url}' to '{dest_uri}'")
-
-        if dest_uri == origin_uri:
-            raise fdp_exc.InternalError("Cannot push object to its source address")
-
-        _new_url = fdp_req.post_else_get(
-            dest_uri, _obj_type, data=_new_obj_data, token=dest_token, params=_filters
+        _new_url = _get_new_url(
+            origin_uri=origin_uri,
+            origin_token=origin_token,
+            dest_uri=dest_uri,
+            dest_token=dest_token,
+            object_url=object_url,
+            new_urls=_new_urls,
+            writable_data=_writable_data
         )
 
         if not fdp_util.is_api_url(dest_uri, _new_url):
@@ -259,6 +222,66 @@ def sync_dependency_chain(
         _new_urls[object_url] = _new_url
 
     return _new_urls
+
+
+def _get_new_url(
+    origin_uri: str,
+    origin_token: str,
+    dest_uri: str,
+    dest_token: str,
+    object_url: str,
+    new_urls: typing.Dict,
+    writable_data: typing.Dict
+) -> typing.Tuple[typing.Dict, typing.List]:
+    _new_obj_data: typing.Dict[str, typing.Any] = {}
+    _url_fields: typing.List[str] = []
+
+    # Iterate through the object data, for any values which are URLs
+    # substitute the local URL for the created remote ones.
+    # For the first object there should be no URL values at all.
+    for key, value in writable_data.items():
+        # Check if value is URL
+        _not_str = not isinstance(value, str)
+        _not_url = isinstance(value, str) and not fdp_util.is_api_url(
+            origin_uri, value
+        )
+        if _not_str or _not_url:
+            _new_obj_data[key] = value
+            continue
+        # Store which fields have URLs to use later
+        _url_fields.append(key)
+        # Make sure that a URL for the component does exist
+        if value not in new_urls:
+            raise fdp_exc.RegistryError(
+                f"Expected URL from remote '{dest_uri}' for component "
+                f"'{key}' of local object '{value}' during push."
+            )
+
+        # Retrieve from the new URLs the correct value and substitute
+        _new_obj_data[key] = new_urls[value]
+    
+    # Filters are all variables returned by 'filter_fields' request for a
+    # given object minus any variables which have a URL value
+    # (as remote URL will never match local)
+
+    _obj_type = fdp_req.get_obj_type_from_url(object_url, token=origin_token)
+
+    _filters = {
+        k: v
+        for k, v in _new_obj_data.items()
+        if k in fdp_req.get_filter_variables(_uri, _obj_type, origin_token)
+        and isinstance(v, str)
+        and k not in _url_fields
+    }
+
+    logger.debug(f"Pushing member '{object_url}' to '{dest_uri}'")
+
+    if dest_uri == origin_uri:
+        raise fdp_exc.InternalError("Cannot push object to its source address")
+
+    return fdp_req.post_else_get(
+        dest_uri, _obj_type, data=_new_obj_data, token=dest_token, params=_filters
+    )
 
 
 def sync_data_products(
