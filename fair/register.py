@@ -174,7 +174,7 @@ def fetch_registrations(
         if "cache" in entry:
             _temp_data_file = entry["cache"]
         else:
-            _local_parsed = urllib.parse.urlparse(_local_parsed)
+            _local_parsed = urllib.parse.urlparse(local_uri)
             _local_url = f"{_local_parsed.scheme}://{_local_parsed.netloc}"
             _temp_data_file = fdp_sync.download_from_registry(
                 _local_url,
