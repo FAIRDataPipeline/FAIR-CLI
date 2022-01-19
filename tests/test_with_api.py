@@ -27,6 +27,10 @@ def test_pull_new(local_config: typing.Tuple[str, str],
     pyDataPipeline: str,
     capsys):
     _manage = os.path.join(remote_registry._install, "manage.py")
+    test_author_full_name = "Joe Bloggs"
+    test_namespace_name = "Dummy"
+    test_namespace_full_name = "Dummy Testing Namespace"
+    test_namespace_website = "https://notarealplace.com/"
     mocker.patch("fair.configuration.get_remote_token", lambda *args: remote_registry._token)
     mocker.patch("fair.registry.requests.local_token", lambda *args: local_registry._token)
     mocker.patch("fair.registry.server.launch_server", lambda *args, **kwargs: True)
@@ -52,6 +56,10 @@ def test_pull_new(local_config: typing.Tuple[str, str],
             _cfg_str = _cfg_str.replace("<NAMESPACE>", _namespace)
             _cfg_str = _cfg_str.replace("<VERSION>", _version)
             _cfg_str = _cfg_str.replace("<PATH>", _path)
+            _cfg_str = _cfg_str.replace("<AUTHOR>", test_author_full_name)
+            _cfg_str = _cfg_str.replace("<NAMESPACE_NEW>", test_namespace_name)
+            _cfg_str = _cfg_str.replace("<NAMESPACEFULLNAME>", test_namespace_full_name)
+            _cfg_str = _cfg_str.replace("<NAMESPACEWEBSITE>", test_namespace_website)
             
             _cfg = yaml.safe_load(_cfg_str)
 
@@ -84,6 +92,24 @@ def test_pull_new(local_config: typing.Tuple[str, str],
                 local_registry._token,
                 params={
                     "name": _path,
+                }
+            )
+
+            assert get(
+                "http://127.0.0.1:8000/api/",
+                "author",
+                local_registry._token,
+                params={
+                    "name": test_author_full_name
+                }
+            )
+
+            assert get(
+                "http://127.0.0.1:8000/api/",
+                "namespace",
+                local_registry._token,
+                params={
+                    "name": test_namespace_name
                 }
             )
 

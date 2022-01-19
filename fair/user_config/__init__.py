@@ -205,18 +205,62 @@ class JobConfiguration(MutableMapping):
             except fdp_exc.KeyPathError:
                 self[item[0]] = item[1]
 
-    def _handle_register_namespaces(self) -> typing.Dict:
+    def _handle_register_authors(
+        self,
+        register_block: typing.List[typing.Dict]) -> typing.Dict:
+        """Store authors on registry from 'register' block"""
+        self._logger.debug("Handling 'register:author'")
+        _new_register_block: typing.List[typing.Dict] = []
+
+        # Register explicit author objects and remove from config
+        for item in register_block:
+            # Not a namespace
+            if 'author' not in item:
+                _new_register_block.append(item)
+                continue
+            
+            if any(n in item for n in ["data_product", "external_object", "namespace"]):
+                raise fdp_exc.UserConfigError(
+                    "Invalid use of tag 'author' in non-author registration"
+                )
+            
+            _author_metadata = {
+                "name": item["author"],
+                "identifier": item.get("identifier", None),
+                "uuid": item.get("uuid", None)
+            }
+
+            if item["author"] in self._parsed["author"]:
+                self._logger.warning(
+                    "Ignoring registration of author '%s' as entry already exists",
+                    item["author"]
+                )
+                continue
+
+            fdp_store.store_author(
+                self.local_uri, fdp_req.local_token(), **_author_metadata
+            )
+
+            self._parsed["author"].append(_author_metadata["name"])
+
+        return _new_register_block
+
+
+    def _handle_register_namespaces(
+        self,
+        register_block: typing.List[typing.Dict]) -> typing.Dict:
+        """Store namespaces on registry from 'register' block"""
         self._logger.debug("Handling 'register:namespace'")
         _new_register_block: typing.List[typing.Dict] = []
 
         # Register explicit namespace objects and remove from config
-        for item in self["register"]:
+        for item in register_block:
             # Not a namespace
             if 'namespace' not in item:
                 _new_register_block.append(item)
                 continue
 
-            if any(n in item for n in ["data_product", "external_object"]):
+            if any(n in item for n in ["data_product", "external_object", "author"]):
                 raise fdp_exc.UserConfigError(
                     "Invalid use of tag 'namespace' in non-namespace registration",
                     "Did you mean 'namespace_name'?"
@@ -230,7 +274,7 @@ class JobConfiguration(MutableMapping):
 
             if item["namespace"] in self._parsed["namespace"]:
                 self._logger.warning(
-                    "Ignoring registration of namespace '%s' as it already exists",
+                    "Ignoring registration of namespace '%s' as entry already exists",
                     item["namespace"]
                 )
                 continue
@@ -300,7 +344,8 @@ class JobConfiguration(MutableMapping):
 
         # Only allow namespaces to be registered directly
         if "register" in self:
-            self["register"] = self._handle_register_namespaces()
+            self["register"] = self._handle_register_namespaces(self["register"])
+            self["register"] = self._handle_register_authors(self["register"])
             self["register"] = self._switch_namespace_name_to_use(self["register"])
 
         if not self.default_input_namespace:
@@ -855,60 +900,6 @@ class JobConfiguration(MutableMapping):
             if "external_object" in item:
                 _readable["data_product"] = item["external_object"]
                 _readable.pop("external_object")
-            elif "namespace" in item:
-                try:
-                    fdp_valid.Namespace(**_readable)
-                except pydantic.ValidationError as e:
-                    raise fdp_exc.ValidationError(e.json())
-
-                if item["namespace"] in self._parsed["namespace"]:
-                    self._logger.warning(
-                        "Namespace '%s' already added, ignoring duplicate",
-                        item["namespace"]
-                    )
-                else:
-                    _readable["name"] = item["namespace"]
-                    _readable.pop("namespace")
-
-                    fdp_store.store_namespace(
-                        self.local_uri,
-                        fdp_req.local_token(),
-                        **_readable
-                    )
-
-                    # We do not want to register a namespace twice so
-                    # keep track of which we have
-                    self._parsed["namespace"].append(_readable["name"])
-            elif "author" in item:
-                try:
-                    fdp_valid.Author(**_readable)
-                except pydantic.ValidationError as e:
-                    raise fdp_exc.ValidationError(e.json())
-
-                if item["author"] in self._parsed["author"]:
-                    self._logger.warning(
-                        "Author '%s' already added, ignoring duplicate",
-                        item["author"]
-                    )
-                else:
-                    _readable["name"] = item["author"]
-                    _readable.pop("author")
-
-                    fdp_store.store_author(
-                        self.local_uri,
-                        fdp_req.local_token(),
-                        **_readable
-                    )
-
-                    # We do not want to register a namespace twice so
-                    # keep track of which we have
-                    self._parsed["author"].append(_readable["name"])
-
-
-            else:  # unknown
-                raise fdp_exc.UserConfigError(
-                    f"Found registration for unknown item with keys {[*item]}"
-                )
 
             # 'public' only valid for writables
             if "public" in _readable:
@@ -925,6 +916,10 @@ class JobConfiguration(MutableMapping):
         _new_read_block: typing.List[typing.Dict] = []
 
         for entry in read_block:
+            # Use statement updates only relevant to data_product
+            if "data_product" not in entry:
+                _new_read_block.append(_new_entry)
+                continue
             _new_entry = entry.copy()
             _new_entry["use"]["version"] = fdp_ver.undo_incrementer(
                 entry["use"]["version"]

@@ -6,3 +6,9 @@ read:
     use:
       namespace: <NAMESPACE>
       version: <VERSION>
+register:
+  - author: <AUTHOR>
+  - namespace: <NAMESPACE_NEW>
+    full_name: <NAMESPACEFULLNAME>
+    website: <NAMESPACEWEBSITE>
+    
