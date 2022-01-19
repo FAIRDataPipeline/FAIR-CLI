@@ -190,6 +190,9 @@ class Use(pydantic.BaseModel):
     namespace: typing.Optional[str] = pydantic.Field(
         None, title="namespace", description="namespace to read/write object using"
     )
+    cache: typing.Optional[str] = pydantic.Field(
+        None, title="cache", description="local copy of requested file to use"
+    )
 
     class Config:
         extra = "forbid"

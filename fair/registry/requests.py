@@ -23,7 +23,6 @@ import copy
 import json
 import logging
 import os
-import re
 import tempfile
 import typing
 import urllib.parse
@@ -379,12 +378,12 @@ def filter_object_dependencies(
     _fields: typing.List[str] = []
 
     for name, info in _actions.items():
-        _filter_result: typing.List[bool] = []
-        for filt, value in filter.items():
-            # Some objects may not have the key
-            if filt not in info:
-                continue
-            _filter_result.append(info[filt] == value)
+        _filter_result: typing.List[bool] = [
+            info[filt] == value
+            for filt, value in filter.items()
+            if filt in info
+        ]
+
         if all(_filter_result):
             _fields.append(name)
 
@@ -454,17 +453,24 @@ def download_file(url: str, chunk_size: int = 8192) -> str:
     # Save the data to a temporary file so we can calculate the hash
     _file, _fname = tempfile.mkstemp()
 
-    with requests.get(url, stream=True) as r_in:
-        try:
-            r_in.raise_for_status()
-        except requests.HTTPError:
-            raise fdp_exc.FileNotFoundError(
-                f"Failed to download file from '{url}'"
-                f" with status code {r_in.status_code}"
-            )
-        with os.fdopen(_file, "wb") as in_f:
-            for chunk in r_in.iter_content(chunk_size=chunk_size):
-                in_f.write(chunk)
+    try:
+        with requests.get(url, stream=True) as r_in:
+            try:
+                r_in.raise_for_status()
+            except requests.HTTPError:
+                raise fdp_exc.FileNotFoundError(
+                    f"Failed to download file from '{url}'"
+                    f" with status code {r_in.status_code}"
+                )
+
+            with os.fdopen(_file, "wb") as in_f:
+                for chunk in r_in.iter_content(chunk_size=chunk_size):
+                    in_f.write(chunk)
+    except requests.exceptions.ConnectionError:
+        raise fdp_exc.FAIRCLIException(
+            f"Failed to download file '{url}'"
+            f" due to connection error"
+        )
 
     return _fname
 
