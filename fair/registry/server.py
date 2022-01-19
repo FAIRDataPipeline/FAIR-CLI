@@ -40,7 +40,7 @@ import fair.exceptions as fdp_exc
 import fair.registry.requests as fdp_req
 import fair.registry.storage as fdp_store
 import fair.utilities as fdp_util
-
+import fair.virtualenv as fdp_env
 
 def django_environ(environ: typing.Dict = os.environ):
     _environ = environ.copy()
@@ -284,7 +284,7 @@ def rebuild_local(python: str, install_dir: str = None, silent: bool = False):
         )
 
 
-def install_registry(
+def     install_registry(
     repository: str = fdp_com.FAIR_REGISTRY_REPO,
     reference: str = None,
     install_dir: str = None,
@@ -352,11 +352,9 @@ def install_registry(
     if not venv_dir:
         venv_dir = os.path.join(install_dir, "venv")
 
-        venv.create(
-            venv_dir,
-            with_pip=True,
-            prompt="RegistryTest",
-        )
+        _venv = fdp_env.FAIREnv(with_pip=True)
+
+        _venv.create(venv_dir)
 
     _python_exe = "python.exe" if platform.system() == "Windows" else "python"
     _binary_loc = "Scripts" if platform.system() == "Windows" else "bin"
