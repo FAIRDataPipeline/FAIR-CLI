@@ -370,8 +370,6 @@ def test_push_postrun(local_config: typing.Tuple[str, str],
 
             _res = _cli_runner.invoke(cli, ["push", "--debug"])
 
-            assert not _res.output
-            assert _res.output
             assert _res.exit_code == 0
 
             assert get(
