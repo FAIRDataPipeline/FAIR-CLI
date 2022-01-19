@@ -356,22 +356,25 @@ class FAIR:
 
     def pull(self, remote: str = "origin"):
         self._logger.debug("Performing pull on remote '%s'", remote)
+        
+        _remote_addr = fdp_conf.get_remote_uri(self._session_loc, remote)
+
+        if not fdp_serv.check_server_running(_remote_addr):
+            raise fdp_exc.UnexpectedRegistryServerState(
+                f"Cannot perform pull from registry '{remote}' as the"
+                f" server does not exist. Expected response from '{_remote_addr}'.",
+                hint="Is your FAIR repository configured correctly?"
+            )
 
         self._logger.debug("Retrieving namespaces from remote")
 
-        try:
-            fdp_sync.pull_all_namespaces(
-                fdp_conf.get_local_uri(),
-                fdp_conf.get_remote_uri(self._session_loc, remote),
-                fdp_req.local_token(),
-                fdp_conf.get_remote_token(self._session_loc, remote)
-            )
-        except fdp_exc.FileNotFoundError as e:
-            self._logger.warning(
-                "Cannot update namespaces from remote registry '%s', "
-                "due to missing token",
-                remote
-            )
+        fdp_sync.pull_all_namespaces(
+            fdp_conf.get_local_uri(),
+            fdp_conf.get_remote_uri(self._session_loc, remote),
+            fdp_req.local_token(),
+            fdp_conf.get_remote_token(self._session_loc, remote)
+        )
+
         self._logger.debug("Performing pre-job setup")
 
         self._pre_job_setup(remote)
