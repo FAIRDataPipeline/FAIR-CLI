@@ -266,7 +266,7 @@ def uninstall(debug: bool):
 @click.option("--force/--no-force", help="Force a reinstall", default=False)
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
 @click.option("--directory", help="Installation location", default=None)
-@click.option("--version", "Specify version tag of registry to install, else latest repo tag", default=None)
+@click.option("--version", help="Specify version tag of registry to install, else latest repo tag", default=None)
 def install(debug: bool, force: bool, directory: str, version: str):
     """Install the local registry on the system"""
     try:
