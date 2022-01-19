@@ -11,7 +11,7 @@ import fair.identifiers as fdp_id
 import fair.common as fdp_com
 
 
-@pytest.mark.configuration
+@pytest.mark.faircli_configuration
 def test_local_cli_config_read(local_config: typing.Tuple[str, str]):
     _read = fdp_conf.read_local_fdpconfig(local_config[1])
     assert _read["git"]["local_repo"] == os.path.join(
@@ -20,7 +20,7 @@ def test_local_cli_config_read(local_config: typing.Tuple[str, str]):
     assert _read["namespaces"]["input"] == "testing"
 
 
-@pytest.mark.configuration
+@pytest.mark.faircli_configuration
 def test_global_cli_config_read(local_config: typing.Tuple[str, str]):
     _read = fdp_conf.read_global_fdpconfig()
     assert _read["git"]["local_repo"] == os.path.join(
@@ -29,7 +29,7 @@ def test_global_cli_config_read(local_config: typing.Tuple[str, str]):
     assert _read["namespaces"]["input"] == "testing"
 
 
-@pytest.mark.configuration
+@pytest.mark.faircli_configuration
 def test_email_set(local_config: typing.Tuple[str, str]):
     TEST_EMAIL = "testemail@nowhere"
     TEST_EMAIL2 = "otheremail@nowhere"
@@ -47,7 +47,7 @@ def test_email_set(local_config: typing.Tuple[str, str]):
     assert fdp_conf.read_global_fdpconfig()["user"]["email"] == TEST_EMAIL2
 
 
-@pytest.mark.configuration
+@pytest.mark.faircli_configuration
 def test_user_set(local_config: typing.Tuple[str, str]):
     TEST_USER = "john smith"
     TEST_USER2 = "victor Chester bloggs"
@@ -78,7 +78,7 @@ def test_user_set(local_config: typing.Tuple[str, str]):
     assert fdp_conf.read_global_fdpconfig()["user"]["family_name"] == "Bloggs"
 
 
-@pytest.mark.configuration
+@pytest.mark.faircli_configuration
 def test_get_user(local_config: typing.Tuple[str, str]):
     assert fdp_conf.get_current_user_name(local_config[1]) == (
         "Interface",
@@ -86,7 +86,7 @@ def test_get_user(local_config: typing.Tuple[str, str]):
     )
 
 
-@pytest.mark.configuration
+@pytest.mark.faircli_configuration
 def test_get_remote_uri(local_config: typing.Tuple[str, str]):
     assert (
         fdp_conf.get_remote_uri(local_config[1])
@@ -94,7 +94,7 @@ def test_get_remote_uri(local_config: typing.Tuple[str, str]):
     )
 
 
-@pytest.mark.configuration
+@pytest.mark.faircli_configuration
 def test_get_remote_token(mocker: pytest_mock.MockerFixture):
     with tempfile.TemporaryDirectory() as tempd:
         _token = "t35tt0k3n"
@@ -107,7 +107,7 @@ def test_get_remote_token(mocker: pytest_mock.MockerFixture):
         assert fdp_conf.get_remote_token("") == _token
 
 
-@pytest.mark.configuration
+@pytest.mark.faircli_configuration
 def test_get_git_remote(local_config: typing.Tuple[str, str]):
     _proj_dir = os.path.join(local_config[0], "project")
     assert fdp_conf.get_session_git_remote(_proj_dir) == "origin"
@@ -117,7 +117,7 @@ def test_get_git_remote(local_config: typing.Tuple[str, str]):
     )
 
 
-@pytest.mark.configuration
+@pytest.mark.faircli_configuration
 def test_get_orcid(local_config: typing.Tuple[str, str]):
     assert (
         fdp_conf.get_current_user_uri(local_config[0])
@@ -125,7 +125,7 @@ def test_get_orcid(local_config: typing.Tuple[str, str]):
     )
 
 
-@pytest.mark.configuration
+@pytest.mark.faircli_configuration
 def test_get_uuid(local_config: typing.Tuple[str, str]):
     assert (
         fdp_conf.get_current_user_uuid(local_config[0])
@@ -133,7 +133,7 @@ def test_get_uuid(local_config: typing.Tuple[str, str]):
     )
 
 
-@pytest.mark.configuration
+@pytest.mark.faircli_configuration
 def test_registry_exists(
     mocker: pytest_mock.MockerFixture, local_config: typing.Tuple[str, str]
 ):
@@ -142,17 +142,17 @@ def test_registry_exists(
     assert fdp_conf.check_registry_exists(local_config[0])
 
 
-@pytest.mark.configuration
+@pytest.mark.faircli_configuration
 def test_local_uri(local_config: typing.Tuple[str, str]):
     assert fdp_conf.get_local_uri() == "http://127.0.0.1:8000/api/"
 
 
-@pytest.mark.configuration
+@pytest.mark.faircli_configuration
 def test_local_port(local_config: typing.Tuple[str, str]):
     assert fdp_conf.get_local_port() == 8000
 
 
-@pytest.mark.configuration
+@pytest.mark.faircli_configuration
 def test_user_info(mocker: pytest_mock.MockerFixture):
     _namepaces = {"input": "ispace", "output": "jbloggs"}
     _override = {
@@ -195,7 +195,7 @@ def test_user_info(mocker: pytest_mock.MockerFixture):
     assert not deepdiff.DeepDiff(_orc, _expect_orcid)
 
 
-@pytest.mark.configuration
+@pytest.mark.faircli_configuration
 def test_global_config_query(
     mocker: pytest_mock.MockerFixture, local_config: typing.Tuple[str, str]
 ):
@@ -256,7 +256,7 @@ def test_global_config_query(
     )
 
 
-@pytest.mark.configuration
+@pytest.mark.faircli_configuration
 def test_local_config_query(
     local_config: typing.Tuple[str, str], mocker: pytest_mock.MockerFixture
 ):
@@ -319,7 +319,7 @@ def test_local_config_query(
 
     assert not deepdiff.DeepDiff(_glob_conf, _usr_config)
 
-@pytest.mark.configuration
+@pytest.mark.faircli_configuration
 def test_update_port(local_config: typing.Tuple[str, str]):
     assert fdp_conf.get_local_uri() == fdp_com.DEFAULT_LOCAL_REGISTRY_URL
     fdp_conf.update_local_port()

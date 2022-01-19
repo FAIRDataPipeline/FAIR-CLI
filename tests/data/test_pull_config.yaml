@@ -1,0 +1,8 @@
+run_metadata:
+  default_input_namespace: <NAMESPACE>
+  description: <NAMESPACE> pull testing
+read:
+  - data_product: <PATH>
+    use:
+      namespace: <NAMESPACE>
+      version: <VERSION>

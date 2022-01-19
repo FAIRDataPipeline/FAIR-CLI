@@ -57,7 +57,7 @@ def complete_data_products(ctx, param, incomplete) -> typing.List[str]:
     if not os.path.exists(_staging_file):
         return []
     _staging_data = yaml.safe_load(open(_staging_file))
-    _candidates = [d for d in _staging_data["data_product"].keys()]
+    _candidates = list(_staging_data["data_product"].keys())
     return [
         click.shell_completion.CompletionItem(c)
         for c in _candidates
@@ -80,7 +80,7 @@ def complete_jobs(ctx, param, incomplete) -> typing.List[str]:
 
 
 @click.group()
-@click.version_option()
+@click.version_option(package_name='fair-cli')
 def cli():
     """Welcome to FAIR-CLI, the FAIR data pipeline command-line interface."""
     pass
@@ -281,7 +281,8 @@ def uninstall(debug: bool):
 def install(debug: bool, force: bool, directory: str):
     """Install the local registry on the system"""
     try:
-        fdp_svr.install_registry(install_dir=directory, force=force)
+        _version = fdp_svr.install_registry(install_dir=directory, force=force)
+        click.echo(f"Installed registry version '{_version}'")
     except fdp_exc.FAIRCLIException as e:
         if debug:
             raise e
@@ -434,15 +435,15 @@ def run(config: str, script: str, debug: bool, ci: bool, dirty: bool):
     """Initialises a job with the option to specify a bash command"""
     # Allow no config to be specified, if that is the case use default local
     config = config[0] if config else fdp_com.local_user_config(os.getcwd())
-    _run_mode = fdp_run.CMD_MODE.RUN if not ci else fdp_run.CMD_MODE.PASS
     try:
         with fdp_session.FAIR(
             os.getcwd(),
             config,
             debug=debug,
             server_mode=fdp_svr.SwitchMode.CLI,
+            allow_dirty=dirty
         ) as fair_session:
-            _hash = fair_session.run_job(script, mode=_run_mode, allow_dirty=dirty)
+            _hash = fair_session.run(script, passive=ci, allow_dirty=dirty)
             if ci:
                 click.echo(fdp_run.get_job_dir(_hash))
     except fdp_exc.FAIRCLIException as e:
@@ -542,12 +543,18 @@ def modify(ctx, label: str, url: str, debug: bool) -> None:
 @cli.command()
 @click.argument("remote", nargs=-1)
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
-def push(remote: str, debug: bool):
+@click.option(
+    "--dirty/--clean", help="Allow running with uncommitted changes", default=False
+)
+def push(remote: str, debug: bool, dirty: bool):
     """Push data between the local and remote registry"""
     remote = "origin" if not remote else remote[0]
     try:
         with fdp_session.FAIR(
-            os.getcwd(), debug=debug, server_mode=fdp_svr.SwitchMode.CLI
+            os.getcwd(),
+            debug=debug,
+            server_mode=fdp_svr.SwitchMode.CLI,
+            allow_dirty=dirty
         ) as fair_session:
             fair_session.push(remote)
     except fdp_exc.FAIRCLIException as e:
@@ -581,15 +588,16 @@ def config_email(user_email: str) -> None:
 @click.option("--debug/--no-debug")
 def pull(config: str, debug: bool):
     """Update local registry from remotes and sources"""
-    config = config[0] if config != "" else fdp_com.local_user_config(os.getcwd())
+    config = config[0] if config else fdp_com.local_user_config(os.getcwd())
     try:
         with fdp_session.FAIR(
             os.getcwd(),
             config,
             server_mode=fdp_svr.SwitchMode.CLI,
             debug=debug,
+            allow_dirty=True
         ) as fair:
-            fair.run_job(mode=fdp_run.CMD_MODE.PULL)
+            fair.pull()
     except fdp_exc.FAIRCLIException as e:
         if debug:
             raise e

@@ -149,6 +149,8 @@ def check_id_permitted(identifier: str, retries: int = 5) -> bool:
     ----------
     identifier : str
         identifier URL candidate
+    retries: int
+        number of attempts
 
     Returns
     -------

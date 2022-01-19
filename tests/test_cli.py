@@ -40,7 +40,7 @@ def click_test():
         yield click_test
 
 
-@pytest.mark.cli
+@pytest.mark.faircli_cli
 def test_status(
     local_config: typing.Tuple[str, str],
     local_registry: conf.RegistryTest,
@@ -73,7 +73,7 @@ def test_status(
         'data_product': {},
     }
 
-    _urls_list = {i: 'http://dummyurl.com' for i in _dummy_job_staging['job']}
+    _urls_list = {i: 'https://dummyurl.com' for i in _dummy_job_staging['job']}
     mocker.patch.object(fair.staging.Stager, 'get_job_data', lambda *args: _urls_list)
 
     mocker.patch('fair.registry.server.stop_server', lambda *args: None)
@@ -89,7 +89,7 @@ def test_status(
         assert _result.exit_code == 0
 
 
-@pytest.mark.cli
+@pytest.mark.faircli_cli
 def test_create(
     local_registry: conf.RegistryTest,
     click_test: click.testing.CliRunner,
@@ -113,7 +113,7 @@ def test_create(
         assert os.path.exists(_out_config)
 
 
-@pytest.mark.cli
+@pytest.mark.faircli_cli
 def test_init_from_existing(
     local_registry: conf.RegistryTest,
     click_test: click.testing.CliRunner,
@@ -158,8 +158,54 @@ def test_init_from_existing(
 
         assert os.path.exists(os.path.join(os.getcwd(), fdp_com.FAIR_FOLDER))
 
+@pytest.mark.faircli_cli
+def test_init_from_env(
+    local_registry: conf.RegistryTest,
+    click_test: click.testing.CliRunner,
+    mocker: pytest_mock.MockerFixture,
+):
+    mocker.patch("fair.common.registry_home", lambda: local_registry._install)
 
-@pytest.mark.cli
+    _out_config = os.path.join(os.getcwd(), fdp_com.USER_CONFIG_FILE)
+
+    with tempfile.TemporaryDirectory() as tempd:
+        _out_cli_config = os.path.join(tempd, "cli-config.yaml")
+        _env = os.environ.copy()
+        _env['FAIR_REGISTRY_DIR'] = local_registry._install
+        with local_registry:
+            _result = click_test.invoke(
+                cli,
+                [
+                    "init",
+                    "--debug",
+                    "--ci",
+                    "--config",
+                    _out_config,
+                    "--export",
+                    _out_cli_config,
+                ],
+                env=_env
+            )
+            assert _result.exit_code == 0
+            assert os.path.exists(_out_cli_config)
+            assert os.path.exists(_out_config)
+            assert os.path.exists(
+                os.path.join(os.getcwd(), fdp_com.FAIR_FOLDER)
+            )
+
+            click_test = click.testing.CliRunner()
+            click_test.isolated_filesystem()
+
+            _result = click_test.invoke(
+                cli, ["init", "--debug", "--using", _out_cli_config]
+            )
+
+        assert _result.exit_code == 0
+
+        assert os.path.exists(os.path.join(os.getcwd(), fdp_com.FAIR_FOLDER))
+
+
+@pytest.mark.faircli_cli
 def test_init_full(
     local_registry: conf.RegistryTest,
     click_test: click.testing.CliRunner,
@@ -230,7 +276,7 @@ def test_init_full(
             assert _cli_cfg["user"]["uuid"]
 
 
-@pytest.mark.cli
+@pytest.mark.faircli_cli
 def test_purge(
     local_config: typing.Tuple[str, str],
     click_test: click.testing.CliRunner,
@@ -263,7 +309,7 @@ def test_purge(
     )
 
 
-@pytest.mark.cli
+@pytest.mark.faircli_cli
 def test_registry_cli(
     local_config: typing.Tuple[str, str],
     click_test: click.testing.CliRunner,
@@ -299,7 +345,7 @@ def test_registry_cli(
         assert not glob.glob(os.path.join(tempd, "*"))
 
 
-def test_run(
+def test_cli_run(
     local_config: typing.Tuple[str, str],
     local_registry: conf.RegistryTest,
     click_test: click.testing.CliRunner,

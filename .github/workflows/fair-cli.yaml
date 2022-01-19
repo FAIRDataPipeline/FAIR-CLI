@@ -30,8 +30,17 @@ jobs:
         run: python -m poetry install
       - name: Install Python API for API Tests
         run: python -m poetry run pip install git+https://github.com/FAIRDataPipeline/pyDataPipeline.git@dev
-      - name: Run Tests
-        run: python -m poetry run pytest --cov=fair --cov-report=xml --cov-report=term -s tests/
+      - name: Run Tests for Each Marker
+        run: |
+            for marker in $(poetry run pytest --markers | grep -oE "faircli_[a-zA-Z|_|0-9]+")
+            do
+              echo "Running tests for marker '$marker'"
+              python -m poetry run pytest -m $marker --cov=fair --cov-report=xml --cov-report=term --cov-append -s tests/
+              exit_code=$?
+              if [ "$exit_code" != "0" ]; then
+                echo "ERROR: Tests for marker '$marker' failed"
+              fi             
+            done
       - uses: codecov/codecov-action@v2
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
