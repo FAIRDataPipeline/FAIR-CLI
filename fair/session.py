@@ -35,6 +35,7 @@ import os
 import pathlib
 import shutil
 import typing
+import datetime
 import uuid
 
 import click
@@ -57,6 +58,7 @@ import fair.registry.requests as fdp_req
 import fair.staging as fdp_stage
 import fair.templates as fdp_tpl
 import fair.testing as fdp_test
+import fair.logging as fdp_log
 import fair.user_config as fdp_user
 import fair.configuration.validation as fdp_clivalid
 
