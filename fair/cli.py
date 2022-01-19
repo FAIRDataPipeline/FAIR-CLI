@@ -15,6 +15,7 @@ import pathlib
 import sys
 import typing
 import glob
+import logging
 
 import click
 import click.shell_completion
@@ -265,6 +266,8 @@ def uninstall(debug: bool):
     if not _confirm:
         return
     try:
+        if debug:
+            logging.getLogger("FAIRDataPipeline").setLevel(logging.DEBUG)
         fdp_svr.uninstall_registry()
     except fdp_exc.FAIRCLIException as e:
         if debug:
@@ -281,6 +284,8 @@ def uninstall(debug: bool):
 def install(debug: bool, force: bool, directory: str):
     """Install the local registry on the system"""
     try:
+        if debug:
+            logging.getLogger("FAIRDataPipeline").setLevel(logging.DEBUG)
         _version = fdp_svr.install_registry(install_dir=directory, force=force)
         click.echo(f"Installed registry version '{_version}'")
     except fdp_exc.FAIRCLIException as e:
