@@ -266,12 +266,17 @@ def uninstall(debug: bool):
 @click.option("--force/--no-force", help="Force a reinstall", default=False)
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
 @click.option("--directory", help="Installation location", default=None)
-def install(debug: bool, force: bool, directory: str):
+@click.option("--version", "Specify version tag of registry to install, else latest repo tag", default=None)
+def install(debug: bool, force: bool, directory: str, version: str):
     """Install the local registry on the system"""
     try:
         if debug:
             logging.getLogger("FAIRDataPipeline").setLevel(logging.DEBUG)
-        _version = fdp_svr.install_registry(install_dir=directory, force=force)
+        _version = fdp_svr.install_registry(
+            install_dir=directory,
+            reference=version,
+            force=force
+        )
         click.echo(f"Installed registry version '{_version}'")
     except fdp_exc.FAIRCLIException as e:
         if debug:

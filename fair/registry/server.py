@@ -284,7 +284,7 @@ def rebuild_local(python: str, install_dir: str = None, silent: bool = False):
         )
 
 
-def     install_registry(
+def install_registry(
     repository: str = fdp_com.FAIR_REGISTRY_REPO,
     reference: str = None,
     install_dir: str = None,
