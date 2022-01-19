@@ -819,6 +819,18 @@ class FAIR:
             click.echo("FAIR repository is already initialised.")
             return
 
+        _existing = fdp_com.find_fair_root(self._session_loc)
+
+        if _existing:
+            click.echo(
+                "A FAIR repository was initialised for this location at"
+                f" '{_existing}'"
+            )
+            _confirm = click.confirm("Do you want to continue?", default=False)
+            if not _confirm:
+                click.echo("Aborted intialisation.")
+                return
+
         if not using:
             click.echo(
                 "Initialising FAIR repository, setup will now ask for basic info:\n"
