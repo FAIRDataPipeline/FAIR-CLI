@@ -1,4 +1,7 @@
 # Unreleased
+- Fix virtual environment bug in `fair` binaries where `venv` assumes the main executable is `python`.
+- Registration of `author` and `namespace` objects.
+- Allow specification of tag to install registry from during `fair registry install`.
 - Wildcard '*' parsing introduced for data products.
 - Ability to `push` to a registry added.
 - Added `--dirty` option to `fair run` to allow running with uncommitted changes.
