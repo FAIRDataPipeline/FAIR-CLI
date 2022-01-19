@@ -1,0 +1,5 @@
+run_metadata:
+  default_input_namespace: <NAMESPACE>
+  description: <NAMESPACE> wildcards testing
+read:
+- data_product: <WILDCARD-PATH>

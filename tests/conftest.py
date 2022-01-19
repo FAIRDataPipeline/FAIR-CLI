@@ -3,6 +3,7 @@ import os
 import signal
 import tempfile
 import git
+import typing
 
 import pytest
 import pytest_fixture_config
@@ -20,8 +21,44 @@ from . import registry_install as test_reg
 TEST_JOB_FILE_TIMESTAMP = "2021-10-11_10_0_0_100000"
 PYTHON_API_GIT = "https://github.com/FAIRDataPipeline/pyDataPipeline.git"
 
+TEST_OUT_DIR = os.path.join(os.getcwd(), "test_outputs")
+os.makedirs(TEST_OUT_DIR, exist_ok=True)
+
 
 logging.getLogger("FAIRDataPipeline").setLevel(logging.DEBUG)
+
+def get_example_entries(registry_dir: str):
+    """
+    With the registry examples regularly changing this function parses the 
+    relevant file in the reg repository to obtain all example object metadata
+    """
+    SEARCH_STR = "StorageLocation.objects.get_or_create"
+    _example_file = os.path.join(
+        registry_dir,
+        "data_management",
+        "management",
+        "commands",
+        "_example_data.py"
+    )
+
+    _objects: typing.List[typing.Tuple[str, str, str]] = []
+
+    with open(_example_file) as in_f:
+        _lines = in_f.readlines()
+        for i, line in enumerate(_lines):
+            if SEARCH_STR in line:
+                _path_line_offset = 0
+                while "path" not in _lines[i+_path_line_offset]:
+                    _path_line_offset += 1
+                _candidate = _lines[i+_path_line_offset]
+                _candidate = _candidate.replace('"', "")
+                _candidate = _candidate.replace("path=", "")
+                _metadata, _file = _candidate.rsplit("/", 1)
+                _metadata = _metadata.replace("path=", "")
+                _version = ".".join(_file.split(".")[:3])
+                _objects.append((*_metadata.split("/", 1), _version))
+    
+    return _objects
 
 
 @pytest.fixture()
@@ -136,6 +173,7 @@ class RegistryTest:
         self._venv_dir = os.path.join(venv.workspace, ".env")
         self._process = None
         self._port = port
+        self._url = f"http://127.0.0.1:{port}/api/"
         if not os.path.exists(os.path.join(install_loc, "manage.py")):
             test_reg.install_registry(
                 install_dir=install_loc, silent=True, venv_dir=self._venv_dir
@@ -169,7 +207,7 @@ class RegistryTest:
         self._process = None
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def local_registry(session_virtualenv: pytest_virtualenv.VirtualEnv):
     if fdp_serv.check_server_running('http://127.0.0.1:8000'):
         pytest.skip("Cannot run registry tests, a server is already running on port 8000")
@@ -178,7 +216,7 @@ def local_registry(session_virtualenv: pytest_virtualenv.VirtualEnv):
         yield RegistryTest(tempd, session_virtualenv, port=8000)
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def remote_registry(session_virtualenv: pytest_virtualenv.VirtualEnv):
     if fdp_serv.check_server_running('http://127.0.0.1:8001'):
         pytest.skip("Cannot run registry tests, a server is already running on port 8001")

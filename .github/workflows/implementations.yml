@@ -80,6 +80,10 @@ jobs:
     - name: run javaSimpleModel with fair cli
       run: |
         poetry run fair registry install
+        poetry run fair registry install --directory ${GITHUB_WORKSPACE}/registry-rem
+        poetry run fair registry start
+        poetry run ${GITHUB_WORKSPACE}/registry-rem/scripts/start_fair_registry -p 8001
+        cp ${GITHUB_WORKSPACE}/registry-rem/token $PWD/token
         poetry run fair init --ci
         poetry run fair pull --debug src/main/resources/seirs-config.yaml
         poetry run fair run --dirty --debug src/main/resources/seirs-config.yaml
@@ -152,6 +156,10 @@ jobs:
     - name: run rSimpleModel with fair cli
       run: |
         poetry run fair registry install
+        poetry run fair registry install --directory ${GITHUB_WORKSPACE}/registry-rem
+        poetry run fair registry start
+        poetry run ${GITHUB_WORKSPACE}/registry-rem/scripts/start_fair_registry -p 8001
+        cp ${GITHUB_WORKSPACE}/registry-rem/token $PWD/token
         poetry run fair init --ci
         poetry run fair pull --debug inst/extdata/SEIRSconfig.yaml
         poetry run fair run --dirty --debug inst/extdata/SEIRSconfig.yaml
@@ -186,7 +194,54 @@ jobs:
     - name: Run SEIRS Model with fair cli
       run: |
         poetry run fair registry install
+        poetry run fair registry install --directory ${GITHUB_WORKSPACE}/registry-rem
+        poetry run fair registry start
+        poetry run ${GITHUB_WORKSPACE}/registry-rem/scripts/start_fair_registry -p 8001
+        cp ${GITHUB_WORKSPACE}/registry-rem/token $PWD/token
         poetry run fair init --ci
         poetry run fair pull --debug examples/fdp/SEIRSconfig.yaml
         poetry run fair run --dirty --debug examples/fdp/SEIRSconfig.yaml
       working-directory: julia_example
+
+  CPlusPlus:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Clone CPlusPlus Model
+      uses: actions/checkout@v2
+      with:
+        repository: FAIRDataPipeline/cppSimpleModel
+        path: cpp_example
+        ref: 'main'
+
+    - name: Install requirements
+      run: |
+        sudo apt install -y libmemcached-dev graphviz gnuplot
+        sudo apt install -y libjsoncpp-dev curl libcurl4-openssl-dev
+        sudo apt install -y libyaml-cpp-dev libhdf5-dev
+
+    - name: Install Model
+      run: |
+        cmake -Bbuild
+        cmake --build build
+      working-directory: cpp_example
+
+    - name: install fair-cli
+      run: |
+        pip install poetry
+        poetry install
+      
+    - name: Run Example model with fair-cli
+      run: |
+        poetry run fair registry install
+        poetry run fair registry install --directory ${GITHUB_WORKSPACE}/registry-rem
+        poetry run fair registry start
+        poetry run ${GITHUB_WORKSPACE}/registry-rem/scripts/start_fair_registry -p 8001
+        cp ${GITHUB_WORKSPACE}/registry-rem/token $PWD/token
+        poetry run fair init --ci
+        poetry run fair pull --debug data/seirs_config.yaml
+        poetry run fair run --dirty --debug data/seirs_config.yaml
+      working-directory: cpp_example
+
+

@@ -1,8 +1,8 @@
-import os.path
 import pathlib
 import typing
 import yaml
 import shutil
+import os
 
 import click.testing
 import pytest
@@ -11,48 +11,14 @@ import pytest_mock
 from fair.cli import cli
 from fair.common import FAIR_FOLDER
 from fair.registry.requests import get, url_get
-from tests.conftest import RegistryTest
+from tests.conftest import RegistryTest, get_example_entries
 import fair.registry.server as fdp_serv
 
 REPO_ROOT = pathlib.Path(os.path.dirname(__file__)).parent
 PULL_TEST_CFG = os.path.join(os.path.dirname(__file__), "data", "test_pull_config.yaml")
 
-def get_example_entries(registry_dir: str):
-    """
-    With the registry examples regularly changing this function parses the 
-    relevant file in the reg repository to obtain all example object metadata
-    """
-    SEARCH_STR = "StorageLocation.objects.get_or_create"
-    _example_file = os.path.join(
-        registry_dir,
-        "data_management",
-        "management",
-        "commands",
-        "_example_data.py"
-    )
 
-    _objects: typing.List[typing.Tuple[str, str, str]] = []
-
-    with open(_example_file) as in_f:
-        _lines = in_f.readlines()
-        for i, line in enumerate(_lines):
-            if SEARCH_STR in line:
-                _path_line_offset = 0
-                while "path" not in _lines[i+_path_line_offset]:
-                    _path_line_offset += 1
-                _candidate = _lines[i+_path_line_offset]
-                _candidate = _candidate.replace('"', "")
-                _candidate = _candidate.replace("path=", "")
-                _metadata, _file = _candidate.rsplit("/", 1)
-                _metadata = _metadata.replace("path=", "")
-                _version = ".".join(_file.split(".")[:3])
-                _objects.append((*_metadata.split("/", 1), _version))
-    
-    return _objects
-
-
-@pytest.mark.with_api
-@pytest.mark.pull
+@pytest.mark.faircli_pull
 @pytest.mark.dependency(name='pull_new')
 def test_pull_new(local_config: typing.Tuple[str, str],
     local_registry: RegistryTest,
@@ -65,15 +31,10 @@ def test_pull_new(local_config: typing.Tuple[str, str],
     mocker.patch("fair.registry.requests.local_token", lambda *args: local_registry._token)
     mocker.patch("fair.registry.server.launch_server", lambda *args, **kwargs: True)
     mocker.patch("fair.registry.server.stop_server", lambda *args: True)
+    mocker.patch("fair.registry.sync.fetch_data_product", lambda *args, **kwargs: None)
     _cli_runner = click.testing.CliRunner()
     with _cli_runner.isolated_filesystem(pyDataPipeline):
         with remote_registry, local_registry:
-            assert not get(
-                "http://127.0.0.1:8001/api/",
-                "data_product",
-                remote_registry._token,
-                params={}
-            )
             remote_registry._venv.run(f"python {_manage} add_example_data", capture=True)
             os.makedirs(os.path.join(pyDataPipeline, FAIR_FOLDER), exist_ok=True)
             _data = os.path.join(local_registry._install, "data")
@@ -127,10 +88,9 @@ def test_pull_new(local_config: typing.Tuple[str, str],
             )
 
 
-@pytest.mark.with_api
-@pytest.mark.run
-@pytest.mark.push
-@pytest.mark.pull
+@pytest.mark.faircli_run
+@pytest.mark.faircli_push
+@pytest.mark.faircli_pull
 @pytest.mark.dependency(name='pull_existing')
 def test_pull_existing(local_config: typing.Tuple[str, str],
     local_registry: RegistryTest,
@@ -142,6 +102,7 @@ def test_pull_existing(local_config: typing.Tuple[str, str],
     mocker.patch("fair.registry.requests.local_token", lambda *args: local_registry._token)
     mocker.patch("fair.registry.server.launch_server", lambda *args, **kwargs: True)
     mocker.patch("fair.registry.server.stop_server", lambda *args: True)
+    mocker.patch("fair.registry.sync.fetch_data_product", lambda *args, **kwargs: None)
     _cli_runner = click.testing.CliRunner()
     with _cli_runner.isolated_filesystem(pyDataPipeline):
         with remote_registry, local_registry:
@@ -200,9 +161,8 @@ def test_pull_existing(local_config: typing.Tuple[str, str],
             )
 
 
-@pytest.mark.with_api
-@pytest.mark.pull
-@pytest.mark.fails_ci
+@pytest.mark.faircli_pull
+@pytest.mark.skipif('CI' in os.environ, reason="Fails on GH CI")
 @pytest.mark.dependency(name='check_local_files', depends=['pull_existing'])
 def test_local_files_present(
     local_registry: RegistryTest
@@ -226,9 +186,8 @@ def test_local_files_present(
     assert os.path.exists(os.path.join(_root.replace("file://", ""), _path))
 
 
-@pytest.mark.with_api
-@pytest.mark.run
-@pytest.mark.push
+@pytest.mark.faircli_run
+@pytest.mark.faircli_push
 @pytest.mark.dependency(name='run', depends=['pull_existing'])
 def test_run(local_config: typing.Tuple[str, str],
     local_registry: RegistryTest,
@@ -294,8 +253,6 @@ def test_run(local_config: typing.Tuple[str, str],
             with open(_new_cfg_path, "w") as cfg_file:
                 yaml.dump(_cfg, cfg_file)
 
-            print(os.path.join(pyDataPipeline, "simpleModel", "ext", "SEIRSModelRun.py"))
-
             assert os.path.exists(os.path.join(pyDataPipeline, "simpleModel", "ext", "SEIRSModelRun.py"))
 
             with capsys.disabled():
@@ -322,8 +279,7 @@ def test_run(local_config: typing.Tuple[str, str],
             )
 
 
-@pytest.mark.with_api
-@pytest.mark.push
+@pytest.mark.faircli_push
 @pytest.mark.dependency(name='push', depends=['pull_existing'])
 def test_push_initial(local_config: typing.Tuple[str, str],
     local_registry: RegistryTest,
@@ -368,8 +324,7 @@ def test_push_initial(local_config: typing.Tuple[str, str],
             )
 
 
-@pytest.mark.with_api
-@pytest.mark.push
+@pytest.mark.faircli_push
 @pytest.mark.dependency(name='push', depends=['pull_existing', 'run'])
 def test_push_postrun(local_config: typing.Tuple[str, str],
     local_registry: RegistryTest,

@@ -24,6 +24,7 @@ __date__ = "2021-07-02"
 
 import hashlib
 import os
+from threading import local
 import typing
 import logging
 
@@ -81,6 +82,41 @@ def get_write_storage(uri: str, write_data_store: str, token: str) -> str:
     return _storage_root["url"]
 
 
+def store_author(
+    uri: str,
+    token: str,
+    name: str,
+    identifier: str = None,
+    uuid: str = None) -> str:
+    """Creates an Author entry if one does not exist
+
+    Parameters
+    ----------
+    uri : str
+        registry RestAPI endpoint
+    token: str
+        registry access token
+    data: typing.Dict
+        author data to post
+    params: typing.Dict, optional
+        parameters to search if exists already
+
+    Returns
+    -------
+    str
+        URI for created author
+    """
+    _data = {
+        "name": name,
+        "identifier": identifier,
+        "uuid": uuid
+    }
+
+    return fdp_req.post_else_get(
+        uri, "author", token, _data, {"name": name}
+    )
+
+
 def store_user(repo_dir: str, uri: str, token: str) -> str:
     """Creates an Author entry for the user if one does not exist
 
@@ -100,20 +136,18 @@ def store_user(repo_dir: str, uri: str, token: str) -> str:
     """
 
     _user = fdp_conf.get_current_user_name(repo_dir)
-    _data = {"name": " ".join(_user) if _user[1] else _user[0]}
+    name = " ".join(_user) if _user[1] else _user[0]
+    _id = None
+    _uuid = None
 
-    logger.debug("Storing user '%s'", _data["name"])
+    logger.debug("Storing user '%s'", name)
 
     try:
         _id = fdp_conf.get_current_user_uri(repo_dir)
-        _data["identifier"] = _id
-        return fdp_req.post_else_get(
-            uri, "author", token, data=_data, params={"identifier": _id}
-        )
     except fdp_exc.CLIConfigurationError:
         _uuid = fdp_conf.get_current_user_uuid(repo_dir)
-        _data["uuid"] = _uuid
-        return fdp_req.post_else_get(uri, "author", data=_data, params={"uuid": _uuid})
+    
+    return store_author(uri, token, name, _id, _uuid)
 
 
 def populate_file_type(uri: str, token: str) -> typing.List[typing.Dict]:
@@ -365,7 +399,6 @@ def store_namespace(
     )
 
 
-# flake8: noqa: C901
 def store_data_file(
     uri: str,
     repo_dir: str,
@@ -388,34 +421,115 @@ def store_data_file(
             "registry submission but none found"
         )
 
+    _post_store_loc = _get_url_from_storage_loc(
+        local_file=local_file,
+        registry_uri=uri,
+        registry_token=token,
+        relative_path=_rel_path,
+        root_store_url=_root_store,
+        is_public=public
+    )
+
+    _user = store_user(repo_dir, uri, token)
+
+    _file_type = _get_url_from_file_type(
+        data=data,
+        local_file=local_file,
+        registry_uri=uri,
+        registry_token=token
+    )
+
+    _namespace_url = _get_url_from_namespace(
+        data=data,
+        label=local_file,
+        registry_uri=uri,
+        registry_token=token
+    )
+
+    _obj_url = _get_url_from_object(
+        data=data,
+        registry_uri=uri,
+        registry_token=token,
+        user=_user,
+        storage_loc_url=_post_store_loc,
+        file_type_url=_file_type
+    )
+
+    _data_prod_url = _get_url_from_data_product(
+        data=data,
+        label=local_file,
+        registry_uri=uri,
+        registry_token=token,
+        namespace_url=_namespace_url,
+        object_url=_obj_url
+    )
+
+    # If 'data_product' key present finish here and return URL
+    # else this is an external object
+    if "data_product" in data:
+        return _data_prod_url
+
+    return _get_url_from_external_obj(
+        data=data,
+        local_file=local_file,
+        registry_uri=uri,
+        registry_token=token,
+        data_product_url=_data_prod_url
+    )
+
+
+def _get_url_from_storage_loc(
+    local_file: str,
+    registry_uri: str,
+    registry_token: str,
+    relative_path: str,
+    root_store_url: str,
+    is_public: bool
+) -> str:
     _hash = calculate_file_hash(local_file)
 
     _storage_loc_data = {
-        "path": _rel_path,
-        "storage_root": _root_store,
-        "public": public,
+        "path": relative_path,
+        "storage_root": root_store_url,
+        "public": is_public,
         "hash": _hash,
     }
 
     _search_data = {"hash": _hash}
 
-    _post_store_loc = fdp_req.post_else_get(
-        uri, "storage_location", token, data=_storage_loc_data, params=_search_data
+    return fdp_req.post_else_get(
+        registry_uri,
+        "storage_location",
+        registry_token,
+        data=_storage_loc_data,
+        params=_search_data
     )
 
-    _user = store_user(repo_dir, uri, token)
 
+def _get_url_from_file_type(
+    data: typing.Dict,
+    local_file: str,
+    registry_uri: str,
+    registry_token: str
+) -> str:
     if "file_type" in data:
         _file_type = data["file_type"]
     else:
         _file_type = os.path.splitext(local_file)[1]
 
-    _file_type = create_file_type(uri, _file_type, token)
+    return create_file_type(registry_uri, _file_type, registry_token)
 
+
+def _get_url_from_namespace(
+    data: typing.Dict,
+    label: str,
+    registry_uri: str,
+    registry_token: str
+) -> str:
     # Namespace is read from the source information
     if "namespace_name" not in data:
         raise fdp_exc.UserConfigError(
-            f"Expected 'namespace_name' for item '{local_file}'"
+            f"Expected 'namespace_name' for item '{label}'"
         )
 
     _namespace_args = {
@@ -423,24 +537,73 @@ def store_data_file(
         "full_name": data["namespace_full_name"]
         if "namespace_full_name" in data
         else None,
-        "website": data["namespace_website"] if "namespace_website" in data else None,
+        "website": data.get("namespace_website", None),
     }
 
-    _namespace_url = store_namespace(uri, token, **_namespace_args)
+    return store_namespace(
+        registry_uri,
+        registry_token,
+        **_namespace_args
+    )
 
-    _desc = data["description"] if "description" in data else None
+
+def _get_url_from_external_obj(
+    data: typing.Dict,
+    local_file: str,
+    registry_uri: str,
+    registry_token: str,
+    data_product_url: str
+) -> typing.Dict:
+    _expected_ext_obj_keys = ("release_date", "primary", "title")
+
+
+    for key in _expected_ext_obj_keys:
+        if key not in data:
+            raise fdp_exc.UserConfigError(
+                f"Expected key '{key}' for item '{local_file}'"
+            )
+
+    _external_obj_data = {
+        "data_product": data_product_url,
+        "title": data["title"],
+        "primary_not_supplement": data["primary"],
+        "release_date": data["release_date"],
+    }
+    _external_obj_data.update(_get_identifier_from_data(data, local_file))
+
+    return fdp_req.post(
+        registry_uri,
+        "external_object",
+        registry_token,
+        data=_external_obj_data
+    )
+
+
+def _get_url_from_object(
+    data: typing.Dict,
+    registry_uri: str,
+    registry_token: str,
+    user: str,
+    storage_loc_url: str,
+    file_type_url: str) -> str:
+    _desc = data.get("description", None)
 
     _object_data = {
         "description": _desc,
-        "file_type": _file_type,
-        "storage_location": _post_store_loc,
-        "authors": [_user],
+        "file_type": file_type_url,
+        "storage_location": storage_loc_url,
+        "authors": [user],
     }
 
     try:
-        _obj_url = fdp_req.post(uri, "object", token, data=_object_data)["url"]
+        return fdp_req.post(
+            registry_uri,
+            "object",
+            registry_token,
+            data=_object_data
+        )["url"]
     except fdp_exc.RegistryAPICallError as e:
-        if not e.error_code == 409:
+        if e.error_code != 409:
             raise e
         else:
             raise fdp_exc.RegistryAPICallError(
@@ -453,6 +616,15 @@ def store_data_file(
             f" for post object '{_desc}'"
         )
 
+
+def _get_url_from_data_product(
+    data: typing.Dict,
+    label: str,
+    registry_uri: str,
+    registry_token: str,
+    namespace_url: str,
+    object_url: str) -> str:
+    """Retrieve the URL for a given config data product"""
     # Get the name of the entry
     if "external_object" in data:
         _name = data["external_object"]
@@ -460,7 +632,7 @@ def store_data_file(
         _name = data["data_product"]
     else:
         raise fdp_exc.UserConfigError(
-            f"Failed to determine type while storing item '{local_file}'"
+            f"Failed to determine type while storing item '{label}'"
             "into registry"
         )
 
@@ -468,16 +640,21 @@ def store_data_file(
         _name = data["use"]["data_product"]
 
     _data_prod_data = {
-        "namespace": _namespace_url,
-        "object": _obj_url,
+        "namespace": namespace_url,
+        "object": object_url,
         "version": str(data["use"]["version"]),
         "name": _name,
     }
 
     try:
-        _data_prod_url = fdp_req.post(uri, "data_product", token, data=_data_prod_data)["url"]
+        return fdp_req.post(
+            registry_uri,
+            "data_product",
+            registry_token,
+            data=_data_prod_data
+        )["url"]
     except fdp_exc.RegistryAPICallError as e:
-        if not e.error_code == 409:
+        if e.error_code != 409:
             raise e
         else:
             raise fdp_exc.RegistryAPICallError(
@@ -490,55 +667,33 @@ def store_data_file(
             f" for post object '{_name}'"
         )
 
-    # If 'data_product' key present finish here and return URL
-    # else this is an external object
-    if "data_product" in data:
-        return _data_prod_url
 
-    _expected_ext_obj_keys = ["release_date", "primary", "title"]
+def _get_identifier_from_data(data: typing.Dict, label: str) -> typing.Dict[str, str]:
+    """Retrieve the identifier metadata from the data entry"""
+    _identifier: typing.Dict[str, str] = {}
 
-    _identifier = None
-    _alternate_identifier = None
-    _alternate_identifier_type = None
-
-    if "identifier" in data:
-        _identifier = data["identifier"]
-        if not fdp_id.check_id_permitted(_identifier):
+    if data.get("identifier", None):
+        if not fdp_id.check_id_permitted(data["identifier"]):
             raise fdp_exc.UserConfigError(
-                f"Identifier '{_identifier}' is not a valid identifier"
+                "Identifier '"+data["identifier"]+"' is not a valid identifier"
             )
-
-    if not _identifier:
-        if "unique_name" not in data:
+        _identifier["identifier"] = data["identifier"]
+    else:
+        try:
+            _identifier["alternate_identifier"] = data["unique_name"]
+        except KeyError:
             raise fdp_exc.UserConfigError(
-                "No identifier/alternate_identifier given for " f"item '{local_file}'",
+                "No identifier/alternate_identifier given for "
+                f"item '{label}'",
                 hint="You must provide either a URL 'identifier', or "
                 "'unique_name' and 'source_name' keys",
             )
-        else:
-            _alternate_identifier = data["unique_name"]
-            if "alternate_identifier_type" in data:
-                _alternate_identifier_type = data["alternate_identifier_type"]
-            else:
-                _alternate_identifier_type = "local source descriptor"
-
-    for key in _expected_ext_obj_keys:
-        if key not in data:
-            raise fdp_exc.UserConfigError(
-                f"Expected key '{key}' for item '{local_file}'"
-            )
-
-    _external_obj_data = {
-        "data_product": _data_prod_url,
-        "title": data["title"],
-        "primary_not_supplement": data["primary"],
-        "release_date": data["release_date"],
-        "identifier": _identifier,
-        "alternate_identifier": _alternate_identifier,
-        "alternate_identifier_type": _alternate_identifier_type,
-    }
-
-    return fdp_req.post(uri, "external_object", token, data=_external_obj_data)
+        _identifier["alternate_identifier"] = data.get(
+            "alternate_identifier_type",
+            "local source descriptor"
+        )
+    
+    return _identifier
 
 
 def calculate_file_hash(file_name: str, buffer_size: int = 64 * 1024) -> str:

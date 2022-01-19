@@ -35,7 +35,6 @@ import enum
 import uuid
 import datetime
 
-
 class SupportedShells(enum.Enum):
     POWERSHELL = "powershell"
     PWSH = "pwsh"
@@ -48,7 +47,6 @@ class SupportedShells(enum.Enum):
     JULIA = "julia"
     JAVA = "java"
     SH = "sh"
-
 
 class RunMetadata(pydantic.BaseModel):
     local_repo: pathlib.Path = pydantic.Field(
@@ -192,6 +190,9 @@ class Use(pydantic.BaseModel):
     namespace: typing.Optional[str] = pydantic.Field(
         None, title="namespace", description="namespace to read/write object using"
     )
+    cache: typing.Optional[str] = pydantic.Field(
+        None, title="cache", description="local copy of requested file to use"
+    )
 
     class Config:
         extra = "forbid"
@@ -264,6 +265,15 @@ class Author(pydantic.BaseModel):
 
     class Config:
         extra = "forbid"
+
+
+# Permitted objects which are recognised by the schema and registry
+VALID_OBJECTS = {
+    "author": Author,
+    "data_product": DataProduct,
+    "namespace": Namespace,
+    "external_object": ExternalObject
+}
 
 
 class UserConfigModel(pydantic.BaseModel):
