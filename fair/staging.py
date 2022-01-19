@@ -183,7 +183,7 @@ class Stager:
         # parent_directory/file_name
         _obj_type = "storage_location"
 
-        _results = fdp_req.get(local_uri, _obj_type, params={"path": file_path})
+        _results = fdp_req.get(local_uri, _obj_type, fdp_req.local_token(), {"path": file_path})
 
         if not _results:
             raise fdp_exc.StagingError(
@@ -232,7 +232,12 @@ class Stager:
             _runs = [i.strip() for i in open(_code_run_file).readlines()]
 
             for run in _runs:
-                _results = fdp_req.get(local_uri, "code_run", params={"uuid": run})
+                _results = fdp_req.get(
+                    local_uri,
+                    "code_run",
+                    fdp_req.local_token(),
+                    params={"uuid": run}
+                )
 
                 if not _results:
                     raise fdp_exc.ImplementationError(
@@ -253,7 +258,7 @@ class Stager:
         for write_obj in config_dict["write"]:
             _data_product = write_obj["data_product"]
             _results = fdp_req.get(
-                local_uri, "data_product", params={"name": _data_product}
+                local_uri, "data_product", fdp_req.local_token(), params={"name": _data_product}
             )
 
             if not _results:
@@ -390,10 +395,16 @@ class Stager:
         with open(self._staging_file) as f:
             _staging_dict = yaml.safe_load(f)
 
-        result = fdp_req.url_get(f"{fdp_com.DEFAULT_LOCAL_REGISTRY_URL}data_product")
+        result = fdp_req.url_get(
+            f"{fdp_com.DEFAULT_LOCAL_REGISTRY_URL}data_product",
+            fdp_req.local_token()
+        )
 
         for data_product in result:
-            namespace = fdp_req.url_get(data_product["namespace"])["name"]
+            namespace = fdp_req.url_get(
+                data_product["namespace"],
+                fdp_req.local_token()
+            )["name"]
             name = data_product["name"]
             version = data_product["version"]
             key = f"{namespace}:{name}@v{version}"

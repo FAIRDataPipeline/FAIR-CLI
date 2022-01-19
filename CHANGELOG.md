@@ -1,4 +1,6 @@
 # Unreleased
+- Wildcard '*' parsing introduced for data products.
+- Ability to `push` to a registry added.
 - Added `--dirty` option to `fair run` to allow running with uncommitted changes.
 - Added `config.yaml` file validation.
 - Added initialisation from existing registry.

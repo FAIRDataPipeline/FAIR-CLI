@@ -291,7 +291,7 @@ def     install_registry(
     silent: bool = False,
     force: bool = False,
     venv_dir: str = None,
-) -> None:
+) -> str:
 
     logger = logging.getLogger("FAIRDataPipeline.Server")
 
@@ -392,6 +392,8 @@ def     install_registry(
     )
 
     rebuild_local(_venv_python, install_dir, silent)
+    
+    return reference
 
 
 def uninstall_registry() -> None:
@@ -437,15 +439,15 @@ def update_registry_post_setup(repo_dir: str, global_setup: bool = False) -> Non
 
     if global_setup:
         logger.debug("Populating file types")
-        fdp_store.populate_file_type(fdp_conf.get_local_uri())
+        fdp_store.populate_file_type(fdp_conf.get_local_uri(), fdp_req.local_token())
 
     logger.debug("Adding 'author' and 'UserAuthor' entries if not present")
     # Add author and UserAuthor
-    _author_url = fdp_store.store_user(repo_dir, fdp_conf.get_local_uri())
+    _author_url = fdp_store.store_user(repo_dir, fdp_conf.get_local_uri(), fdp_req.local_token())
 
     try:
         _admin_url = fdp_req.get(
-            fdp_conf.get_local_uri(), "users", params={"username": "admin"}
+            fdp_conf.get_local_uri(), "users", fdp_req.local_token(), params={"username": "admin"}
         )[0]["url"]
     except (KeyError, IndexError):
         raise fdp_exc.RegistryError(
@@ -455,6 +457,7 @@ def update_registry_post_setup(repo_dir: str, global_setup: bool = False) -> Non
     fdp_req.post_else_get(
         fdp_conf.get_local_uri(),
         "user_author",
+        fdp_req.local_token(),
         data={"user": _admin_url, "author": _author_url},
     )
 
