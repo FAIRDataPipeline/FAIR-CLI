@@ -831,6 +831,7 @@ class JobConfiguration(MutableMapping):
             "REPO_DIR": lambda: self.local_repository,
             "CONFIG_DIR": lambda: self._job_dir + os.path.sep,
             "LOCAL_TOKEN": lambda: fdp_req.local_token(),
+            "SOURCE_CONFIG": lambda: os.path.basename(self._input_file),
             "GIT_BRANCH": lambda: self.git_branch,
             "GIT_REMOTE": lambda: self.git_remote_uri,
             "GIT_TAG": _tag_check,
