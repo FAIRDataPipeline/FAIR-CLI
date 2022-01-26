@@ -81,7 +81,7 @@ pytest-virtualenv = "^1.7.0"
 loremipsum = "^1.0.5"
 pre-commit = "^2.16.0"
 isort = "^5.10.1"
-coverage = "^6.2"
+coverage = "^6.3"
 
 [tool.poetry.scripts]
 fair = 'fair.cli:cli'
