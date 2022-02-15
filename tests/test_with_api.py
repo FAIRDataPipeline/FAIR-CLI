@@ -220,7 +220,7 @@ def test_run(local_config: typing.Tuple[str, str],
     pySimpleModel: str,
     capsys):
     try:
-        import fairdatapipeline
+        import data_pipeline_api
     except ModuleNotFoundError:
         pytest.skip("Python API implementation not installed")
     mocker.patch("fair.configuration.get_remote_token", lambda *args: remote_registry._token)

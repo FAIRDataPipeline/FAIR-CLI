@@ -35,7 +35,7 @@ jobs:
       - name: run Python Model with fair cli
         run: |
           rm pyproject.toml poetry.lock
-          poetry run pip install --find-links=dist/ pydatapipeline
+          poetry run pip install --find-links=dist/ data_pipeline_api
           poetry run fair registry install
           poetry run fair registry install --directory ${GITHUB_WORKSPACE}/registry-rem
           poetry run fair init --ci
