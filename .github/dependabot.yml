@@ -11,7 +11,7 @@ updates:
       interval: "daily"
       time: "00:00"
     reviewers:
-      - "kzscisoft"
+      - "bruvio"
     commit-message:
       prefix: "pip"
       include: "scope"

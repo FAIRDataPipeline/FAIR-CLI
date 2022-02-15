@@ -17,9 +17,9 @@ TEST_CONFIG_WC = os.path.join(
 )
 
 @pytest.fixture
-def make_config(local_config: typing.Tuple[str, str], pyDataPipeline: str):
+def make_config(local_config: typing.Tuple[str, str], pySimpleModel: str):
     _cfg_path = os.path.join(
-        pyDataPipeline,
+        pySimpleModel,
         "simpleModel",
         "ext",
         "SEIRSconfig.yaml"

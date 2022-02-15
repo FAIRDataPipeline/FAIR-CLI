@@ -19,7 +19,7 @@ import fair.registry.server as fdp_serv
 from . import registry_install as test_reg
 
 TEST_JOB_FILE_TIMESTAMP = "2021-10-11_10_0_0_100000"
-PYTHON_API_GIT = "https://github.com/FAIRDataPipeline/pyDataPipeline.git"
+PYTHON_MODEL_GIT = "https://github.com/FAIRDataPipeline/pySimpleModel.git"
 
 TEST_OUT_DIR = os.path.join(os.getcwd(), "test_outputs")
 os.makedirs(TEST_OUT_DIR, exist_ok=True)
@@ -62,11 +62,10 @@ def get_example_entries(registry_dir: str):
 
 
 @pytest.fixture()
-def pyDataPipeline():
+def pySimpleModel():
     with tempfile.TemporaryDirectory() as temp_d:
         _repo_path = os.path.join(temp_d, 'repo')
-        _repo = git.Repo.clone_from(PYTHON_API_GIT, _repo_path)
-        _repo.git.checkout("dev")
+        git.Repo.clone_from(PYTHON_MODEL_GIT, _repo_path)
         yield _repo_path
         
 
@@ -200,7 +199,7 @@ class RegistryTest:
             )
         except KeyboardInterrupt as e:
             os.kill(self._process.pid, signal.SIGTERM)
-            raise e
+            raise e from e
 
     def __exit__(self, type, value, tb):
         os.kill(self._process.pid, signal.SIGTERM)
