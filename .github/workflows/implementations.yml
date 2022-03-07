@@ -10,8 +10,13 @@ jobs:
         uses: actions/checkout@v2
         with:
           repository: FAIRDataPipeline/pyDataPipeline
-          path: python_example
+          path: py_data_pipeline
           ref: 'dev'
+      - name: Checkout pySimpleModel
+        uses: actions/checkout@v2
+        with:
+          repository: FAIRDataPipeline/pySimpleModel
+          path: py_data_pipeline
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
@@ -20,21 +25,31 @@ jobs:
 
       - name: Install memcached
         run: sudo apt install -y libmemcached-dev
-
-      - name: Install and initialise FAIR CLI
+      - name: Install local registry
         run: |
-          pip install poetry
-          poetry install
-
+              curl -fsSL https://data.scrc.uk/static/localregistry.sh | /bin/bash -s -- -b main
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+          
       - name: run Python Model with fair cli
         run: |
-          poetry run fair registry install
+          poetry version
+          poetry install
+          source .venv/bin/activate
+          pip3 install fair-cli
+          pip3 install pySimpleModel
+          poetry run fair registry install --directory ${GITHUB_WORKSPACE}/registry-rem
           poetry run fair init --ci
-          poetry run pip install .
-          poetry run fair pull src/org/fairdatapipeline/simpleModel/ext/SEIRSconfig.yaml --debug
-          poetry run fair run src/org/fairdatapipeline/simpleModel/ext/SEIRSconfig.yaml --debug
-        working-directory: python_example
-
+          poetry run fair registry start
+          poetry run ${GITHUB_WORKSPACE}/registry-rem/scripts/start_fair_registry -p 8001
+          cp ${GITHUB_WORKSPACE}/registry-rem/token $PWD/token
+          fair pull simpleModel/ext/SEIRSconfig.yaml
+          fair run simpleModel/ext/SEIRSconfig.yaml
+        working-directory: py_data_pipeline
+        
   Java:
     runs-on: ubuntu-latest
     steps:
