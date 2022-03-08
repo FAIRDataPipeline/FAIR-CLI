@@ -46,7 +46,7 @@ jobs:
           poetry run ${GITHUB_WORKSPACE}/registry-rem/scripts/start_fair_registry -p 8001
           cp ${GITHUB_WORKSPACE}/registry-rem/token $PWD/token
           fair pull simpleModel/ext/SEIRSconfig.yaml
-          fair run --dirty simpleModel/ext/SEIRSconfig.yaml
+          fair run simpleModel/ext/SEIRSconfig.yaml
           fair add PSU:SEIRS_model/parameters@v1.0.0
           fair push
         working-directory: py_data_pipeline
