@@ -49,7 +49,7 @@ jobs:
           fair pull simpleModel/ext/SEIRSconfig.yaml
           fair run simpleModel/ext/SEIRSconfig.yaml
           fair add PSU:SEIRS_model/parameters@v1.0.0
-          fair push --dirty
+          fair push
         working-directory: py_data_pipeline
         
   Java:
