@@ -36,7 +36,6 @@ jobs:
           
       - name: run Python Model with fair cli
         run: |
-          poetry version
           poetry install
           source .venv/bin/activate
           pip3 install fair-cli
