@@ -33,7 +33,7 @@ jobs:
         with:
           virtualenvs-create: true
           virtualenvs-in-project: true
-          
+
       - name: run Python Model with fair cli
         run: |
           poetry install
@@ -49,7 +49,7 @@ jobs:
       - name: Test Pull
         run: poetry run fair pull --debug simpleModel/ext/SEIRSconfig.yaml
         working-directory: py_data_pipeline
-      
+
       - name: Test Run
         run: poetry run fair run --debug simpleModel/ext/SEIRSconfig.yaml
         working-directory: py_data_pipeline
@@ -57,7 +57,7 @@ jobs:
       - name: Test Push
         run: |
           poetry run fair add testing:SEIRS_model/parameters@v1.0.0
-          poetry run fair push
+#          poetry run fair push
         working-directory: py_data_pipeline
   Java:
     runs-on: ubuntu-latest
