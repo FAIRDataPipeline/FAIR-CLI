@@ -123,6 +123,7 @@ def test_pull_existing(local_config: typing.Tuple[str, str],
     remote_registry: RegistryTest,
     mocker: pytest_mock.MockerFixture,
     pyDataPipeline: str,
+    pySimpleModel: str,
     capsys):
     mocker.patch("fair.configuration.get_remote_token", lambda *args: remote_registry._token)
     mocker.patch("fair.registry.requests.local_token", lambda *args: local_registry._token)
@@ -143,7 +144,7 @@ def test_pull_existing(local_config: typing.Tuple[str, str],
             mocker.patch("fair.common.staging_cache", lambda *args: os.path.join(pyDataPipeline, FAIR_FOLDER, "staging"))
             mocker.patch("fair.configuration.get_local_data_store", lambda *args: _data)
             _cfg_path = os.path.join(
-                pyDataPipeline,
+                pySimpleModel,
                 "simpleModel",
                 "ext",
                 "SEIRSconfig.yaml"
@@ -220,9 +221,10 @@ def test_run(local_config: typing.Tuple[str, str],
     remote_registry: RegistryTest,
     mocker: pytest_mock.MockerFixture,
     pyDataPipeline: str,
+    pySimpleModel: str,
     capsys):
     try:
-        import fairdatapipeline
+        import data_pipeline_api
     except ModuleNotFoundError:
         pytest.skip("Python API implementation not installed")
     mocker.patch("fair.configuration.get_remote_token", lambda *args: remote_registry._token)
@@ -262,7 +264,7 @@ def test_run(local_config: typing.Tuple[str, str],
             
 
             _cfg_path = os.path.join(
-                pyDataPipeline,
+                pySimpleModel,
                 "simpleModel",
                 "ext",
                 "SEIRSconfig.yaml"
@@ -279,7 +281,7 @@ def test_run(local_config: typing.Tuple[str, str],
             with open(_new_cfg_path, "w") as cfg_file:
                 yaml.dump(_cfg, cfg_file)
 
-            assert os.path.exists(os.path.join(pyDataPipeline, "simpleModel", "ext", "SEIRSModelRun.py"))
+            assert os.path.exists(os.path.join(pySimpleModel, "simpleModel", "ext", "SEIRSModelRun.py"))
 
             with capsys.disabled():
                 print(f"\tRUNNING: fair run {_new_cfg_path} --debug")
