@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# flake8: noqa
 # -*- coding: utf-8 -*-
 """
 Command Line Interface
@@ -10,12 +11,12 @@ interact with the synchronisation tool.
 
 __date__ = "2021-06-24"
 
+import glob
+import logging
 import os
 import pathlib
 import sys
 import typing
-import glob
-import logging
 
 import click
 import click.shell_completion
@@ -81,7 +82,7 @@ def complete_jobs(ctx, param, incomplete) -> typing.List[str]:
 
 
 @click.group()
-@click.version_option(package_name='fair-cli')
+@click.version_option(package_name="fair-cli")
 def cli():
     """Welcome to FAIR-CLI, the FAIR data pipeline command-line interface."""
     pass
@@ -111,7 +112,9 @@ def status(verbose, debug) -> None:
 def create(debug, output: str) -> None:
     """Generate a new FAIR repository user YAML config file"""
     output = (
-        os.path.join(os.getcwd(), fdp_com.USER_CONFIG_FILE) if not output else output[0]
+        os.path.join(os.getcwd(), fdp_com.USER_CONFIG_FILE)
+        if not output
+        else output[0]
     )
     click.echo(f"Generating new user configuration file" f" '{output}'")
     with fdp_session.FAIR(os.getcwd(), debug=debug) as fair_session:
@@ -159,7 +162,9 @@ def reset(debug: bool) -> None:
     default=False,
 )
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
-@click.option("--export", help="Export the CLI configuration to a file", default="")
+@click.option(
+    "--export", help="Export the CLI configuration to a file", default=""
+)
 def init(
     config: str,
     debug: bool,
@@ -228,7 +233,8 @@ def purge(glob: bool, debug: bool, yes: bool, data: bool, all: bool) -> None:
         )
     else:
         _purge = click.confirm(
-            "Are you sure you want to reset FAIR tracking, " "this is not reversible?"
+            "Are you sure you want to reset FAIR tracking, "
+            "this is not reversible?"
         )
         if data:
             data = click.confirm(
@@ -281,16 +287,18 @@ def uninstall(debug: bool):
 @click.option("--force/--no-force", help="Force a reinstall", default=False)
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
 @click.option("--directory", help="Installation location", default=None)
-@click.option("--version", help="Specify version tag of registry to install, else latest repo tag", default=None)
+@click.option(
+    "--version",
+    help="Specify version tag of registry to install, else latest repo tag",
+    default=None,
+)
 def install(debug: bool, force: bool, directory: str, version: str):
     """Install the local registry on the system"""
     try:
         if debug:
             logging.getLogger("FAIRDataPipeline").setLevel(logging.DEBUG)
         _version = fdp_svr.install_registry(
-            install_dir=directory,
-            reference=version,
-            force=force
+            install_dir=directory, reference=version, force=force
         )
         click.echo(f"Installed registry version '{_version}'")
     except fdp_exc.FAIRCLIException as e:
@@ -326,7 +334,11 @@ def start(debug: bool, port: int) -> None:
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
 def stop(force: bool, debug: bool) -> None:
     """Stop the local registry server"""
-    _mode = fdp_svr.SwitchMode.FORCE_STOP if force else fdp_svr.SwitchMode.USER_STOP
+    _mode = (
+        fdp_svr.SwitchMode.FORCE_STOP
+        if force
+        else fdp_svr.SwitchMode.USER_STOP
+    )
     try:
         fdp_session.FAIR(os.getcwd(), server_mode=_mode, debug=debug)
     except fdp_exc.FAIRCLIException as e:
@@ -420,7 +432,9 @@ def add(identifier: str, debug: bool) -> None:
     default=False,
     help="remove from tracking but do not delete from file system",
 )
-def rm(job_ids: typing.List[str], cached: bool = False, debug: bool = False) -> None:
+def rm(
+    job_ids: typing.List[str], cached: bool = False, debug: bool = False
+) -> None:
     """Removes jobs from system or just tracking"""
     pass
 
@@ -439,7 +453,9 @@ def rm(job_ids: typing.List[str], cached: bool = False, debug: bool = False) -> 
     default=False,
 )
 @click.option(
-    "--dirty/--clean", help="Allow running with uncommitted changes", default=False
+    "--dirty/--clean",
+    help="Allow running with uncommitted changes",
+    default=False,
 )
 def run(config: str, script: str, debug: bool, ci: bool, dirty: bool):
     """Initialises a job with the option to specify a bash command"""
@@ -451,7 +467,7 @@ def run(config: str, script: str, debug: bool, ci: bool, dirty: bool):
             config,
             debug=debug,
             server_mode=fdp_svr.SwitchMode.CLI,
-            allow_dirty=dirty
+            allow_dirty=dirty,
         ) as fair_session:
             _hash = fair_session.run(script, passive=ci, allow_dirty=dirty)
             if ci:
@@ -554,7 +570,9 @@ def modify(ctx, label: str, url: str, debug: bool) -> None:
 @click.argument("remote", nargs=-1)
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
 @click.option(
-    "--dirty/--clean", help="Allow running with uncommitted changes", default=False
+    "--dirty/--clean",
+    help="Allow running with uncommitted changes",
+    default=False,
 )
 def push(remote: str, debug: bool, dirty: bool):
     """Push data between the local and remote registry"""
@@ -564,7 +582,7 @@ def push(remote: str, debug: bool, dirty: bool):
             os.getcwd(),
             debug=debug,
             server_mode=fdp_svr.SwitchMode.CLI,
-            allow_dirty=dirty
+            allow_dirty=dirty,
         ) as fair_session:
             fair_session.push(remote)
     except fdp_exc.FAIRCLIException as e:
@@ -605,7 +623,7 @@ def pull(config: str, debug: bool):
             config,
             server_mode=fdp_svr.SwitchMode.CLI,
             debug=debug,
-            allow_dirty=True
+            allow_dirty=True,
         ) as fair:
             fair.pull()
     except fdp_exc.FAIRCLIException as e:

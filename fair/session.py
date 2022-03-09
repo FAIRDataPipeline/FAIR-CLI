@@ -1,4 +1,5 @@
 #!/usr/bin/python3
+# flake8: noqa
 # -*- coding: utf-8 -*-
 """
     Session
@@ -33,14 +34,12 @@ import glob
 import logging
 import os
 import pathlib
+import re
 import shutil
 import typing
-import datetime
 import uuid
 
 import click
-import re
-import rich
 import git
 import pydantic
 import rich
@@ -50,17 +49,16 @@ from rich.table import Table
 
 import fair.common as fdp_com
 import fair.configuration as fdp_conf
+import fair.configuration.validation as fdp_clivalid
 import fair.exceptions as fdp_exc
 import fair.history as fdp_hist
+import fair.registry.requests as fdp_req
 import fair.registry.server as fdp_serv
 import fair.registry.sync as fdp_sync
-import fair.registry.requests as fdp_req
 import fair.staging as fdp_stage
 import fair.templates as fdp_tpl
 import fair.testing as fdp_test
-import fair.logging as fdp_log
 import fair.user_config as fdp_user
-import fair.configuration.validation as fdp_clivalid
 
 
 class FAIR:
@@ -135,9 +133,9 @@ class FAIR:
 
         self._session_config = fdp_user.JobConfiguration(user_config)
 
-
-        if server_mode != fdp_serv.SwitchMode.NO_SERVER and not os.path.exists(
-            fdp_com.registry_home()
+        if (
+            server_mode != fdp_serv.SwitchMode.NO_SERVER
+            and not os.path.exists(fdp_com.registry_home())
         ):
             raise fdp_exc.RegistryError(
                 f"User registry directory '{fdp_com.registry_home()}' was not found, this could "
@@ -145,7 +143,9 @@ class FAIR:
             )
 
         if not os.path.exists(fdp_com.global_config_dir()):
-            self._logger.debug("Creating directory: %s", fdp_com.global_config_dir())
+            self._logger.debug(
+                "Creating directory: %s", fdp_com.global_config_dir()
+            )
             os.makedirs(fdp_com.global_config_dir())
             assert os.path.exists(fdp_com.global_config_dir())
 
@@ -216,7 +216,9 @@ class FAIR:
         if clear_data:
             try:
                 if verbose and os.path.exists(fdp_com.default_data_dir()):
-                    click.echo(f"Removing directory '{fdp_com.default_data_dir()}'")
+                    click.echo(
+                        f"Removing directory '{fdp_com.default_data_dir()}'"
+                    )
                 if os.path.exists(fdp_com.default_data_dir()):
                     shutil.rmtree(fdp_com.default_data_dir())
             except FileNotFoundError:
@@ -226,14 +228,18 @@ class FAIR:
                 )
         if global_cfg:
             if verbose:
-                click.echo(f"Removing directory '{fdp_com.global_config_dir()}'")
+                click.echo(
+                    f"Removing directory '{fdp_com.global_config_dir()}'"
+                )
             _global_dirs = fdp_com.global_config_dir()
             if os.path.exists(_global_dirs):
                 shutil.rmtree(_global_dirs)
 
     def _setup_server(self, port: int) -> None:
         """Start or stop the server if required"""
-        self._logger.debug(f"Running server setup for run mode {self._run_mode}")
+        self._logger.debug(
+            f"Running server setup for run mode {self._run_mode}"
+        )
         if self._run_mode == fdp_serv.SwitchMode.CLI:
             self._setup_server_cli_mode(port)
         elif self._run_mode == fdp_serv.SwitchMode.USER_START:
@@ -247,7 +253,9 @@ class FAIR:
     def _stop_server(self) -> None:
         _cache_addr = os.path.join(fdp_com.session_cache_dir(), "user.run")
         if not fdp_serv.check_server_running():
-            raise fdp_exc.UnexpectedRegistryServerState("Server is not running.")
+            raise fdp_exc.UnexpectedRegistryServerState(
+                "Server is not running."
+            )
         if os.path.exists(_cache_addr):
             os.remove(_cache_addr)
         click.echo("Stopping local registry server.")
@@ -299,7 +307,9 @@ class FAIR:
             )
 
         if fdp_serv.check_server_running():
-            raise fdp_exc.UnexpectedRegistryServerState("Server already running.")
+            raise fdp_exc.UnexpectedRegistryServerState(
+                "Server already running."
+            )
         click.echo("Starting local registry server")
         pathlib.Path(_cache_addr).touch()
         fdp_serv.launch_server(port=port, verbose=True)
@@ -313,7 +323,9 @@ class FAIR:
 
     def _post_job_breakdown(self, add_run: bool = False) -> None:
         if add_run:
-            self._logger.debug(f"Tracking job hash {self._session_config.hash}")
+            self._logger.debug(
+                f"Tracking job hash {self._session_config.hash}"
+            )
 
         self._logger.debug("Updating staging post-run")
 
@@ -324,14 +336,15 @@ class FAIR:
             self._stager.add_to_staging(self._session_config.hash, "job")
 
         self._session_config.close_log()
-    
+
     def push(self, remote: str = "origin"):
         self._pre_job_setup(remote)
         self._session_config.prepare(
-            fdp_com.CMD_MODE.PUSH,
-            allow_dirty=self._allow_dirty
+            fdp_com.CMD_MODE.PUSH, allow_dirty=self._allow_dirty
         )
-        _staged_data_products = self._stager.get_item_list(True, "data_product")
+        _staged_data_products = self._stager.get_item_list(
+            True, "data_product"
+        )
 
         if not _staged_data_products:
             click.echo("Nothing to push.")
@@ -346,26 +359,28 @@ class FAIR:
         )
 
         self._session_config.write_log_lines(
-            [f"Pushing data products to remote '{remote}':"] +
-            [f'\t- {data_product}' for data_product in _staged_data_products]
+            [f"Pushing data products to remote '{remote}':"]
+            + [f"\t- {data_product}" for data_product in _staged_data_products]
         )
 
         self._post_job_breakdown()
 
         # When push successful unstage data products again
         for data_product in _staged_data_products:
-            self._stager.change_stage_status(data_product, "data_product", False)
+            self._stager.change_stage_status(
+                data_product, "data_product", False
+            )
 
     def pull(self, remote: str = "origin"):
         self._logger.debug("Performing pull on remote '%s'", remote)
-        
+
         _remote_addr = fdp_conf.get_remote_uri(self._session_loc, remote)
 
         if not fdp_serv.check_server_running(_remote_addr):
             raise fdp_exc.UnexpectedRegistryServerState(
                 f"Cannot perform pull from registry '{remote}' as the"
                 f" server does not exist. Expected response from '{_remote_addr}'.",
-                hint="Is your FAIR repository configured correctly?"
+                hint="Is your FAIR repository configured correctly?",
             )
 
         self._logger.debug("Retrieving namespaces from remote")
@@ -374,7 +389,7 @@ class FAIR:
             fdp_conf.get_local_uri(),
             fdp_conf.get_remote_uri(self._session_loc, remote),
             fdp_req.local_token(),
-            fdp_conf.get_remote_token(self._session_loc, remote)
+            fdp_conf.get_remote_token(self._session_loc, remote),
         )
 
         self._logger.debug("Performing pre-job setup")
@@ -385,7 +400,7 @@ class FAIR:
             fdp_com.CMD_MODE.PULL,
             allow_dirty=self._allow_dirty,
             remote_uri=fdp_conf.get_remote_uri(self._session_loc, remote),
-            remote_token=fdp_conf.get_remote_token(self._session_loc, remote)
+            remote_token=fdp_conf.get_remote_token(self._session_loc, remote),
         )
 
         _readables = self._session_config.get_readables()
@@ -404,15 +419,17 @@ class FAIR:
                 origin_uri=fdp_conf.get_remote_uri(self._session_loc, remote),
                 dest_uri=fdp_conf.get_local_uri(),
                 dest_token=fdp_req.local_token(),
-                origin_token=fdp_conf.get_remote_token(self._session_loc, remote),
+                origin_token=fdp_conf.get_remote_token(
+                    self._session_loc, remote
+                ),
                 remote_label=remote,
                 data_products=_readables,
-                local_data_store=self._session_config.default_data_store
+                local_data_store=self._session_config.default_data_store,
             )
 
             self._session_config.write_log_lines(
-                [f"Pulled data products from remote '{remote}':"] +
-                [f'\t- {data_product}' for data_product in _readables]
+                [f"Pulled data products from remote '{remote}':"]
+                + [f"\t- {data_product}" for data_product in _readables]
             )
         else:
             click.echo(f"No items to retrieve from remote '{remote}'.")
@@ -432,13 +449,13 @@ class FAIR:
 
         self._session_config.prepare(
             fdp_com.CMD_MODE.PASS if passive else fdp_com.CMD_MODE.RUN,
-            allow_dirty=self._allow_dirty
+            allow_dirty=self._allow_dirty,
         )
 
         self._logger.debug("Setting up command execution")
         if bash_cmd:
             self._session_config.set_command(bash_cmd)
-        
+
         self._session_config.setup_job_script()
 
         if allow_dirty:
@@ -494,7 +511,9 @@ class FAIR:
         try:
             if _current_branch:
                 _rem_commit = (
-                    _repo.remotes[remote_label].refs[_current_branch].commit.hexsha
+                    _repo.remotes[remote_label]
+                    .refs[_current_branch]
+                    .commit.hexsha
                 )
         except git.InvalidGitRepositoryError:
             raise fdp_exc.FDPRepositoryError(
@@ -517,7 +536,9 @@ class FAIR:
 
         if not _com_match:
             if allow_dirty:
-                click.echo("Warning: local git repository is ahead/behind remote")
+                click.echo(
+                    "Warning: local git repository is ahead/behind remote"
+                )
             else:
                 raise fdp_exc.FDPRepositoryError(
                     "Cannot run job, local git repository not level with "
@@ -546,14 +567,19 @@ class FAIR:
         if os.path.exists(fdp_com.global_fdpconfig()):
             self._global_config = fdp_conf.read_global_fdpconfig()
         if os.path.exists(fdp_com.local_fdpconfig(self._session_loc)):
-            self._local_config = fdp_conf.read_local_fdpconfig(self._session_loc)
+            self._local_config = fdp_conf.read_local_fdpconfig(
+                self._session_loc
+            )
 
     def reset_staging(self) -> None:
         """Reset all staged items"""
         self._stager.reset_staged()
 
     def change_staging_state(
-        self, identifier: str, type_to_stage: str = "data_product", stage: bool = True
+        self,
+        identifier: str,
+        type_to_stage: str = "data_product",
+        stage: bool = True,
     ) -> None:
         """Change the staging status of a given run
 
@@ -603,7 +629,10 @@ class FAIR:
     def remove_remote(self, label: str) -> None:
         """Remove a remote URL from the list of remotes by label"""
         self.check_is_repo()
-        if "registries" not in self._local_config or label not in self._local_config:
+        if (
+            "registries" not in self._local_config
+            or label not in self._local_config
+        ):
             raise fdp_exc.CLIConfigurationError(
                 f"No such entry '{label}' in available remotes"
             )
@@ -626,7 +655,9 @@ class FAIR:
 
         This does NOT delete any information from the registry
         """
-        _log_files = glob.glob(fdp_hist.history_directory(self._session_loc), "*.log")
+        _log_files = glob.glob(
+            fdp_hist.history_directory(self._session_loc), "*.log"
+        )
         if _log_files:
             for log in _log_files:
                 os.remove(log)
@@ -651,8 +682,12 @@ class FAIR:
         self.check_is_repo()
 
         self._stager.update_data_product_staging()
-        _staged_data_products = self._stager.get_item_list(True, "data_product")
-        _unstaged_data_products = self._stager.get_item_list(False, "data_product")
+        _staged_data_products = self._stager.get_item_list(
+            True, "data_product"
+        )
+        _unstaged_data_products = self._stager.get_item_list(
+            False, "data_product"
+        )
 
         if _staged_data_products:
             self.show_data_products(
@@ -667,7 +702,9 @@ class FAIR:
                 style="red",
             )
             click.echo(
-                rich.print('(use "fair add <DataProduct>..." to stage DataProducts)')
+                rich.print(
+                    '(use "fair add <DataProduct>..." to stage DataProducts)'
+                )
             )
 
         if not _unstaged_data_products and not _staged_data_products:
@@ -711,7 +748,9 @@ class FAIR:
             click.echo("\tJobs:")
             for job in _staged_jobs:
                 click.echo(click.style(f"\t\t{job}", fg="green"))
-                _job_urls = self._stager.get_job_data(fdp_conf.get_local_uri(), job)
+                _job_urls = self._stager.get_job_data(
+                    fdp_conf.get_local_uri(), job
+                )
                 if not verbose:
                     continue
 
@@ -721,7 +760,9 @@ class FAIR:
                     click.echo(click.style(f"\t\t\t{key}:", fg="green"))
                     if isinstance(value, list):
                         for url in value:
-                            click.echo(click.style(f"\t\t\t\t{url}", fg="green"))
+                            click.echo(
+                                click.style(f"\t\t\t\t{url}", fg="green")
+                            )
                     else:
                         click.echo(click.style(f"\t\t\t\t{value}", fg="green"))
 
@@ -733,7 +774,9 @@ class FAIR:
 
             for job in _unstaged_jobs:
                 click.echo(click.style(f"\t\t{job}", fg="red"))
-                _job_urls = self._stager.get_job_data(fdp_conf.get_local_uri(), job)
+                _job_urls = self._stager.get_job_data(
+                    fdp_conf.get_local_uri(), job
+                )
 
                 if not verbose:
                     continue
@@ -742,7 +785,9 @@ class FAIR:
                     if not value:
                         continue
                     click.echo(
-                        click.style(f"\t\t\t{key.replace('_', ' ').title()}:", fg="red")
+                        click.style(
+                            f"\t\t\t{key.replace('_', ' ').title()}:", fg="red"
+                        )
                     )
                     if isinstance(value, list):
                         for url in value:
@@ -756,7 +801,9 @@ class FAIR:
     def make_starter_config(self, output_file_name: str = None) -> None:
         """Create a starter config.yaml"""
         if not output_file_name:
-            output_file_name = os.path.join(self._session_loc, fdp_com.USER_CONFIG_FILE)
+            output_file_name = os.path.join(
+                self._session_loc, fdp_com.USER_CONFIG_FILE
+            )
         if os.path.exists(output_file_name):
             click.echo(
                 f"The user configuration file '{os.path.abspath(output_file_name)}'"
@@ -774,7 +821,9 @@ class FAIR:
             _yaml_str = fdp_tpl.config_template.render(
                 instance=self,
                 data_dir=fdp_com.default_data_dir(),
-                local_repo=os.path.abspath(fdp_com.find_fair_root(self._session_loc)),
+                local_repo=os.path.abspath(
+                    fdp_com.find_fair_root(self._session_loc)
+                ),
             )
             _yaml_dict = yaml.safe_load(_yaml_str)
 
@@ -789,6 +838,7 @@ class FAIR:
         with open(output_file, "w") as f:
             yaml.dump(_cli_config, f)
 
+    # noqa: C901
     def initialise(
         self,
         using: typing.Dict = None,
@@ -810,8 +860,10 @@ class FAIR:
 
         if self._testing:
             using = fdp_test.create_configurations(
-                registry, fdp_com.find_git_root(os.getcwd()), os.getcwd(),
-                os.path.join(os.getcwd(), "data_store")
+                registry,
+                fdp_com.find_git_root(os.getcwd()),
+                os.getcwd(),
+                os.path.join(os.getcwd(), "data_store"),
             )
 
         if os.path.exists(_fair_dir):
@@ -858,7 +910,9 @@ class FAIR:
                 self._clean_reset(_fair_dir, e, True)
         elif not using:
             try:
-                self._local_config = fdp_conf.local_config_query(self._global_config)
+                self._local_config = fdp_conf.local_config_query(
+                    self._global_config
+                )
             except (fdp_exc.CLIConfigurationError, click.Abort) as e:
                 self._clean_reset(_fair_dir, e, True)
         if not using:
@@ -868,7 +922,9 @@ class FAIR:
                 yaml.dump(self._global_config, f)
         else:
             self._global_config = fdp_conf.read_global_fdpconfig()
-            self._local_config = fdp_conf.read_local_fdpconfig(self._session_loc)
+            self._local_config = fdp_conf.read_local_fdpconfig(
+                self._session_loc
+            )
 
         if export_as:
             self._export_cli_configuration(export_as)
@@ -893,11 +949,15 @@ class FAIR:
                 "Initialisation failed, validation of global CLI config file did not pass"
             )
 
-        os.makedirs(fdp_hist.history_directory(self._session_loc), exist_ok=True)
+        os.makedirs(
+            fdp_hist.history_directory(self._session_loc), exist_ok=True
+        )
 
         click.echo(f"Initialised empty fair repository in {_fair_dir}")
 
-    def _clean_reset(self, _fair_dir, e: Exception = None, local_only: bool = False):
+    def _clean_reset(
+        self, _fair_dir, e: Exception = None, local_only: bool = False
+    ):
         if not local_only:
             shutil.rmtree(fdp_com.session_cache_dir(), ignore_errors=True)
             shutil.rmtree(fdp_com.global_config_dir(), ignore_errors=True)
@@ -907,7 +967,9 @@ class FAIR:
 
     def close_session(self) -> None:
         """Upon exiting, dump all configurations to file"""
-        if not os.path.exists(os.path.join(self._session_loc, fdp_com.FAIR_FOLDER)):
+        if not os.path.exists(
+            os.path.join(self._session_loc, fdp_com.FAIR_FOLDER)
+        ):
             return
 
         if self._session_id:
@@ -944,15 +1006,18 @@ class FAIR:
         for name, reg in cli_config["registries"].items():
             if "data_store" not in reg:
                 raise fdp_exc.CLIConfigurationError(
-                    f"Expected key '{key}' for remote '{name}' " "in CLI configuration"
+                    f"Expected key '{key}' for remote '{name}' "
+                    "in CLI configuration"
                 )
             if name != "local" and "uri" not in reg:
                 raise fdp_exc.CLIConfigurationError(
-                    f"Expected key 'uri' for remote '{name}' " "in CLI configuration"
+                    f"Expected key 'uri' for remote '{name}' "
+                    "in CLI configuration"
                 )
             if name != "local" and "token" not in reg:
                 raise fdp_exc.CLIConfigurationError(
-                    f"Expected key 'token' for remote '{name}' " "in CLI configuration"
+                    f"Expected key 'token' for remote '{name}' "
+                    "in CLI configuration"
                 )
             if name == "local" and "directory" not in reg:
                 raise fdp_exc.CLIConfigurationError(

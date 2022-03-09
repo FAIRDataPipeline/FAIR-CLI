@@ -2,19 +2,19 @@ import logging
 import os
 import signal
 import tempfile
-import git
+import time
 import typing
 
+import git
 import pytest
 import pytest_fixture_config
 import pytest_mock
 import pytest_virtualenv
 import yaml
-import time
 
 import fair.common as fdp_com
-import fair.testing as fdp_test
 import fair.registry.server as fdp_serv
+import fair.testing as fdp_test
 
 from . import registry_install as test_reg
 
@@ -28,9 +28,10 @@ os.makedirs(TEST_OUT_DIR, exist_ok=True)
 
 logging.getLogger("FAIRDataPipeline").setLevel(logging.DEBUG)
 
+
 def get_example_entries(registry_dir: str):
     """
-    With the registry examples regularly changing this function parses the 
+    With the registry examples regularly changing this function parses the
     relevant file in the reg repository to obtain all example object metadata
     """
     SEARCH_STR = "StorageLocation.objects.get_or_create"
@@ -39,7 +40,7 @@ def get_example_entries(registry_dir: str):
         "data_management",
         "management",
         "commands",
-        "_example_data.py"
+        "_example_data.py",
     )
 
     _objects: typing.List[typing.Tuple[str, str, str]] = []
@@ -49,34 +50,36 @@ def get_example_entries(registry_dir: str):
         for i, line in enumerate(_lines):
             if SEARCH_STR in line:
                 _path_line_offset = 0
-                while "path" not in _lines[i+_path_line_offset]:
+                while "path" not in _lines[i + _path_line_offset]:
                     _path_line_offset += 1
-                _candidate = _lines[i+_path_line_offset]
+                _candidate = _lines[i + _path_line_offset]
                 _candidate = _candidate.replace('"', "")
                 _candidate = _candidate.replace("path=", "")
                 _metadata, _file = _candidate.rsplit("/", 1)
                 _metadata = _metadata.replace("path=", "")
                 _version = ".".join(_file.split(".")[:3])
                 _objects.append((*_metadata.split("/", 1), _version))
-    
+
     return _objects
 
 
 @pytest.fixture()
 def pyDataPipeline():
     with tempfile.TemporaryDirectory() as temp_d:
-        _repo_path = os.path.join(temp_d, 'repo')
+        _repo_path = os.path.join(temp_d, "repo")
         _repo = git.Repo.clone_from(PYTHON_API_GIT, _repo_path)
         _repo.git.checkout("dev")
         yield _repo_path
-        
+
+
 @pytest.fixture()
 def pySimpleModel():
     with tempfile.TemporaryDirectory() as temp_d:
-        _repo_path = os.path.join(temp_d, 'repo')
+        _repo_path = os.path.join(temp_d, "repo")
         _repo = git.Repo.clone_from(PYTHON_MODEL_GIT, _repo_path)
         _repo.git.checkout("main")
         yield _repo_path
+
 
 @pytest.fixture(scope="session")
 @pytest_fixture_config.yield_requires_config(
@@ -131,7 +134,9 @@ def local_config(mocker: pytest_mock.MockerFixture):
             _lconfig_path = os.path.join(
                 templ, fdp_com.FAIR_FOLDER, fdp_com.FAIR_CLI_CONFIG
             )
-            _cfgl = fdp_test.create_configurations(templ, None, None, templ, True)
+            _cfgl = fdp_test.create_configurations(
+                templ, None, None, templ, True
+            )
             yaml.dump(_cfgl, open(_lconfig_path, "w"))
             with open(
                 os.path.join(templ, fdp_com.USER_CONFIG_FILE), "w"
@@ -175,7 +180,12 @@ def job_log(mocker: pytest_mock.MockerFixture) -> str:
 
 
 class RegistryTest:
-    def __init__(self, install_loc: str, venv: pytest_virtualenv.VirtualEnv, port: int = 8000):
+    def __init__(
+        self,
+        install_loc: str,
+        venv: pytest_virtualenv.VirtualEnv,
+        port: int = 8000,
+    ):
         self._install = install_loc
         self._venv = venv
         self._venv_dir = os.path.join(venv.workspace, ".env")
@@ -188,7 +198,10 @@ class RegistryTest:
             )
         # Start then stop to generate key
         _process = test_reg.launch(
-            self._install, silent=True, venv_dir=self._venv_dir, port=self._port
+            self._install,
+            silent=True,
+            venv_dir=self._venv_dir,
+            port=self._port,
         )
         while not os.path.exists(os.path.join(self._install, "token")):
             time.sleep(5)
@@ -204,7 +217,10 @@ class RegistryTest:
     def __enter__(self):
         try:
             self._process = test_reg.launch(
-                self._install, silent=True, venv_dir=self._venv_dir, port=self._port
+                self._install,
+                silent=True,
+                venv_dir=self._venv_dir,
+                port=self._port,
             )
         except KeyboardInterrupt as e:
             os.kill(self._process.pid, signal.SIGTERM)
@@ -217,17 +233,25 @@ class RegistryTest:
 
 @pytest.fixture(scope="module")
 def local_registry(session_virtualenv: pytest_virtualenv.VirtualEnv):
-    if fdp_serv.check_server_running('http://127.0.0.1:8000'):
-        pytest.skip("Cannot run registry tests, a server is already running on port 8000")
+    if fdp_serv.check_server_running("http://127.0.0.1:8000"):
+        pytest.skip(
+            "Cannot run registry tests, a server is already running on port 8000"
+        )
     with tempfile.TemporaryDirectory() as tempd:
-        session_virtualenv.env = test_reg.django_environ(session_virtualenv.env)
+        session_virtualenv.env = test_reg.django_environ(
+            session_virtualenv.env
+        )
         yield RegistryTest(tempd, session_virtualenv, port=8000)
 
 
 @pytest.fixture(scope="module")
 def remote_registry(session_virtualenv: pytest_virtualenv.VirtualEnv):
-    if fdp_serv.check_server_running('http://127.0.0.1:8001'):
-        pytest.skip("Cannot run registry tests, a server is already running on port 8001")
+    if fdp_serv.check_server_running("http://127.0.0.1:8001"):
+        pytest.skip(
+            "Cannot run registry tests, a server is already running on port 8001"
+        )
     with tempfile.TemporaryDirectory() as tempd:
-        session_virtualenv.env = test_reg.django_environ(session_virtualenv.env)
+        session_virtualenv.env = test_reg.django_environ(
+            session_virtualenv.env
+        )
         yield RegistryTest(tempd, session_virtualenv, port=8001)

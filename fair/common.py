@@ -55,7 +55,9 @@ FAIR_REGISTRY_REPO = "https://github.com/FAIRDataPipeline/data-registry.git"
 DEFAULT_REGISTRY_DOMAIN = "https://data.scrc.uk/"
 REGISTRY_INSTALL_URL = "https://data.scrc.uk/static/localregistry.sh"
 
-DEFAULT_REGISTRY_LOCATION = os.path.join(pathlib.Path().home(), FAIR_FOLDER, "registry")
+DEFAULT_REGISTRY_LOCATION = os.path.join(
+    pathlib.Path().home(), FAIR_FOLDER, "registry"
+)
 
 DEFAULT_LOCAL_REGISTRY_URL = "http://127.0.0.1:8000/api/"
 
@@ -69,8 +71,8 @@ class CMD_MODE(enum.Enum):
 
 def registry_home() -> str:
     if not os.path.exists(global_fdpconfig()):
-        if 'FAIR_REGISTRY_DIR' in os.environ:
-            return os.environ['FAIR_REGISTRY_DIR']
+        if "FAIR_REGISTRY_DIR" in os.environ:
+            return os.environ["FAIR_REGISTRY_DIR"]
         else:
             return DEFAULT_REGISTRY_LOCATION
     _glob_conf = yaml.safe_load(open(global_fdpconfig()))
@@ -182,7 +184,9 @@ def default_data_dir(location: str = "local") -> str:
     if location == "local":
         return os.path.join(USER_FAIR_DIR, f"data{os.path.sep}")
     else:
-        raise fdp_exc.UserConfigError("Cannot guess remote data store location")
+        raise fdp_exc.UserConfigError(
+            "Cannot guess remote data store location"
+        )
 
 
 def local_fdpconfig(user_loc: str = os.getcwd()) -> str:

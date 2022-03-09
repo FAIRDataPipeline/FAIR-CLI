@@ -1,28 +1,24 @@
 import os.path
 import typing
 
-import yaml
 import pytest
 import pytest_mock
+import yaml
 
-import fair.user_config as fdp_user
 import fair.common as fdp_com
+import fair.user_config as fdp_user
 
 from . import conftest as conf
 
 TEST_CONFIG_WC = os.path.join(
-    os.path.dirname(__file__),
-    "data",
-    "test_wildcards_config.yaml"
+    os.path.dirname(__file__), "data", "test_wildcards_config.yaml"
 )
+
 
 @pytest.fixture
 def make_config(local_config: typing.Tuple[str, str], pySimpleModel: str):
     _cfg_path = os.path.join(
-        pySimpleModel,
-        "simpleModel",
-        "ext",
-        "SEIRSconfig.yaml"
+        pySimpleModel, "simpleModel", "ext", "SEIRSconfig.yaml"
     )
     _config = fdp_user.JobConfiguration(_cfg_path)
     _config.update_from_fair(os.path.join(local_config[1], "project"))
@@ -54,6 +50,7 @@ def test_is_public(make_config: fdp_user.JobConfiguration):
     assert make_config.is_public_global
     make_config["run_metadata.public"] = False
     assert not make_config.is_public_global
+
 
 @pytest.mark.faircli_user_config
 def test_default_input_namespace(make_config: fdp_user.JobConfiguration):
@@ -87,22 +84,29 @@ def test_preparation(
 def test_wildcard_unpack_local(
     local_config: typing.Tuple[str, str],
     mocker: pytest_mock.MockerFixture,
-    local_registry: conf.RegistryTest
+    local_registry: conf.RegistryTest,
 ):
     with local_registry:
         os.makedirs(os.path.join(local_config[1], fdp_com.FAIR_FOLDER, "logs"))
         _manage = os.path.join(local_registry._install, "manage.py")
-        local_registry._venv.run(f"python {_manage} add_example_data", capture=True)
-        mocker.patch("fair.registry.requests.local_token", lambda *args: local_registry._token)
+        local_registry._venv.run(
+            f"python {_manage} add_example_data", capture=True
+        )
+        mocker.patch(
+            "fair.registry.requests.local_token",
+            lambda *args: local_registry._token,
+        )
         _data = os.path.join(local_registry._install, "data")
         _example_entries = conf.get_example_entries(local_registry._install)
 
-        _out_dir = os.path.join(conf.TEST_OUT_DIR, "test_wildcard_unpack_local")
+        _out_dir = os.path.join(
+            conf.TEST_OUT_DIR, "test_wildcard_unpack_local"
+        )
         os.makedirs(_out_dir, exist_ok=True)
 
         _namespace, _path, _ = _example_entries[0]
 
-        _split_key = _path.split('/')[2]
+        _split_key = _path.split("/")[2]
 
         _wildcard_path = _path.split(_split_key)[0] + "*"
 
@@ -117,7 +121,7 @@ def test_wildcard_unpack_local(
 
         _new_cfg_path = os.path.join(_out_dir, "in.yaml")
 
-        yaml.dump(_cfg, open(_new_cfg_path, 'w'))
+        yaml.dump(_cfg, open(_new_cfg_path, "w"))
 
         _config = fdp_user.JobConfiguration(_new_cfg_path)
         _config.update_from_fair(os.path.join(local_config[1], "project"))
@@ -132,23 +136,33 @@ def test_wildcard_unpack_remote(
     local_config: typing.Tuple[str, str],
     mocker: pytest_mock.MockerFixture,
     local_registry: conf.RegistryTest,
-    remote_registry: conf.RegistryTest
+    remote_registry: conf.RegistryTest,
 ):
     with local_registry, remote_registry:
         os.makedirs(os.path.join(local_config[1], fdp_com.FAIR_FOLDER, "logs"))
         _manage = os.path.join(remote_registry._install, "manage.py")
-        remote_registry._venv.run(f"python {_manage} add_example_data", capture=True)
-        mocker.patch("fair.registry.requests.local_token", lambda *args: local_registry._token)
-        mocker.patch("fair.configuration.get_remote_token", lambda *args: remote_registry._token)
+        remote_registry._venv.run(
+            f"python {_manage} add_example_data", capture=True
+        )
+        mocker.patch(
+            "fair.registry.requests.local_token",
+            lambda *args: local_registry._token,
+        )
+        mocker.patch(
+            "fair.configuration.get_remote_token",
+            lambda *args: remote_registry._token,
+        )
         _data = os.path.join(local_registry._install, "data")
         _example_entries = conf.get_example_entries(remote_registry._install)
 
-        _out_dir = os.path.join(conf.TEST_OUT_DIR, "test_wildcard_unpack_remote")
+        _out_dir = os.path.join(
+            conf.TEST_OUT_DIR, "test_wildcard_unpack_remote"
+        )
         os.makedirs(_out_dir, exist_ok=True)
 
         _namespace, _path, _ = _example_entries[0]
 
-        _split_key = _path.split('/')[2]
+        _split_key = _path.split("/")[2]
 
         _wildcard_path = _path.split(_split_key)[0] + "*"
 
@@ -163,11 +177,16 @@ def test_wildcard_unpack_remote(
 
         _new_cfg_path = os.path.join(_out_dir, "in.yaml")
 
-        yaml.dump(_cfg, open(_new_cfg_path, 'w'))
+        yaml.dump(_cfg, open(_new_cfg_path, "w"))
 
         _config = fdp_user.JobConfiguration(_new_cfg_path)
         _config.update_from_fair(os.path.join(local_config[1], "project"))
-        _config.prepare(fdp_com.CMD_MODE.PULL, True, remote_registry._url, remote_registry._token)
+        _config.prepare(
+            fdp_com.CMD_MODE.PULL,
+            True,
+            remote_registry._url,
+            remote_registry._token,
+        )
         assert len(_config["read"]) > 1
 
         _config.write(os.path.join(_out_dir, "out.yaml"))

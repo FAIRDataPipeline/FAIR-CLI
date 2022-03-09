@@ -28,11 +28,10 @@ Exceptions
 
 __date__ = "2021-06-28"
 
-import click
-import typing
 import json
-import logging
+import typing
 
+import click
 
 
 class FAIRCLIException(Exception):

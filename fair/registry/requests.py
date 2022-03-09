@@ -37,7 +37,9 @@ import fair.utilities as fdp_util
 logger = logging.getLogger("FAIRDataPipeline.Requests")
 
 
-def split_api_url(request_url: str, splitter: str = "api") -> typing.Tuple[str]:
+def split_api_url(
+    request_url: str, splitter: str = "api"
+) -> typing.Tuple[str]:
     """Split a request URL into endpoint and path
 
     Parameters
@@ -85,7 +87,7 @@ def _access(
     response_codes: typing.List[int] = [201, 200],
     headers: typing.Dict[str, typing.Any] = None,
     params: typing.Dict = None,
-    data: typing.Dict = None
+    data: typing.Dict = None,
 ):
     if not headers:
         headers: typing.Dict[str, str] = {}
@@ -112,16 +114,12 @@ def _access(
     try:
         if method == "get":
             logger.debug("Query parameters: %s", params)
-            _request = requests.get(
-                _url, headers=_headers, params=params
-            )
+            _request = requests.get(_url, headers=_headers, params=params)
         elif method == "post":
             logger.debug("Post data: %s", data)
             _request = requests.post(_url, headers=_headers, data=data)
         else:
-            _request = getattr(requests, method)(
-                _url, headers=_headers
-            )
+            _request = getattr(requests, method)(_url, headers=_headers)
     except requests.exceptions.ConnectionError:
         raise fdp_exc.UnexpectedRegistryServerState(
             f"Failed to make registry API request '{_url}'",
@@ -129,8 +127,8 @@ def _access(
         )
 
     _info = f"url = {_url}, "
-    _info += f' parameters = {params},' if params else ""
-    _info += f' data = {data}' if data else ""
+    _info += f" parameters = {params}," if params else ""
+    _info += f" data = {data}" if data else ""
 
     # Case of unrecognised object
     if _request.status_code == 404:
@@ -212,7 +210,9 @@ def post(
 
     for param, value in data.copy().items():
         if not value:
-            logger.warning(f"Key in post data '{param}' has no value so will be ignored")
+            logger.warning(
+                f"Key in post data '{param}' has no value so will be ignored"
+            )
             del data[param]
 
     return _access(
@@ -244,6 +244,7 @@ def url_get(url: str, token: str) -> typing.Dict:
         results dictionary
     """
     return _access(url, "get", token)
+
 
 def get(
     uri: str,
@@ -286,10 +287,14 @@ def get(
 
     for param, value in params.copy().items():
         if not value:
-            logger.warning(f"Key in get parameters '{param}' has no value so will be ignored")
+            logger.warning(
+                f"Key in get parameters '{param}' has no value so will be ignored"
+            )
             del params[param]
 
-    return _access(uri, "get", token, obj_path=obj_path, headers=headers, params=params)
+    return _access(
+        uri, "get", token, obj_path=obj_path, headers=headers, params=params
+    )
 
 
 def post_else_get(
@@ -323,13 +328,15 @@ def post_else_get(
         params = {}
 
     try:
-        logger.debug("Attempting to post an instance of '%s' to '%s'", obj_path, uri)
+        logger.debug(
+            "Attempting to post an instance of '%s' to '%s'", obj_path, uri
+        )
         _loc = post(uri, obj_path, data=data, token=token)
     except fdp_exc.RegistryAPICallError as e:
         if e.error_code != 409:
             raise e
         logger.debug(e.msg)
-        logger.debug('Object already exists, retrieving entry')
+        logger.debug("Object already exists, retrieving entry")
         _loc = get(uri, obj_path, token, params=params)
     if isinstance(_loc, list):
         if not _loc:
@@ -369,7 +376,11 @@ def filter_object_dependencies(
     typing.List[str]
         list of object type paths
     """
-    logger.debug("Filtering dependencies for object '%s' and filter '%s'", obj_path, filter)
+    logger.debug(
+        "Filtering dependencies for object '%s' and filter '%s'",
+        obj_path,
+        filter,
+    )
     try:
         _actions = _access(uri, "options", token, obj_path)["actions"]["POST"]
     except KeyError:
@@ -390,7 +401,9 @@ def filter_object_dependencies(
     return _fields
 
 
-def get_filter_variables(uri: str, obj_path: str, token: str) -> typing.List[str]:
+def get_filter_variables(
+    uri: str, obj_path: str, token: str
+) -> typing.List[str]:
     """Retrieves a list of variables you can filter by for a given object
 
     Parameters
@@ -415,7 +428,9 @@ def get_filter_variables(uri: str, obj_path: str, token: str) -> typing.List[str
     return [*_filters]
 
 
-def get_writable_fields(uri: str, obj_path: str, token: str) -> typing.List[str]:
+def get_writable_fields(
+    uri: str, obj_path: str, token: str
+) -> typing.List[str]:
     """Retrieve a list of writable fields for the given RestAPI object
 
     Parameters
@@ -432,7 +447,9 @@ def get_writable_fields(uri: str, obj_path: str, token: str) -> typing.List[str]
     typing.List[str]
         list of object type paths
     """
-    return filter_object_dependencies(uri, obj_path, token, {"read_only": False})
+    return filter_object_dependencies(
+        uri, obj_path, token, {"read_only": False}
+    )
 
 
 def download_file(url: str, chunk_size: int = 8192) -> str:
@@ -468,8 +485,7 @@ def download_file(url: str, chunk_size: int = 8192) -> str:
                     in_f.write(chunk)
     except requests.exceptions.ConnectionError:
         raise fdp_exc.FAIRCLIException(
-            f"Failed to download file '{url}'"
-            f" due to connection error"
+            f"Failed to download file '{url}'" f" due to connection error"
         )
 
     return _fname
@@ -494,7 +510,10 @@ def get_dependency_listing(uri: str, token: str) -> typing.Dict:
 
     return {
         obj: filter_object_dependencies(
-            uri, obj, token, {"read_only": False, "type": "field", "local": True}
+            uri,
+            obj,
+            token,
+            {"read_only": False, "type": "field", "local": True},
         )
         for obj in _registry_objs
     }
@@ -533,7 +552,9 @@ def get_obj_type_from_url(request_url: str, token: str) -> str:
         object type if recognised else empty string
     """
     _uri, _ = split_api_url(request_url)
-    for obj_type in sorted([*url_get(_uri, token=token)], key=len, reverse=True):
+    for obj_type in sorted(
+        [*url_get(_uri, token=token)], key=len, reverse=True
+    ):
         if obj_type in request_url:
             return obj_type
     return ""

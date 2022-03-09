@@ -31,9 +31,9 @@ import datetime
 import json
 import logging
 import typing
-import validators
 import urllib.parse
 
+import validators
 
 logger = logging.getLogger("FAIRDataPipeline.Utilities")
 
@@ -65,9 +65,13 @@ def flatten_dict(
         _out_dict = {}
 
     for label, value in in_dict.items():
-        new_label = f"{_parent_key}{separator}{label}" if _parent_key else label
+        new_label = (
+            f"{_parent_key}{separator}{label}" if _parent_key else label
+        )
         if isinstance(value, dict):
-            flatten_dict(in_dict=value, _out_dict=_out_dict, _parent_key=new_label)
+            flatten_dict(
+                in_dict=value, _out_dict=_out_dict, _parent_key=new_label
+            )
             continue
 
         _out_dict[new_label] = value

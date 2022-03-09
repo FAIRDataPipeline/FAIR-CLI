@@ -22,28 +22,30 @@ __date__ = "2021-08-16"
 import copy
 import logging
 import os
-import urllib.parse
+import platform
 import shutil
 import typing
-import platform
+import urllib.parse
 
-from fair.registry import SEARCH_KEYS
 import fair.exceptions as fdp_exc
 import fair.registry.requests as fdp_req
 import fair.registry.storage as fdp_store
-import fair.registry.versioning as fdp_ver
 import fair.registry.sync as fdp_sync
+import fair.registry.versioning as fdp_ver
+from fair.registry import SEARCH_KEYS
 
 logger = logging.getLogger("FAIRDataPipeline.Register")
 
 
-def convert_key_value_to_id(uri: str, obj_type: str, value: str, token: str) -> int:
+def convert_key_value_to_id(
+    uri: str, obj_type: str, value: str, token: str
+) -> int:
     """Converts a config key value to the relevant URL on the local registry
 
     Parameters
     ----------
     uri: str
-        registry endpoint to use for obtaining URL 
+        registry endpoint to use for obtaining URL
     obj_type : str
         object type
     value : str
@@ -105,7 +107,9 @@ def fetch_registrations(
                 )
 
         _identifier: str = entry["identifier"] if "identifier" in entry else ""
-        _unique_name: str = entry["unique_name"] if "unique_name" in entry else ""
+        _unique_name: str = (
+            entry["unique_name"] if "unique_name" in entry else ""
+        )
 
         _data_product = None
         _external_object = None
@@ -145,9 +149,10 @@ def fetch_registrations(
                 )
             try:
                 _data_product_id = convert_key_value_to_id(
-                    local_uri, "data_product",
+                    local_uri,
+                    "data_product",
                     entry["use"]["data_product"],
-                    fdp_req.local_token()
+                    fdp_req.local_token(),
                 )
                 _search_data["data_product"] = _data_product_id
             except fdp_exc.RegistryError:
@@ -177,9 +182,7 @@ def fetch_registrations(
             _local_parsed = urllib.parse.urlparse(local_uri)
             _local_url = f"{_local_parsed.scheme}://{_local_parsed.netloc}"
             _temp_data_file = fdp_sync.download_from_registry(
-                _local_url,
-                root=entry["root"],
-                path=entry["path"]
+                _local_url, root=entry["root"], path=entry["path"]
             )
 
         # Need to fix the path for Windows
@@ -202,7 +205,7 @@ def fetch_registrations(
             logger.debug(
                 "Skipping item '%s' as a hash matched entry is already"
                 " present with this name, deleting temporary data file",
-                _name
+                _name,
             )
             os.remove(_temp_data_file)
             continue
@@ -228,7 +231,9 @@ def fetch_registrations(
         # as multiple version files can exist
         os.makedirs(_local_dir, exist_ok=True)
 
-        _local_file = os.path.join(_local_dir, f"{_user_version}.{entry['file_type']}")
+        _local_file = os.path.join(
+            _local_dir, f"{_user_version}.{entry['file_type']}"
+        )
         # Copy the temporary file into the data store
         # then remove temporary file to save space
         logger.debug("Saving data file to '%s'", _local_file)

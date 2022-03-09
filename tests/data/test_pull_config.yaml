@@ -11,4 +11,3 @@ register:
   - namespace: <NAMESPACE_NEW>
     full_name: <NAMESPACEFULLNAME>
     website: <NAMESPACEWEBSITE>
-    

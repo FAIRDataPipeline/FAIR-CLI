@@ -98,7 +98,7 @@ jobs:
         poetry run fair init --ci
         poetry run fair pull --debug src/main/resources/seirs-config.yaml
         poetry run fair run --dirty --debug src/main/resources/seirs-config.yaml
-      working-directory: java_example 
+      working-directory: java_example
 
   R:
     runs-on: ubuntu-20.04
@@ -174,7 +174,7 @@ jobs:
         poetry run fair init --ci
         poetry run fair pull --debug inst/extdata/SEIRSconfig.yaml
         poetry run fair run --dirty --debug inst/extdata/SEIRSconfig.yaml
-      working-directory: r_example 
+      working-directory: r_example
 
   Julia:
     runs-on: ubuntu-latest
@@ -242,7 +242,7 @@ jobs:
       run: |
         pip install poetry
         poetry install
-      
+
     - name: Run Example model with fair-cli
       run: |
         poetry run fair registry install
@@ -254,5 +254,3 @@ jobs:
         poetry run fair pull --debug data/seirs_config.yaml
         poetry run fair run --dirty --debug data/seirs_config.yaml
       working-directory: cpp_example
-
-

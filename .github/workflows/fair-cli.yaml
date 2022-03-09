@@ -39,7 +39,7 @@ jobs:
               exit_code=$?
               if [ "$exit_code" != "0" ]; then
                 echo "ERROR: Tests for marker '$marker' failed"
-              fi             
+              fi
             done
       - uses: codecov/codecov-action@v2
         with:

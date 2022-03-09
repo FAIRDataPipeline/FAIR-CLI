@@ -1,13 +1,12 @@
 import os
 import pathlib
-import platform
 import tempfile
 import typing
 
 import git
 
-import fair.identifiers as fdp_id
 import fair.common as fdp_com
+import fair.identifiers as fdp_id
 
 
 def create_configurations(
@@ -38,8 +37,8 @@ def create_configurations(
         A CLI configuration dictionary that can be loaded for a the CLI session
     """
     if not registry_dir:
-        if 'FAIR_REGISTRY_DIR' in os.environ:
-            registry_dir = os.environ['FAIR_REGISTRY_DIR']
+        if "FAIR_REGISTRY_DIR" in os.environ:
+            registry_dir = os.environ["FAIR_REGISTRY_DIR"]
         else:
             registry_dir = fdp_com.DEFAULT_REGISTRY_LOCATION
     if not remote_reg_dir:
@@ -84,7 +83,11 @@ def create_configurations(
             "uri": f'{fdp_id.ID_URIS["orcid"]}000-0000-0000-0000',
             "uuid": "2ddb2358-84bf-43ff-b2aa-3ac7dc3b49f1",
         },
-        "git": {"local_repo": local_git_dir, "remote": "origin", "remote_repo": "git@notagit.com/user/project.git"},
+        "git": {
+            "local_repo": local_git_dir,
+            "remote": "origin",
+            "remote_repo": "git@notagit.com/user/project.git",
+        },
     }
 
 

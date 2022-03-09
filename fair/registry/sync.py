@@ -16,23 +16,24 @@ Functions
 
 __date__ = "2021-08-05"
 
-import typing
 import collections
 import logging
-import requests
-import re
 import os
+import re
 import shutil
+import typing
 import urllib.parse
+
 import click
+import requests
 
 import fair.exceptions as fdp_exc
 import fair.registry.requests as fdp_req
 import fair.utilities as fdp_util
-
 from fair.registry import SEARCH_KEYS
 
 logger = logging.getLogger("FAIRDataPipeline.Sync")
+
 
 def get_dependency_chain(object_url: str, token: str) -> collections.deque:
     """Get all objects relating to an object in order of dependency
@@ -80,13 +81,10 @@ def get_dependency_chain(object_url: str, token: str) -> collections.deque:
 
 
 def pull_all_namespaces(
-    local_uri: str,
-    remote_uri: str,
-    local_token: str,
-    remote_token: str
+    local_uri: str, remote_uri: str, local_token: str, remote_token: str
 ) -> typing.List[str]:
     """Pull all namespaces from a remote registry
-    
+
     This ensures a user does not try to register locally a namespace that
     already exists on the remote and so lowers the risk of conflicting
     metadata when running a pull
@@ -110,25 +108,28 @@ def pull_all_namespaces(
     logger.debug("Pulling all namespaces to local registry")
 
     _remote_namespaces = fdp_req.get(remote_uri, "namespace", remote_token)
-    
+
     logger.debug(
-        "Found %s namespace%s on remote", len(_remote_namespaces),
-        "s" if len(_remote_namespaces) != 1 else ""
+        "Found %s namespace%s on remote",
+        len(_remote_namespaces),
+        "s" if len(_remote_namespaces) != 1 else "",
     )
 
     if not _remote_namespaces:
         return
 
-    _writable_fields = fdp_req.get_writable_fields(local_uri, "namespace", local_token)
+    _writable_fields = fdp_req.get_writable_fields(
+        local_uri, "namespace", local_token
+    )
 
     for namespace in _remote_namespaces:
         _writable_data = {
-            k: v
-            for k, v in namespace.items()
-            if k in _writable_fields
+            k: v for k, v in namespace.items() if k in _writable_fields
         }
         logger.debug("Writable local object data: %s", _writable_data)
-        fdp_req.post_else_get(local_uri, "namespace", local_token, _writable_data)
+        fdp_req.post_else_get(
+            local_uri, "namespace", local_token, _writable_data
+        )
 
 
 def sync_dependency_chain(
@@ -136,7 +137,7 @@ def sync_dependency_chain(
     dest_uri: str,
     origin_uri: str,
     dest_token: str,
-    origin_token: str
+    origin_token: str,
 ) -> typing.Dict[str, str]:
     """Push an object and all of its dependencies to the remote registry
 
@@ -167,12 +168,11 @@ def sync_dependency_chain(
         raise fdp_exc.InternalError("Expected an origin token to be provided")
 
     _dependency_chain: collections.deque = get_dependency_chain(
-        object_url,
-        origin_token
+        object_url, origin_token
     )
 
     _new_urls: typing.Dict[str, str] = {k: "" for k in _dependency_chain}
-    _writable_fields: typing.Dict[str, str] ={}
+    _writable_fields: typing.Dict[str, str] = {}
 
     # For every object (and the order) in the dependency chain
     # post the object then store the URL so it can be used to assemble those
@@ -183,13 +183,13 @@ def sync_dependency_chain(
         _obj_data = fdp_req.url_get(object_url, token=origin_token)
 
         # Deduce the object type from its URL
-        _obj_type = fdp_req.get_obj_type_from_url(object_url, token=origin_token)
+        _obj_type = fdp_req.get_obj_type_from_url(
+            object_url, token=origin_token
+        )
 
         if _obj_type not in _writable_fields:
             _writable_fields[_obj_type] = fdp_req.get_writable_fields(
-                origin_uri,
-                _obj_type,
-                origin_token
+                origin_uri, _obj_type, origin_token
             )
 
         # Filter object data to only the writable fields
@@ -208,7 +208,7 @@ def sync_dependency_chain(
             dest_token=dest_token,
             object_url=object_url,
             new_urls=_new_urls,
-            writable_data=_writable_data
+            writable_data=_writable_data,
         )
 
         if not fdp_util.is_api_url(dest_uri, _new_url):
@@ -229,7 +229,7 @@ def _get_new_url(
     dest_token: str,
     object_url: str,
     new_urls: typing.Dict,
-    writable_data: typing.Dict
+    writable_data: typing.Dict,
 ) -> typing.Tuple[typing.Dict, typing.List]:
     _new_obj_data: typing.Dict[str, typing.Any] = {}
     _url_fields: typing.List[str] = []
@@ -257,7 +257,7 @@ def _get_new_url(
 
         # Retrieve from the new URLs the correct value and substitute
         _new_obj_data[key] = new_urls[value]
-    
+
     # Filters are all variables returned by 'filter_fields' request for a
     # given object minus any variables which have a URL value
     # (as remote URL will never match local)
@@ -278,7 +278,11 @@ def _get_new_url(
         raise fdp_exc.InternalError("Cannot push object to its source address")
 
     return fdp_req.post_else_get(
-        dest_uri, _obj_type, data=_new_obj_data, token=dest_token, params=_filters
+        dest_uri,
+        _obj_type,
+        data=_new_obj_data,
+        token=dest_token,
+        params=_filters,
     )
 
 
@@ -289,10 +293,10 @@ def sync_data_products(
     origin_token: str,
     remote_label: str,
     data_products: typing.List[str],
-    local_data_store: str = None
+    local_data_store: str = None,
 ) -> None:
     """Transfer data products from one registry to another
-    
+
     Parameters
     ----------
     origin_uri : str
@@ -317,11 +321,13 @@ def sync_data_products(
             dest_uri,
             "namespace",
             params={SEARCH_KEYS["namespace"]: namespace},
-            token=dest_token
+            token=dest_token,
         )
 
         if _existing_namespace:
-            _namespace_id = fdp_req.get_obj_id_from_url(_existing_namespace[0]["url"])
+            _namespace_id = fdp_req.get_obj_id_from_url(
+                _existing_namespace[0]["url"]
+            )
             _existing = fdp_req.get(
                 dest_uri,
                 "data_product",
@@ -329,8 +335,8 @@ def sync_data_products(
                 params={
                     "namespace": _namespace_id,
                     "name": name,
-                    "version": version.replace("v", "")
-                }
+                    "version": version.replace("v", ""),
+                },
             )
             if _existing:
                 click.echo(
@@ -344,7 +350,7 @@ def sync_data_products(
             origin_uri,
             "namespace",
             params={SEARCH_KEYS["namespace"]: namespace},
-            token=origin_token
+            token=origin_token,
         )
 
         if not _namespaces:
@@ -357,14 +363,11 @@ def sync_data_products(
         query_params = {
             "namespace": _namespace_id,
             "name": name,
-            "version": version.replace("v", "")
+            "version": version.replace("v", ""),
         }
 
         result = fdp_req.get(
-            origin_uri,
-            "data_product",
-            params=query_params,
-            token=origin_token
+            origin_uri, "data_product", params=query_params, token=origin_token
         )
 
         if not result:
@@ -377,7 +380,7 @@ def sync_data_products(
             dest_uri=dest_uri,
             origin_uri=origin_uri,
             dest_token=dest_token,
-            origin_token=origin_token
+            origin_token=origin_token,
         )
 
         if local_data_store:
@@ -386,13 +389,11 @@ def sync_data_products(
 
 
 def fetch_data_product(
-    remote_token: str,
-    local_data_store: str,
-    data_product: typing.Dict
+    remote_token: str, local_data_store: str, data_product: typing.Dict
 ) -> None:
     """
     Retrieve a file using the given user configuration metadata
-    
+
     Parameters
     ----------
 
@@ -402,16 +403,16 @@ def fetch_data_product(
         remote registry access token
     config_metadata : typing.Dict
         user configuration file block describing an object
-    """    
+    """
     _object = fdp_req.url_get(data_product["object"], remote_token)
-    
+
     _endpoint = data_product["object"].split("data_product")[0]
 
     if not _object.get("storage_location", None):
         logger.debug(
             "Skipping item '%s' for download "
             "as there is no physical storage location",
-            data_product
+            data_product,
         )
 
     _storage_loc = fdp_req.url_get(_object["storage_location"], remote_token)
@@ -426,25 +427,24 @@ def fetch_data_product(
     _downloaded_file = download_from_registry(_reg_url, _root["root"], _path)
 
     _namespace = fdp_req.url_get(data_product["namespace"], remote_token)
-    
+
     _file_type_url = _object.get("file_type", None)
 
     if _file_type_url:
-        _file_type = f'.{fdp_req.url_get(_file_type_url, remote_token)["extension"]}'
+        _file_type = (
+            f'.{fdp_req.url_get(_file_type_url, remote_token)["extension"]}'
+        )
     else:
         _file_type = ""
 
     _local_dir = os.path.join(
-        local_data_store,
-        _namespace["name"],
-        data_product["data_product"]
+        local_data_store, _namespace["name"], data_product["data_product"]
     )
 
     os.makedirs(_local_dir, exist_ok=True)
 
     _out_file = os.path.join(
-        _local_dir,
-        f'{data_product["version"]}{_file_type}'
+        _local_dir, f'{data_product["version"]}{_file_type}'
     )
 
     if os.path.exists(_out_file):
@@ -454,11 +454,7 @@ def fetch_data_product(
     shutil.copy(_downloaded_file, _out_file)
 
 
-def download_from_registry(
-    registry_url: str,
-    root: str,
-    path: str
-) -> str:
+def download_from_registry(registry_url: str, root: str, path: str) -> str:
     """
     Download a file from the registry given the storage root and path.
 
@@ -500,7 +496,9 @@ def download_from_registry(
 
     try:
         _temp_data_file = fdp_req.download_file(_download_url)
-        logger.debug("Downloaded file from '%s' to temporary file", _download_url)
+        logger.debug(
+            "Downloaded file from '%s' to temporary file", _download_url
+        )
     except requests.HTTPError as r_in:
         raise fdp_exc.UserConfigError(
             f"Failed to fetch item '{_download_url}' with exit code {r_in.response}"
