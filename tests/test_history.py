@@ -23,7 +23,7 @@ def test_show_history(
     fdp_hist.show_history(os.getcwd())
     _captured = capsys.readouterr()
     _job = _captured.out.split("\n")[0].split()[-1]
-    assert _job == hashlib.sha1(job_directory.encode("utf-8")).hexdigest()
+    assert _job == hashlib.sha256(job_directory.encode("utf-8")).hexdigest()
     assert (
         _captured.out.split("\n")[1].split(": ")[1].strip()
         == "Interface Test <test@noreply>"
@@ -39,7 +39,7 @@ def test_job_log_show(
     capsys: pytest.CaptureFixture, job_directory: str, job_log: str
 ):
     fdp_hist.show_job_log(
-        os.getcwd(), hashlib.sha1(job_directory.encode("utf-8")).hexdigest()
+        os.getcwd(), hashlib.sha256(job_directory.encode("utf-8")).hexdigest()
     )
     _captured = capsys.readouterr()
     _command = _captured.out.split("\n")[3].split("=")[-1].strip()

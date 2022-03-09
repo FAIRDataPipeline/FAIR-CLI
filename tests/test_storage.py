@@ -102,7 +102,9 @@ def test_calc_file_hash():
         mode="w+", suffix=".txt", delete=False
     ) as tempf:
         tempf.write(string.ascii_letters)
-    _HASH = "db16441c4b330570a9ac83b0e0b006fcd74cc32b"
+    # new has calculated on 09/03/2022
+    _HASH = "3964294b664613798d1a477eb8ad02118b48d0c5738c427613202f2ed123b5f1"
+    # _HASH = "db16441c4b330570a9ac83b0e0b006fcd74cc32b"
     # Based on hash calculated at 2021-10-15
     assert fdp_store.calculate_file_hash(tempf.name) == _HASH
     assert fdp_store.check_match(tempf.name, [{"hash": _HASH}])

@@ -298,7 +298,7 @@ def get_job_hash(job_dir: str) -> str:
             f"directory '{job_dir}' does not exist."
         )
     _directory = os.path.abspath(job_dir)
-    return hashlib.sha1(_directory.encode("utf-8")).hexdigest()
+    return hashlib.sha256(_directory.encode("utf-8")).hexdigest()
 
 
 def get_job_dir(job_hash: str) -> str:
@@ -317,7 +317,9 @@ def get_job_dir(job_hash: str) -> str:
     _jobs = glob.glob(os.path.join(fdp_com.default_jobs_dir(), "*"))
 
     for job in _jobs:
-        _hash = hashlib.sha1(os.path.abspath(job).encode("utf-8")).hexdigest()
+        _hash = hashlib.sha256(
+            os.path.abspath(job).encode("utf-8")
+        ).hexdigest()
         if _hash == job_hash:
             return job
 

@@ -182,7 +182,7 @@ def store_working_config(repo_dir: str, uri: str, work_cfg_yml: str) -> str:
     # hence the use of a timestamp in the hashing
     _hashable = open(work_cfg_yml).read() + _time_stamp_dir
 
-    _hash = hashlib.sha1(_hashable.encode("utf-8")).hexdigest()
+    _hash = hashlib.sha256(_hashable.encode("utf-8")).hexdigest()
 
     _storage_loc_data = {
         "path": _rel_path,
@@ -262,7 +262,7 @@ def store_working_script(
     # hence the use of a timestamp in the hashing
     _hashable = open(script_path).read() + _time_stamp_dir
 
-    _hash = hashlib.sha1(_hashable.encode("utf-8")).hexdigest()
+    _hash = hashlib.sha256(_hashable.encode("utf-8")).hexdigest()
 
     _storage_loc_data = {
         "path": _rel_path,
@@ -529,7 +529,7 @@ def calculate_file_hash(file_name: str, buffer_size: int = 64 * 1024) -> str:
         SHA1 hash for file
     """
     # If the file is large we do not want to hash it in one go
-    _input_hasher = hashlib.sha1()
+    _input_hasher = hashlib.sha256()
 
     with open(file_name, "rb") as in_f:
         _buffer = in_f.read(buffer_size)
