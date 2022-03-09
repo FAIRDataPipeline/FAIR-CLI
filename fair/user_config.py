@@ -437,7 +437,8 @@ class JobConfiguration(MutableMapping):
     def _subst_cli_vars(
         self, job_dir: str, job_time: datetime.datetime
     ) -> str:
-        job_time = datetime.datetime.strptime(job_time, "%Y-%m-%d_%H_%M_%S_%f")
+        if isinstance(job_time, str):
+            job_time = datetime.datetime.strptime(job_time, "%Y-%m-%d_%H_%M_%S_%f")
         self._logger.debug("Searching for CLI variables")
 
         def _get_id():
