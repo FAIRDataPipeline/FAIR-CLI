@@ -67,6 +67,7 @@ jobs:
       uses: actions/checkout@v2
       with:
         repository: FAIRDataPipeline/javaSimpleModel
+        ref: 'RyanJField-patch-1'
         path: java_example
     - name: Install memcached
       run: sudo apt install -y libmemcached-dev
