@@ -289,10 +289,10 @@ def test_run(
     )
     mocker.patch("fair.registry.server.stop_server", lambda *args: True)
     _cli_runner = click.testing.CliRunner()
-    with _cli_runner.isolated_filesystem(pyDataPipeline):
+    with _cli_runner.isolated_filesystem(pySimpleModel):
         with remote_registry, local_registry:
             os.makedirs(
-                os.path.join(pyDataPipeline, FAIR_FOLDER), exist_ok=True
+                os.path.join(pySimpleModel, FAIR_FOLDER), exist_ok=True
             )
             _data = os.path.join(local_registry._install, "data")
             mocker.patch(
@@ -301,7 +301,7 @@ def test_run(
             os.makedirs(_data, exist_ok=True)
 
             with open(
-                os.path.join(pyDataPipeline, FAIR_FOLDER, "staging"), "w"
+                os.path.join(pySimpleModel, FAIR_FOLDER, "staging"), "w"
             ) as sf:
                 yaml.dump(
                     {
@@ -317,7 +317,7 @@ def test_run(
             mocker.patch(
                 "fair.common.staging_cache",
                 lambda *args: os.path.join(
-                    pyDataPipeline, FAIR_FOLDER, "staging"
+                    pySimpleModel, FAIR_FOLDER, "staging"
                 ),
             )
 
@@ -332,13 +332,13 @@ def test_run(
             )
 
             _new_cfg_path = os.path.join(
-                os.path.dirname(pyDataPipeline), "config.yaml"
+                os.path.dirname(pySimpleModel), "config.yaml"
             )
 
             with open(_cfg_path) as cfg_file:
                 _cfg = yaml.safe_load(cfg_file)
 
-            _cfg["run_metadata"]["local_repo"] = pyDataPipeline
+            _cfg["run_metadata"]["local_repo"] = pySimpleModel
             _cfg["run_metadata"]["write_data_store"] = _data
 
             with open(_new_cfg_path, "w") as cfg_file:
