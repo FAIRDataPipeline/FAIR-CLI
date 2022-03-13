@@ -106,7 +106,7 @@ def test_wildcard_unpack_local(
 
         _namespace, _path, _ = _example_entries[0]
 
-        _split_key = _path.split("/")[2]
+        _split_key = _path.split("/")[-1]
 
         _wildcard_path = _path.split(_split_key)[0] + "*"
 
@@ -162,7 +162,7 @@ def test_wildcard_unpack_remote(
 
         _namespace, _path, _ = _example_entries[0]
 
-        _split_key = _path.split("/")[2]
+        _split_key = _path.split("/")[-1]
 
         _wildcard_path = _path.split(_split_key)[0] + "*"
 

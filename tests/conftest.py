@@ -53,10 +53,17 @@ def get_example_entries(registry_dir: str):
                 while "path" not in _lines[i + _path_line_offset]:
                     _path_line_offset += 1
                 _candidate = _lines[i + _path_line_offset]
-                _candidate = _candidate.replace('"', "")
                 _candidate = _candidate.replace("path=", "")
+                if _candidate.strip()[0] == "(":
+                    ii = i + _path_line_offset + 1
+                    while ")" not in _candidate:
+                        _candidate += _lines[ii].strip()
+                        ii+=1
+                _candidate = _candidate.replace('"', "")
+                _candidate = _candidate.replace('(', "")
+                _candidate = _candidate.replace(')', "")
+                _candidate = _candidate.replace(',', "")
                 _metadata, _file = _candidate.rsplit("/", 1)
-                _metadata = _metadata.replace("path=", "")
                 _version = ".".join(_file.split(".")[:3])
                 _objects.append((*_metadata.split("/", 1), _version))
 
