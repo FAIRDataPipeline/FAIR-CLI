@@ -81,7 +81,7 @@ def test_get_job_data(
     stager: fdp_stage.Stager,
     local_config: typing.Tuple[str, str],
     mocker: pytest_mock.MockerFixture,
-    pySimpleModel: str,
+    pyDataPipeline: str,
 ):
     with local_registry:
         mocker.patch(
@@ -113,7 +113,7 @@ def test_get_job_data(
             )
 
             _cfg_path = os.path.join(
-                pySimpleModel, "simpleModel", "ext", "SEIRSconfig.yaml"
+                pyDataPipeline, "simpleModel", "ext", "SEIRSconfig.yaml"
             )
 
             shutil.copy(

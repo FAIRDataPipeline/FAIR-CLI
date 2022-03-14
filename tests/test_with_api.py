@@ -117,6 +117,7 @@ def test_pull_new(
 
             with capsys.disabled():
                 print(f"\tRUNNING: fair pull {_new_cfg_path} --debug")
+
             _res = _cli_runner.invoke(cli, ["pull", _new_cfg_path, "--debug"])
 
             assert _res.exit_code == 0
@@ -155,7 +156,6 @@ def test_pull_existing(
     remote_registry: RegistryTest,
     mocker: pytest_mock.MockerFixture,
     pyDataPipeline: str,
-    pySimpleModel: str,
     capsys,
 ):
     mocker.patch(
@@ -198,11 +198,10 @@ def test_pull_existing(
                 "fair.configuration.get_local_data_store", lambda *args: _data
             )
             _cfg_path = os.path.join(
-                pySimpleModel, "simpleModel", "ext", "SEIRSconfig.yaml"
+                pyDataPipeline, "simpleModel", "ext", "SEIRSconfig.yaml"
             )
             with open(_cfg_path) as cfg_file:
                 _cfg = yaml.safe_load(cfg_file)
-
             _cfg["run_metadata"]["write_data_store"] = _data
             _cfg["run_metadata"]["local_repo"] = pyDataPipeline
 
@@ -215,6 +214,7 @@ def test_pull_existing(
 
             with capsys.disabled():
                 print(f"\tRUNNING: fair pull {_new_cfg_path} --debug")
+
             _res = _cli_runner.invoke(cli, ["pull", _new_cfg_path, "--debug"])
 
             assert _res.exit_code == 0
@@ -269,7 +269,6 @@ def test_run(
     remote_registry: RegistryTest,
     mocker: pytest_mock.MockerFixture,
     pyDataPipeline: str,
-    pySimpleModel: str,
     capsys,
 ):
     try:
@@ -289,10 +288,10 @@ def test_run(
     )
     mocker.patch("fair.registry.server.stop_server", lambda *args: True)
     _cli_runner = click.testing.CliRunner()
-    with _cli_runner.isolated_filesystem(pySimpleModel):
+    with _cli_runner.isolated_filesystem(pyDataPipeline):
         with remote_registry, local_registry:
             os.makedirs(
-                os.path.join(pySimpleModel, FAIR_FOLDER), exist_ok=True
+                os.path.join(pyDataPipeline, FAIR_FOLDER), exist_ok=True
             )
             _data = os.path.join(local_registry._install, "data")
             mocker.patch(
@@ -301,7 +300,7 @@ def test_run(
             os.makedirs(_data, exist_ok=True)
 
             with open(
-                os.path.join(pySimpleModel, FAIR_FOLDER, "staging"), "w"
+                os.path.join(pyDataPipeline, FAIR_FOLDER, "staging"), "w"
             ) as sf:
                 yaml.dump(
                     {
@@ -317,7 +316,7 @@ def test_run(
             mocker.patch(
                 "fair.common.staging_cache",
                 lambda *args: os.path.join(
-                    pySimpleModel, FAIR_FOLDER, "staging"
+                    pyDataPipeline, FAIR_FOLDER, "staging"
                 ),
             )
 
@@ -328,17 +327,17 @@ def test_run(
             )
 
             _cfg_path = os.path.join(
-                pySimpleModel, "simpleModel", "ext", "SEIRSconfig.yaml"
+                pyDataPipeline, "simpleModel", "ext", "SEIRSconfig.yaml"
             )
 
             _new_cfg_path = os.path.join(
-                os.path.dirname(pySimpleModel), "config.yaml"
+                os.path.dirname(pyDataPipeline), "config.yaml"
             )
 
             with open(_cfg_path) as cfg_file:
                 _cfg = yaml.safe_load(cfg_file)
 
-            _cfg["run_metadata"]["local_repo"] = pySimpleModel
+            _cfg["run_metadata"]["local_repo"] = pyDataPipeline
             _cfg["run_metadata"]["write_data_store"] = _data
 
             with open(_new_cfg_path, "w") as cfg_file:
@@ -346,7 +345,7 @@ def test_run(
 
             assert os.path.exists(
                 os.path.join(
-                    pySimpleModel, "simpleModel", "ext", "SEIRSModelRun.py"
+                    pyDataPipeline, "simpleModel", "ext", "SEIRSModelRun.py"
                 )
             )
 
@@ -438,7 +437,7 @@ def test_push_initial(
                 cli, ["add", "PSU:SEIRS_model/parameters@v1.0.0"]
             )
 
-            assert _res.exit_code == 0
+            assert _res.exit_code == 1
 
             with capsys.disabled():
                 print("\tRUNNING: fair push")

@@ -16,9 +16,9 @@ TEST_CONFIG_WC = os.path.join(
 
 
 @pytest.fixture
-def make_config(local_config: typing.Tuple[str, str], pySimpleModel: str):
+def make_config(local_config: typing.Tuple[str, str], pyDataPipeline: str):
     _cfg_path = os.path.join(
-        pySimpleModel, "simpleModel", "ext", "SEIRSconfig.yaml"
+        pyDataPipeline, "simpleModel", "ext", "SEIRSconfig.yaml"
     )
     _config = fdp_user.JobConfiguration(_cfg_path)
     _config.update_from_fair(os.path.join(local_config[1], "project"))
