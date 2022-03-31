@@ -413,9 +413,7 @@ def test_push_initial(
             ) as sf:
                 yaml.dump(
                     {
-                        "data_product": {
-                            "PSU:SEIRS_model/parameters@v1.0.0": False
-                        },
+                        "data_product": {},
                         "file": {},
                         "job": {},
                     },
