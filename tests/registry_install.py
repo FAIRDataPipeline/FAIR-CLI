@@ -88,7 +88,7 @@ def rebuild_local(python: str, install_dir: str = None, silent: bool = False):
 
 def install_registry(
     repository: str = FAIR_REGISTRY_REPO,
-    reference: str = "ns-fix",
+    reference: str = "",
     install_dir: str = None,
     silent: bool = False,
     force: bool = False,
