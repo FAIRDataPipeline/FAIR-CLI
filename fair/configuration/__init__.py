@@ -667,9 +667,9 @@ def global_config_query(
         ":8000", f":{_local_port}"
     )
     if local:
-        _remote_url = ""
-        _rem_key_file = ""
-        _rem_data_store = ""
+        _remote_url = "None"
+        _rem_key_file = "None"
+        _rem_data_store = "None"
     else:
         _default_rem = urljoin(fdp_com.DEFAULT_REGISTRY_DOMAIN, "api/")
         _remote_url = click.prompt("Remote API URL", default=_default_rem)

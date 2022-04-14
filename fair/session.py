@@ -939,7 +939,9 @@ class FAIR:
             self._export_cli_configuration(export_as)
 
         fdp_serv.update_registry_post_setup(self._session_loc, _first_time)
+        import pdb
 
+        pdb.set_trace()
         try:
             fdp_clivalid.LocalCLIConfig(**self._local_config)
         except pydantic.ValidationError as e:
