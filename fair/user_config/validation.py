@@ -28,12 +28,14 @@ Classes
 
 __date__ = "2021-11-16"
 
-import pydantic
-import typing
-import pathlib
-import enum
-import uuid
 import datetime
+import enum
+import pathlib
+import typing
+import uuid
+
+import pydantic
+
 
 class SupportedShells(enum.Enum):
     POWERSHELL = "powershell"
@@ -48,6 +50,7 @@ class SupportedShells(enum.Enum):
     JAVA = "java"
     SH = "sh"
 
+
 class RunMetadata(pydantic.BaseModel):
     local_repo: pathlib.Path = pydantic.Field(
         ...,
@@ -58,7 +61,9 @@ class RunMetadata(pydantic.BaseModel):
         ..., title="latest commit", description="latest git commit"
     )
     remote_repo: str = pydantic.Field(
-        ..., title="remote repository", description="remote repository location"
+        ...,
+        title="remote repository",
+        description="remote repository location",
     )
     description: typing.Optional[str] = pydantic.Field(
         None,
@@ -66,10 +71,14 @@ class RunMetadata(pydantic.BaseModel):
         description="description of the current project",
     )
     local_data_registry_url: pydantic.AnyHttpUrl = pydantic.Field(
-        ..., title="local registry URL", description="URL of the local data registry"
+        ...,
+        title="local registry URL",
+        description="URL of the local data registry",
     )
     remote_data_registry_url: pydantic.AnyHttpUrl = pydantic.Field(
-        ..., title="remote registry URL", description="URL of the remote data registry"
+        ...,
+        title="remote registry URL",
+        description="URL of the remote data registry",
     )
     default_input_namespace: str = pydantic.Field(
         ...,
@@ -100,7 +109,9 @@ class RunMetadata(pydantic.BaseModel):
         None, title="script", description="command to execute during a run"
     )
     script_path: typing.Optional[pathlib.Path] = pydantic.Field(
-        None, title="script path", description="path of script to execute during a run"
+        None,
+        title="script path",
+        description="path of script to execute during a run",
     )
     shell: typing.Optional[SupportedShells] = pydantic.Field(
         None, title="shell", description="shell to use for script execution"
@@ -117,7 +128,9 @@ class RunMetadata(pydantic.BaseModel):
 
 class ExternalObject(pydantic.BaseModel):
     external_object: str = pydantic.Field(
-        ..., title="external object label", description="label for the external object"
+        ...,
+        title="external object label",
+        description="label for the external object",
     )
     identifier: typing.Optional[str] = pydantic.Field(
         None, title="identifier", description="identifier for this object"
@@ -165,7 +178,9 @@ class ExternalObject(pydantic.BaseModel):
         description="extension of type of file to store object as",
     )
     release_date: datetime.datetime = pydantic.Field(
-        ..., title="data release date", description="date and time of data release"
+        ...,
+        title="data release date",
+        description="date and time of data release",
     )
     version: str = pydantic.Field(
         ..., title="version", description="object version to import as"
@@ -182,13 +197,17 @@ class ExternalObject(pydantic.BaseModel):
 
 class Use(pydantic.BaseModel):
     data_product: typing.Optional[str] = pydantic.Field(
-        None, title="data product label", description="label for the data product"
+        None,
+        title="data product label",
+        description="label for the data product",
     )
     version: typing.Optional[str] = pydantic.Field(
         None, title="version", description="object version to use"
     )
     namespace: typing.Optional[str] = pydantic.Field(
-        None, title="namespace", description="namespace to read/write object using"
+        None,
+        title="namespace",
+        description="namespace to read/write object using",
     )
     cache: typing.Optional[str] = pydantic.Field(
         None, title="cache", description="local copy of requested file to use"
@@ -200,7 +219,9 @@ class Use(pydantic.BaseModel):
 
 class DataProduct(pydantic.BaseModel):
     data_product: str = pydantic.Field(
-        ..., title="data product label", description="label for the data product"
+        ...,
+        title="data product label",
+        description="label for the data product",
     )
     description: typing.Optional[str] = pydantic.Field(
         None,
@@ -235,7 +256,9 @@ class Namespace(pydantic.BaseModel):
         ..., title="namespace label", description="label for the namespace"
     )
     full_name: str = pydantic.Field(
-        None, title="namespace full name", description="longer name for the namespace"
+        None,
+        title="namespace full name",
+        description="longer name for the namespace",
     )
     website: typing.Optional[pydantic.AnyHttpUrl] = pydantic.Field(
         None,
@@ -272,7 +295,7 @@ VALID_OBJECTS = {
     "author": Author,
     "data_product": DataProduct,
     "namespace": Namespace,
-    "external_object": ExternalObject
+    "external_object": ExternalObject,
 }
 
 
@@ -289,8 +312,9 @@ class UserConfigModel(pydantic.BaseModel):
 
 
 if __name__ in "__main__":
-    import yaml
     import argparse
+
+    import yaml
 
     parser = argparse.ArgumentParser()
     parser.add_argument("in_file")

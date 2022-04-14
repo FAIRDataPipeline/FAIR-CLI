@@ -11,15 +11,21 @@ confused with use of the 'logging' module which handles debug printouts etc.
 
 __date__ = "2021-12-07"
 
-import typing
-import os
 import datetime
+import os
+import typing
 
 import fair.configuration as fdp_conf
 
 
 class JobLogger:
-    def __init__(self, time_stamp: datetime.datetime, output_dir: str, command: str, project_dir: str = os.getcwd()) -> None:
+    def __init__(
+        self,
+        time_stamp: datetime.datetime,
+        output_dir: str,
+        command: str,
+        project_dir: str = os.getcwd(),
+    ) -> None:
         self._log: typing.List[str] = []
         self._directory = output_dir
         self._command = command
@@ -68,7 +74,7 @@ class JobLogger:
         _end_time = datetime.datetime.now()
         _duration = _end_time - self._now
         self.append(f"------- time taken {_duration} -------")
-        self._file_stream.write('\n'.join(self._log))
+        self._file_stream.write("\n".join(self._log))
 
     def __exit__(self, type, value, tb) -> None:
         self.write()

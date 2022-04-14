@@ -1,14 +1,14 @@
 import os
-import typing
 import tempfile
+import typing
 
 import deepdiff
 import pytest
 import pytest_mock
 
+import fair.common as fdp_com
 import fair.configuration as fdp_conf
 import fair.identifiers as fdp_id
-import fair.common as fdp_com
 
 
 @pytest.mark.faircli_configuration
@@ -102,7 +102,7 @@ def test_get_remote_token(mocker: pytest_mock.MockerFixture):
         open(_token_file, "w").write(_token)
         mocker.patch(
             "fair.configuration.read_local_fdpconfig",
-            lambda *args: {"registries": {"origin": {"token": _token_file}}}
+            lambda *args: {"registries": {"origin": {"token": _token_file}}},
         )
         assert fdp_conf.get_remote_token("") == _token
 
@@ -238,7 +238,7 @@ def test_global_config_query(
                 "uri": "http://127.0.0.1:8001/api/",
                 "directory": local_config[0],
                 "data_store": _override["Default Data Store"],
-                "token": os.path.join(local_config[0], "token")
+                "token": os.path.join(local_config[0], "token"),
             },
             "origin": {
                 "uri": _override["Remote API URL"],
@@ -318,6 +318,7 @@ def test_local_config_query(
     del _glob_conf["registries"]["local"]
 
     assert not deepdiff.DeepDiff(_glob_conf, _usr_config)
+
 
 @pytest.mark.faircli_configuration
 def test_update_port(local_config: typing.Tuple[str, str]):

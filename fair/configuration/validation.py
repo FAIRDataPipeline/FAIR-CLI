@@ -16,20 +16,27 @@ Classes
 
 __date__ = "2021-12-07"
 
-import pydantic
-import typing
 import pathlib
+import typing
+
+import pydantic
 
 
 class Git(pydantic.BaseModel):
     local_repo: pathlib.Path = pydantic.Field(
-        ..., title="local repository", description="Local project git repository"
+        ...,
+        title="local repository",
+        description="Local project git repository",
     )
     remote: str = pydantic.Field(
-        ..., title="remote label", description="label of git repository remote to use"
+        ...,
+        title="remote label",
+        description="label of git repository remote to use",
     )
     remote_repo: str = pydantic.Field(
-        ..., title="URL of remote repo", description="URL for the given remote repository"
+        ...,
+        title="URL of remote repo",
+        description="URL for the given remote repository",
     )
 
     class Config:
@@ -87,7 +94,9 @@ class User(pydantic.BaseModel):
         ..., title="user forenames", description="given names of the user"
     )
     orcid: typing.Optional[str] = pydantic.Field(
-        None, title="ORCID for the user", description="The users ORCID if applicable"
+        None,
+        title="ORCID for the user",
+        description="The users ORCID if applicable",
     )
     uri: typing.Optional[str] = pydantic.Field(
         None, title="user URI", description="Full URL identifier for the user"

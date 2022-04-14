@@ -331,7 +331,9 @@ def get_session_git_remote(repo_loc: str, url: bool = False) -> str:
     try:
         _remote_label = _local_conf["git"]["remote"]
     except KeyError:
-        raise fdp_exc.InternalError("Failed to retrieve project git repository remote")
+        raise fdp_exc.InternalError(
+            "Failed to retrieve project git repository remote"
+        )
 
     if not url:
         return _remote_label
@@ -442,7 +444,10 @@ def get_local_port(local_uri: str = None) -> int:
 def update_local_port() -> str:
     """Updates the local port in the global configuration from the session port file"""
     # If the global configuration does not exist or is empty do nothing
-    if not os.path.exists(fdp_com.global_fdpconfig()) or not read_global_fdpconfig():
+    if (
+        not os.path.exists(fdp_com.global_fdpconfig())
+        or not read_global_fdpconfig()
+    ):
         _local_uri = fdp_com.DEFAULT_LOCAL_REGISTRY_URL
     else:
         _local_uri = get_local_uri()
@@ -484,7 +489,9 @@ def _handle_orcid(user_orcid: str) -> typing.Tuple[typing.Dict, str]:
 
     _user_info["orcid"] = user_orcid
 
-    click.echo(f"Found entry: {_user_info['given_names']} {_user_info['family_name']}")
+    click.echo(
+        f"Found entry: {_user_info['given_names']} {_user_info['family_name']}"
+    )
 
     _def_ospace = "".join(_user_info["given_names"]).lower()
 
@@ -587,7 +594,9 @@ def _get_user_info_and_namespaces() -> typing.Dict[str, typing.Dict]:
     _invalid_input = True
 
     while _invalid_input:
-        _id_type = click.prompt("User ID system (ORCID/ROR/GRID/None)", default="None")
+        _id_type = click.prompt(
+            "User ID system (ORCID/ROR/GRID/None)", default="None"
+        )
 
         if _id_type.upper() == "ORCID":
             _user_orcid = click.prompt("ORCID")
@@ -620,10 +629,12 @@ def _get_user_info_and_namespaces() -> typing.Dict[str, typing.Dict]:
 
 def global_config_query(registry: str = None) -> typing.Dict[str, typing.Any]:
     """Ask user question set for creating global FAIR config"""
-    logger.debug("Running global configuration query with registry at '%s'", registry)
+    logger.debug(
+        "Running global configuration query with registry at '%s'", registry
+    )
     click.echo("Checking for local registry")
-    if not registry and 'FAIR_REGISTRY_DIR' in os.environ:
-        registry = os.environ['FAIR_REGISTRY_DIR']
+    if not registry and "FAIR_REGISTRY_DIR" in os.environ:
+        registry = os.environ["FAIR_REGISTRY_DIR"]
     check_reg = check_registry_exists(registry)
     if check_reg:
         registry = check_reg
@@ -652,7 +663,9 @@ def global_config_query(registry: str = None) -> typing.Dict[str, typing.Any]:
         fdp_serv.install_registry(install_dir=registry)
 
     _local_port: int = click.prompt("Local Registry Port", default="8000")
-    _local_uri = fdp_com.DEFAULT_LOCAL_REGISTRY_URL.replace(":8000", f":{_local_port}")
+    _local_uri = fdp_com.DEFAULT_LOCAL_REGISTRY_URL.replace(
+        ":8000", f":{_local_port}"
+    )
 
     _default_rem = urljoin(fdp_com.DEFAULT_REGISTRY_DOMAIN, "api/")
     _remote_url = click.prompt("Remote API URL", default=_default_rem)
@@ -666,7 +679,10 @@ def global_config_query(registry: str = None) -> typing.Dict[str, typing.Any]:
     )
     _rem_key_file = os.path.expandvars(_rem_key_file)
 
-    while not os.path.exists(_rem_key_file) or not open(_rem_key_file).read().strip():
+    while (
+        not os.path.exists(_rem_key_file)
+        or not open(_rem_key_file).read().strip()
+    ):
         click.echo(
             f"Token file '{_rem_key_file}' does not exist or is empty, "
             "please provide a valid token file."
@@ -760,7 +776,10 @@ def local_config_query(
 
     # Allow the user to continue without an input namespace as some
     # functionality does not require this.
-    if "input" not in global_config["namespaces"] or not global_config["namespaces"]:
+    if (
+        "input" not in global_config["namespaces"]
+        or not global_config["namespaces"]
+    ):
         click.echo(f"Will use '{_def_ospace}' as default input namespace")
         _def_ispace = _def_ospace
     else:
@@ -817,24 +836,35 @@ def local_config_query(
 
     _git_remote_repo = _repo.remotes[_git_remote].url
 
-    click.echo(f"Using git repository remote '{_git_remote}': {_git_remote_repo}")
+    click.echo(
+        f"Using git repository remote '{_git_remote}': {_git_remote_repo}"
+    )
 
     # If this is not the first setup it means globals are available so these
     # can be suggested as defaults during local setup
     if not first_time_setup:
         _def_remote = click.prompt("Remote API URL", default=_def_remote)
-        _def_rem_key = click.prompt("Remote API Token File", default=_def_rem_key)
+        _def_rem_key = click.prompt(
+            "Remote API Token File", default=_def_rem_key
+        )
         _def_rem_key = os.path.expandvars(_def_rem_key)
 
-        while not os.path.exists(_def_rem_key) or not open(_def_rem_key).read().strip():
+        while (
+            not os.path.exists(_def_rem_key)
+            or not open(_def_rem_key).read().strip()
+        ):
             click.echo(
                 f"Token file '{_def_rem_key}' does not exist or is empty, "
                 "please provide a valid token file."
             )
             _def_rem_key = click.prompt("Remote API Token File")
             _def_rem_key = os.path.expandvars(_def_rem_key)
-        _def_ospace = click.prompt("Default output namespace", default=_def_ospace)
-        _def_ispace = click.prompt("Default input namespace", default=_def_ispace)
+        _def_ospace = click.prompt(
+            "Default output namespace", default=_def_ospace
+        )
+        _def_ispace = click.prompt(
+            "Default input namespace", default=_def_ispace
+        )
 
     _local_config: typing.Dict[str, typing.Any] = {
         "namespaces": {"output": _def_ospace, "input": _def_ispace},

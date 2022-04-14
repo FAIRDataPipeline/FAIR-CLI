@@ -16,9 +16,8 @@ Constants
 """
 import typing
 
-import fair.registry.requests as fdp_req
 import fair.exceptions as fdp_exc
-
+import fair.registry.requests as fdp_req
 from fair.registry import SEARCH_KEYS
 
 __date__ = "2022-01-11"
@@ -35,16 +34,16 @@ DISPOSABLES = (
     "prov_report",
     "external_object",
     "internal_format",
-    "url"
+    "url",
 )
 
 
 def get_single_layer_objects(
-    results_list: typing.List[typing.Dict],
-    object_type: str) -> typing.List[typing.Dict]:
+    results_list: typing.List[typing.Dict], object_type: str
+) -> typing.List[typing.Dict]:
     """
     Retrieve results for a wildcard search for the given object
-    
+
     This object should not have any requirements (other registry URLs)
 
     Parameters
@@ -77,8 +76,8 @@ def get_data_product_objects(
     registry_token: str,
     results_list: typing.List[typing.Dict],
     block_type: str,
-    version: str = None
-    ) -> typing.List[typing.Dict]:
+    version: str = None,
+) -> typing.List[typing.Dict]:
     """
     Retrieve results for a wildcard search of a data_product
 
@@ -102,10 +101,7 @@ def get_data_product_objects(
             if not value:
                 _data.pop(key, None)
 
-        _namespace = fdp_req.url_get(
-            entry["namespace"],
-            registry_token
-        )
+        _namespace = fdp_req.url_get(entry["namespace"], registry_token)
 
         if not _namespace:
             raise fdp_exc.InternalError(
@@ -125,10 +121,10 @@ def get_data_product_objects(
         _data["use"]["version"] = _version
 
         for key in DISPOSABLES:
-            _data.pop(key, None)     
+            _data.pop(key, None)
 
         _new_entries.append(_data)
-    
+
     return _new_entries
 
 
@@ -136,8 +132,8 @@ def get_external_objects(
     registry_token: str,
     results_list: typing.List[typing.Dict],
     block_type: str,
-    version: str = None
-    ) -> typing.List[typing.Dict]:
+    version: str = None,
+) -> typing.List[typing.Dict]:
     """
     Retrieve results for a wildcard search of a external_object
 
@@ -160,10 +156,7 @@ def get_external_objects(
             if not value:
                 _data.pop(key, None)
 
-        _data_product = fdp_req.url_get(
-            result["data_product"],
-            registry_token
-        )
+        _data_product = fdp_req.url_get(result["data_product"], registry_token)
 
         if not _data_product:
             raise fdp_exc.InternalError(
@@ -172,8 +165,7 @@ def get_external_objects(
             )
 
         _namespace = fdp_req.url_get(
-            _data_product["namespace"],
-            fdp_req.local_token()
+            _data_product["namespace"], fdp_req.local_token()
         )
 
         if not _namespace:
@@ -188,7 +180,7 @@ def get_external_objects(
             _version = version
 
         _data["use"] = {}
-        _data["use"]["namespace"] = _namespace["name"],
+        _data["use"]["namespace"] = (_namespace["name"],)
         _data["use"]["version"] = _version
         _data.pop("name", None)
         _data.pop("last_updated", None)
@@ -197,5 +189,5 @@ def get_external_objects(
             _data.pop(key, None)
 
         _new_entries.append(_data)
-    
+
     return _new_entries

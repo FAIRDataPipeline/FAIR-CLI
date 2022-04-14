@@ -175,7 +175,7 @@ Default Data Store:  [/home/joebloggs/.fair/data]:
 Email: jbloggs@noreply.uk
 ORCID [None]:
 Full Name: Joe Bloggs
-Default output namespace [joebloggs]: 
+Default output namespace [joebloggs]:
 Default input namespace [joebloggs]: SCRC
 Project description: Test project
 Local Git repository [/home/joebloggs/Documents/AnalysisProject]:
@@ -196,11 +196,11 @@ Project description: Test Project
 Local Git repository [/home/joebloggs/Documents/AnalysisProject]:
 Git remote name [origin]:
 Using git repository remote 'origin': git@nogit.com:joebloggs/AnalysisProject.git
-Remote API URL [http://data.scrc.uk/api/]: 
-Remote API Token File [/home/kristian/scrc_token.txt]: 
-Local API URL [http://127.0.0.1:8000/api/]: 
-Default output namespace [joebloggs]: 
-Default input namespace [joebloggs]: 
+Remote API URL [http://data.scrc.uk/api/]:
+Remote API Token File [/home/kristian/scrc_token.txt]:
+Local API URL [http://127.0.0.1:8000/api/]:
+Default output namespace [joebloggs]:
+Default input namespace [joebloggs]:
 Initialised empty fair repository in /home/joebloggs/Documents/AnalysisProject/.fair
 ```
 

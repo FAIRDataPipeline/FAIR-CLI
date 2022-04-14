@@ -11,11 +11,12 @@ of the class which sets the Python executable manually is required.
 
 __date__ = "2022-01-05"
 
-import shutil
 import logging
 import os
-from venv import EnvBuilder
+import shutil
 from types import SimpleNamespace
+from venv import EnvBuilder
+
 
 class PythonExecutableIdentificationError(Exception):
     def __init__(self):
@@ -24,9 +25,10 @@ class PythonExecutableIdentificationError(Exception):
 
 class FAIREnv(EnvBuilder):
     _logger = logging.getLogger("FAIRDataPipeline.VirtualEnv")
+
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
-    
+
     def ensure_directories(self, env_dir) -> SimpleNamespace:
         self._logger.debug(f"Creating virtual environment in '{env_dir}'")
         _context: SimpleNamespace = super().ensure_directories(env_dir)

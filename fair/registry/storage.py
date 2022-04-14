@@ -23,10 +23,9 @@ Functions
 __date__ = "2021-07-02"
 
 import hashlib
-import os
-from threading import local
-import typing
 import logging
+import os
+import typing
 
 import yaml
 
@@ -70,7 +69,9 @@ def get_write_storage(uri: str, write_data_store: str, token: str) -> str:
         _write_store_root += os.path.sep
 
     # Check if the data store already exists by querying for it
-    _search_root = fdp_req.get(uri, "storage_root", token, params={"root": _write_store_root})
+    _search_root = fdp_req.get(
+        uri, "storage_root", token, params={"root": _write_store_root}
+    )
 
     # If the data store already exists just return the URI else create it
     # and then do the same
@@ -83,11 +84,8 @@ def get_write_storage(uri: str, write_data_store: str, token: str) -> str:
 
 
 def store_author(
-    uri: str,
-    token: str,
-    name: str,
-    identifier: str = None,
-    uuid: str = None) -> str:
+    uri: str, token: str, name: str, identifier: str = None, uuid: str = None
+) -> str:
     """Creates an Author entry if one does not exist
 
     Parameters
@@ -106,15 +104,9 @@ def store_author(
     str
         URI for created author
     """
-    _data = {
-        "name": name,
-        "identifier": identifier,
-        "uuid": uuid
-    }
+    _data = {"name": name, "identifier": identifier, "uuid": uuid}
 
-    return fdp_req.post_else_get(
-        uri, "author", token, _data, {"name": name}
-    )
+    return fdp_req.post_else_get(uri, "author", token, _data, {"name": name})
 
 
 def store_user(repo_dir: str, uri: str, token: str) -> str:
@@ -146,7 +138,7 @@ def store_user(repo_dir: str, uri: str, token: str) -> str:
         _id = fdp_conf.get_current_user_uri(repo_dir)
     except fdp_exc.CLIConfigurationError:
         _uuid = fdp_conf.get_current_user_uuid(repo_dir)
-    
+
     return store_author(uri, token, name, _id, _uuid)
 
 
@@ -201,7 +193,9 @@ def create_file_type(uri: str, extension: str, token: str) -> str:
     )
 
 
-def store_working_config(repo_dir: str, uri: str, work_cfg_yml: str, token: str) -> str:
+def store_working_config(
+    repo_dir: str, uri: str, work_cfg_yml: str, token: str
+) -> str:
     """Construct a storage location and object for the working config
 
     Parameters
@@ -249,7 +243,9 @@ def store_working_config(repo_dir: str, uri: str, work_cfg_yml: str, token: str)
     }
 
     try:
-        _post_store_loc = fdp_req.post(uri, "storage_location", token, data=_storage_loc_data)
+        _post_store_loc = fdp_req.post(
+            uri, "storage_location", token, data=_storage_loc_data
+        )
     except fdp_exc.RegistryAPICallError as e:
         if e.error_code != 409:
             raise e
@@ -329,7 +325,9 @@ def store_working_script(
     }
 
     try:
-        _post_store_loc = fdp_req.post(uri, "storage_location", token, data=_storage_loc_data)
+        _post_store_loc = fdp_req.post(
+            uri, "storage_location", token, data=_storage_loc_data
+        )
     except fdp_exc.RegistryAPICallError as e:
         if e.error_code != 409:
             raise e
@@ -360,11 +358,7 @@ def store_working_script(
 
 
 def store_namespace(
-    uri: str,
-    token: str,
-    name: str,
-    full_name: str = None,
-    website: str = None
+    uri: str, token: str, name: str, full_name: str = None, website: str = None
 ) -> str:
     """Create a namespace on the registry
 
@@ -427,7 +421,7 @@ def store_data_file(
         registry_token=token,
         relative_path=_rel_path,
         root_store_url=_root_store,
-        is_public=public
+        is_public=public,
     )
 
     _user = store_user(repo_dir, uri, token)
@@ -436,14 +430,11 @@ def store_data_file(
         data=data,
         local_file=local_file,
         registry_uri=uri,
-        registry_token=token
+        registry_token=token,
     )
 
     _namespace_url = _get_url_from_namespace(
-        data=data,
-        label=local_file,
-        registry_uri=uri,
-        registry_token=token
+        data=data, label=local_file, registry_uri=uri, registry_token=token
     )
 
     _obj_url = _get_url_from_object(
@@ -452,7 +443,7 @@ def store_data_file(
         registry_token=token,
         user=_user,
         storage_loc_url=_post_store_loc,
-        file_type_url=_file_type
+        file_type_url=_file_type,
     )
 
     _data_prod_url = _get_url_from_data_product(
@@ -461,7 +452,7 @@ def store_data_file(
         registry_uri=uri,
         registry_token=token,
         namespace_url=_namespace_url,
-        object_url=_obj_url
+        object_url=_obj_url,
     )
 
     # If 'data_product' key present finish here and return URL
@@ -474,7 +465,7 @@ def store_data_file(
         local_file=local_file,
         registry_uri=uri,
         registry_token=token,
-        data_product_url=_data_prod_url
+        data_product_url=_data_prod_url,
     )
 
 
@@ -484,7 +475,7 @@ def _get_url_from_storage_loc(
     registry_token: str,
     relative_path: str,
     root_store_url: str,
-    is_public: bool
+    is_public: bool,
 ) -> str:
     _hash = calculate_file_hash(local_file)
 
@@ -502,15 +493,12 @@ def _get_url_from_storage_loc(
         "storage_location",
         registry_token,
         data=_storage_loc_data,
-        params=_search_data
+        params=_search_data,
     )
 
 
 def _get_url_from_file_type(
-    data: typing.Dict,
-    local_file: str,
-    registry_uri: str,
-    registry_token: str
+    data: typing.Dict, local_file: str, registry_uri: str, registry_token: str
 ) -> str:
     if "file_type" in data:
         _file_type = data["file_type"]
@@ -521,10 +509,7 @@ def _get_url_from_file_type(
 
 
 def _get_url_from_namespace(
-    data: typing.Dict,
-    label: str,
-    registry_uri: str,
-    registry_token: str
+    data: typing.Dict, label: str, registry_uri: str, registry_token: str
 ) -> str:
     # Namespace is read from the source information
     if "namespace_name" not in data:
@@ -540,11 +525,7 @@ def _get_url_from_namespace(
         "website": data.get("namespace_website", None),
     }
 
-    return store_namespace(
-        registry_uri,
-        registry_token,
-        **_namespace_args
-    )
+    return store_namespace(registry_uri, registry_token, **_namespace_args)
 
 
 def _get_url_from_external_obj(
@@ -552,10 +533,9 @@ def _get_url_from_external_obj(
     local_file: str,
     registry_uri: str,
     registry_token: str,
-    data_product_url: str
+    data_product_url: str,
 ) -> typing.Dict:
     _expected_ext_obj_keys = ("release_date", "primary", "title")
-
 
     for key in _expected_ext_obj_keys:
         if key not in data:
@@ -575,7 +555,7 @@ def _get_url_from_external_obj(
         registry_uri,
         "external_object",
         registry_token,
-        data=_external_obj_data
+        data=_external_obj_data,
     )
 
 
@@ -585,7 +565,8 @@ def _get_url_from_object(
     registry_token: str,
     user: str,
     storage_loc_url: str,
-    file_type_url: str) -> str:
+    file_type_url: str,
+) -> str:
     _desc = data.get("description", None)
 
     _object_data = {
@@ -597,10 +578,7 @@ def _get_url_from_object(
 
     try:
         return fdp_req.post(
-            registry_uri,
-            "object",
-            registry_token,
-            data=_object_data
+            registry_uri, "object", registry_token, data=_object_data
         )["url"]
     except fdp_exc.RegistryAPICallError as e:
         if e.error_code != 409:
@@ -623,7 +601,8 @@ def _get_url_from_data_product(
     registry_uri: str,
     registry_token: str,
     namespace_url: str,
-    object_url: str) -> str:
+    object_url: str,
+) -> str:
     """Retrieve the URL for a given config data product"""
     # Get the name of the entry
     if "external_object" in data:
@@ -648,10 +627,7 @@ def _get_url_from_data_product(
 
     try:
         return fdp_req.post(
-            registry_uri,
-            "data_product",
-            registry_token,
-            data=_data_prod_data
+            registry_uri, "data_product", registry_token, data=_data_prod_data
         )["url"]
     except fdp_exc.RegistryAPICallError as e:
         if e.error_code != 409:
@@ -668,14 +644,18 @@ def _get_url_from_data_product(
         )
 
 
-def _get_identifier_from_data(data: typing.Dict, label: str) -> typing.Dict[str, str]:
+def _get_identifier_from_data(
+    data: typing.Dict, label: str
+) -> typing.Dict[str, str]:
     """Retrieve the identifier metadata from the data entry"""
     _identifier: typing.Dict[str, str] = {}
 
     if data.get("identifier", None):
         if not fdp_id.check_id_permitted(data["identifier"]):
             raise fdp_exc.UserConfigError(
-                "Identifier '"+data["identifier"]+"' is not a valid identifier"
+                "Identifier '"
+                + data["identifier"]
+                + "' is not a valid identifier"
             )
         _identifier["identifier"] = data["identifier"]
     else:
@@ -689,10 +669,9 @@ def _get_identifier_from_data(data: typing.Dict, label: str) -> typing.Dict[str,
                 "'unique_name' and 'source_name' keys",
             )
         _identifier["alternate_identifier"] = data.get(
-            "alternate_identifier_type",
-            "local source descriptor"
+            "alternate_identifier_type", "local source descriptor"
         )
-    
+
     return _identifier
 
 
@@ -810,7 +789,9 @@ def check_if_object_exists(
             del search_data["version"]
 
     # Obtain list of storage_locations for the given data_product
-    _results = fdp_req.get(local_uri, obj_type, params=search_data, token=token)
+    _results = fdp_req.get(
+        local_uri, obj_type, params=search_data, token=token
+    )
 
     try:
         fdp_ver.get_correct_version(
