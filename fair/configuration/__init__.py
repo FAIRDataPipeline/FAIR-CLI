@@ -627,7 +627,9 @@ def _get_user_info_and_namespaces() -> typing.Dict[str, typing.Dict]:
     return {"user": _user_info, "namespaces": _namespaces}
 
 
-def global_config_query(registry: str = None) -> typing.Dict[str, typing.Any]:
+def global_config_query(
+    registry: str = None, local: bool = False
+) -> typing.Dict[str, typing.Any]:
     """Ask user question set for creating global FAIR config"""
     logger.debug(
         "Running global configuration query with registry at '%s'", registry
@@ -664,29 +666,34 @@ def global_config_query(registry: str = None) -> typing.Dict[str, typing.Any]:
     _local_uri = fdp_com.DEFAULT_LOCAL_REGISTRY_URL.replace(
         ":8000", f":{_local_port}"
     )
+    if local:
+        _remote_url = ""
+        _rem_key_file = ""
+        _rem_data_store = ""
+    else:
+        _default_rem = urljoin(fdp_com.DEFAULT_REGISTRY_DOMAIN, "api/")
+        _remote_url = click.prompt("Remote API URL", default=_default_rem)
 
-    _default_rem = urljoin(fdp_com.DEFAULT_REGISTRY_DOMAIN, "api/")
-    _remote_url = click.prompt("Remote API URL", default=_default_rem)
-
-    _rem_data_store = click.prompt(
-        "Remote Data Storage Root", default=_remote_url.replace("api", "data")
-    )
-
-    _rem_key_file = click.prompt(
-        "Remote API Token File",
-    )
-    _rem_key_file = os.path.expandvars(_rem_key_file)
-
-    while (
-        not os.path.exists(_rem_key_file)
-        or not open(_rem_key_file).read().strip()
-    ):
-        click.echo(
-            f"Token file '{_rem_key_file}' does not exist or is empty, "
-            "please provide a valid token file."
+        _rem_data_store = click.prompt(
+            "Remote Data Storage Root",
+            default=_remote_url.replace("api", "data"),
         )
-        _rem_key_file = click.prompt("Remote API Token File")
+
+        _rem_key_file = click.prompt(
+            "Remote API Token File",
+        )
         _rem_key_file = os.path.expandvars(_rem_key_file)
+
+        while (
+            not os.path.exists(_rem_key_file)
+            or not open(_rem_key_file).read().strip()
+        ):
+            click.echo(
+                f"Token file '{_rem_key_file}' does not exist or is empty, "
+                "please provide a valid token file."
+            )
+            _rem_key_file = click.prompt("Remote API Token File")
+            _rem_key_file = os.path.expandvars(_rem_key_file)
 
     if not fdp_serv.check_server_running():
         if _ := click.confirm(
@@ -738,6 +745,7 @@ def global_config_query(registry: str = None) -> typing.Dict[str, typing.Any]:
 def local_config_query(
     global_config: typing.Dict[str, typing.Any] = read_global_fdpconfig(),
     first_time_setup: bool = False,
+    local: bool = False,
 ) -> typing.Dict[str, typing.Any]:
     """Ask user questions to create local user config
 
@@ -839,7 +847,7 @@ def local_config_query(
 
     # If this is not the first setup it means globals are available so these
     # can be suggested as defaults during local setup
-    if not first_time_setup:
+    if not first_time_setup and not local:
         _def_remote = click.prompt("Remote API URL", default=_def_remote)
         _def_rem_key = click.prompt(
             "Remote API Token File", default=_def_rem_key

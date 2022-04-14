@@ -180,7 +180,7 @@ def init(
     """Initialise repository in current location"""
     try:
         with fdp_session.FAIR(
-            os.getcwd(), None, debug=debug, testing=ci
+            os.getcwd(), None, debug=debug, testing=ci, local=local
         ) as fair_session:
             _use_dict = {}
             if using:
@@ -191,10 +191,18 @@ def init(
                     )
                 _use_dict = yaml.safe_load(open(using))
             if local:
-                fair_session.initialise(using=_use_dict, export_as=export)
+                fair_session.initialise(
+                    using=_use_dict,
+                    registry=None,
+                    export_as=export,
+                    local=local,
+                )
             else:
                 fair_session.initialise(
-                    using=_use_dict, registry=registry, export_as=export
+                    using=_use_dict,
+                    registry=registry,
+                    export_as=export,
+                    local=local,
                 )
             if config:
                 fair_session.make_starter_config(config)

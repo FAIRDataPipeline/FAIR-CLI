@@ -82,6 +82,7 @@ class FAIR:
         server_port: int = 8000,
         allow_dirty: bool = False,
         testing: bool = False,
+        local: bool = False,
     ) -> None:
         """Initialise instance of FAIR sync tool
 
@@ -115,6 +116,7 @@ class FAIR:
             logging.getLogger("FAIRDataPipeline").setLevel(logging.CRITICAL)
         self._logger.debug("Starting new session.")
         self._testing = testing
+        self._local = local
         self._session_loc = repo_loc
         self._allow_dirty = allow_dirty
         self._logger.debug(f"Session location: {self._session_loc}")
@@ -161,12 +163,14 @@ class FAIR:
             "\trun_mode       = %s\n"
             "\tstaging_file   = %s\n"
             "\tsession_id     = %s\n",
+            "\tlocal     = %s\n",
             self._session_loc,
             user_config,
             self._testing,
             self._run_mode,
             self._stager._staging_file,
             self._session_id,
+            self._local,
         )
 
         self._load_configurations()
@@ -846,6 +850,7 @@ class FAIR:
         using: typing.Dict = None,
         registry: str = None,
         export_as: str = None,
+        local: bool = False,
     ) -> None:
         """Initialise an fair repository within the current location
 
@@ -899,19 +904,23 @@ class FAIR:
 
         if not os.path.exists(fdp_com.global_fdpconfig()):
             try:
-                self._global_config = fdp_conf.global_config_query(registry)
+                self._global_config = fdp_conf.global_config_query(
+                    registry, local
+                )
             except (fdp_exc.CLIConfigurationError, click.Abort) as e:
                 self._clean_reset(_fair_dir, e)
             try:
                 self._local_config = fdp_conf.local_config_query(
-                    self._global_config, first_time_setup=_first_time
+                    self._global_config,
+                    first_time_setup=_first_time,
+                    local=local,
                 )
             except (fdp_exc.CLIConfigurationError, click.Abort) as e:
                 self._clean_reset(_fair_dir, e, True)
         elif not using:
             try:
                 self._local_config = fdp_conf.local_config_query(
-                    self._global_config
+                    self._global_config, local=local
                 )
             except (fdp_exc.CLIConfigurationError, click.Abort) as e:
                 self._clean_reset(_fair_dir, e, True)
