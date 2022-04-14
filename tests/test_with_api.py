@@ -1,6 +1,5 @@
 import os
 import pathlib
-import shutil
 import typing
 
 import click.testing
@@ -12,12 +11,13 @@ import fair.registry.server as fdp_serv
 from fair.cli import cli
 from fair.common import FAIR_FOLDER
 from fair.registry.requests import get, url_get
-from tests.conftest import RegistryTest, get_example_entries
+from tests.conftest import RegistryTest
 
 REPO_ROOT = pathlib.Path(os.path.dirname(__file__)).parent
 PULL_TEST_CFG = os.path.join(
     os.path.dirname(__file__), "data", "test_pull_config.yaml"
 )
+
 
 @pytest.mark.faircli_pull
 @pytest.mark.dependency(name="pull_new")
@@ -46,7 +46,9 @@ def test_pull_new(
         "fair.registry.server.launch_server", lambda *args, **kwargs: True
     )
     mocker.patch("fair.registry.server.stop_server", lambda *args: True)
-    mocker.patch("fair.registry.sync.fetch_data_product", lambda *args, **kwargs: None)
+    mocker.patch(
+        "fair.registry.sync.fetch_data_product", lambda *args, **kwargs: None
+    )
     _cli_runner = click.testing.CliRunner()
     with _cli_runner.isolated_filesystem(pyDataPipeline):
         with remote_registry, local_registry:
@@ -98,7 +100,7 @@ def test_pull_new(
                 _cfg = yaml.safe_load(cfg_file)
             _cfg["run_metadata"]["write_data_store"] = _data
             _cfg["run_metadata"]["local_repo"] = pyDataPipeline
-            _cfg["register"].extend([{"author" : _test_author}])
+            _cfg["register"].extend([{"author": _test_author}])
 
             _new_cfg_path = os.path.join(
                 os.path.dirname(pyDataPipeline), "config.yaml"
@@ -137,6 +139,7 @@ def test_pull_new(
                 params={"name": _namespace_name},
             )
 
+
 @pytest.mark.faircli_run
 @pytest.mark.faircli_push
 @pytest.mark.faircli_pull
@@ -161,7 +164,9 @@ def test_pull_existing(
         "fair.registry.server.launch_server", lambda *args, **kwargs: True
     )
     mocker.patch("fair.registry.server.stop_server", lambda *args: True)
-    mocker.patch("fair.registry.sync.fetch_data_product", lambda *args, **kwargs: None)
+    mocker.patch(
+        "fair.registry.sync.fetch_data_product", lambda *args, **kwargs: None
+    )
     _cli_runner = click.testing.CliRunner()
     with _cli_runner.isolated_filesystem(pyDataPipeline):
         with remote_registry, local_registry:

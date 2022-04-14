@@ -241,10 +241,10 @@ def local_git_repo(fair_repo_loc: str) -> str:
 
     try:
         return _local_conf["git"]["local_repo"]
-    except KeyError:
+    except KeyError as e:
         raise fdp_exc.CLIConfigurationError(
             "Expected key 'git:local_repo' in local CLI configuration"
-        )
+        ) from e
 
 
 def remote_git_repo(fair_repo_loc: str) -> str:
@@ -265,10 +265,10 @@ def remote_git_repo(fair_repo_loc: str) -> str:
 
     try:
         return _local_conf["git"]["remote_repo"]
-    except KeyError:
+    except KeyError as e:
         raise fdp_exc.CLIConfigurationError(
             "Expected key 'git:remote_repo' in local CLI configuration"
-        )
+        ) from e
 
 
 def get_remote_token(repo_dir: str, remote: str = "origin") -> str:
@@ -305,10 +305,10 @@ def get_local_data_store() -> str:
 
     try:
         return _global_conf["registries"]["local"]["data_store"]
-    except KeyError:
+    except KeyError as e:
         raise fdp_exc.CLIConfigurationError(
             "Expected key 'registries:local:data_store' in global CLI configuration"
-        )
+        ) from e
 
 
 def get_session_git_remote(repo_loc: str, url: bool = False) -> str:
@@ -330,10 +330,10 @@ def get_session_git_remote(repo_loc: str, url: bool = False) -> str:
 
     try:
         _remote_label = _local_conf["git"]["remote"]
-    except KeyError:
+    except KeyError as e:
         raise fdp_exc.InternalError(
             "Failed to retrieve project git repository remote"
-        )
+        ) from e
 
     if not url:
         return _remote_label
@@ -342,10 +342,10 @@ def get_session_git_remote(repo_loc: str, url: bool = False) -> str:
 
     try:
         return git.Repo(_repo_root).remote(_remote_label).url
-    except ValueError:
+    except ValueError as e:
         raise fdp_exc.CLIConfigurationError(
             f"Failed to retrieve URL for git remote '{_remote_label}'"
-        )
+        ) from e
 
 
 def get_current_user_uuid(repo_loc: str) -> str:
@@ -407,10 +407,10 @@ def get_local_uri() -> str:
 
     try:
         return _global_conf["registries"]["local"]["uri"]
-    except KeyError:
+    except KeyError as e:
         raise fdp_exc.CLIConfigurationError(
             "Expected key 'registries:local:uri' in global CLI configuration"
-        )
+        ) from e
 
 
 def set_local_uri(uri: str) -> str:
@@ -635,18 +635,16 @@ def global_config_query(registry: str = None) -> typing.Dict[str, typing.Any]:
     click.echo("Checking for local registry")
     if not registry and "FAIR_REGISTRY_DIR" in os.environ:
         registry = os.environ["FAIR_REGISTRY_DIR"]
-    check_reg = check_registry_exists(registry)
-    if check_reg:
+    if check_reg := check_registry_exists(registry):
         registry = check_reg
         click.echo(f"Local registry found at '{check_reg}'")
     elif not registry:
-        install_reg = click.confirm(
+        if _ := click.confirm(
             "Local registry not found at default location"
             f"'{fdp_com.DEFAULT_REGISTRY_LOCATION}', "
             "would you like to specify an existing installation?",
             default=False,
-        )
-        if install_reg:
+        ):
             _reg_loc = click.prompt("Local registry directory")
             _manage_script = os.path.join(_reg_loc, "manage.py")
             while not os.path.exists(_manage_script):
@@ -691,11 +689,10 @@ def global_config_query(registry: str = None) -> typing.Dict[str, typing.Any]:
         _rem_key_file = os.path.expandvars(_rem_key_file)
 
     if not fdp_serv.check_server_running():
-        _run_server = click.confirm(
+        if _ := click.confirm(
             "Local registry is offline, would you like to start it?",
             default=False,
-        )
-        if _run_server:
+        ):
             fdp_serv.launch_server(registry_dir=registry)
 
             # Keep server running by creating user run cache file
@@ -708,10 +705,10 @@ def global_config_query(registry: str = None) -> typing.Dict[str, typing.Any]:
             fdp_serv.stop_server(registry_dir=registry, local_uri=_local_uri)
             try:
                 fdp_req.local_token(registry_dir=registry)
-            except fdp_exc.FileNotFoundError:
+            except fdp_exc.FileNotFoundError as e:
                 raise fdp_exc.RegistryError(
                     "Failed to retrieve local API token from registry."
-                )
+                ) from e
 
     _loc_data_store = click.prompt(
         "Default Data Store",

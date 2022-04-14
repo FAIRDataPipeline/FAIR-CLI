@@ -112,9 +112,9 @@ def status(verbose, debug) -> None:
 def create(debug, output: str) -> None:
     """Generate a new FAIR repository user YAML config file"""
     output = (
-        os.path.join(os.getcwd(), fdp_com.USER_CONFIG_FILE)
-        if not output
-        else output[0]
+        output[0]
+        if output
+        else os.path.join(os.getcwd(), fdp_com.USER_CONFIG_FILE)
     )
     click.echo(f"Generating new user configuration file" f" '{output}'")
     with fdp_session.FAIR(os.getcwd(), debug=debug) as fair_session:
@@ -165,12 +165,16 @@ def reset(debug: bool) -> None:
 @click.option(
     "--export", help="Export the CLI configuration to a file", default=""
 )
+@click.option(
+    "--local", help="init without a registry for closed systems", default=False
+)
 def init(
     config: str,
     debug: bool,
     using: str,
     registry: str,
     ci: bool,
+    local: bool,
     export: str = "",
 ) -> None:
     """Initialise repository in current location"""
@@ -186,9 +190,12 @@ def init(
                         "file does not exist."
                     )
                 _use_dict = yaml.safe_load(open(using))
-            fair_session.initialise(
-                using=_use_dict, registry=registry, export_as=export
-            )
+            if local:
+                fair_session.initialise(using=_use_dict, export_as=export)
+            else:
+                fair_session.initialise(
+                    using=_use_dict, registry=registry, export_as=export
+                )
             if config:
                 fair_session.make_starter_config(config)
     except fdp_exc.FAIRCLIException as e:
@@ -223,6 +230,7 @@ def init(
 )
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
 def purge(glob: bool, debug: bool, yes: bool, data: bool, all: bool) -> None:
+    # sourcery skip: avoid-builtin-shadow
     """Resets the repository deleting all local caches"""
     _purge = yes
 
@@ -576,7 +584,7 @@ def modify(ctx, label: str, url: str, debug: bool) -> None:
 )
 def push(remote: str, debug: bool, dirty: bool):
     """Push data between the local and remote registry"""
-    remote = "origin" if not remote else remote[0]
+    remote = remote[0] if remote else "origin"
     try:
         with fdp_session.FAIR(
             os.getcwd(),

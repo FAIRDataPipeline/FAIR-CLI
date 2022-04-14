@@ -15,6 +15,9 @@ Functions
 
 """
 
+
+import contextlib
+
 __date__ = "2021-08-05"
 
 import re
@@ -62,10 +65,10 @@ def parse_incrementer(incrementer: str) -> str:
         try:
             if re.findall(r"\$\{\{\s*" + component + r"\s*\}\}", incrementer):
                 return BUMP_FUNCS[component]
-        except TypeError:
+        except TypeError as e:
             raise fdp_exc.InternalError(
                 f"Failed to parse incrementer '{incrementer}' expected string"
-            )
+            ) from e
 
     raise fdp_exc.UserConfigError(
         f"Unrecognised version incrementer variable '{incrementer}'"
@@ -121,11 +124,8 @@ def get_correct_version(
     if isinstance(version, semver.VersionInfo):
         return version
 
-    try:
+    with contextlib.suppress(ValueError):
         return semver.VersionInfo.parse(version)
-    except ValueError:
-        pass
-
     _zero = semver.VersionInfo.parse("0.0.0")
 
     if results_list:

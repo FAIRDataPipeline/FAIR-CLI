@@ -68,14 +68,9 @@ def get_write_storage(uri: str, write_data_store: str, token: str) -> str:
     if _write_store_root[-1] != os.path.sep:
         _write_store_root += os.path.sep
 
-    # Check if the data store already exists by querying for it
-    _search_root = fdp_req.get(
+    if _search_root := fdp_req.get(
         uri, "storage_root", token, params={"root": _write_store_root}
-    )
-
-    # If the data store already exists just return the URI else create it
-    # and then do the same
-    if _search_root:
+    ):
         return _search_root[0]["url"]
 
     _post_data = {"root": _write_store_root, "local": True}
@@ -253,7 +248,7 @@ def store_working_config(
             raise fdp_exc.RegistryAPICallError(
                 f"Cannot post storage_location '{_rel_path}' with hash '{_hash}', object already exists",
                 error_code=409,
-            )
+            ) from e
 
     _user = store_user(repo_dir, uri, token)
 
@@ -337,7 +332,7 @@ def store_working_script(
                 f"'{_rel_path}' with hash"
                 f" '{_hash}', object already exists",
                 error_code=409,
-            )
+            ) from e
 
     _user = store_user(repo_dir, uri, token)
 
@@ -587,12 +582,13 @@ def _get_url_from_object(
             raise fdp_exc.RegistryAPICallError(
                 f"Cannot post object" f"'{_desc}', duplicate already exists",
                 error_code=409,
-            )
-    except KeyError:
+            ) from e
+
+    except KeyError as e:
         raise fdp_exc.InternalError(
             f"Expected key 'url' in local registry API response"
             f" for post object '{_desc}'"
-        )
+        ) from e
 
 
 def _get_url_from_data_product(
@@ -636,12 +632,13 @@ def _get_url_from_data_product(
             raise fdp_exc.RegistryAPICallError(
                 f"Cannot post data_product '{_name}', duplicate already exists",
                 error_code=409,
-            )
-    except KeyError:
+            ) from e
+
+    except KeyError as e:
         raise fdp_exc.InternalError(
             f"Expected key 'url' in local registry API response"
             f" for post object '{_name}'"
-        )
+        ) from e
 
 
 def _get_identifier_from_data(
@@ -661,13 +658,14 @@ def _get_identifier_from_data(
     else:
         try:
             _identifier["alternate_identifier"] = data["unique_name"]
-        except KeyError:
+        except KeyError as e:
             raise fdp_exc.UserConfigError(
                 "No identifier/alternate_identifier given for "
                 f"item '{label}'",
                 hint="You must provide either a URL 'identifier', or "
                 "'unique_name' and 'source_name' keys",
-            )
+            ) from e
+
         _identifier["alternate_identifier"] = data.get(
             "alternate_identifier_type", "local source descriptor"
         )
@@ -728,11 +726,11 @@ def get_storage_root_obj_address(
         )
         if not _results:
             raise AssertionError
-    except (AssertionError, fdp_exc.RegistryAPICallError):
+    except (AssertionError, fdp_exc.RegistryAPICallError) as e:
         raise fdp_exc.RegistryError(
             f"Cannot find a match for path '{address_str}' "
             f"from endpoint '{remote_uri}."
-        )
+        ) from e
 
 
 def check_match(input_object: str, results_list: typing.List[str]):
@@ -818,7 +816,4 @@ def check_if_object_exists(
         fdp_req.url_get(store_url, token=token) for store_url in _storage_urls
     ]
 
-    if check_match(file_loc, _storage_objs):
-        return "hash_match"
-    else:
-        return _results
+    return "hash_match" if check_match(file_loc, _storage_objs) else _results

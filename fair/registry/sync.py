@@ -317,18 +317,16 @@ def sync_data_products(
     for data_product in data_products:
         namespace, name, version = re.split("[:@]", data_product)
 
-        _existing_namespace = fdp_req.get(
+        if _existing_namespace := fdp_req.get(
             dest_uri,
             "namespace",
             params={SEARCH_KEYS["namespace"]: namespace},
             token=dest_token,
-        )
-
-        if _existing_namespace:
+        ):
             _namespace_id = fdp_req.get_obj_id_from_url(
                 _existing_namespace[0]["url"]
             )
-            _existing = fdp_req.get(
+            if _ := fdp_req.get(
                 dest_uri,
                 "data_product",
                 dest_token,
@@ -337,8 +335,7 @@ def sync_data_products(
                     "name": name,
                     "version": version.replace("v", ""),
                 },
-            )
-            if _existing:
+            ):
                 click.echo(
                     f"Data product '{data_product}' already present "
                     f"on remote '{remote_label}', ignoring.",
@@ -428,9 +425,7 @@ def fetch_data_product(
 
     _namespace = fdp_req.url_get(data_product["namespace"], remote_token)
 
-    _file_type_url = _object.get("file_type", None)
-
-    if _file_type_url:
+    if _file_type_url := _object.get("file_type", None):
         _file_type = (
             f'.{fdp_req.url_get(_file_type_url, remote_token)["extension"]}'
         )
@@ -502,6 +497,6 @@ def download_from_registry(registry_url: str, root: str, path: str) -> str:
     except requests.HTTPError as r_in:
         raise fdp_exc.UserConfigError(
             f"Failed to fetch item '{_download_url}' with exit code {r_in.response}"
-        )
+        ) from r_in
 
     return _temp_data_file

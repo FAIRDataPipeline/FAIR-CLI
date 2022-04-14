@@ -65,7 +65,7 @@ class FAIRCLIException(Exception):
         super().__init__(msg)
 
     def err_print(self) -> None:
-        _out_msg = f"{self.level+': ' if self.level else ''}{self.msg}"
+        _out_msg = f"{f'{self.level}: ' if self.level else ''}{self.msg}"
         if self.hint:
             _out_msg += f"\n{self.hint}"
         click.echo(_out_msg)

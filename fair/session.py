@@ -221,11 +221,12 @@ class FAIR:
                     )
                 if os.path.exists(fdp_com.default_data_dir()):
                     shutil.rmtree(fdp_com.default_data_dir())
-            except FileNotFoundError:
+            except FileNotFoundError as e:
                 raise fdp_exc.FileNotFoundError(
                     "Cannot remove local data store, a global CLI configuration "
                     "is required to identify its location"
-                )
+                ) from e
+
         if global_cfg:
             if verbose:
                 click.echo(
@@ -504,7 +505,7 @@ class FAIR:
             if allow_dirty:
                 click.echo(f"Warning: {' '.join(e.args)}")
             else:
-                raise fdp_exc.FDPRepositoryError(" ".join(e.args))
+                raise fdp_exc.FDPRepositoryError(" ".join(e.args)) from e
 
         # Get the latest commit on this branch on remote
 
@@ -515,21 +516,23 @@ class FAIR:
                     .refs[_current_branch]
                     .commit.hexsha
                 )
-        except git.InvalidGitRepositoryError:
+        except git.InvalidGitRepositoryError as exc:
             raise fdp_exc.FDPRepositoryError(
                 f"Location '{self._session_loc}' is not a valid git repository"
-            )
-        except ValueError:
+            ) from exc
+
+        except ValueError as exc:
             raise fdp_exc.FDPRepositoryError(
                 f"Failed to retrieve latest commit for local repository '{self._session_loc}'",
                 hint="Have any changes been committed in the project repository?",
-            )
-        except IndexError:
+            ) from exc
+
+        except IndexError as exc:
             _msg = f"Failed to find branch '{_current_branch}' on remote repository"
             if allow_dirty:
                 click.echo(f"Warning: {_msg}")
             else:
-                raise fdp_exc.FDPRepositoryError(_msg)
+                raise fdp_exc.FDPRepositoryError(_msg) from exc
 
         # Commit match
         _com_match = _loc_commit == _rem_commit
@@ -655,10 +658,9 @@ class FAIR:
 
         This does NOT delete any information from the registry
         """
-        _log_files = glob.glob(
+        if _log_files := glob.glob(
             fdp_hist.history_directory(self._session_loc), "*.log"
-        )
-        if _log_files:
+        ):
             for log in _log_files:
                 os.remove(log)
 
@@ -873,9 +875,7 @@ class FAIR:
             click.echo("FAIR repository is already initialised.")
             return
 
-        _existing = fdp_com.find_fair_root(self._session_loc)
-
-        if _existing:
+        if _existing := fdp_com.find_fair_root(self._session_loc):
             click.echo(
                 "A FAIR repository was initialised for this location at"
                 f" '{_existing}'"
@@ -938,7 +938,7 @@ class FAIR:
             self._clean_reset(_fair_dir, local_only=True)
             raise fdp_exc.InternalError(
                 "Initialisation failed, validation of local CLI config file did not pass"
-            )
+            ) from e
 
         try:
             fdp_clivalid.GlobalCLIConfig(**self._global_config)
@@ -947,7 +947,7 @@ class FAIR:
             self._clean_reset(_fair_dir, local_only=False)
             raise fdp_exc.InternalError(
                 "Initialisation failed, validation of global CLI config file did not pass"
-            )
+            ) from e
 
         os.makedirs(
             fdp_hist.history_directory(self._session_loc), exist_ok=True

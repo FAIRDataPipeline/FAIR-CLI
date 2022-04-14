@@ -84,11 +84,13 @@ def _access(
     method: str,
     token: str,
     obj_path: str = None,
-    response_codes: typing.List[int] = [201, 200],
+    response_codes: typing.List[int] = None,
     headers: typing.Dict[str, typing.Any] = None,
     params: typing.Dict = None,
     data: typing.Dict = None,
 ):
+    if response_codes is None:
+        response_codes = [201, 200]
     if not headers:
         headers: typing.Dict[str, str] = {}
 
@@ -120,11 +122,11 @@ def _access(
             _request = requests.post(_url, headers=_headers, data=data)
         else:
             _request = getattr(requests, method)(_url, headers=_headers)
-    except requests.exceptions.ConnectionError:
+    except requests.exceptions.ConnectionError as e:
         raise fdp_exc.UnexpectedRegistryServerState(
             f"Failed to make registry API request '{_url}'",
             hint="Is this remote correct and the server running?",
-        )
+        ) from e
 
     _info = f"url = {_url}, "
     _info += f" parameters = {params}," if params else ""
@@ -157,11 +159,11 @@ def _access(
     try:
         _json_req = _request.json()
         _result = _json_req["results"] if "results" in _json_req else _json_req
-    except (json.JSONDecodeError, simplejson.errors.JSONDecodeError):
+    except (json.JSONDecodeError, simplejson.errors.JSONDecodeError) as exc:
         raise fdp_exc.RegistryAPICallError(
             f"Failed to retrieve JSON data from request to '{_url}'",
             error_code=_request.status_code,
-        )
+        ) from exc
 
     if _request.status_code not in response_codes:
         _info = ""
@@ -474,19 +476,19 @@ def download_file(url: str, chunk_size: int = 8192) -> str:
         with requests.get(url, stream=True) as r_in:
             try:
                 r_in.raise_for_status()
-            except requests.HTTPError:
+            except requests.HTTPError as e:
                 raise fdp_exc.FileNotFoundError(
                     f"Failed to download file from '{url}'"
                     f" with status code {r_in.status_code}"
-                )
+                ) from e
 
             with os.fdopen(_file, "wb") as in_f:
                 for chunk in r_in.iter_content(chunk_size=chunk_size):
                     in_f.write(chunk)
-    except requests.exceptions.ConnectionError:
+    except requests.exceptions.ConnectionError as exc:
         raise fdp_exc.FAIRCLIException(
             f"Failed to download file '{url}'" f" due to connection error"
-        )
+        ) from exc
 
     return _fname
 
