@@ -166,7 +166,9 @@ def reset(debug: bool) -> None:
     "--export", help="Export the CLI configuration to a file", default=""
 )
 @click.option(
-    "--local", help="init without a registry for closed systems", default=False
+    "--local",
+    help="init without a remote registry - useful for closed systems",
+    default=False,
 )
 def init(
     config: str,
@@ -178,6 +180,9 @@ def init(
     export: str = "",
 ) -> None:
     """Initialise repository in current location"""
+    import pdb
+
+    pdb.set_trace()
     try:
         with fdp_session.FAIR(
             os.getcwd(), None, debug=debug, testing=ci, local=local

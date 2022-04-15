@@ -847,7 +847,7 @@ def local_config_query(
 
     # If this is not the first setup it means globals are available so these
     # can be suggested as defaults during local setup
-    if not first_time_setup and not local:
+    if not first_time_setup or not local:
         _def_remote = click.prompt("Remote API URL", default=_def_remote)
         _def_rem_key = click.prompt(
             "Remote API Token File", default=_def_rem_key

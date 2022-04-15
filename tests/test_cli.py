@@ -53,6 +53,7 @@ def test_status(
     )
     os.makedirs(os.path.join(os.getcwd(), fdp_com.FAIR_FOLDER), exist_ok=True)
     os.makedirs(os.path.join(os.getcwd(), "jobs"))
+
     with open(
         os.path.join(local_config[1], fdp_com.FAIR_FOLDER, "staging"), "w"
     ) as staged:
@@ -102,7 +103,9 @@ def test_status(
             "fair.registry.requests.local_token", lambda: local_registry._token
         )
         _result = click_test.invoke(cli, ["status", "--debug", "--verbose"])
+        import pdb
 
+        pdb.set_trace()
         assert _result.exit_code == 0
 
 
