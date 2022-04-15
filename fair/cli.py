@@ -192,20 +192,13 @@ def init(
                         "file does not exist."
                     )
                 _use_dict = yaml.safe_load(open(using))
-            if local:
-                fair_session.initialise(
-                    using=_use_dict,
-                    registry=None,
-                    export_as=export,
-                    local=local,
-                )
-            else:
-                fair_session.initialise(
-                    using=_use_dict,
-                    registry=registry,
-                    export_as=export,
-                    local=local,
-                )
+
+            fair_session.initialise(
+                using=_use_dict,
+                registry=registry,
+                export_as=export,
+                local=local,
+            )
             if config:
                 fair_session.make_starter_config(config)
     except fdp_exc.FAIRCLIException as e:
@@ -649,7 +642,7 @@ def pull(config: str, debug: bool, local: bool):
             local=local,
             allow_dirty=True,
         ) as fair:
-            fair.pull()
+            fair.pull(local=local)
     except fdp_exc.FAIRCLIException as e:
         if debug:
             raise e

@@ -109,6 +109,8 @@ class FAIR:
             allow runs with uncommitted changes, default is False
         testing : bool
             run in testing mode
+        local : bool
+            bypasses storing the remote in the config yamls
         """
         if debug:
             logging.getLogger("FAIRDataPipeline").setLevel(logging.DEBUG)
@@ -376,72 +378,82 @@ class FAIR:
                 data_product, "data_product", False
             )
 
-    def pull(self, remote: str = "origin"):
-        self._logger.debug("Performing pull on remote '%s'", remote)
+    def pull(self, remote: str = "origin", local: bool = False):
+        if not local:
+            self._logger.debug("Performing pull on remote '%s'", remote)
 
-        _remote_addr = fdp_conf.get_remote_uri(self._session_loc, remote)
+            _remote_addr = fdp_conf.get_remote_uri(self._session_loc, remote)
 
-        if not fdp_serv.check_server_running(_remote_addr):
-            raise fdp_exc.UnexpectedRegistryServerState(
-                f"Cannot perform pull from registry '{remote}' as the"
-                f" server does not exist. Expected response from '{_remote_addr}'.",
-                hint="Is your FAIR repository configured correctly?",
+            if not fdp_serv.check_server_running(_remote_addr):
+                raise fdp_exc.UnexpectedRegistryServerState(
+                    f"Cannot perform pull from registry '{remote}' as the"
+                    f" server does not exist. Expected response from '{_remote_addr}'.",
+                    hint="Is your FAIR repository configured correctly?",
+                )
+
+            self._logger.debug("Retrieving namespaces from remote")
+
+            fdp_sync.pull_all_namespaces(
+                fdp_conf.get_local_uri(),
+                fdp_conf.get_remote_uri(self._session_loc, remote),
+                fdp_req.local_token(),
+                fdp_conf.get_remote_token(self._session_loc, remote),
             )
 
-        self._logger.debug("Retrieving namespaces from remote")
+            self._logger.debug("Performing pre-job setup")
 
-        fdp_sync.pull_all_namespaces(
-            fdp_conf.get_local_uri(),
-            fdp_conf.get_remote_uri(self._session_loc, remote),
-            fdp_req.local_token(),
-            fdp_conf.get_remote_token(self._session_loc, remote),
-        )
+            self._pre_job_setup(remote)
 
-        self._logger.debug("Performing pre-job setup")
-
-        self._pre_job_setup(remote)
-
-        self._session_config.prepare(
-            fdp_com.CMD_MODE.PULL,
-            allow_dirty=self._allow_dirty,
-            remote_uri=fdp_conf.get_remote_uri(self._session_loc, remote),
-            remote_token=fdp_conf.get_remote_token(self._session_loc, remote),
-        )
-
-        _readables = self._session_config.get_readables()
-
-        self._session_config.write()
-
-        self._logger.debug("Preparing to retrieve %s items", len(_readables))
-
-        self._logger.debug("Pulling data products locally")
-
-        # Only push data products if there are any to do so, this covers the
-        # case whereby no remote has been setup and we just want to register
-        # items on the local registry
-        if _readables:
-            fdp_sync.sync_data_products(
-                origin_uri=fdp_conf.get_remote_uri(self._session_loc, remote),
-                dest_uri=fdp_conf.get_local_uri(),
-                dest_token=fdp_req.local_token(),
-                origin_token=fdp_conf.get_remote_token(
+            self._session_config.prepare(
+                fdp_com.CMD_MODE.PULL,
+                allow_dirty=self._allow_dirty,
+                remote_uri=fdp_conf.get_remote_uri(self._session_loc, remote),
+                remote_token=fdp_conf.get_remote_token(
                     self._session_loc, remote
                 ),
-                remote_label=remote,
-                data_products=_readables,
-                local_data_store=self._session_config.default_data_store,
             )
 
-            self._session_config.write_log_lines(
-                [f"Pulled data products from remote '{remote}':"]
-                + [f"\t- {data_product}" for data_product in _readables]
+            _readables = self._session_config.get_readables()
+
+            self._session_config.write()
+
+            self._logger.debug(
+                "Preparing to retrieve %s items", len(_readables)
             )
+
+            self._logger.debug("Pulling data products locally")
+
+            # Only push data products if there are any to do so, this covers the
+            # case whereby no remote has been setup and we just want to register
+            # items on the local registry
+            if _readables:
+                fdp_sync.sync_data_products(
+                    origin_uri=fdp_conf.get_remote_uri(
+                        self._session_loc, remote
+                    ),
+                    dest_uri=fdp_conf.get_local_uri(),
+                    dest_token=fdp_req.local_token(),
+                    origin_token=fdp_conf.get_remote_token(
+                        self._session_loc, remote
+                    ),
+                    remote_label=remote,
+                    data_products=_readables,
+                    local_data_store=self._session_config.default_data_store,
+                )
+
+                self._session_config.write_log_lines(
+                    [f"Pulled data products from remote '{remote}':"]
+                    + [f"\t- {data_product}" for data_product in _readables]
+                )
+            else:
+                click.echo(f"No items to retrieve from remote '{remote}'.")
+
+            self._logger.debug("Performing post-job breakdown")
+
+            self._post_job_breakdown()
         else:
-            click.echo(f"No items to retrieve from remote '{remote}'.")
-
-        self._logger.debug("Performing post-job breakdown")
-
-        self._post_job_breakdown()
+            click.echo("working with no remote")
+            self._logger.debug(f"local is {local}")
 
     def run(
         self,
