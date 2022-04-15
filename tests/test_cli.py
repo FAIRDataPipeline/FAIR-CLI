@@ -103,9 +103,6 @@ def test_status(
             "fair.registry.requests.local_token", lambda: local_registry._token
         )
         _result = click_test.invoke(cli, ["status", "--debug", "--verbose"])
-        import pdb
-
-        pdb.set_trace()
         assert _result.exit_code == 0
 
 

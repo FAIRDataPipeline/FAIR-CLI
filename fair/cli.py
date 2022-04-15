@@ -163,12 +163,12 @@ def reset(debug: bool) -> None:
 )
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
 @click.option(
-    "--export", help="Export the CLI configuration to a file", default=""
-)
-@click.option(
-    "--local",
+    "--local/--no-local",
     help="init without a remote registry - useful for closed systems",
     default=False,
+)
+@click.option(
+    "--export", help="Export the CLI configuration to a file", default=""
 )
 def init(
     config: str,
@@ -180,9 +180,6 @@ def init(
     export: str = "",
 ) -> None:
     """Initialise repository in current location"""
-    import pdb
-
-    pdb.set_trace()
     try:
         with fdp_session.FAIR(
             os.getcwd(), None, debug=debug, testing=ci, local=local
@@ -635,7 +632,12 @@ def config_email(user_email: str) -> None:
 @cli.command()
 @click.argument("config", nargs=-1)
 @click.option("--debug/--no-debug")
-def pull(config: str, debug: bool):
+@click.option(
+    "--local/--no-local",
+    help="init without a remote registry - useful for closed systems",
+    default=False,
+)
+def pull(config: str, debug: bool, local: bool):
     """Update local registry from remotes and sources"""
     config = config[0] if config else fdp_com.local_user_config(os.getcwd())
     try:
@@ -644,6 +646,7 @@ def pull(config: str, debug: bool):
             config,
             server_mode=fdp_svr.SwitchMode.CLI,
             debug=debug,
+            local=local,
             allow_dirty=True,
         ) as fair:
             fair.pull()
