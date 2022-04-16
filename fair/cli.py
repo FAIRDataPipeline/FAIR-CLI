@@ -642,7 +642,7 @@ def pull(config: str, debug: bool, local: bool):
             local=local,
             allow_dirty=True,
         ) as fair:
-            fair.pull(local=local)
+            fair.pull()
     except fdp_exc.FAIRCLIException as e:
         if debug:
             raise e

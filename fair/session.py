@@ -378,8 +378,8 @@ class FAIR:
                 data_product, "data_product", False
             )
 
-    def pull(self, remote: str = "origin", local: bool = False):
-        if not local:
+    def pull(self, remote: str = "origin"):
+        if not self._local:
             self._logger.debug("Performing pull on remote '%s'", remote)
 
             _remote_addr = fdp_conf.get_remote_uri(self._session_loc, remote)
@@ -390,7 +390,6 @@ class FAIR:
                     f" server does not exist. Expected response from '{_remote_addr}'.",
                     hint="Is your FAIR repository configured correctly?",
                 )
-
             self._logger.debug("Retrieving namespaces from remote")
 
             fdp_sync.pull_all_namespaces(
@@ -453,7 +452,7 @@ class FAIR:
             self._post_job_breakdown()
         else:
             click.echo("working with no remote")
-            self._logger.debug(f"local is {local}")
+            self._logger.debug(f"local is {self._local}")
 
     def run(
         self,
