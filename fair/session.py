@@ -164,8 +164,8 @@ class FAIR:
             "\ttesting        = %s\n"
             "\trun_mode       = %s\n"
             "\tstaging_file   = %s\n"
-            "\tsession_id     = %s\n",
-            "\tlocal     = %s\n",
+            "\tsession_id     = %s\n"
+            "\tlocal          = %s\n",
             self._session_loc,
             user_config,
             self._testing,

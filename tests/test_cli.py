@@ -102,7 +102,9 @@ def test_status(
         mocker.patch(
             "fair.registry.requests.local_token", lambda: local_registry._token
         )
-        _result = click_test.invoke(cli, ["status", "--debug", "--verbose"])
+        _result = click_test.invoke(
+            cli, ["status", "--debug", "--verbose"], catch_exceptions=True
+        )
         assert _result.exit_code == 0
 
 
