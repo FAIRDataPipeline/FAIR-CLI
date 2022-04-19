@@ -453,6 +453,7 @@ class FAIR:
         bash_cmd: str = "",
         passive: bool = False,
         allow_dirty: bool = False,
+        local: bool = False,
     ) -> str:
         """Execute a run using the given user configuration file"""
         self._pre_job_setup()
@@ -474,8 +475,8 @@ class FAIR:
         # Only apply constraint for clean repository when executing a run
         if passive:
             allow_dirty = True
-
-        self.check_git_repo_state(allow_dirty=allow_dirty)
+        if not local:
+            self.check_git_repo_state(allow_dirty=allow_dirty)
 
         self._session_config.write()
 

@@ -468,7 +468,14 @@ def rm(
     help="Allow running with uncommitted changes",
     default=False,
 )
-def run(config: str, script: str, debug: bool, ci: bool, dirty: bool):
+@click.option(
+    "--local/--no-local",
+    help="init without a remote registry - useful for closed systems",
+    default=False,
+)
+def run(
+    config: str, script: str, debug: bool, ci: bool, dirty: bool, local: bool
+):
     """Initialises a job with the option to specify a bash command"""
     # Allow no config to be specified, if that is the case use default local
     config = config[0] if config else fdp_com.local_user_config(os.getcwd())
@@ -479,8 +486,11 @@ def run(config: str, script: str, debug: bool, ci: bool, dirty: bool):
             debug=debug,
             server_mode=fdp_svr.SwitchMode.CLI,
             allow_dirty=dirty,
+            local=local,
         ) as fair_session:
-            _hash = fair_session.run(script, passive=ci, allow_dirty=dirty)
+            _hash = fair_session.run(
+                script, passive=ci, allow_dirty=dirty, local=local
+            )
             if ci:
                 click.echo(fdp_run.get_job_dir(_hash))
     except fdp_exc.FAIRCLIException as e:
