@@ -309,6 +309,86 @@ def test_init_full(
 
 
 @pytest.mark.faircli_cli
+def test_init_local(
+    local_registry: conf.RegistryTest,
+    click_test: click.testing.CliRunner,
+    mocker: pytest_mock.MockerFixture,
+):
+    mocker.patch("fair.common.registry_home", lambda: local_registry._install)
+    mocker.patch(
+        "fair.registry.server.update_registry_post_setup", lambda *args: None
+    )
+    with local_registry:
+        with tempfile.TemporaryDirectory() as tempd:
+            with open(os.path.join(tempd, "token"), "w") as tok_f:
+                tok_f.write("hjasdi324ji7823jdsf78234")
+            mocker.patch("fair.common.USER_FAIR_DIR", tempd)
+            _dummy_name = "Joseph Bloggs"
+            _dummy_email = "jbloggs@nowhere.com"
+            _args = [
+                "8000",
+                "",
+                "",
+                "",
+                _dummy_email,
+                "",
+                _dummy_name,
+                "",
+                "",
+                os.getcwd(),
+                "",
+            ]
+
+            click_test.invoke(
+                cli,
+                ["init", "--debug", "--local"],
+                input="\n".join(_args),
+            )
+
+            assert os.path.exists(fair.common.global_config_dir())
+            assert os.path.exists(
+                os.path.join(os.getcwd(), fair.common.FAIR_FOLDER)
+            )
+
+            _cli_cfg = yaml.safe_load(
+                open(
+                    os.path.join(
+                        os.getcwd(), fair.common.FAIR_FOLDER, "cli-config.yaml"
+                    )
+                )
+            )
+
+            _cli_glob_cfg = yaml.safe_load(
+                open(
+                    os.path.join(
+                        fair.common.global_config_dir(), "cli-config.yaml"
+                    )
+                )
+            )
+
+            _expected_url = "http://127.0.0.1:8000/api/"
+
+            assert _cli_cfg
+            assert _cli_cfg["git"]["local_repo"] == os.getcwd()
+            assert _cli_cfg["git"]["remote"] == "origin"
+            assert _cli_cfg["git"]["remote_repo"] == "git@notagit.com"
+            assert _cli_cfg["namespaces"]["input"] == "josephbloggs"
+            assert _cli_cfg["namespaces"]["output"] == "josephbloggs"
+            assert (
+                _cli_cfg["registries"]["origin"]["data_store"]
+                == "./data_store/"
+            )
+
+            assert _cli_cfg["registries"]["origin"]["uri"] == _expected_url
+
+            assert _cli_glob_cfg["registries"]["local"]["uri"] == _expected_url
+            assert _cli_cfg["user"]["email"] == _dummy_email
+            assert _cli_cfg["user"]["family_name"] == "Bloggs"
+            assert _cli_cfg["user"]["given_names"] == "Joseph"
+            assert _cli_cfg["user"]["uuid"]
+
+
+@pytest.mark.faircli_cli
 def test_purge(
     local_config: typing.Tuple[str, str],
     click_test: click.testing.CliRunner,
@@ -397,6 +477,32 @@ def test_cli_run(
         _result = click_test.invoke(
             cli,
             ["run", "--debug", "--dirty", "--script", 'echo "Hello World!"'],
+        )
+        assert _result.output
+
+        assert _result.exit_code == 0
+
+
+def test_cli_run_local(
+    local_config: typing.Tuple[str, str],
+    local_registry: conf.RegistryTest,
+    click_test: click.testing.CliRunner,
+    mocker: pytest_mock.MockerFixture,
+):
+    with local_registry:
+        mocker.patch(
+            "fair.common.registry_home", lambda: local_registry._install
+        )
+        mocker.patch(
+            "fair.registry.requests.local_token", lambda: local_registry._token
+        )
+        with open(
+            os.path.join(local_config[1], fdp_com.FAIR_FOLDER, "staging"), "w"
+        ) as staged:
+            yaml.dump({"job": {}}, staged)
+        _result = click_test.invoke(
+            cli,
+            ["run", "--local", "--script", 'echo "Hello World!"'],
         )
         assert _result.output
 
