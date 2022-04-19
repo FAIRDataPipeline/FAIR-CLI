@@ -401,7 +401,7 @@ class FAIR:
 
             self._logger.debug("Performing pre-job setup")
 
-            self._pre_job_setup(remote)
+        self._pre_job_setup(remote)
 
         self._session_config.prepare(
             fdp_com.CMD_MODE.PULL,
