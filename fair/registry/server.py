@@ -468,10 +468,10 @@ def update_registry_post_setup(
             fdp_req.local_token(),
             params={"username": "admin"},
         )[0]["url"]
-    except (KeyError, IndexError):
+    except (KeyError, IndexError) as e:
         raise fdp_exc.RegistryError(
             "Failed to retrieve 'admin' user from registry database"
-        )
+        ) from e
 
     fdp_req.post_else_get(
         fdp_conf.get_local_uri(),

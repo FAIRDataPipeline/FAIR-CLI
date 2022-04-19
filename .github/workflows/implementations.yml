@@ -228,7 +228,7 @@ jobs:
     - name: Install requirements
       run: |
         sudo apt-get update
-        sudo apt-get upgrade 
+        sudo apt-get upgrade
         sudo apt install -y libmemcached-dev graphviz gnuplot --fix-missing
         sudo apt install -y libjsoncpp-dev curl libcurl4-openssl-dev --fix-missing
         sudo apt install -y libyaml-cpp-dev libhdf5-dev --fix-missing

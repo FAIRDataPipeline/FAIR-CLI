@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
+# sourcery skip: avoid-builtin-shadow
 """
 CLI Config Validation
 =====================

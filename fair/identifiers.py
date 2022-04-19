@@ -64,7 +64,7 @@ def check_orcid(orcid: str) -> typing.Dict:
     _names = _response.json()["person"]["name"]
     _given = _names["given-names"]["value"]
     _family = _names["family-name"]["value"]
-    _name = _given + " " + _family
+    _name = f"{_given} {_family}"
 
     _result_dict["name"] = _name
     _result_dict["family_name"] = _family

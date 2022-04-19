@@ -82,6 +82,7 @@ class FAIR:
         server_port: int = 8000,
         allow_dirty: bool = False,
         testing: bool = False,
+        local: bool = False,
     ) -> None:
         """Initialise instance of FAIR sync tool
 
@@ -108,6 +109,8 @@ class FAIR:
             allow runs with uncommitted changes, default is False
         testing : bool
             run in testing mode
+        local : bool
+            bypasses storing the remote in the config yamls
         """
         if debug:
             logging.getLogger("FAIRDataPipeline").setLevel(logging.DEBUG)
@@ -115,6 +118,7 @@ class FAIR:
             logging.getLogger("FAIRDataPipeline").setLevel(logging.CRITICAL)
         self._logger.debug("Starting new session.")
         self._testing = testing
+        self._local = local
         self._session_loc = repo_loc
         self._allow_dirty = allow_dirty
         self._logger.debug(f"Session location: {self._session_loc}")
@@ -160,13 +164,15 @@ class FAIR:
             "\ttesting        = %s\n"
             "\trun_mode       = %s\n"
             "\tstaging_file   = %s\n"
-            "\tsession_id     = %s\n",
+            "\tsession_id     = %s\n"
+            "\tlocal          = %s\n",
             self._session_loc,
             user_config,
             self._testing,
             self._run_mode,
             self._stager._staging_file,
             self._session_id,
+            self._local,
         )
 
         self._load_configurations()
@@ -221,11 +227,12 @@ class FAIR:
                     )
                 if os.path.exists(fdp_com.default_data_dir()):
                     shutil.rmtree(fdp_com.default_data_dir())
-            except FileNotFoundError:
+            except FileNotFoundError as e:
                 raise fdp_exc.FileNotFoundError(
                     "Cannot remove local data store, a global CLI configuration "
                     "is required to identify its location"
-                )
+                ) from e
+
         if global_cfg:
             if verbose:
                 click.echo(
@@ -372,27 +379,27 @@ class FAIR:
             )
 
     def pull(self, remote: str = "origin"):
-        self._logger.debug("Performing pull on remote '%s'", remote)
+        if not self._local:
+            self._logger.debug("Performing pull on remote '%s'", remote)
 
-        _remote_addr = fdp_conf.get_remote_uri(self._session_loc, remote)
+            _remote_addr = fdp_conf.get_remote_uri(self._session_loc, remote)
 
-        if not fdp_serv.check_server_running(_remote_addr):
-            raise fdp_exc.UnexpectedRegistryServerState(
-                f"Cannot perform pull from registry '{remote}' as the"
-                f" server does not exist. Expected response from '{_remote_addr}'.",
-                hint="Is your FAIR repository configured correctly?",
+            if not fdp_serv.check_server_running(_remote_addr):
+                raise fdp_exc.UnexpectedRegistryServerState(
+                    f"Cannot perform pull from registry '{remote}' as the"
+                    f" server does not exist. Expected response from '{_remote_addr}'.",
+                    hint="Is your FAIR repository configured correctly?",
+                )
+            self._logger.debug("Retrieving namespaces from remote")
+
+            fdp_sync.pull_all_namespaces(
+                fdp_conf.get_local_uri(),
+                fdp_conf.get_remote_uri(self._session_loc, remote),
+                fdp_req.local_token(),
+                fdp_conf.get_remote_token(self._session_loc, remote),
             )
 
-        self._logger.debug("Retrieving namespaces from remote")
-
-        fdp_sync.pull_all_namespaces(
-            fdp_conf.get_local_uri(),
-            fdp_conf.get_remote_uri(self._session_loc, remote),
-            fdp_req.local_token(),
-            fdp_conf.get_remote_token(self._session_loc, remote),
-        )
-
-        self._logger.debug("Performing pre-job setup")
+            self._logger.debug("Performing pre-job setup")
 
         self._pre_job_setup(remote)
 
@@ -437,12 +444,16 @@ class FAIR:
         self._logger.debug("Performing post-job breakdown")
 
         self._post_job_breakdown()
+        # else:
+        #     click.echo("working with no remote")
+        #     self._logger.debug(f"local is {self._local}")
 
     def run(
         self,
         bash_cmd: str = "",
         passive: bool = False,
         allow_dirty: bool = False,
+        local: bool = False,
     ) -> str:
         """Execute a run using the given user configuration file"""
         self._pre_job_setup()
@@ -464,8 +475,8 @@ class FAIR:
         # Only apply constraint for clean repository when executing a run
         if passive:
             allow_dirty = True
-
-        self.check_git_repo_state(allow_dirty=allow_dirty)
+        if not local:
+            self.check_git_repo_state(allow_dirty=allow_dirty)
 
         self._session_config.write()
 
@@ -504,7 +515,7 @@ class FAIR:
             if allow_dirty:
                 click.echo(f"Warning: {' '.join(e.args)}")
             else:
-                raise fdp_exc.FDPRepositoryError(" ".join(e.args))
+                raise fdp_exc.FDPRepositoryError(" ".join(e.args)) from e
 
         # Get the latest commit on this branch on remote
 
@@ -515,21 +526,23 @@ class FAIR:
                     .refs[_current_branch]
                     .commit.hexsha
                 )
-        except git.InvalidGitRepositoryError:
+        except git.InvalidGitRepositoryError as exc:
             raise fdp_exc.FDPRepositoryError(
                 f"Location '{self._session_loc}' is not a valid git repository"
-            )
-        except ValueError:
+            ) from exc
+
+        except ValueError as exc:
             raise fdp_exc.FDPRepositoryError(
                 f"Failed to retrieve latest commit for local repository '{self._session_loc}'",
                 hint="Have any changes been committed in the project repository?",
-            )
-        except IndexError:
+            ) from exc
+
+        except IndexError as exc:
             _msg = f"Failed to find branch '{_current_branch}' on remote repository"
             if allow_dirty:
                 click.echo(f"Warning: {_msg}")
             else:
-                raise fdp_exc.FDPRepositoryError(_msg)
+                raise fdp_exc.FDPRepositoryError(_msg) from exc
 
         # Commit match
         _com_match = _loc_commit == _rem_commit
@@ -655,10 +668,9 @@ class FAIR:
 
         This does NOT delete any information from the registry
         """
-        _log_files = glob.glob(
+        if _log_files := glob.glob(
             fdp_hist.history_directory(self._session_loc), "*.log"
-        )
-        if _log_files:
+        ):
             for log in _log_files:
                 os.remove(log)
 
@@ -844,6 +856,7 @@ class FAIR:
         using: typing.Dict = None,
         registry: str = None,
         export_as: str = None,
+        local: bool = False,
     ) -> None:
         """Initialise an fair repository within the current location
 
@@ -873,9 +886,7 @@ class FAIR:
             click.echo("FAIR repository is already initialised.")
             return
 
-        _existing = fdp_com.find_fair_root(self._session_loc)
-
-        if _existing:
+        if _existing := fdp_com.find_fair_root(self._session_loc):
             click.echo(
                 "A FAIR repository was initialised for this location at"
                 f" '{_existing}'"
@@ -899,19 +910,23 @@ class FAIR:
 
         if not os.path.exists(fdp_com.global_fdpconfig()):
             try:
-                self._global_config = fdp_conf.global_config_query(registry)
+                self._global_config = fdp_conf.global_config_query(
+                    registry, local
+                )
             except (fdp_exc.CLIConfigurationError, click.Abort) as e:
                 self._clean_reset(_fair_dir, e)
             try:
                 self._local_config = fdp_conf.local_config_query(
-                    self._global_config, first_time_setup=_first_time
+                    self._global_config,
+                    first_time_setup=_first_time,
+                    local=local,
                 )
             except (fdp_exc.CLIConfigurationError, click.Abort) as e:
                 self._clean_reset(_fair_dir, e, True)
         elif not using:
             try:
                 self._local_config = fdp_conf.local_config_query(
-                    self._global_config
+                    self._global_config, local=local
                 )
             except (fdp_exc.CLIConfigurationError, click.Abort) as e:
                 self._clean_reset(_fair_dir, e, True)
@@ -930,7 +945,6 @@ class FAIR:
             self._export_cli_configuration(export_as)
 
         fdp_serv.update_registry_post_setup(self._session_loc, _first_time)
-
         try:
             fdp_clivalid.LocalCLIConfig(**self._local_config)
         except pydantic.ValidationError as e:
@@ -938,7 +952,7 @@ class FAIR:
             self._clean_reset(_fair_dir, local_only=True)
             raise fdp_exc.InternalError(
                 "Initialisation failed, validation of local CLI config file did not pass"
-            )
+            ) from e
 
         try:
             fdp_clivalid.GlobalCLIConfig(**self._global_config)
@@ -947,7 +961,7 @@ class FAIR:
             self._clean_reset(_fair_dir, local_only=False)
             raise fdp_exc.InternalError(
                 "Initialisation failed, validation of global CLI config file did not pass"
-            )
+            ) from e
 
         os.makedirs(
             fdp_hist.history_directory(self._session_loc), exist_ok=True

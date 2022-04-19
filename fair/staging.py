@@ -338,18 +338,9 @@ class Stager:
             _script_url = None
         else:
 
-            # Find the relevant script path on the local registry, this involves
-            # firstly getting the path commencing from the 'jobs' folder
-            self._logger.debug("Finding job script within local registry")
-            _script_path = _config_dict["run_metadata"]["script_path"]
-            _rel_script_path = _script_path.split(fdp_com.JOBS_DIR)[1]
-            _rel_script_path = f"{fdp_com.JOBS_DIR}{_rel_script_path}"
-
-            _script_url = self.find_registry_entry_for_file(
-                local_uri, _rel_script_path
-            )["url"]
-            self._logger.debug("Script URL: %s", _script_url)
-
+            _script_url = self._extracted_from_get_job_data_50(
+                _config_dict, local_uri
+            )
         self._logger.debug("Retrieving code runs and written objects")
 
         _code_run_urls = self._get_code_run_entries(local_uri, _directory)
@@ -363,6 +354,23 @@ class Stager:
             "config_file": _config_url,
             "script_file": _script_url,
         }
+
+    # TODO Rename this here and in `get_job_data`
+    def _extracted_from_get_job_data_50(self, _config_dict, local_uri):
+        # Find the relevant script path on the local registry, this involves
+        # firstly getting the path commencing from the 'jobs' folder
+        self._logger.debug("Finding job script within local registry")
+        _script_path = _config_dict["run_metadata"]["script_path"]
+        _rel_script_path = _script_path.split(fdp_com.JOBS_DIR)[1]
+        _rel_script_path = f"{fdp_com.JOBS_DIR}{_rel_script_path}"
+
+        result = self.find_registry_entry_for_file(
+            local_uri, _rel_script_path
+        )["url"]
+
+        self._logger.debug("Script URL: %s", result)
+
+        return result
 
     def remove_staging_entry(
         self, identifier: str, stage_type: str = "job"

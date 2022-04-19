@@ -112,9 +112,9 @@ def status(verbose, debug) -> None:
 def create(debug, output: str) -> None:
     """Generate a new FAIR repository user YAML config file"""
     output = (
-        os.path.join(os.getcwd(), fdp_com.USER_CONFIG_FILE)
-        if not output
-        else output[0]
+        output[0]
+        if output
+        else os.path.join(os.getcwd(), fdp_com.USER_CONFIG_FILE)
     )
     click.echo(f"Generating new user configuration file" f" '{output}'")
     with fdp_session.FAIR(os.getcwd(), debug=debug) as fair_session:
@@ -165,18 +165,24 @@ def reset(debug: bool) -> None:
 @click.option(
     "--export", help="Export the CLI configuration to a file", default=""
 )
+@click.option(
+    "--local/--no-local",
+    help="init without a remote registry - useful for closed systems",
+    default=False,
+)
 def init(
     config: str,
     debug: bool,
     using: str,
     registry: str,
     ci: bool,
+    local: bool,
     export: str = "",
 ) -> None:
     """Initialise repository in current location"""
     try:
         with fdp_session.FAIR(
-            os.getcwd(), None, debug=debug, testing=ci
+            os.getcwd(), None, debug=debug, testing=ci, local=local
         ) as fair_session:
             _use_dict = {}
             if using:
@@ -186,8 +192,12 @@ def init(
                         "file does not exist."
                     )
                 _use_dict = yaml.safe_load(open(using))
+
             fair_session.initialise(
-                using=_use_dict, registry=registry, export_as=export
+                using=_use_dict,
+                registry=registry,
+                export_as=export,
+                local=local,
             )
             if config:
                 fair_session.make_starter_config(config)
@@ -223,6 +233,7 @@ def init(
 )
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
 def purge(glob: bool, debug: bool, yes: bool, data: bool, all: bool) -> None:
+    # sourcery skip: avoid-builtin-shadow
     """Resets the repository deleting all local caches"""
     _purge = yes
 
@@ -457,7 +468,14 @@ def rm(
     help="Allow running with uncommitted changes",
     default=False,
 )
-def run(config: str, script: str, debug: bool, ci: bool, dirty: bool):
+@click.option(
+    "--local/--no-local",
+    help="init without a remote registry - useful for closed systems",
+    default=False,
+)
+def run(
+    config: str, script: str, debug: bool, ci: bool, dirty: bool, local: bool
+):
     """Initialises a job with the option to specify a bash command"""
     # Allow no config to be specified, if that is the case use default local
     config = config[0] if config else fdp_com.local_user_config(os.getcwd())
@@ -468,8 +486,11 @@ def run(config: str, script: str, debug: bool, ci: bool, dirty: bool):
             debug=debug,
             server_mode=fdp_svr.SwitchMode.CLI,
             allow_dirty=dirty,
+            local=local,
         ) as fair_session:
-            _hash = fair_session.run(script, passive=ci, allow_dirty=dirty)
+            _hash = fair_session.run(
+                script, passive=ci, allow_dirty=dirty, local=local
+            )
             if ci:
                 click.echo(fdp_run.get_job_dir(_hash))
     except fdp_exc.FAIRCLIException as e:
@@ -576,7 +597,7 @@ def modify(ctx, label: str, url: str, debug: bool) -> None:
 )
 def push(remote: str, debug: bool, dirty: bool):
     """Push data between the local and remote registry"""
-    remote = "origin" if not remote else remote[0]
+    remote = remote[0] if remote else "origin"
     try:
         with fdp_session.FAIR(
             os.getcwd(),
@@ -614,7 +635,12 @@ def config_email(user_email: str) -> None:
 @cli.command()
 @click.argument("config", nargs=-1)
 @click.option("--debug/--no-debug")
-def pull(config: str, debug: bool):
+@click.option(
+    "--local/--no-local",
+    help="init without a remote registry - useful for closed systems",
+    default=False,
+)
+def pull(config: str, debug: bool, local: bool):
     """Update local registry from remotes and sources"""
     config = config[0] if config else fdp_com.local_user_config(os.getcwd())
     try:
@@ -623,6 +649,7 @@ def pull(config: str, debug: bool):
             config,
             server_mode=fdp_svr.SwitchMode.CLI,
             debug=debug,
+            local=local,
             allow_dirty=True,
         ) as fair:
             fair.pull()

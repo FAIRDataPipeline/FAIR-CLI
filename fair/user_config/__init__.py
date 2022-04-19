@@ -25,6 +25,9 @@ Classes
 
 """
 
+
+import itertools
+
 __date__ = "2021-09-10"
 
 import copy
@@ -393,12 +396,10 @@ class JobConfiguration(MutableMapping):
             return [block_entry]
 
         _new_entries: typing.List[typing.Dict] = []
-        _obj_type = None
-        for obj in fdp_valid.VALID_OBJECTS:
-            # Identify object type
-            if obj in block_entry:
-                _obj_type = obj
-                break
+        _obj_type = next(
+            (obj for obj in fdp_valid.VALID_OBJECTS if obj in block_entry),
+            None,
+        )
 
         if not _obj_type:
             raise fdp_exc.UserConfigError(
@@ -414,11 +415,11 @@ class JobConfiguration(MutableMapping):
                 registry_token,
                 params={_search_key: block_entry[_obj_type]},
             )
-        except fdp_exc.RegistryAPICallError:
+        except fdp_exc.RegistryAPICallError as e:
             raise fdp_exc.UserConfigError(
                 f"Failed to retrieve entries on local registry for {_obj_type}"
                 f" wildcard '{block_entry[_obj_type]}'"
-            )
+            ) from e
 
         if _obj_type in ("namespace", "author"):
             # If the object is a namespace or an author then there is no
@@ -476,24 +477,25 @@ class JobConfiguration(MutableMapping):
             _repository = git.Repo(
                 fdp_com.find_git_root(self.local_repository)
             )
-        except git.InvalidGitRepositoryError:
+        except git.InvalidGitRepositoryError as e:
             raise fdp_exc.FDPRepositoryError(
                 f"Location '{self._local_repository}' is not a valid git repository"
-            )
+            ) from e
 
         try:
             _latest = _repository.head.commit.hexsha
-        except git.InvalidGitRepositoryError:
+        except git.InvalidGitRepositoryError as exc:
             raise fdp_exc.FDPRepositoryError(
                 f"Location '{self.local_repository}' is not a valid git repository"
-            )
-        except ValueError:
+            ) from exc
+
+        except ValueError as exc:
             raise fdp_exc.FDPRepositoryError(
                 "Failed to retrieve latest commit for local "
                 f"repository '{self.local_repository}'",
                 hint="Have any changes been committed "
                 "in the project repository?",
-            )
+            ) from exc
 
         if _repository.is_dirty():
             if not allow_dirty:
@@ -651,11 +653,12 @@ class JobConfiguration(MutableMapping):
 
             try:
                 _git_repo = git.Repo(_local_repo)
-            except git.InvalidGitRepositoryError:
+            except git.InvalidGitRepositoryError as e:
                 raise fdp_exc.FDPRepositoryError(
                     f"Failed to update job configuration from location '{fair_repo_dir}', "
                     "not a valid git repository."
-                )
+                ) from e
+
             _url = _git_repo.remotes[_remote].url
             self["run_metadata.remote_repo"] = _url
 
@@ -834,9 +837,7 @@ class JobConfiguration(MutableMapping):
         # Additional parser for formatted datetime
         _regex_fmt = re.compile(r"\$\{\{\s*([^}${\s]+)\s*\}\}")
 
-        _unparsed = _regex_fmt.findall(_conf_str)
-
-        if _unparsed:
+        if _unparsed := _regex_fmt.findall(_conf_str):
             raise fdp_exc.InternalError(
                 f"Failed to parse variables '{_unparsed}'"
             )
@@ -1213,9 +1214,10 @@ class JobConfiguration(MutableMapping):
         for block in self._block_types:
             if block not in self:
                 continue
-            for i, _ in enumerate(self[block]):
-                for key in self._status_tags:
-                    self[block][i].pop(key, None)
+            for (i, _), key in itertools.product(
+                enumerate(self[block]), self._status_tags
+            ):
+                self[block][i].pop(key, None)
 
     @property
     def script(self) -> str:
@@ -1303,10 +1305,14 @@ class JobConfiguration(MutableMapping):
     @property
     def command(self) -> typing.Optional[str]:
         """Returns either the script or script path to be executed"""
-        for key in ("script", "script_path"):
-            if key in self["run_metadata"]:
-                return self[f"run_metadata.{key}"]
-        return None
+        return next(
+            (
+                self[f"run_metadata.{key}"]
+                for key in ("script", "script_path")
+                if key in self["run_metadata"]
+            ),
+            None,
+        )
 
     @property
     def environment(self) -> typing.Dict:
@@ -1464,7 +1470,7 @@ class JobConfiguration(MutableMapping):
                 self._config,
                 json.loads(e.json()),
             )
-            raise fdp_exc.ValidationError(e.json())
+            raise fdp_exc.ValidationError(e.json()) from e
 
         if not output_file:
             if not self._job_dir:
