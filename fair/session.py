@@ -412,47 +412,43 @@ class FAIR:
                 ),
             )
 
-            _readables = self._session_config.get_readables()
+        _readables = self._session_config.get_readables()
 
-            self._session_config.write()
+        self._session_config.write()
 
-            self._logger.debug(
-                "Preparing to retrieve %s items", len(_readables)
+        self._logger.debug("Preparing to retrieve %s items", len(_readables))
+
+        self._logger.debug("Pulling data products locally")
+
+        # Only push data products if there are any to do so, this covers the
+        # case whereby no remote has been setup and we just want to register
+        # items on the local registry
+        if _readables:
+            fdp_sync.sync_data_products(
+                origin_uri=fdp_conf.get_remote_uri(self._session_loc, remote),
+                dest_uri=fdp_conf.get_local_uri(),
+                dest_token=fdp_req.local_token(),
+                origin_token=fdp_conf.get_remote_token(
+                    self._session_loc, remote
+                ),
+                remote_label=remote,
+                data_products=_readables,
+                local_data_store=self._session_config.default_data_store,
             )
 
-            self._logger.debug("Pulling data products locally")
-
-            # Only push data products if there are any to do so, this covers the
-            # case whereby no remote has been setup and we just want to register
-            # items on the local registry
-            if _readables:
-                fdp_sync.sync_data_products(
-                    origin_uri=fdp_conf.get_remote_uri(
-                        self._session_loc, remote
-                    ),
-                    dest_uri=fdp_conf.get_local_uri(),
-                    dest_token=fdp_req.local_token(),
-                    origin_token=fdp_conf.get_remote_token(
-                        self._session_loc, remote
-                    ),
-                    remote_label=remote,
-                    data_products=_readables,
-                    local_data_store=self._session_config.default_data_store,
-                )
-
-                self._session_config.write_log_lines(
-                    [f"Pulled data products from remote '{remote}':"]
-                    + [f"\t- {data_product}" for data_product in _readables]
-                )
-            else:
-                click.echo(f"No items to retrieve from remote '{remote}'.")
-
-            self._logger.debug("Performing post-job breakdown")
-
-            self._post_job_breakdown()
+            self._session_config.write_log_lines(
+                [f"Pulled data products from remote '{remote}':"]
+                + [f"\t- {data_product}" for data_product in _readables]
+            )
         else:
-            click.echo("working with no remote")
-            self._logger.debug(f"local is {self._local}")
+            click.echo(f"No items to retrieve from remote '{remote}'.")
+
+        self._logger.debug("Performing post-job breakdown")
+
+        self._post_job_breakdown()
+        # else:
+        #     click.echo("working with no remote")
+        #     self._logger.debug(f"local is {self._local}")
 
     def run(
         self,

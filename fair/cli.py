@@ -163,12 +163,12 @@ def reset(debug: bool) -> None:
 )
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
 @click.option(
+    "--export", help="Export the CLI configuration to a file", default=""
+)
+@click.option(
     "--local/--no-local",
     help="init without a remote registry - useful for closed systems",
     default=False,
-)
-@click.option(
-    "--export", help="Export the CLI configuration to a file", default=""
 )
 def init(
     config: str,
