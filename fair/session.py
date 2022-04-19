@@ -403,14 +403,12 @@ class FAIR:
 
             self._pre_job_setup(remote)
 
-            self._session_config.prepare(
-                fdp_com.CMD_MODE.PULL,
-                allow_dirty=self._allow_dirty,
-                remote_uri=fdp_conf.get_remote_uri(self._session_loc, remote),
-                remote_token=fdp_conf.get_remote_token(
-                    self._session_loc, remote
-                ),
-            )
+        self._session_config.prepare(
+            fdp_com.CMD_MODE.PULL,
+            allow_dirty=self._allow_dirty,
+            remote_uri=fdp_conf.get_remote_uri(self._session_loc, remote),
+            remote_token=fdp_conf.get_remote_token(self._session_loc, remote),
+        )
 
         _readables = self._session_config.get_readables()
 
