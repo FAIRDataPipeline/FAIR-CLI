@@ -2,7 +2,7 @@ name: Pages
 on:
   push:
     branches:
-    - develop
+    - rtd
 jobs:
   build:
     runs-on: ubuntu-latest
