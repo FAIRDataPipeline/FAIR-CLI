@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>fair.templates package &mdash; FAIR-CLI  documentation</title>
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/doctools.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="fair.user_config package" href="fair.user_config.html" />
+    <link rel="prev" title="fair.registry package" href="fair.registry.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="index.html" class="icon icon-home"> FAIR-CLI
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="develop.html">FAIR Data Pipeline Developer Notes</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="fair.html">fair package API</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="fair.html#subpackages">Subpackages</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="fair.configuration.html">fair.configuration package</a></li>
+<li class="toctree-l3"><a class="reference internal" href="fair.registry.html">fair.registry package</a></li>
+<li class="toctree-l3 current"><a class="current reference internal" href="#">fair.templates package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#module-fair.templates">Module contents</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="fair.user_config.html">fair.user_config package</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="fair.html#submodules">Submodules</a></li>
+<li class="toctree-l2"><a class="reference internal" href="fair.html#module-fair.cli">fair.cli module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="fair.html#module-fair.common">fair.common module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="fair.html#module-fair.exceptions">fair.exceptions module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="fair.html#module-fair.history">fair.history module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="fair.html#module-fair.identifiers">fair.identifiers module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="fair.html#module-fair.logging">fair.logging module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="fair.html#module-fair.register">fair.register module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="fair.html#module-fair.run">fair.run module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="fair.html#module-fair.session">fair.session module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="fair.html#module-fair.staging">fair.staging module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="fair.html#module-fair.testing">fair.testing module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="fair.html#module-fair.utilities">fair.utilities module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="fair.html#module-fair.virtualenv">fair.virtualenv module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="fair.html#module-fair">Module contents</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">FAIR-CLI</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
+          <li><a href="fair.html">fair package API</a> &raquo;</li>
+      <li>fair.templates package</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/fair.templates.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="fair-templates-package">
+<h1>fair.templates package<a class="headerlink" href="#fair-templates-package" title="Permalink to this headline"></a></h1>
+<section id="module-fair.templates">
+<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-fair.templates" title="Permalink to this headline"></a></h2>
+<section id="fair-cli-templates">
+<h3>FAIR-CLI Templates<a class="headerlink" href="#fair-cli-templates" title="Permalink to this headline"></a></h3>
+<p>Contains methods for assembling templates towards creation of configurations
+and user information displays.</p>
+</section>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="fair.registry.html" class="btn btn-neutral float-left" title="fair.registry package" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="fair.user_config.html" class="btn btn-neutral float-right" title="fair.user_config package" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, FAIR-CLI Authors.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

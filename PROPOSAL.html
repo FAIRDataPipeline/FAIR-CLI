@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Proposal for an SCRC FAIR Data Pipeline Synchronisation Client Command Line Interface &mdash; FAIR-CLI  documentation</title>
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/doctools.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="index.html" class="icon icon-home"> FAIR-CLI
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="develop.html">FAIR Data Pipeline Developer Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="fair.html">fair package API</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">FAIR-CLI</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
+      <li>Proposal for an SCRC FAIR Data Pipeline Synchronisation Client Command Line Interface</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/PROPOSAL.md.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <p><img alt="Workflow" src="_images/workflow.svg" /></p>
+<section id="proposal-for-an-scrc-fair-data-pipeline-synchronisation-client-command-line-interface">
+<h1>Proposal for an SCRC FAIR Data Pipeline Synchronisation Client Command Line Interface<a class="headerlink" href="#proposal-for-an-scrc-fair-data-pipeline-synchronisation-client-command-line-interface" title="Permalink to this headline"></a></h1>
+<p>In the following document I outline a proposal for the synchronisation system <code class="docutils literal notranslate"><span class="pre">fair</span></code> which aims to synchronise a local version of the SCRC FAIR Data pipeline registry. Much of this plan proposes using commands which mirror those contained within the <code class="docutils literal notranslate"><span class="pre">git</span></code> interface. My argument for this is it is an interface familiar to many already and so easy to learn.</p>
+<section id="local-cache">
+<h2>Local cache<a class="headerlink" href="#local-cache" title="Permalink to this headline"></a></h2>
+<p>I use the term “local cache” to refer to the mirror of the <code class="docutils literal notranslate"><span class="pre">.git</span></code> folder created when initialising a repository. My current understanding is that there is to be a folder <code class="docutils literal notranslate"><span class="pre">$HOME/.scrc</span></code> however this creates the following issues:</p>
+<ul class="simple">
+<li><p>Paths have a constant address that does not vary depending on where you are on the file system. This makes it easy to keep note of which files are being tracked. By having a <code class="docutils literal notranslate"><span class="pre">.git</span></code> folder in each repository Git is able to easily produce reports for commands like <code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">status</span></code> which make sense as it can calculate where the user is in relation to <code class="docutils literal notranslate"><span class="pre">.git</span></code>, e.g.:</p></li>
+</ul>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ ls -a
+.   .git fair
+$ git add fair/test_file
+$ git status
+On branch master
+Changes to be committed:
+  (use &quot;git restore --staged &lt;file&gt;...&quot; to unstage)
+        new file:   fair/test_file
+$ cd fair
+$ git status
+On branch master
+Changes to be committed:
+  (use &quot;git restore --staged &lt;file&gt;...&quot; to unstage)
+        new file:   test_file
+</pre></div>
+</div>
+<p>this would not be possible if the location was <code class="docutils literal notranslate"><span class="pre">$HOME/.git</span></code>.</p>
+<ul class="simple">
+<li><p>The user might want to keep tracking cases separate, e.g. they may have two models and only want to handle one at a time. In this case having a <code class="docutils literal notranslate"><span class="pre">.fair</span></code> folder in each repository with a candidate <code class="docutils literal notranslate"><span class="pre">config.yaml</span></code> would make sense.</p></li>
+<li><p>I would strongly oppose creating hidden folders in the user’s home area. Unless you have a clear uninstallation procedure that is not OS specific that removes this folder then you risk leaving orphaned directories. Whereas if the folder is created for a project then this is no longer an issue.</p></li>
+</ul>
+</section>
+<section id="initialisation">
+<h2>Initialisation<a class="headerlink" href="#initialisation" title="Permalink to this headline"></a></h2>
+<p>To ensure that the <code class="docutils literal notranslate"><span class="pre">config.yaml</span></code> location is always alongside a <code class="docutils literal notranslate"><span class="pre">.fair</span></code> folder, encourage users to use a command like:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ fair init
+</pre></div>
+</div>
+<p>which would make both. Police this by raising an exception if the <code class="docutils literal notranslate"><span class="pre">config.yaml</span></code> is not partnered with a <code class="docutils literal notranslate"><span class="pre">.fair</span></code> directory. Maybe even make a copy of <code class="docutils literal notranslate"><span class="pre">config.yaml</span></code> that is “packed” into <code class="docutils literal notranslate"><span class="pre">.fair</span></code> in case the two become separated, which would fall under:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ fair reset config.yaml
+</pre></div>
+</div>
+<p>use <code class="docutils literal notranslate"><span class="pre">config.yaml</span></code> to explicitly state you want to reset the config file, else by default this is ignored as it is not data.</p>
+</section>
+<section id="repository-wide-addition">
+<h2>Repository wide addition<a class="headerlink" href="#repository-wide-addition" title="Permalink to this headline"></a></h2>
+<p>Ideally <code class="docutils literal notranslate"><span class="pre">data_store</span></code> should work like <code class="docutils literal notranslate"><span class="pre">.git</span></code> in that it is a hidden container, I am aware the APIs will want to read from this location, could they perhaps read this hidden folder? If the user works with the original file and commits it then the hidden version would be updated anyway (again mirroring git). Could also even have the option to archive data in <code class="docutils literal notranslate"><span class="pre">.fair</span></code> to save space, retrieving when needed (again like git).</p>
+<p>Assuming a data_store is constructed always relative to a <code class="docutils literal notranslate"><span class="pre">config.yaml</span></code>, allow the user to ultimately add anything in the repository for tracking:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">fair</span> <span class="n">add</span> <span class="o">./</span><span class="n">my_data</span><span class="o">/</span><span class="n">a_data_file</span><span class="o">.</span><span class="n">txt</span>
+</pre></div>
+</div>
+<p>this would copy the version into <code class="docutils literal notranslate"><span class="pre">.fair/data_store/</span></code> and add it to tracking.</p>
+</section>
+<section id="configuration">
+<h2>Configuration<a class="headerlink" href="#configuration" title="Permalink to this headline"></a></h2>
+<p>Configure the user in a manner again alike to <code class="docutils literal notranslate"><span class="pre">git</span></code>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ fair config user.name &quot;Kristian Zarebski&quot;
+$ fair config user.email &quot;kristian.zarebski@ukaea.uk&quot;
+$ fair config user.orcid &quot;0000-0002-6773-1049&quot;
+</pre></div>
+</div>
+</section>
+<section id="status">
+<h2>Status<a class="headerlink" href="#status" title="Permalink to this headline"></a></h2>
+<p>No need to reinvent the wheel here, red for untracked and unstaged, green for staged.</p>
+</section>
+<section id="reset">
+<h2>Reset<a class="headerlink" href="#reset" title="Permalink to this headline"></a></h2>
+<p>Remove any staging set before <code class="docutils literal notranslate"><span class="pre">push</span></code>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ fair reset
+</pre></div>
+</div>
+<p>use <code class="docutils literal notranslate"><span class="pre">--hard</span></code> to force versions to return to the last synced version:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ fair reset --hard
+</pre></div>
+</div>
+</section>
+<section id="removing-files">
+<h2>Removing files<a class="headerlink" href="#removing-files" title="Permalink to this headline"></a></h2>
+<p>Again, alike to git have <code class="docutils literal notranslate"><span class="pre">fair</span> <span class="pre">rm</span></code> and <code class="docutils literal notranslate"><span class="pre">fair</span> <span class="pre">rm</span> <span class="pre">--cached</span></code>, to remove from tracking and the file system, or just tracking.</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, FAIR-CLI Authors.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

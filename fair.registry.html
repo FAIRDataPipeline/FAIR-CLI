@@ -1,0 +1,990 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>fair.registry package &mdash; FAIR-CLI  documentation</title>
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/doctools.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="fair.templates package" href="fair.templates.html" />
+    <link rel="prev" title="fair.configuration package" href="fair.configuration.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="index.html" class="icon icon-home"> FAIR-CLI
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="develop.html">FAIR Data Pipeline Developer Notes</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="fair.html">fair package API</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="fair.html#subpackages">Subpackages</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="fair.configuration.html">fair.configuration package</a></li>
+<li class="toctree-l3 current"><a class="current reference internal" href="#">fair.registry package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#submodules">Submodules</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#module-fair.registry.file_types">fair.registry.file_types module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#module-fair.registry.requests">fair.registry.requests module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#module-fair.registry.server">fair.registry.server module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#module-fair.registry.storage">fair.registry.storage module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#module-fair.registry.sync">fair.registry.sync module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#module-fair.registry.versioning">fair.registry.versioning module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#module-fair.registry">Module contents</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="fair.templates.html">fair.templates package</a></li>
+<li class="toctree-l3"><a class="reference internal" href="fair.user_config.html">fair.user_config package</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="fair.html#submodules">Submodules</a></li>
+<li class="toctree-l2"><a class="reference internal" href="fair.html#module-fair.cli">fair.cli module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="fair.html#module-fair.common">fair.common module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="fair.html#module-fair.exceptions">fair.exceptions module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="fair.html#module-fair.history">fair.history module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="fair.html#module-fair.identifiers">fair.identifiers module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="fair.html#module-fair.logging">fair.logging module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="fair.html#module-fair.register">fair.register module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="fair.html#module-fair.run">fair.run module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="fair.html#module-fair.session">fair.session module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="fair.html#module-fair.staging">fair.staging module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="fair.html#module-fair.testing">fair.testing module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="fair.html#module-fair.utilities">fair.utilities module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="fair.html#module-fair.virtualenv">fair.virtualenv module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="fair.html#module-fair">Module contents</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">FAIR-CLI</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
+          <li><a href="fair.html">fair package API</a> &raquo;</li>
+      <li>fair.registry package</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/fair.registry.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="fair-registry-package">
+<h1>fair.registry package<a class="headerlink" href="#fair-registry-package" title="Permalink to this headline"></a></h1>
+<section id="submodules">
+<h2>Submodules<a class="headerlink" href="#submodules" title="Permalink to this headline"></a></h2>
+</section>
+<section id="module-fair.registry.file_types">
+<span id="fair-registry-file-types-module"></span><h2>fair.registry.file_types module<a class="headerlink" href="#module-fair.registry.file_types" title="Permalink to this headline"></a></h2>
+</section>
+<section id="module-fair.registry.requests">
+<span id="fair-registry-requests-module"></span><h2>fair.registry.requests module<a class="headerlink" href="#module-fair.registry.requests" title="Permalink to this headline"></a></h2>
+<section id="registry-requests">
+<h3>Registry Requests<a class="headerlink" href="#registry-requests" title="Permalink to this headline"></a></h3>
+<p>Methods relating to connection with local and remote registries for the purpose
+of synchronisation and push/pull.</p>
+</section>
+<section id="contents">
+<h3>Contents<a class="headerlink" href="#contents" title="Permalink to this headline"></a></h3>
+<blockquote>
+<div><p>local_token   - retrieves the local API token
+post          - post to the registry RestAPI
+get           - retrieve from the registry RestAPI
+post_else_get - if an item already exists retrieve it, else create it</p>
+</div></blockquote>
+<dl class="py function">
+<dt class="sig sig-object py" id="fair.registry.requests.download_file">
+<span class="sig-prename descclassname"><span class="pre">fair.registry.requests.</span></span><span class="sig-name descname"><span class="pre">download_file</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">url</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">chunk_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">8192</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="headerlink" href="#fair.registry.requests.download_file" title="Permalink to this definition"></a></dt>
+<dd><p>Download a file from a given URL</p>
+<dl class="simple">
+<dt>url<span class="classifier">str</span></dt><dd><p>address of remote file</p>
+</dd>
+<dt>chunk_size<span class="classifier">int, optional</span></dt><dd><p>chunk size for download, by default 8192</p>
+</dd>
+</dl>
+<dl class="simple">
+<dt>str</dt><dd><p>path of downloaded temporary file</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fair.registry.requests.filter_object_dependencies">
+<span class="sig-prename descclassname"><span class="pre">fair.registry.requests.</span></span><span class="sig-name descname"><span class="pre">filter_object_dependencies</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">uri</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">obj_path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">token</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">filter</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#fair.registry.requests.filter_object_dependencies" title="Permalink to this definition"></a></dt>
+<dd><p>Filter dependencies of an API object based on a set of conditions</p>
+<dl class="simple">
+<dt>uri<span class="classifier">str</span></dt><dd><p>endpoint of the registry</p>
+</dd>
+<dt>object<span class="classifier">str</span></dt><dd><p>path of object type, e.g. ‘code_run’</p>
+</dd>
+<dt>token<span class="classifier">str</span></dt><dd><p>registry access token</p>
+</dd>
+<dt>filter<span class="classifier">typing.Dict[str, typing.Any]</span></dt><dd><p>list of filters to apply to listing</p>
+</dd>
+</dl>
+<dl class="simple">
+<dt>typing.List[str]</dt><dd><p>list of object type paths</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fair.registry.requests.get">
+<span class="sig-prename descclassname"><span class="pre">fair.registry.requests.</span></span><span class="sig-name descname"><span class="pre">get</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">uri</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">obj_path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">token</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">headers</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">params</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Dict</span></span></span><a class="headerlink" href="#fair.registry.requests.get" title="Permalink to this definition"></a></dt>
+<dd><p>Retrieve an object from the given registry</p>
+<dl class="simple">
+<dt>uri<span class="classifier">str</span></dt><dd><p>endpoint of the registry</p>
+</dd>
+<dt>obj_path<span class="classifier">str</span></dt><dd><p>type of the object to fetch</p>
+</dd>
+<dt>token<span class="classifier">str</span></dt><dd><p>token for accessing the registry</p>
+</dd>
+<dt>headers<span class="classifier">typing.Dict[str, typing.Any], optional</span></dt><dd><p>any additional headers for the request, by default None</p>
+</dd>
+<dt>params<span class="classifier">typing.Dict[str, typing.Any], optional</span></dt><dd><p>search parameters for the object, by default None</p>
+</dd>
+</dl>
+<dl class="simple">
+<dt>typing.Dict</dt><dd><p>returned data for the given request</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fair.registry.requests.get_dependency_listing">
+<span class="sig-prename descclassname"><span class="pre">fair.registry.requests.</span></span><span class="sig-name descname"><span class="pre">get_dependency_listing</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">uri</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">token</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Dict</span></span></span><a class="headerlink" href="#fair.registry.requests.get_dependency_listing" title="Permalink to this definition"></a></dt>
+<dd><p>Get complete listing of all objects and their registry based dependencies</p>
+<dl class="simple">
+<dt>uri<span class="classifier">str</span></dt><dd><p>endpoint of the registry</p>
+</dd>
+<dt>token<span class="classifier">str</span></dt><dd><p>registry access token</p>
+</dd>
+</dl>
+<dl class="simple">
+<dt>typing.Dict</dt><dd><p>dictionary of object types and their registry based dependencies</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fair.registry.requests.get_filter_variables">
+<span class="sig-prename descclassname"><span class="pre">fair.registry.requests.</span></span><span class="sig-name descname"><span class="pre">get_filter_variables</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">uri</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">obj_path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">token</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#fair.registry.requests.get_filter_variables" title="Permalink to this definition"></a></dt>
+<dd><p>Retrieves a list of variables you can filter by for a given object</p>
+<dl class="simple">
+<dt>uri<span class="classifier">str</span></dt><dd><p>endpoint of registry</p>
+</dd>
+<dt>obj_path<span class="classifier">str</span></dt><dd><p>type of object</p>
+</dd>
+<dt>token<span class="classifier">str</span></dt><dd><p>registry access token</p>
+</dd>
+</dl>
+<dl class="simple">
+<dt>typing.List[str]</dt><dd><p>list of filterable fields</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fair.registry.requests.get_obj_id_from_url">
+<span class="sig-prename descclassname"><span class="pre">fair.registry.requests.</span></span><span class="sig-name descname"><span class="pre">get_obj_id_from_url</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">object_url</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">int</span></span></span><a class="headerlink" href="#fair.registry.requests.get_obj_id_from_url" title="Permalink to this definition"></a></dt>
+<dd><p>Retrieves the ID from an object url</p>
+<dl class="simple">
+<dt>object_url<span class="classifier">str</span></dt><dd><p>URL for an object on the registry</p>
+</dd>
+</dl>
+<dl class="simple">
+<dt>int</dt><dd><p>integer ID for that object</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fair.registry.requests.get_obj_type_from_url">
+<span class="sig-prename descclassname"><span class="pre">fair.registry.requests.</span></span><span class="sig-name descname"><span class="pre">get_obj_type_from_url</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">request_url</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">token</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="headerlink" href="#fair.registry.requests.get_obj_type_from_url" title="Permalink to this definition"></a></dt>
+<dd><p>Retrieves the type of object from the given URL</p>
+<dl class="simple">
+<dt>request_url<span class="classifier">str</span></dt><dd><p>url to type check</p>
+</dd>
+<dt>token: str</dt><dd><p>token for accessing specified registry</p>
+</dd>
+</dl>
+<dl class="simple">
+<dt>str</dt><dd><p>object type if recognised else empty string</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fair.registry.requests.get_writable_fields">
+<span class="sig-prename descclassname"><span class="pre">fair.registry.requests.</span></span><span class="sig-name descname"><span class="pre">get_writable_fields</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">uri</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">obj_path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">token</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#fair.registry.requests.get_writable_fields" title="Permalink to this definition"></a></dt>
+<dd><p>Retrieve a list of writable fields for the given RestAPI object</p>
+<dl class="simple">
+<dt>uri<span class="classifier">str</span></dt><dd><p>endpoint of the registry</p>
+</dd>
+<dt>object<span class="classifier">str</span></dt><dd><p>path of object type, e.g. ‘code_run’</p>
+</dd>
+<dt>token: str</dt><dd><p>registry access token</p>
+</dd>
+</dl>
+<dl class="simple">
+<dt>typing.List[str]</dt><dd><p>list of object type paths</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fair.registry.requests.local_token">
+<span class="sig-prename descclassname"><span class="pre">fair.registry.requests.</span></span><span class="sig-name descname"><span class="pre">local_token</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">registry_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="headerlink" href="#fair.registry.requests.local_token" title="Permalink to this definition"></a></dt>
+<dd><p>Read the local registry token from the relevant file</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fair.registry.requests.post">
+<span class="sig-prename descclassname"><span class="pre">fair.registry.requests.</span></span><span class="sig-name descname"><span class="pre">post</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">uri</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">obj_path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">token</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">headers</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Dict</span></span></span><a class="headerlink" href="#fair.registry.requests.post" title="Permalink to this definition"></a></dt>
+<dd><p>Post an object to the registry</p>
+<dl class="simple">
+<dt>uri<span class="classifier">str</span></dt><dd><p>endpoint of the registry</p>
+</dd>
+<dt>obj_path<span class="classifier">str</span></dt><dd><p>type of object to post</p>
+</dd>
+<dt>token<span class="classifier">str</span></dt><dd><p>token for accessing the registry</p>
+</dd>
+<dt>data<span class="classifier">typing.Dict[str, typing.Any]</span></dt><dd><p>data for the object</p>
+</dd>
+<dt>headers<span class="classifier">typing.Dict[str, typing.Any], optional</span></dt><dd><p>any additional headers for the request, by default None</p>
+</dd>
+</dl>
+<dl class="simple">
+<dt>typing.Dict</dt><dd><p>resulting data returned from the request</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fair.registry.requests.post_else_get">
+<span class="sig-prename descclassname"><span class="pre">fair.registry.requests.</span></span><span class="sig-name descname"><span class="pre">post_else_get</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">uri</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">obj_path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">token</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">params</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="headerlink" href="#fair.registry.requests.post_else_get" title="Permalink to this definition"></a></dt>
+<dd><p>Post to the registry if an object does not exist else retrieve URL</p>
+<dl class="simple">
+<dt>uri<span class="classifier">str</span></dt><dd><p>endpoint of the registry</p>
+</dd>
+<dt>obj_path<span class="classifier">str</span></dt><dd><p>object type to post</p>
+</dd>
+<dt>token<span class="classifier">str</span></dt><dd><p>token to access registry</p>
+</dd>
+<dt>data<span class="classifier">typing.Dict[str, typing.Any]</span></dt><dd><p>data for the object to be posted</p>
+</dd>
+<dt>params<span class="classifier">typing.Dict[str, typing.Any], optional</span></dt><dd><p>parameters for searching if object exists, by default None</p>
+</dd>
+</dl>
+<dl class="simple">
+<dt>str</dt><dd><p>URL for object either retrieved or posted</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fair.registry.requests.split_api_url">
+<span class="sig-prename descclassname"><span class="pre">fair.registry.requests.</span></span><span class="sig-name descname"><span class="pre">split_api_url</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">request_url</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">splitter</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'api'</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#fair.registry.requests.split_api_url" title="Permalink to this definition"></a></dt>
+<dd><p>Split a request URL into endpoint and path</p>
+<dl class="simple">
+<dt>request_url<span class="classifier">str</span></dt><dd><p>URL to be split</p>
+</dd>
+<dt>splitter<span class="classifier">str, optional</span></dt><dd><p>split point, by default ‘api’</p>
+</dd>
+</dl>
+<dl class="simple">
+<dt>typing.Tuple[str]</dt><dd><p>endpoint, path</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fair.registry.requests.url_get">
+<span class="sig-prename descclassname"><span class="pre">fair.registry.requests.</span></span><span class="sig-name descname"><span class="pre">url_get</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">url</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">token</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Dict</span></span></span><a class="headerlink" href="#fair.registry.requests.url_get" title="Permalink to this definition"></a></dt>
+<dd><p>Send a URL only request and retrieve results</p>
+<p>Unlike ‘get’ this method is ‘raw’ in that there is no validation of
+components</p>
+<dl class="simple">
+<dt>url<span class="classifier">str</span></dt><dd><p>URL to send request to</p>
+</dd>
+<dt>token: str</dt><dd><p>url access token</p>
+</dd>
+</dl>
+<dl class="simple">
+<dt>typing.Dict</dt><dd><p>results dictionary</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+</section>
+<section id="module-fair.registry.server">
+<span id="fair-registry-server-module"></span><h2>fair.registry.server module<a class="headerlink" href="#module-fair.registry.server" title="Permalink to this headline"></a></h2>
+<section id="registry-server-control">
+<h3>Registry Server Control<a class="headerlink" href="#registry-server-control" title="Permalink to this headline"></a></h3>
+<p>Contains methods for controlling the starting and stopping of the local
+FAIR Data Pipeline registry via the CLI.</p>
+</section>
+<section id="id1">
+<h3>Contents<a class="headerlink" href="#id1" title="Permalink to this headline"></a></h3>
+<section id="functions">
+<h4>Functions<a class="headerlink" href="#functions" title="Permalink to this headline"></a></h4>
+<blockquote>
+<div><p>check_server_running - confirm that the server is running locally</p>
+</div></blockquote>
+<dl class="py class">
+<dt class="sig sig-object py" id="fair.registry.server.SwitchMode">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fair.registry.server.</span></span><span class="sig-name descname"><span class="pre">SwitchMode</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#fair.registry.server.SwitchMode" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">enum.Enum</span></code></p>
+<p>Server access mode</p>
+<p>The server can be launched either by the user or by the CLI itself. In the
+latter case it will be shut down after use if no other instances are using it.
+However if the user manually starts it themselves then the CLI will not
+alter the state. This class handles all stop/start request possibilities.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="fair.registry.server.SwitchMode.CLI">
+<span class="sig-name descname"><span class="pre">CLI</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">2</span></em><a class="headerlink" href="#fair.registry.server.SwitchMode.CLI" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="fair.registry.server.SwitchMode.FORCE_STOP">
+<span class="sig-name descname"><span class="pre">FORCE_STOP</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">3</span></em><a class="headerlink" href="#fair.registry.server.SwitchMode.FORCE_STOP" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="fair.registry.server.SwitchMode.NO_SERVER">
+<span class="sig-name descname"><span class="pre">NO_SERVER</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">4</span></em><a class="headerlink" href="#fair.registry.server.SwitchMode.NO_SERVER" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="fair.registry.server.SwitchMode.USER_START">
+<span class="sig-name descname"><span class="pre">USER_START</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0</span></em><a class="headerlink" href="#fair.registry.server.SwitchMode.USER_START" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="fair.registry.server.SwitchMode.USER_STOP">
+<span class="sig-name descname"><span class="pre">USER_STOP</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1</span></em><a class="headerlink" href="#fair.registry.server.SwitchMode.USER_STOP" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fair.registry.server.check_server_running">
+<span class="sig-prename descclassname"><span class="pre">fair.registry.server.</span></span><span class="sig-name descname"><span class="pre">check_server_running</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">local_uri</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">bool</span></span></span><a class="headerlink" href="#fair.registry.server.check_server_running" title="Permalink to this definition"></a></dt>
+<dd><p>Check the state of server</p>
+<dl class="simple">
+<dt>local_uri<span class="classifier">str</span></dt><dd><p>local registyr endpoint</p>
+</dd>
+</dl>
+<dl class="simple">
+<dt>bool</dt><dd><p>whether server is running</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fair.registry.server.django_environ">
+<span class="sig-prename descclassname"><span class="pre">fair.registry.server.</span></span><span class="sig-name descname"><span class="pre">django_environ</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">environ</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Dict</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">environ({'SELENIUM_JAR_PATH':</span> <span class="pre">'/usr/share/java/selenium-server.jar',</span> <span class="pre">'GOROOT_1_17_X64':</span> <span class="pre">'/opt/hostedtoolcache/go/1.17.9/x64',</span> <span class="pre">'CONDA':</span> <span class="pre">'/usr/share/miniconda',</span> <span class="pre">'GITHUB_WORKSPACE':</span> <span class="pre">'/home/runner/work/FAIR-CLI/FAIR-CLI',</span> <span class="pre">'JAVA_HOME_11_X64':</span> <span class="pre">'/usr/lib/jvm/temurin-11-jdk-amd64',</span> <span class="pre">'INPUT_INSTALL_REQUIREMENTS':</span> <span class="pre">'true',</span> <span class="pre">'GITHUB_PATH':</span> <span class="pre">'/home/runner/work/_temp/_runner_file_commands/add_path_421b2598-9407-4c81-a4dc-87d2f45cd8e4',</span> <span class="pre">'GITHUB_ACTION':</span> <span class="pre">'__sphinx-notes_pages',</span> <span class="pre">'JAVA_HOME':</span> <span class="pre">'/usr/lib/jvm/temurin-11-jdk-amd64',</span> <span class="pre">'GITHUB_RUN_NUMBER':</span> <span class="pre">'5',</span> <span class="pre">'RUNNER_NAME':</span> <span class="pre">'GitHub</span> <span class="pre">Actions</span> <span class="pre">12',</span> <span class="pre">'GRADLE_HOME':</span> <span class="pre">'/usr/share/gradle-7.4.2',</span> <span class="pre">'XDG_CONFIG_HOME':</span> <span class="pre">'/home/runner/.config',</span> <span class="pre">'DOTNET_SKIP_FIRST_TIME_EXPERIENCE':</span> <span class="pre">'1',</span> <span class="pre">'ANT_HOME':</span> <span class="pre">'/usr/share/ant',</span> <span class="pre">'JAVA_HOME_8_X64':</span> <span class="pre">'/usr/lib/jvm/temurin-8-jdk-amd64',</span> <span class="pre">'HOMEBREW_PREFIX':</span> <span class="pre">'/home/linuxbrew/.linuxbrew',</span> <span class="pre">'pythonLocation':</span> <span class="pre">'/opt/hostedtoolcache/Python/3.9.12/x64',</span> <span class="pre">'GITHUB_REF_TYPE':</span> <span class="pre">'branch',</span> <span class="pre">'ACTIONS_CACHE_URL':</span> <span class="pre">'https://artifactcache.actions.githubusercontent.com/z72WL6QoLp7lFbhkjNqg2lE7aby3zmdJO0rMlV818g4FvY4yRf/',</span> <span class="pre">'HOMEBREW_CLEANUP_PERIODIC_FULL_DAYS':</span> <span class="pre">'3650',</span> <span class="pre">'BOOTSTRAP_HASKELL_NONINTERACTIVE':</span> <span class="pre">'1',</span> <span class="pre">'PWD':</span> <span class="pre">'/home/runner/work/FAIR-CLI/FAIR-CLI',</span> <span class="pre">'PIPX_BIN_DIR':</span> <span class="pre">'/opt/pipx_bin',</span> <span class="pre">'DEPLOYMENT_BASEPATH':</span> <span class="pre">'/opt/runner',</span> <span class="pre">'GITHUB_ACTIONS':</span> <span class="pre">'true',</span> <span class="pre">'ANDROID_NDK_LATEST_HOME':</span> <span class="pre">'/usr/local/lib/android/sdk/ndk/23.1.7779620',</span> <span class="pre">'GITHUB_SHA':</span> <span class="pre">'a0a2627b6c7c395ec25325662ec32519dff40f94',</span> <span class="pre">'POWERSHELL_DISTRIBUTION_CHANNEL':</span> <span class="pre">'GitHub-Actions-ubuntu20',</span> <span class="pre">'DOTNET_MULTILEVEL_LOOKUP':</span> <span class="pre">'0',</span> <span class="pre">'GITHUB_REF':</span> <span class="pre">'refs/heads/rtd',</span> <span class="pre">'RUNNER_OS':</span> <span class="pre">'Linux',</span> <span class="pre">'GITHUB_REF_PROTECTED':</span> <span class="pre">'false',</span> <span class="pre">'HOME':</span> <span class="pre">'/home/runner',</span> <span class="pre">'GITHUB_API_URL':</span> <span class="pre">'https://api.github.com',</span> <span class="pre">'LANG':</span> <span class="pre">'C.UTF-8',</span> <span class="pre">'RUNNER_TRACKING_ID':</span> <span class="pre">'github_2e40b5c4-4c7a-4e81-91d3-145258f565e0',</span> <span class="pre">'STATS_KEEPALIVE':</span> <span class="pre">'false',</span> <span class="pre">'RUNNER_ARCH':</span> <span class="pre">'X64',</span> <span class="pre">'RUNNER_TEMP':</span> <span class="pre">'/home/runner/work/_temp',</span> <span class="pre">'ACTIONS_RUNTIME_URL':</span> <span class="pre">'https://pipelines.actions.githubusercontent.com/z72WL6QoLp7lFbhkjNqg2lE7aby3zmdJO0rMlV818g4FvY4yRf/',</span> <span class="pre">'GITHUB_ENV':</span> <span class="pre">'/home/runner/work/_temp/_runner_file_commands/set_env_421b2598-9407-4c81-a4dc-87d2f45cd8e4',</span> <span class="pre">'GITHUB_EVENT_PATH':</span> <span class="pre">'/home/runner/work/_temp/_github_workflow/event.json',</span> <span class="pre">'INVOCATION_ID':</span> <span class="pre">'bc8be69a134542dc89e9f1018ff817db',</span> <span class="pre">'GITHUB_EVENT_NAME':</span> <span class="pre">'push',</span> <span class="pre">'GITHUB_RUN_ID':</span> <span class="pre">'2338617310',</span> <span class="pre">'JAVA_HOME_17_X64':</span> <span class="pre">'/usr/lib/jvm/temurin-17-jdk-amd64',</span> <span class="pre">'ANDROID_NDK_HOME':</span> <span class="pre">'/usr/local/lib/android/sdk/ndk-bundle',</span> <span class="pre">'GITHUB_STEP_SUMMARY':</span> <span class="pre">'/home/runner/work/_temp/_runner_file_commands/step_summary_421b2598-9407-4c81-a4dc-87d2f45cd8e4',</span> <span class="pre">'INPUT_REPOSITORY_PATH':</span> <span class="pre">'.',</span> <span class="pre">'HOMEBREW_NO_AUTO_UPDATE':</span> <span class="pre">'1',</span> <span class="pre">'GITHUB_ACTOR':</span> <span class="pre">'bobturneruk',</span> <span class="pre">'NVM_DIR':</span> <span class="pre">'/home/runner/.nvm',</span> <span class="pre">'SGX_AESM_ADDR':</span> <span class="pre">'1',</span> <span class="pre">'GITHUB_RUN_ATTEMPT':</span> <span class="pre">'1',</span> <span class="pre">'ANDROID_HOME':</span> <span class="pre">'/usr/local/lib/android/sdk',</span> <span class="pre">'GITHUB_GRAPHQL_URL':</span> <span class="pre">'https://api.github.com/graphql',</span> <span class="pre">'ACCEPT_EULA':</span> <span class="pre">'Y',</span> <span class="pre">'RUNNER_USER':</span> <span class="pre">'runner',</span> <span class="pre">'ACTIONS_RUNTIME_TOKEN':</span> <span class="pre">'eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsIng1dCI6ImVCWl9jbjNzWFlBZDBjaDRUSEJLSElnT3dPRSJ9.eyJuYW1laWQiOiJkZGRkZGRkZC1kZGRkLWRkZGQtZGRkZC1kZGRkZGRkZGRkZGQiLCJzY3AiOiJBY3Rpb25zLkdlbmVyaWNSZWFkOjAwMDAwMDAwLTAwMDAtMDAwMC0wMDAwLTAwMDAwMDAwMDAwMCBBY3Rpb25zLlVwbG9hZEFydGlmYWN0czowMDAwMDAwMC0wMDAwLTAwMDAtMDAwMC0wMDAwMDAwMDAwMDAvMTpCdWlsZC9CdWlsZC8xNTg2IExvY2F0aW9uU2VydmljZS5Db25uZWN0IFJlYWRBbmRVcGRhdGVCdWlsZEJ5VXJpOjAwMDAwMDAwLTAwMDAtMDAwMC0wMDAwLTAwMDAwMDAwMDAwMC8xOkJ1aWxkL0J1aWxkLzE1ODYiLCJJZGVudGl0eVR5cGVDbGFpbSI6IlN5c3RlbTpTZXJ2aWNlSWRlbnRpdHkiLCJodHRwOi8vc2NoZW1hcy54bWxzb2FwLm9yZy93cy8yMDA1LzA1L2lkZW50aXR5L2NsYWltcy9zaWQiOiJERERERERERC1ERERELUREREQtRERERC1EREREREREREREREQiLCJodHRwOi8vc2NoZW1hcy5taWNyb3NvZnQuY29tL3dzLzIwMDgvMDYvaWRlbnRpdHkvY2xhaW1zL3ByaW1hcnlzaWQiOiJkZGRkZGRkZC1kZGRkLWRkZGQtZGRkZC1kZGRkZGRkZGRkZGQiLCJhdWkiOiJhMjQ3Y2UxNy0wYzJmLTQxZWMtODA5Ni1jZDE4Mzg1ODY1NWQiLCJzaWQiOiJjMTczNjEzOS1hNDkzLTQwNzktYTRjMy1iN2Q3ZWU1YTE1MzkiLCJhYyI6Ilt7XCJTY29wZVwiOlwicmVmcy9oZWFkcy9ydGRcIixcIlBlcm1pc3Npb25cIjozfSx7XCJTY29wZVwiOlwicmVmcy9oZWFkcy9kZXZlbG9wXCIsXCJQZXJtaXNzaW9uXCI6MX1dIiwiYWNzbCI6IjEwIiwib3JjaGlkIjoiZWNlNjJjMDMtYmY3NC00OWI2LTlhNDgtMmM1Nzg5ZWM1YzAwLmJ1aWxkLl9fZGVmYXVsdCIsImlzcyI6InZzdG9rZW4uYWN0aW9ucy5naXRodWJ1c2VyY29udGVudC5jb20iLCJhdWQiOiJ2c3Rva2VuLmFjdGlvbnMuZ2l0aHVidXNlcmNvbnRlbnQuY29tfHZzbzo5YzY1NDY5Mi04OWU3LTRjOTAtOTFlNS1jYzU3ZWUwMWM3NjQiLCJuYmYiOjE2NTI3OTAxNTUsImV4cCI6MTY1MjgxMjk1NX0.PBh1-I9Y83IPbtixpZ04rLaFe1yxZ_Do40ZQVELBcPqRyEndC7HMqe8bM1zKwQsNv4VMtANnTpUE1pXmbH3BC0rWlcxwNjdDLfhEHY4jjNtKLn0BdDurGtGOzm_2O_hsvZGonkmnlzVnc9BguyAYBW7EDwGMibOVkf_rCYBWFC_USUZXrppgrl_bQrRd3fijpcQ_2BECsgUOKT5JF9Nnxe4WyTbuN5o1ihNaBzMUB5C3XIczC007k2DWWrSo-yICSele07ZQVVhfZbInRQNaO_hVepbHlhQOklIrjatGk2M8-13hkMreWv7G56-l5OeusOdxFHpUcKs5xkeAbJN30A',</span> <span class="pre">'USER':</span> <span class="pre">'runner',</span> <span class="pre">'GITHUB_SERVER_URL':</span> <span class="pre">'https://github.com',</span> <span class="pre">'HOMEBREW_CELLAR':</span> <span class="pre">'/home/linuxbrew/.linuxbrew/Cellar',</span> <span class="pre">'PIPX_HOME':</span> <span class="pre">'/opt/pipx',</span> <span class="pre">'GECKOWEBDRIVER':</span> <span class="pre">'/usr/local/share/gecko_driver',</span> <span class="pre">'CHROMEWEBDRIVER':</span> <span class="pre">'/usr/local/share/chrome_driver',</span> <span class="pre">'SHLVL':</span> <span class="pre">'1',</span> <span class="pre">'INPUT_DOCUMENTATION_PATH':</span> <span class="pre">'docs',</span> <span class="pre">'ANDROID_SDK_ROOT':</span> <span class="pre">'/usr/local/lib/android/sdk',</span> <span class="pre">'VCPKG_INSTALLATION_ROOT':</span> <span class="pre">'/usr/local/share/vcpkg',</span> <span class="pre">'RUNNER_TOOL_CACHE':</span> <span class="pre">'/opt/hostedtoolcache',</span> <span class="pre">'HOMEBREW_REPOSITORY':</span> <span class="pre">'/home/linuxbrew/.linuxbrew/Homebrew',</span> <span class="pre">'ImageVersion':</span> <span class="pre">'20220508.1',</span> <span class="pre">'DOTNET_NOLOGO':</span> <span class="pre">'1',</span> <span class="pre">'STATS_PT':</span> <span class="pre">'20',</span> <span class="pre">'INPUT_EXTRA_FILES':</span> <span class="pre">'',</span> <span class="pre">'GITHUB_REF_NAME':</span> <span class="pre">'rtd',</span> <span class="pre">'STATS_PFS':</span> <span class="pre">'true',</span> <span class="pre">'GRAALVM_11_ROOT':</span> <span class="pre">'/usr/local/graalvm/graalvm-ce-java11-22.1.0',</span> <span class="pre">'GITHUB_JOB':</span> <span class="pre">'build',</span> <span class="pre">'LD_LIBRARY_PATH':</span> <span class="pre">'/opt/hostedtoolcache/Python/3.9.12/x64/lib',</span> <span class="pre">'AZURE_EXTENSION_DIR':</span> <span class="pre">'/opt/az/azcliextensions',</span> <span class="pre">'PERFLOG_LOCATION_SETTING':</span> <span class="pre">'RUNNER_PERFLOG',</span> <span class="pre">'GITHUB_REPOSITORY':</span> <span class="pre">'FAIRDataPipeline/FAIR-CLI',</span> <span class="pre">'CHROME_BIN':</span> <span class="pre">'/usr/bin/google-chrome',</span> <span class="pre">'ANDROID_NDK_ROOT':</span> <span class="pre">'/usr/local/lib/android/sdk/ndk-bundle',</span> <span class="pre">'GOROOT_1_18_X64':</span> <span class="pre">'/opt/hostedtoolcache/go/1.18.1/x64',</span> <span class="pre">'GITHUB_RETENTION_DAYS':</span> <span class="pre">'90',</span> <span class="pre">'JOURNAL_STREAM':</span> <span class="pre">'8:21980',</span> <span class="pre">'RUNNER_WORKSPACE':</span> <span class="pre">'/home/runner/work/FAIR-CLI',</span> <span class="pre">'LEIN_HOME':</span> <span class="pre">'/usr/local/lib/lein',</span> <span class="pre">'LEIN_JAR':</span> <span class="pre">'/usr/local/lib/lein/self-installs/leiningen-2.9.8-standalone.jar',</span> <span class="pre">'GITHUB_ACTION_REPOSITORY':</span> <span class="pre">'sphinx-notes/pages',</span> <span class="pre">'INPUT_TARGET_BRANCH':</span> <span class="pre">'gh-pages',</span> <span class="pre">'PATH':</span> <span class="pre">'/home/runner/.local/bin:/opt/hostedtoolcache/Python/3.9.12/x64/bin:/opt/hostedtoolcache/Python/3.9.12/x64:/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:/home/runner/.local/bin:/opt/pipx_bin:/home/runner/.cargo/bin:/home/runner/.config/composer/vendor/bin:/usr/local/.ghcup/bin:/home/runner/.dotnet/tools:/snap/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin',</span> <span class="pre">'RUNNER_PERFLOG':</span> <span class="pre">'/home/runner/perflog',</span> <span class="pre">'GITHUB_BASE_REF':</span> <span class="pre">'',</span> <span class="pre">'CI':</span> <span class="pre">'true',</span> <span class="pre">'SWIFT_PATH':</span> <span class="pre">'/usr/share/swift/usr/bin',</span> <span class="pre">'ImageOS':</span> <span class="pre">'ubuntu20',</span> <span class="pre">'GITHUB_REPOSITORY_OWNER':</span> <span class="pre">'FAIRDataPipeline',</span> <span class="pre">'GITHUB_HEAD_REF':</span> <span class="pre">'',</span> <span class="pre">'GITHUB_ACTION_REF':</span> <span class="pre">'master',</span> <span class="pre">'GITHUB_WORKFLOW':</span> <span class="pre">'Pages',</span> <span class="pre">'DEBIAN_FRONTEND':</span> <span class="pre">'noninteractive',</span> <span class="pre">'AGENT_TOOLSDIRECTORY':</span> <span class="pre">'/opt/hostedtoolcache',</span> <span class="pre">'GOROOT_1_16_X64':</span> <span class="pre">'/opt/hostedtoolcache/go/1.16.15/x64',</span> <span class="pre">'_':</span> <span class="pre">'/opt/hostedtoolcache/Python/3.9.12/x64/bin/sphinx-build',</span> <span class="pre">'DOCUTILSCONFIG':</span> <span class="pre">'/home/runner/work/FAIR-CLI/FAIR-CLI/docs/docutils.conf'})</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#fair.registry.server.django_environ" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fair.registry.server.install_registry">
+<span class="sig-prename descclassname"><span class="pre">fair.registry.server.</span></span><span class="sig-name descname"><span class="pre">install_registry</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">repository</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'https://github.com/FAIRDataPipeline/data-registry.git'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reference</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">install_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">silent</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">force</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">venv_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="headerlink" href="#fair.registry.server.install_registry" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fair.registry.server.launch_server">
+<span class="sig-prename descclassname"><span class="pre">fair.registry.server.</span></span><span class="sig-name descname"><span class="pre">launch_server</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">port</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">8000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">registry_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">int</span></span></span><a class="headerlink" href="#fair.registry.server.launch_server" title="Permalink to this definition"></a></dt>
+<dd><p>Start the registry server.</p>
+<dl class="simple">
+<dt>verbose<span class="classifier">bool, optional</span></dt><dd><p>show registry start output, by default False</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fair.registry.server.rebuild_local">
+<span class="sig-prename descclassname"><span class="pre">fair.registry.server.</span></span><span class="sig-name descname"><span class="pre">rebuild_local</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">python</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">install_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">silent</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#fair.registry.server.rebuild_local" title="Permalink to this definition"></a></dt>
+<dd><p>Rebuild the local Django registry</p>
+<dl class="simple">
+<dt>python<span class="classifier">str</span></dt><dd><p>python binary of virtual environment</p>
+</dd>
+<dt>install_dir<span class="classifier">str, optional</span></dt><dd><p>location of registry installation</p>
+</dd>
+<dt>silent<span class="classifier">bool, optional</span></dt><dd><p>run in silent mode, by default False</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fair.registry.server.stop_server">
+<span class="sig-prename descclassname"><span class="pre">fair.registry.server.</span></span><span class="sig-name descname"><span class="pre">stop_server</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">registry_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">local_uri</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">force</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#fair.registry.server.stop_server" title="Permalink to this definition"></a></dt>
+<dd><p>Stops the FAIR Data Pipeline local server</p>
+<dl class="simple">
+<dt>force<span class="classifier">bool, optional</span></dt><dd><p>whether to force server shutdown if it is being used</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fair.registry.server.uninstall_registry">
+<span class="sig-prename descclassname"><span class="pre">fair.registry.server.</span></span><span class="sig-name descname"><span class="pre">uninstall_registry</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#fair.registry.server.uninstall_registry" title="Permalink to this definition"></a></dt>
+<dd><p>Uninstall the local registry from the default location</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fair.registry.server.update_registry_post_setup">
+<span class="sig-prename descclassname"><span class="pre">fair.registry.server.</span></span><span class="sig-name descname"><span class="pre">update_registry_post_setup</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">repo_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">global_setup</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#fair.registry.server.update_registry_post_setup" title="Permalink to this definition"></a></dt>
+<dd><p>Add user namespace and file types after CLI setup</p>
+<dl class="simple">
+<dt>repo_dir<span class="classifier">str</span></dt><dd><p>current FAIR repository location</p>
+</dd>
+<dt>global_setup<span class="classifier">bool, optional</span></dt><dd><p>whether this is the first (global) setup or local for a new repository</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+</section>
+</section>
+<section id="module-fair.registry.storage">
+<span id="fair-registry-storage-module"></span><h2>fair.registry.storage module<a class="headerlink" href="#module-fair.registry.storage" title="Permalink to this headline"></a></h2>
+<section id="registry-storage">
+<h3>Registry Storage<a class="headerlink" href="#registry-storage" title="Permalink to this headline"></a></h3>
+<p>Methods that add objects to the data registry.</p>
+</section>
+<section id="id2">
+<h3>Contents<a class="headerlink" href="#id2" title="Permalink to this headline"></a></h3>
+<section id="id3">
+<h4>Functions<a class="headerlink" href="#id3" title="Permalink to this headline"></a></h4>
+<blockquote>
+<div><p>get_write_storage - retrieve/create root data store
+store_user - create author entry for the current user
+populate_file_type - adds entries for standard file types
+create_file_type - create a file type entry
+store_working_config - create locations/objects for a working config</p>
+</div></blockquote>
+<dl class="py function">
+<dt class="sig sig-object py" id="fair.registry.storage.calculate_file_hash">
+<span class="sig-prename descclassname"><span class="pre">fair.registry.storage.</span></span><span class="sig-name descname"><span class="pre">calculate_file_hash</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">file_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">buffer_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">65536</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="headerlink" href="#fair.registry.storage.calculate_file_hash" title="Permalink to this definition"></a></dt>
+<dd><p>Calculates the hash of a data file</p>
+<dl class="simple">
+<dt>file_name<span class="classifier">str</span></dt><dd><p>file to calculate</p>
+</dd>
+</dl>
+<dl class="simple">
+<dt>str</dt><dd><p>SHA1 hash for file</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fair.registry.storage.check_if_object_exists">
+<span class="sig-prename descclassname"><span class="pre">fair.registry.storage.</span></span><span class="sig-name descname"><span class="pre">check_if_object_exists</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">local_uri</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">file_loc</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">obj_type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">search_data</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Dict</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">token</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="headerlink" href="#fair.registry.storage.check_if_object_exists" title="Permalink to this definition"></a></dt>
+<dd><p>Checks if a data product is already present in the registry</p>
+<dl class="simple">
+<dt>local_uri<span class="classifier">str</span></dt><dd><p>local registry endpoint</p>
+</dd>
+<dt>file_loc<span class="classifier">str</span></dt><dd><p>path of file on system</p>
+</dd>
+<dt>obj_type<span class="classifier">str</span></dt><dd><p>object type</p>
+</dd>
+<dt>search_data<span class="classifier">typing.Dict</span></dt><dd><p>data for query</p>
+</dd>
+<dt>token<span class="classifier">str</span></dt><dd><p>token for registry</p>
+</dd>
+</dl>
+<dl class="simple">
+<dt>str</dt><dd><p>whether object is present with matching hash, present or absent
+if present but not hash matched return the latest version identifier</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fair.registry.storage.check_match">
+<span class="sig-prename descclassname"><span class="pre">fair.registry.storage.</span></span><span class="sig-name descname"><span class="pre">check_match</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input_object</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">results_list</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#fair.registry.storage.check_match" title="Permalink to this definition"></a></dt>
+<dd><p>Check if an object is already on the registry using a hash</p>
+<p>In order to perform this check the results must be a list of storage
+locations for a given list of data_products as SHA1 hashes are present
+for locations only.</p>
+<dl class="simple">
+<dt>input_object<span class="classifier">str</span></dt><dd><p>object pending submission to registry</p>
+</dd>
+<dt>results_list<span class="classifier">typing.List[str]</span></dt><dd><p>list of storage_location results matching search query</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fair.registry.storage.create_file_type">
+<span class="sig-prename descclassname"><span class="pre">fair.registry.storage.</span></span><span class="sig-name descname"><span class="pre">create_file_type</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">uri</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">extension</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">token</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="headerlink" href="#fair.registry.storage.create_file_type" title="Permalink to this definition"></a></dt>
+<dd><p>Creates a new file type on the registry</p>
+<dl class="simple">
+<dt>uri<span class="classifier">str</span></dt><dd><p>registry RestAPI end point</p>
+</dd>
+<dt>extension<span class="classifier">str</span></dt><dd><p>file extension</p>
+</dd>
+<dt>token: str</dt><dd><p>registry access string</p>
+</dd>
+</dl>
+<dl class="simple">
+<dt>str</dt><dd><p>URI for created file type</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fair.registry.storage.get_storage_root_obj_address">
+<span class="sig-prename descclassname"><span class="pre">fair.registry.storage.</span></span><span class="sig-name descname"><span class="pre">get_storage_root_obj_address</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">remote_uri</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">remote_token</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">address_str</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="headerlink" href="#fair.registry.storage.get_storage_root_obj_address" title="Permalink to this definition"></a></dt>
+<dd><p>Retrieve the RestAPI URL for a given storage location on the registry</p>
+<dl class="simple">
+<dt>remote_uri<span class="classifier">str</span></dt><dd><p>endpoint of remote registry</p>
+</dd>
+<dt>remote_token<span class="classifier">str</span></dt><dd><p>token for accessing remote registry</p>
+</dd>
+<dt>address_str<span class="classifier">str</span></dt><dd><p>path of the storage location</p>
+</dd>
+</dl>
+<dl class="simple">
+<dt>str</dt><dd><p>URL of the RestAPI object representing this address</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fair.registry.storage.get_write_storage">
+<span class="sig-prename descclassname"><span class="pre">fair.registry.storage.</span></span><span class="sig-name descname"><span class="pre">get_write_storage</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">uri</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">write_data_store</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">token</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="headerlink" href="#fair.registry.storage.get_write_storage" title="Permalink to this definition"></a></dt>
+<dd><p>Construct storage root if it does not exist</p>
+<dl class="simple">
+<dt>uri<span class="classifier">str</span></dt><dd><p>end point of the RestAPI</p>
+</dd>
+<dt>write_data_store<span class="classifier">str</span></dt><dd><p>path of the write data store</p>
+</dd>
+<dt>token: str</dt><dd><p>registry access token</p>
+</dd>
+</dl>
+<dl class="simple">
+<dt>str</dt><dd><p>URI of the created/retrieved storage root</p>
+</dd>
+</dl>
+<dl class="simple">
+<dt>fdp_exc.UserConfigError</dt><dd><p>If ‘write_data_store’ not present in the working config or global config</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fair.registry.storage.populate_file_type">
+<span class="sig-prename descclassname"><span class="pre">fair.registry.storage.</span></span><span class="sig-name descname"><span class="pre">populate_file_type</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">uri</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">token</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">Dict</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#fair.registry.storage.populate_file_type" title="Permalink to this definition"></a></dt>
+<dd><p>Populates file_type table with common file file_types</p>
+<dl class="simple">
+<dt>uri: str</dt><dd><p>registry RestAPI end point</p>
+</dd>
+<dt>token: str</dt><dd><p>registry access token</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fair.registry.storage.store_author">
+<span class="sig-prename descclassname"><span class="pre">fair.registry.storage.</span></span><span class="sig-name descname"><span class="pre">store_author</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">uri</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">token</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">identifier</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">uuid</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="headerlink" href="#fair.registry.storage.store_author" title="Permalink to this definition"></a></dt>
+<dd><p>Creates an Author entry if one does not exist</p>
+<dl class="simple">
+<dt>uri<span class="classifier">str</span></dt><dd><p>registry RestAPI endpoint</p>
+</dd>
+<dt>token: str</dt><dd><p>registry access token</p>
+</dd>
+<dt>data: typing.Dict</dt><dd><p>author data to post</p>
+</dd>
+<dt>params: typing.Dict, optional</dt><dd><p>parameters to search if exists already</p>
+</dd>
+</dl>
+<dl class="simple">
+<dt>str</dt><dd><p>URI for created author</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fair.registry.storage.store_data_file">
+<span class="sig-prename descclassname"><span class="pre">fair.registry.storage.</span></span><span class="sig-name descname"><span class="pre">store_data_file</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">uri</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">repo_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">token</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Dict</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">local_file</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">write_data_store</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">public</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#fair.registry.storage.store_data_file" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fair.registry.storage.store_namespace">
+<span class="sig-prename descclassname"><span class="pre">fair.registry.storage.</span></span><span class="sig-name descname"><span class="pre">store_namespace</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">uri</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">token</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">full_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">website</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="headerlink" href="#fair.registry.storage.store_namespace" title="Permalink to this definition"></a></dt>
+<dd><p>Create a namespace on the registry</p>
+<dl class="simple">
+<dt>uri<span class="classifier">str</span></dt><dd><p>endpoint of the registry</p>
+</dd>
+<dt>namespace_label<span class="classifier">str</span></dt><dd><p>name of the Namespace</p>
+</dd>
+<dt>token<span class="classifier">str</span></dt><dd><p>registry access token</p>
+</dd>
+<dt>full_name<span class="classifier">str, optional</span></dt><dd><p>full title of the namespace, by default None</p>
+</dd>
+<dt>website<span class="classifier">str, optional</span></dt><dd><p>website relating to this namespace, by default None</p>
+</dd>
+</dl>
+<dl class="simple">
+<dt>str</dt><dd><p>URL of the created namespace</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fair.registry.storage.store_user">
+<span class="sig-prename descclassname"><span class="pre">fair.registry.storage.</span></span><span class="sig-name descname"><span class="pre">store_user</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">repo_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">uri</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">token</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="headerlink" href="#fair.registry.storage.store_user" title="Permalink to this definition"></a></dt>
+<dd><p>Creates an Author entry for the user if one does not exist</p>
+<dl class="simple">
+<dt>repo_dir: str</dt><dd><p>repository directory</p>
+</dd>
+<dt>token: str</dt><dd><p>registry access token</p>
+</dd>
+<dt>uri<span class="classifier">str</span></dt><dd><p>registry RestAPI endpoint</p>
+</dd>
+</dl>
+<dl class="simple">
+<dt>str</dt><dd><p>URI for created author</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fair.registry.storage.store_working_config">
+<span class="sig-prename descclassname"><span class="pre">fair.registry.storage.</span></span><span class="sig-name descname"><span class="pre">store_working_config</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">repo_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">uri</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">work_cfg_yml</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">token</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="headerlink" href="#fair.registry.storage.store_working_config" title="Permalink to this definition"></a></dt>
+<dd><p>Construct a storage location and object for the working config</p>
+<dl class="simple">
+<dt>repo_dir<span class="classifier">str</span></dt><dd><p>local FAIR repository</p>
+</dd>
+<dt>uri<span class="classifier">str</span></dt><dd><p>RestAPI end point</p>
+</dd>
+<dt>work_cfg_yml<span class="classifier">str</span></dt><dd><p>location of working config yaml</p>
+</dd>
+<dt>token: str</dt><dd><p>registry access token</p>
+</dd>
+</dl>
+<dl class="simple">
+<dt>str</dt><dd><p>new URI for the created object</p>
+</dd>
+</dl>
+<dl class="simple">
+<dt>fair.exceptions.RegistryAPICallError</dt><dd><p>if bad status code returned from the registry</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fair.registry.storage.store_working_script">
+<span class="sig-prename descclassname"><span class="pre">fair.registry.storage.</span></span><span class="sig-name descname"><span class="pre">store_working_script</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">repo_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">uri</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">script_path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">working_config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">token</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="headerlink" href="#fair.registry.storage.store_working_script" title="Permalink to this definition"></a></dt>
+<dd><p>Construct a storage location and object for the CLI run script</p>
+<dl class="simple">
+<dt>repo_dir<span class="classifier">str</span></dt><dd><p>local FAIR repository</p>
+</dd>
+<dt>uri<span class="classifier">str</span></dt><dd><p>RestAPI end point</p>
+</dd>
+<dt>script_path<span class="classifier">str</span></dt><dd><p>location of working CLI run script</p>
+</dd>
+<dt>data_store<span class="classifier">str</span></dt><dd><p>data store path</p>
+</dd>
+<dt>token: str</dt><dd><p>registry access token</p>
+</dd>
+</dl>
+<dl class="simple">
+<dt>str</dt><dd><p>new URI for the created object</p>
+</dd>
+</dl>
+<dl class="simple">
+<dt>fair.exceptions.RegistryAPICallError</dt><dd><p>if bad status code returned from the registry</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+</section>
+</section>
+<section id="module-fair.registry.sync">
+<span id="fair-registry-sync-module"></span><h2>fair.registry.sync module<a class="headerlink" href="#module-fair.registry.sync" title="Permalink to this headline"></a></h2>
+<section id="registry-sync">
+<h3>Registry Sync<a class="headerlink" href="#registry-sync" title="Permalink to this headline"></a></h3>
+<p>Methods for synchronising across registries and allocating versioning</p>
+</section>
+<section id="id4">
+<h3>Contents<a class="headerlink" href="#id4" title="Permalink to this headline"></a></h3>
+<section id="id5">
+<h4>Functions<a class="headerlink" href="#id5" title="Permalink to this headline"></a></h4>
+<dl class="py function">
+<dt class="sig sig-object py" id="fair.registry.sync.download_from_registry">
+<span class="sig-prename descclassname"><span class="pre">fair.registry.sync.</span></span><span class="sig-name descname"><span class="pre">download_from_registry</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">registry_url</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">root</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="headerlink" href="#fair.registry.sync.download_from_registry" title="Permalink to this definition"></a></dt>
+<dd><p>Download a file from the registry given the storage root and path.</p>
+<p>If the root starts with ‘/’ assume the file exists on the same location as
+the registry itself and try to download from that.</p>
+<dl class="simple">
+<dt>registry_url<span class="classifier">str</span></dt><dd><p>net location of the registry (not the endpoint of the API)</p>
+</dd>
+<dt>root<span class="classifier">str</span></dt><dd><p>storage root</p>
+</dd>
+<dt>path<span class="classifier">str</span></dt><dd><p>path of file on storage location</p>
+</dd>
+</dl>
+<dl class="simple">
+<dt>str</dt><dd><p>path of downloaded temporary file</p>
+</dd>
+</dl>
+<dl class="simple">
+<dt>fdp_exc.UserConfigError</dt><dd><p>if download failed</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fair.registry.sync.fetch_data_product">
+<span class="sig-prename descclassname"><span class="pre">fair.registry.sync.</span></span><span class="sig-name descname"><span class="pre">fetch_data_product</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">remote_token</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">local_data_store</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_product</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Dict</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#fair.registry.sync.fetch_data_product" title="Permalink to this definition"></a></dt>
+<dd><p>Retrieve a file using the given user configuration metadata</p>
+<dl class="simple">
+<dt>remote_uri<span class="classifier">str</span></dt><dd><p>remote registry URI</p>
+</dd>
+<dt>remote_token<span class="classifier">str</span></dt><dd><p>remote registry access token</p>
+</dd>
+<dt>config_metadata<span class="classifier">typing.Dict</span></dt><dd><p>user configuration file block describing an object</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fair.registry.sync.get_dependency_chain">
+<span class="sig-prename descclassname"><span class="pre">fair.registry.sync.</span></span><span class="sig-name descname"><span class="pre">get_dependency_chain</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">object_url</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">token</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">collections.deque</span></span></span><a class="headerlink" href="#fair.registry.sync.get_dependency_chain" title="Permalink to this definition"></a></dt>
+<dd><p>Get all objects relating to an object in order of dependency</p>
+<p>For a given URL this function fetches all component URLs ordering them
+in terms of creation order (no dependencies -&gt; most dependencies)
+allowing them to then be re-created in the correct order.</p>
+<dl class="simple">
+<dt>object_url<span class="classifier">str</span></dt><dd><p>Full URL of an object within a registry</p>
+</dd>
+<dt>token: str</dt><dd><p>registry access token</p>
+</dd>
+</dl>
+<dl class="simple">
+<dt>collections.deque</dt><dd><p>ordered iterable of component object URLs</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fair.registry.sync.pull_all_namespaces">
+<span class="sig-prename descclassname"><span class="pre">fair.registry.sync.</span></span><span class="sig-name descname"><span class="pre">pull_all_namespaces</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">local_uri</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">remote_uri</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">local_token</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">remote_token</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#fair.registry.sync.pull_all_namespaces" title="Permalink to this definition"></a></dt>
+<dd><p>Pull all namespaces from a remote registry</p>
+<p>This ensures a user does not try to register locally a namespace that
+already exists on the remote and so lowers the risk of conflicting
+metadata when running a pull</p>
+<dl class="simple">
+<dt>local_uri<span class="classifier">str</span></dt><dd><p>endpoint of the local registry</p>
+</dd>
+<dt>remote_uri<span class="classifier">str</span></dt><dd><p>endpoint of the remote registry</p>
+</dd>
+<dt>local_token<span class="classifier">str</span></dt><dd><p>access token for the local registry</p>
+</dd>
+<dt>remote_token<span class="classifier">str</span></dt><dd><p>access token for the remote registry</p>
+</dd>
+</dl>
+<dl class="simple">
+<dt>typing.List[str]</dt><dd><p>list of identified namespaces</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fair.registry.sync.sync_data_products">
+<span class="sig-prename descclassname"><span class="pre">fair.registry.sync.</span></span><span class="sig-name descname"><span class="pre">sync_data_products</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">origin_uri</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dest_uri</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dest_token</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">origin_token</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">remote_label</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_products</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">local_data_store</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#fair.registry.sync.sync_data_products" title="Permalink to this definition"></a></dt>
+<dd><p>Transfer data products from one registry to another</p>
+<dl class="simple">
+<dt>origin_uri<span class="classifier">str</span></dt><dd><p>origin data registry URL</p>
+</dd>
+<dt>dest_uri<span class="classifier">str</span></dt><dd><p>destination data registry URL</p>
+</dd>
+<dt>dest_token<span class="classifier">str</span></dt><dd><p>path to token for destination data registry</p>
+</dd>
+<dt>origin_token<span class="classifier">str</span></dt><dd><p>path to token for origin data registry</p>
+</dd>
+<dt>remote_label<span class="classifier">str</span></dt><dd><p>name of remote in listing</p>
+</dd>
+<dt>data_products<span class="classifier">typing.List[str]</span></dt><dd><p>list of data products to push</p>
+</dd>
+<dt>local_data_store<span class="classifier">optional, str</span></dt><dd><p>specified when pulling from remote registry to local</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fair.registry.sync.sync_dependency_chain">
+<span class="sig-prename descclassname"><span class="pre">fair.registry.sync.</span></span><span class="sig-name descname"><span class="pre">sync_dependency_chain</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">object_url</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dest_uri</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">origin_uri</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dest_token</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">origin_token</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#fair.registry.sync.sync_dependency_chain" title="Permalink to this definition"></a></dt>
+<dd><p>Push an object and all of its dependencies to the remote registry</p>
+<p>In order to push an object, firstly any dependencies which are also
+registry items must be pushed first.</p>
+<dl class="simple">
+<dt>object_url<span class="classifier">str</span></dt><dd><p>object to push</p>
+</dd>
+<dt>dest_uri<span class="classifier">str</span></dt><dd><p>endpoint of the destination registry</p>
+</dd>
+<dt>origin_uri<span class="classifier">str</span></dt><dd><p>endpoint of the origin registry</p>
+</dd>
+<dt>dest_token<span class="classifier">str</span></dt><dd><p>access token for the destination registry</p>
+</dd>
+<dt>origin_token<span class="classifier">str</span></dt><dd><p>access token for the origin registry</p>
+</dd>
+</dl>
+<dl class="simple">
+<dt>typing.Dict[str, str]</dt><dd><p>dictionary showing conversion from source registry URL to destination</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+</section>
+</section>
+<section id="module-fair.registry.versioning">
+<span id="fair-registry-versioning-module"></span><h2>fair.registry.versioning module<a class="headerlink" href="#module-fair.registry.versioning" title="Permalink to this headline"></a></h2>
+<section id="versioning">
+<h3>Versioning<a class="headerlink" href="#versioning" title="Permalink to this headline"></a></h3>
+<p>Methods for handling semantic versioning and parsing version formats</p>
+</section>
+<section id="id6">
+<h3>Contents<a class="headerlink" href="#id6" title="Permalink to this headline"></a></h3>
+<section id="id7">
+<h4>Functions<a class="headerlink" href="#id7" title="Permalink to this headline"></a></h4>
+<blockquote>
+<div><p>parse_incrementer - parse version increment format</p>
+</div></blockquote>
+<dl class="py function">
+<dt class="sig sig-object py" id="fair.registry.versioning.default_bump">
+<span class="sig-prename descclassname"><span class="pre">fair.registry.versioning.</span></span><span class="sig-name descname"><span class="pre">default_bump</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">version</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">semver.VersionInfo</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">semver.VersionInfo</span></span></span><a class="headerlink" href="#fair.registry.versioning.default_bump" title="Permalink to this definition"></a></dt>
+<dd><p>Perform default version bump</p>
+<p>For FAIR-CLI the default version increment is patch</p>
+<blockquote>
+<div><p>version: semver.VersionInfo</p>
+</div></blockquote>
+<blockquote>
+<div><p>new version</p>
+</div></blockquote>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fair.registry.versioning.get_correct_version">
+<span class="sig-prename descclassname"><span class="pre">fair.registry.versioning.</span></span><span class="sig-name descname"><span class="pre">get_correct_version</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">version</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">results_list</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">List</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">free_write</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">semver.VersionInfo</span></span></span><a class="headerlink" href="#fair.registry.versioning.get_correct_version" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fair.registry.versioning.get_latest_version">
+<span class="sig-prename descclassname"><span class="pre">fair.registry.versioning.</span></span><span class="sig-name descname"><span class="pre">get_latest_version</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">results_list</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">List</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">semver.VersionInfo</span></span></span><a class="headerlink" href="#fair.registry.versioning.get_latest_version" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fair.registry.versioning.parse_incrementer">
+<span class="sig-prename descclassname"><span class="pre">fair.registry.versioning.</span></span><span class="sig-name descname"><span class="pre">parse_incrementer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">incrementer</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="headerlink" href="#fair.registry.versioning.parse_incrementer" title="Permalink to this definition"></a></dt>
+<dd><p>Convert an incrementer string in a config to the relevant bump function</p>
+<blockquote>
+<div><dl class="simple">
+<dt>incrementer<span class="classifier">str</span></dt><dd><p>config.yaml variable to describe how version increases are handled</p>
+</dd>
+</dl>
+</div></blockquote>
+<blockquote>
+<div><dl class="simple">
+<dt>str</dt><dd><p>relevant member method of VersionInfo for ‘bumping’ the semantic version</p>
+</dd>
+</dl>
+</div></blockquote>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fair.registry.versioning.undo_incrementer">
+<span class="sig-prename descclassname"><span class="pre">fair.registry.versioning.</span></span><span class="sig-name descname"><span class="pre">undo_incrementer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">incrementer</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="headerlink" href="#fair.registry.versioning.undo_incrementer" title="Permalink to this definition"></a></dt>
+<dd><p>Convert an incrementer string to just return the latest value</p>
+<blockquote>
+<div><dl class="simple">
+<dt>incrementer<span class="classifier">str</span></dt><dd><p>config.yaml variable to describe how version increases are handled for register</p>
+</dd>
+</dl>
+</div></blockquote>
+<blockquote>
+<div><dl class="simple">
+<dt>str</dt><dd><p>correct value for version string for read</p>
+</dd>
+</dl>
+</div></blockquote>
+</dd></dl>
+
+</section>
+</section>
+</section>
+<section id="module-fair.registry">
+<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-fair.registry" title="Permalink to this headline"></a></h2>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="fair.configuration.html" class="btn btn-neutral float-left" title="fair.configuration package" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="fair.templates.html" class="btn btn-neutral float-right" title="fair.templates package" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, FAIR-CLI Authors.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FAIR Data Pipeline Developer Notes &mdash; FAIR-CLI  documentation</title>
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/doctools.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="fair package API" href="fair.html" />
+    <link rel="prev" title="Welcome to FAIR-CLI’s documentation!" href="index.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="index.html" class="icon icon-home"> FAIR-CLI
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">FAIR Data Pipeline Developer Notes</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#installation">Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#publishing">Publishing</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#building-the-module">Building the Module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#publishing-to-pypi">Publishing to PyPi</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#structure">Structure</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#global-and-local-directories">Global and Local Directories</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#data-directory">Data Directory</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#sessions-directory">Sessions Directory</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#logs-directory">Logs Directory</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#staging-file">Staging File</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#config-yaml"><code class="docutils literal notranslate"><span class="pre">config.yaml</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#registry-interaction">Registry Interaction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#command-line-usage">Command Line Usage</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#init"><code class="docutils literal notranslate"><span class="pre">init</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#example-first-call-to-fair-init">Example: First call to <code class="docutils literal notranslate"><span class="pre">fair</span> <span class="pre">init</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#example-subsequent-runs">Example: Subsequent runs</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#generated-config-yaml">Generated <code class="docutils literal notranslate"><span class="pre">config.yaml</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#advanced-usage">Advanced usage</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#run"><code class="docutils literal notranslate"><span class="pre">run</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#pull"><code class="docutils literal notranslate"><span class="pre">pull</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#purge"><code class="docutils literal notranslate"><span class="pre">purge</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#registry"><code class="docutils literal notranslate"><span class="pre">registry</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#log"><code class="docutils literal notranslate"><span class="pre">log</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#view"><code class="docutils literal notranslate"><span class="pre">view</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#template-variables">Template Variables</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="fair.html">fair package API</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">FAIR-CLI</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
+      <li>FAIR Data Pipeline Developer Notes</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/develop.md.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="fair-data-pipeline-developer-notes">
+<h1>FAIR Data Pipeline Developer Notes<a class="headerlink" href="#fair-data-pipeline-developer-notes" title="Permalink to this headline"></a></h1>
+<p><a class="reference external" href="https://github.com/FAIRDataPipeline/FAIR-CLI/actions/workflows/fair-cli.yaml"><img alt="FAIR Data Pipeline CLI" src="https://github.com/FAIRDataPipeline/FAIR-CLI/actions/workflows/fair-cli.yaml/badge.svg?branch=dev" /></a>
+<a class="reference external" href="https://codecov.io/gh/FAIRDataPipeline/FAIR-CLI"><img alt="codecov" src="https://codecov.io/gh/FAIRDataPipeline/FAIR-CLI/branch/dev/graph/badge.svg?token=h93TkTiiWf" /></a>
+<a class="reference external" href="https://sonarcloud.io/dashboard?id=FAIRDataPipeline_FAIR-CLI"><img alt="Quality Gate Status" src="https://sonarcloud.io/api/project_badges/measure?project=FAIRDataPipeline_FAIR-CLI&amp;metric=alert_status" /></a></p>
+<table class="colwidths-auto docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p><strong>DISCLAIMER:</strong></p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>The following document is largely conceptual and therefore does <em>not</em> represent a manual for the final interface. Statements within the following are likely to change, further details of possible changes are given throughout. Please either open an issue or pull request on the <a class="reference external" href="https://github.com/FAIRDataPipeline/FAIR-CLI">source repository</a> raising any changes/issues.</p></td>
+</tr>
+</tbody>
+</table>
+<p>FAIR-CLI forms the main interface for synchronising changes between your local and shared remote FAIR Data Pipeline registries, it is also used to instantiate model runs/data submissions to the pipeline.</p>
+<p>The project is still under development with many features still to be implemented and checked. Available commands are summarised below along with their usage.</p>
+<section id="installation">
+<h2>Installation<a class="headerlink" href="#installation" title="Permalink to this headline"></a></h2>
+<p>The project makes use of <a class="reference external" href="https://python-poetry.org/">Poetry</a> for development which allows quick and easy mangement of dependencies, and provides a virtual environment exclusive to the project. Ultimately the project will be built into a pip installable module (using <code class="docutils literal notranslate"><span class="pre">poetry</span> <span class="pre">build</span></code>) meaning users will not need Poetry. You can access this environment by installing poetry:</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span>pip install poetry
+</pre></div>
+</div>
+<p>and, ensuring you are in the project repository, running:</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span>poetry install
+</pre></div>
+</div>
+<p>which will setup the virtual environment and install requirements. You can then either launch the environment as a shell using:</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span>poetry shell
+</pre></div>
+</div>
+<p>or run commands within it externally using:</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span>poetry run &lt;command&gt;
+</pre></div>
+</div>
+</section>
+<section id="publishing">
+<h2>Publishing<a class="headerlink" href="#publishing" title="Permalink to this headline"></a></h2>
+<p>If publishing a new version of <code class="docutils literal notranslate"><span class="pre">fair-cli</span></code> it is recommended that you first upload to <a class="reference external" href="https://test.pypi.org/">test.pypi.org</a> before performing a final submission to <a class="reference external" href="https://pypi.org/">PyPi</a> itself. Note also that both sites only allow submission of a file once, even if the file is deleted a re-submission is not allowed so the built tarball/wheel files will require renaming should a re-upload be required. After upload is complete create a release from the tag on GitHub and verify the release has been detected by Zenodo.</p>
+<table class="colwidths-auto docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p><strong>NOTE</strong></p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Before creating a release you must ensure that the version numbers stated within the <code class="docutils literal notranslate"><span class="pre">CITATION.cff</span></code> and <code class="docutils literal notranslate"><span class="pre">pyproject.toml</span></code> files match the git tag to be assigned.</p></td>
+</tr>
+</tbody>
+</table>
+<section id="building-the-module">
+<h3>Building the Module<a class="headerlink" href="#building-the-module" title="Permalink to this headline"></a></h3>
+<p>To build the module run:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">poetry</span> <span class="n">build</span>
+</pre></div>
+</div>
+<p>this will produce a <code class="docutils literal notranslate"><span class="pre">dist</span></code> folder containing a tarball archive and a wheels file.</p>
+</section>
+<section id="publishing-to-pypi">
+<h3>Publishing to PyPi<a class="headerlink" href="#publishing-to-pypi" title="Permalink to this headline"></a></h3>
+<p>Although Poetry does allow you to publish via the <code class="docutils literal notranslate"><span class="pre">poetry</span> <span class="pre">publish</span></code> command it is recommended that <code class="docutils literal notranslate"><span class="pre">twine</span></code> be used as it performs a couple of validation checks. To use <code class="docutils literal notranslate"><span class="pre">twine</span></code>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">pip</span> <span class="n">install</span> <span class="n">twine</span>
+</pre></div>
+</div>
+<p>if you have an account on <a class="reference external" href="https://test.pypi.org/">test.pypi.org</a> and you are a member of the <code class="docutils literal notranslate"><span class="pre">fair-cli</span></code> project you can then perform a test upload:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">twine</span> <span class="n">upload</span> <span class="o">--</span><span class="n">repository</span><span class="o">-</span><span class="n">url</span> <span class="n">https</span><span class="p">:</span><span class="o">//</span><span class="n">test</span><span class="o">.</span><span class="n">pypi</span><span class="o">.</span><span class="n">org</span><span class="o">/</span><span class="n">legacy</span><span class="o">/</span> <span class="n">dist</span><span class="o">/*</span> <span class="o">-</span><span class="n">u</span> <span class="o">&lt;</span><span class="n">user</span><span class="o">-</span><span class="n">name</span><span class="o">&gt;</span> <span class="o">-</span><span class="n">p</span> <span class="o">&lt;</span><span class="n">password</span><span class="o">&gt;</span>
+</pre></div>
+</div>
+<p>if submission is successful the resultant URL should be displayed. If you are satisfied with the result you can then upload to <a class="reference external" href="https://pypi.org/">PyPi</a> itself by running:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">twine</span> <span class="n">upload</span> <span class="n">dist</span><span class="o">/*</span> <span class="o">-</span><span class="n">u</span> <span class="o">&lt;</span><span class="n">user</span><span class="o">-</span><span class="n">name</span><span class="o">&gt;</span> <span class="o">-</span><span class="n">p</span> <span class="o">&lt;</span><span class="n">password</span><span class="o">&gt;</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="structure">
+<h2>Structure<a class="headerlink" href="#structure" title="Permalink to this headline"></a></h2>
+<p>The layout of FAIR-CLI on a simplified system looks like this:</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span><span class="nv">$HOME</span>
+├── .fair
+│   ├── cli
+│   │   ├── cli-config.yaml
+│   │   └── sessions
+│   ├── data
+│   │   └── <span class="nb">jobs</span>
+│   └── <span class="nv">$REGISTRY_HOME</span>
+│
+└─ Documents
+   └─ my_project
+      ├── config.yaml
+      └── .fair
+          ├── cli-config.yaml
+          ├── logs
+          └── staging
+</pre></div>
+</div>
+<section id="global-and-local-directories">
+<h3>Global and Local Directories<a class="headerlink" href="#global-and-local-directories" title="Permalink to this headline"></a></h3>
+<p>FAIR-CLI stores information for projects in two locations. The first is a <em>global</em> directory stored in the user’s home folder in the same location as the registry itself <code class="docutils literal notranslate"><span class="pre">$HOME/.fair/cli</span></code>, and the second is a <em>local</em> directory which exists within the model project itself <code class="docutils literal notranslate"><span class="pre">$PROJECT_HOME/.fair</span></code>.</p>
+<p>The CLI holds metadata for the user in it’s own configuration file (not to be confused with the user modifiable <code class="docutils literal notranslate"><span class="pre">config.yaml</span></code>), <code class="docutils literal notranslate"><span class="pre">cli-config.yaml</span></code>, the <em>global</em> version of which is initialised during first use. In a manner similar to <code class="docutils literal notranslate"><span class="pre">git</span></code>, FAIR-CLI has repositories which allow the user to override these <em>global</em> configurations, this then forming a <em>local</em> variant.</p>
+</section>
+<section id="data-directory">
+<h3>Data Directory<a class="headerlink" href="#data-directory" title="Permalink to this headline"></a></h3>
+<p>The directory <code class="docutils literal notranslate"><span class="pre">$HOME/.fair/data</span></code> is the default data store initialised by FAIR-CLI. During setup an alternative can be provided and this can be later changed on a per-run basis if the user so desires. The subdirectory <code class="docutils literal notranslate"><span class="pre">$HOME/data/jobs</span></code> contains timestamped directories of jobs.</p>
+</section>
+<section id="sessions-directory">
+<h3>Sessions Directory<a class="headerlink" href="#sessions-directory" title="Permalink to this headline"></a></h3>
+<p>The directory <code class="docutils literal notranslate"><span class="pre">$HOME/.fair/sessions</span></code> is used to keep track of ongoing queries to the registry as a safety mechanism to ensure the registry is not shutdown whilst processes are still occuring.</p>
+</section>
+<section id="logs-directory">
+<h3>Logs Directory<a class="headerlink" href="#logs-directory" title="Permalink to this headline"></a></h3>
+<p>The directory <code class="docutils literal notranslate"><span class="pre">$PROJECT/.fair/logs</span></code> stores <code class="docutils literal notranslate"><span class="pre">stdout</span></code> logs for jobs also giving information on who launched the job and how long it lasted.</p>
+</section>
+<section id="staging-file">
+<h3>Staging File<a class="headerlink" href="#staging-file" title="Permalink to this headline"></a></h3>
+<p>The staging file, <code class="docutils literal notranslate"><span class="pre">$PROJECT/.fair/staging</span></code>, contains information of what jobs are being tracked, by default all jobs are added to this file after completion and are set to “unstaged”. Simply contains a dictionary of booleans where items for sync (staged) are marked true <code class="docutils literal notranslate"><span class="pre">True</span></code> and those to be held only locally <code class="docutils literal notranslate"><span class="pre">False</span></code>. The file uses paths relative to the <em>local</em> <code class="docutils literal notranslate"><span class="pre">.fair</span></code> folder as keys, to behave in a manner identical to <code class="docutils literal notranslate"><span class="pre">git</span></code> staging.</p>
+</section>
+<section id="config-yaml">
+<h3><code class="docutils literal notranslate"><span class="pre">config.yaml</span></code><a class="headerlink" href="#config-yaml" title="Permalink to this headline"></a></h3>
+<p>This is the main file the user will interact with to customise their run. FAIR-CLI automatically generates a starter version of this file with everything in place. The only addition required is setting of either <code class="docutils literal notranslate"><span class="pre">script</span></code> or <code class="docutils literal notranslate"><span class="pre">script_path</span></code> (with the exception of running using <code class="docutils literal notranslate"><span class="pre">fair</span> <span class="pre">run</span> <span class="pre">bash</span></code> - see <span class="xref myst">below</span>) under <code class="docutils literal notranslate"><span class="pre">run_metadata</span></code>.</p>
+<table class="colwidths-auto docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p></p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><strong><code class="docutils literal notranslate"><span class="pre">script</span></code></strong></p></td>
+</tr>
+<tr class="row-odd"><td><p>This should be a command callable by a shell for running a model/submitting data to the registry. This script is saved to a file prior to execution.</p></td>
+</tr>
+<tr class="row-even"><td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p><strong><code class="docutils literal notranslate"><span class="pre">script_path</span></code></strong></p></td>
+</tr>
+<tr class="row-even"><td><p>This is a direct path to an existing script to use for submission.</p></td>
+</tr>
+</tbody>
+</table>
+<p>By default the shell used will be <code class="docutils literal notranslate"><span class="pre">sh</span></code> or <code class="docutils literal notranslate"><span class="pre">pwsh</span></code> for UNIX and Windows systems respectively, however this can be overwritten with the optional <code class="docutils literal notranslate"><span class="pre">shell</span></code> key which recognises the following values (where <code class="docutils literal notranslate"><span class="pre">{0}</span></code> is the script file):</p>
+<table class="colwidths-auto docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p><strong>Shell</strong></p></th>
+<th class="head"><p><strong>Command</strong></p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">bash</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">bash</span> <span class="pre">-eo</span> <span class="pre">pipefail</span> <span class="pre">{0}</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">java</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">java</span> <span class="pre">{0}</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">julia</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">julia</span> <span class="pre">{0}</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">powershell</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">powershell</span> <span class="pre">-command</span> <span class="pre">&quot;.</span> <span class="pre">'{0}'&quot;</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">pwsh</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">pwsh</span> <span class="pre">-command</span> <span class="pre">&quot;.</span> <span class="pre">'{0}'&quot;</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">python2</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">python2</span> <span class="pre">{0}</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">python3</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">python3</span> <span class="pre">{0}</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">python</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">{0}</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">R</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">R</span> <span class="pre">-f</span> <span class="pre">{0}</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">sh</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">sh</span> <span class="pre">-e</span> <span class="pre">{0}</span></code></p></td>
+</tr>
+</tbody>
+</table>
+<table class="colwidths-auto docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p><strong>NOTE</strong></p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>This layout is subject to possible change depending on whether or not multiple aliases for the same user will be allowed in the registry itself. The main reason for having a <em>local</em> version is to support separate handling of multiple projects.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<section id="registry-interaction">
+<h2>Registry Interaction<a class="headerlink" href="#registry-interaction" title="Permalink to this headline"></a></h2>
+<p>Currently <code class="docutils literal notranslate"><span class="pre">FAIR-CLI</span></code> sets up the write data storage location on the local registry if it does not exist. Entries are created for the YAML file type, current user as an author, and object for a given run.</p>
+</section>
+<section id="command-line-usage">
+<h2>Command Line Usage<a class="headerlink" href="#command-line-usage" title="Permalink to this headline"></a></h2>
+<p>As mentioned, all of the subcommands within FAIR-CLI are still under review with many still serving as placeholders for future features. Running <code class="docutils literal notranslate"><span class="pre">fair</span></code> without arguments or <code class="docutils literal notranslate"><span class="pre">fair</span> <span class="pre">--help</span></code> will show all of these.</p>
+<section id="init">
+<h3><code class="docutils literal notranslate"><span class="pre">init</span></code><a class="headerlink" href="#init" title="Permalink to this headline"></a></h3>
+<p>Initialises a new FAIR repository within the given directory. This should ideally be the same location as the <code class="docutils literal notranslate"><span class="pre">.git</span></code> folder for the current project, although setup will ask if you want to use an alternative location. The command will ask the user a series of questions which will provide metadata for tracking run authors, and also allow for the creation of a starter <code class="docutils literal notranslate"><span class="pre">config.yaml</span></code>.</p>
+<p>The first time this command is launched the <em>global</em> CLI configuration will be populated. In subsequent calls the <em>global</em> will provide default suggestions towards creating the CLI configuration for the repository (<em>local</em>).</p>
+<p>A repository directory matching the structure above will be placed in the current location and a starter <code class="docutils literal notranslate"><span class="pre">config.yaml</span></code> file will be generated (see below).</p>
+<section id="example-first-call-to-fair-init">
+<h4>Example: First call to <code class="docutils literal notranslate"><span class="pre">fair</span> <span class="pre">init</span></code><a class="headerlink" href="#example-first-call-to-fair-init" title="Permalink to this headline"></a></h4>
+<p>This example shows the process of setting up for the first time. Note the default suggestions for each prompt, in the case of <code class="docutils literal notranslate"><span class="pre">Full</span> <span class="pre">name</span></code> and <code class="docutils literal notranslate"><span class="pre">Default</span> <span class="pre">output</span> <span class="pre">namespace</span></code> this is the hostname of the system and an abbreviated version of this name.</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span>$ fair init
+Initialising FAIR repository, setup will now ask <span class="k">for</span> basic info:
+
+Checking <span class="k">for</span> <span class="nb">local</span> registry
+Local registry found
+Remote Data Storage Root <span class="o">[</span>http://data.scrc.uk/data/<span class="o">]</span>:
+Remote API Token File: <span class="nv">$HOME</span>/scrc_token.txt
+Local API URL <span class="o">[</span>http://127.0.0.1:8000/api/<span class="o">]</span>:
+Local registry is offline, would you like to start it? <span class="o">[</span>y/N<span class="o">]</span>: y
+Default Data Store:  <span class="o">[</span>/home/joebloggs/.fair/data<span class="o">]</span>:
+Email: jbloggs@noreply.uk
+ORCID <span class="o">[</span>None<span class="o">]</span>:
+Full Name: Joe Bloggs
+Default output namespace <span class="o">[</span>joebloggs<span class="o">]</span>:
+Default input namespace <span class="o">[</span>joebloggs<span class="o">]</span>: SCRC
+Project description: Test project
+Local Git repository <span class="o">[</span>/home/joebloggs/Documents/AnalysisProject<span class="o">]</span>:
+Git remote name <span class="o">[</span>origin<span class="o">]</span>:
+Using git repository remote <span class="s1">&#39;origin&#39;</span>: git@notagit.com:jbloggs/AnalysisProject.git
+Initialised empty fair repository <span class="k">in</span> /home/joebloggs/Documents/AnalysisProject/.fair
+</pre></div>
+</div>
+</section>
+<section id="example-subsequent-runs">
+<h4>Example: Subsequent runs<a class="headerlink" href="#example-subsequent-runs" title="Permalink to this headline"></a></h4>
+<p>In subsequent runs the first time setup will provide further defaults.</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span>$ fair init
+Initialising FAIR repository, setup will now ask <span class="k">for</span> basic info:
+
+Project description: Test Project
+Local Git repository <span class="o">[</span>/home/joebloggs/Documents/AnalysisProject<span class="o">]</span>:
+Git remote name <span class="o">[</span>origin<span class="o">]</span>:
+Using git repository remote <span class="s1">&#39;origin&#39;</span>: git@nogit.com:joebloggs/AnalysisProject.git
+Remote API URL <span class="o">[</span>http://data.scrc.uk/api/<span class="o">]</span>:
+Remote API Token File <span class="o">[</span>/home/kristian/scrc_token.txt<span class="o">]</span>:
+Local API URL <span class="o">[</span>http://127.0.0.1:8000/api/<span class="o">]</span>:
+Default output namespace <span class="o">[</span>joebloggs<span class="o">]</span>:
+Default input namespace <span class="o">[</span>joebloggs<span class="o">]</span>:
+Initialised empty fair repository <span class="k">in</span> /home/joebloggs/Documents/AnalysisProject/.fair
+</pre></div>
+</div>
+</section>
+<section id="generated-config-yaml">
+<h4>Generated <code class="docutils literal notranslate"><span class="pre">config.yaml</span></code><a class="headerlink" href="#generated-config-yaml" title="Permalink to this headline"></a></h4>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">run_metadata</span><span class="p">:</span><span class="w"></span>
+<span class="w">  </span><span class="nt">default_input_namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">SCRC</span><span class="w"></span>
+<span class="w">  </span><span class="nt">default_output_namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">joebloggs</span><span class="w"></span>
+<span class="w">  </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Test Project</span><span class="w"></span>
+<span class="w">  </span><span class="nt">local_data_registry</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">http://127.0.0.1:8000/api/</span><span class="w"></span>
+<span class="w">  </span><span class="nt">local_repo</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/home/joebloggs/Documents/AnalysisProject</span><span class="w"></span>
+<span class="w">  </span><span class="nt">write_data_store</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/home/joebloggs/.fair/data/</span><span class="w"></span>
+</pre></div>
+</div>
+<p>the user then only needs to add a <code class="docutils literal notranslate"><span class="pre">script</span></code> or <code class="docutils literal notranslate"><span class="pre">script_path</span></code> entry to execute a code run. This is only required for <code class="docutils literal notranslate"><span class="pre">run</span></code>.</p>
+</section>
+<section id="advanced-usage">
+<h4>Advanced usage<a class="headerlink" href="#advanced-usage" title="Permalink to this headline"></a></h4>
+<p>CLI configuration can be read directly from a file which should contain the following:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span>namespaces:
+  input: testing
+  output: testing
+registries:
+  local:
+    data_store: /path/to/local/data_store/,
+    directory: /local/registry/install/directory
+    uri: http://127.0.0.1:8000/api/
+  origin:
+    data_store: /remote/registry/data/store/path/
+    token: /path/to/remote/token
+    uri: https://data.scrc.uk/api/&#39;
+user:
+  email: &#39;test@noreply&#39;,
+  family_name: &#39;Test&#39;
+  given_names: &#39;Interface&#39;
+  orcid: None,
+  uuid: &#39;2ddb2358-84bf-43ff-b2aa-3ac7dc3b49f1&#39;
+git:
+  local_repo: /local/repo/path
+  remote: origin
+description: Testing Project
+</pre></div>
+</div>
+<p>this file is then read during initialisation:</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span>fair init --using &lt;cli-config.yaml file&gt;
+</pre></div>
+</div>
+<p>For the purposes of CI runs, the initialisation can be “skipped” by running:</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span>fair init --ci
+</pre></div>
+</div>
+<p>which will create temporary directories for some locations.</p>
+</section>
+</section>
+<section id="run">
+<h3><code class="docutils literal notranslate"><span class="pre">run</span></code><a class="headerlink" href="#run" title="Permalink to this headline"></a></h3>
+<p>The purpose of <code class="docutils literal notranslate"><span class="pre">run</span></code> is to execute a model/submission run to the local registry. The command fills any specified template variables of the form <code class="docutils literal notranslate"><span class="pre">${{</span> <span class="pre">VAR</span> <span class="pre">}}</span></code> to match those outlined <span class="xref myst">below</span>. Outputs of a run will be stored within the <code class="docutils literal notranslate"><span class="pre">coderun</span></code> folder in the directory specified under the <code class="docutils literal notranslate"><span class="pre">data_store</span></code> tag in the <code class="docutils literal notranslate"><span class="pre">config.yaml</span></code>, by default this is <code class="docutils literal notranslate"><span class="pre">$HOME/.fair/data/coderun</span></code>.</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span>fair run
+</pre></div>
+</div>
+<p>If you wish to use an alternative <code class="docutils literal notranslate"><span class="pre">config.yaml</span></code> then specify it as an additional argument:</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span>fair run /path/to/config.yaml
+</pre></div>
+</div>
+<p>You can also launch a bash command directly which will then be automatically written into the <code class="docutils literal notranslate"><span class="pre">config.yaml</span></code> for you:</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span>fair run --script <span class="s2">&quot;echo \&quot;Hello World\&quot;&quot;</span>
+</pre></div>
+</div>
+<p>note the command itself must be quoted as it is a single argument.</p>
+</section>
+<section id="pull">
+<h3><code class="docutils literal notranslate"><span class="pre">pull</span></code><a class="headerlink" href="#pull" title="Permalink to this headline"></a></h3>
+<p>Currently <code class="docutils literal notranslate"><span class="pre">pull</span></code> will update any entries within the <code class="docutils literal notranslate"><span class="pre">config.yaml</span></code> under the <code class="docutils literal notranslate"><span class="pre">register</span></code> heading creating <code class="docutils literal notranslate"><span class="pre">external_object</span></code> and <code class="docutils literal notranslate"><span class="pre">data_product</span></code> objects on the registry and downloading the data to the local data storage. For example:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">run_metadata</span><span class="p">:</span><span class="w"></span>
+<span class="w">  </span><span class="nt">default_input_namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">SCRC</span><span class="w"></span>
+<span class="w">  </span><span class="nt">default_output_namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">joebloggs</span><span class="w"></span>
+<span class="w">  </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Test project</span><span class="w"></span>
+<span class="w">  </span><span class="nt">local_data_registry</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">http://127.0.0.1:8000/api/</span><span class="w"></span>
+<span class="w">  </span><span class="nt">local_repo</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/home/joebloggs/Documents/SCRC/FAIR-CLI</span><span class="w"></span>
+<span class="w">  </span><span class="nt">write_data_store</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/home/joebloggs/.fair/data/</span><span class="w"></span>
+<span class="nt">register</span><span class="p">:</span><span class="w"></span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">external_object</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">records/SARS-CoV-2/scotland/human-mortality</span><span class="w"></span>
+<span class="w">  </span><span class="nt">namespace_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Scottish Government Open Data Repository</span><span class="w"></span>
+<span class="w">  </span><span class="nt">namespace_full_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Scottish Government Open Data Repository</span><span class="w"></span>
+<span class="w">  </span><span class="nt">namespace_website</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://statistics.gov.scot/</span><span class="w"></span>
+<span class="w">  </span><span class="nt">root</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://statistics.gov.scot/sparql.csv?query=</span><span class="w"></span>
+<span class="w">  </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">|-</span><span class="w"></span>
+<span class="w">    </span><span class="no">PREFIX qb: &lt;http://purl.org/linked-data/cube#&gt;</span><span class="w"></span>
+<span class="w">    </span><span class="no">PREFIX data: &lt;http://statistics.gov.scot/data/&gt;</span><span class="w"></span>
+<span class="w">    </span><span class="no">PREFIX rdfs: &lt;http://www.w3.org/2000/01/rdf-schema#&gt;</span><span class="w"></span>
+<span class="w">    </span><span class="no">PREFIX dim: &lt;http://purl.org/linked-data/sdmx/2009/dimension#&gt;</span><span class="w"></span>
+<span class="w">    </span><span class="no">PREFIX sdim: &lt;http://statistics.gov.scot/def/dimension/&gt;</span><span class="w"></span>
+<span class="w">    </span><span class="no">PREFIX stat: &lt;http://statistics.data.gov.uk/def/statistical-entity#&gt;</span><span class="w"></span>
+<span class="w">    </span><span class="no">PREFIX mp: &lt;http://statistics.gov.scot/def/measure-properties/&gt;</span><span class="w"></span>
+<span class="w">    </span><span class="no">SELECT ?featurecode ?featurename ?areatypename ?date ?cause ?location ?gender ?age ?type ?count</span><span class="w"></span>
+<span class="w">    </span><span class="no">WHERE {</span><span class="w"></span>
+<span class="w">     </span><span class="no">?indicator qb:dataSet data:deaths-involving-coronavirus-covid-19;</span><span class="w"></span>
+<span class="w">       </span><span class="no">mp:count ?count;</span><span class="w"></span>
+<span class="w">       </span><span class="no">qb:measureType ?measType;</span><span class="w"></span>
+<span class="w">       </span><span class="no">sdim:age ?value;</span><span class="w"></span>
+<span class="w">       </span><span class="no">sdim:causeOfDeath ?causeDeath;</span><span class="w"></span>
+<span class="w">       </span><span class="no">sdim:locationOfDeath ?locDeath;</span><span class="w"></span>
+<span class="w">       </span><span class="no">sdim:sex ?sex;</span><span class="w"></span>
+<span class="w">       </span><span class="no">dim:refArea ?featurecode;</span><span class="w"></span>
+<span class="w">       </span><span class="no">dim:refPeriod ?period.</span><span class="w"></span>
+
+<span class="w">       </span><span class="no">?measType rdfs:label ?type.</span><span class="w"></span>
+<span class="w">       </span><span class="no">?value rdfs:label ?age.</span><span class="w"></span>
+<span class="w">       </span><span class="no">?causeDeath rdfs:label ?cause.</span><span class="w"></span>
+<span class="w">       </span><span class="no">?locDeath rdfs:label ?location.</span><span class="w"></span>
+<span class="w">       </span><span class="no">?sex rdfs:label ?gender.</span><span class="w"></span>
+<span class="w">       </span><span class="no">?featurecode stat:code ?areatype;</span><span class="w"></span>
+<span class="w">         </span><span class="no">rdfs:label ?featurename.</span><span class="w"></span>
+<span class="w">       </span><span class="no">?areatype rdfs:label ?areatypename.</span><span class="w"></span>
+<span class="w">       </span><span class="no">?period rdfs:label ?date.</span><span class="w"></span>
+<span class="w">    </span><span class="no">}</span><span class="w"></span>
+<span class="w">  </span><span class="nt">title</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Deaths involving COVID19</span><span class="w"></span>
+<span class="w">  </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Nice description of the dataset</span><span class="w"></span>
+<span class="w">  </span><span class="nt">unique_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Scottish deaths involving COVID19</span><span class="w"></span>
+<span class="w">  </span><span class="nt">file_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">csv</span><span class="w"></span>
+<span class="w">  </span><span class="nt">release_date</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">${{DATETIME}}</span><span class="w"></span>
+<span class="w">  </span><span class="nt">version</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.${{DATE}}.0</span><span class="w"></span>
+<span class="w">  </span><span class="nt">primary</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">True</span><span class="w"></span>
+</pre></div>
+</div>
+<p>if run on <code class="docutils literal notranslate"><span class="pre">10/10/2021</span></code> would download the data from the given <code class="docutils literal notranslate"><span class="pre">root</span></code>/<code class="docutils literal notranslate"><span class="pre">path</span></code> URL and store in a file:</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span>/home/joebloggs/.fair/data/records/SARS-CoV-2/scotland/human-mortality/0.20211010.0.csv
+</pre></div>
+</div>
+<p>and register all required objects into the local registry.</p>
+</section>
+<section id="purge">
+<h3><code class="docutils literal notranslate"><span class="pre">purge</span></code><a class="headerlink" href="#purge" title="Permalink to this headline"></a></h3>
+<p>Removes the local <code class="docutils literal notranslate"><span class="pre">.fair</span></code> (FAIR repository) folder by default so the user can reinitialise:</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span>fair purge
+</pre></div>
+</div>
+<p>You can remove the global configuration and start again entirely by running:</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span>fair purge --global
+</pre></div>
+</div>
+<p>and also the data directory by running:</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span>fair purge --data
+</pre></div>
+</div>
+<p><strong>WARNING</strong>: This is not recommended as the registry may still have entries pointing to this location!</p>
+<p>You can skip any confirmation messages by running:</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span>fair purge --yes
+</pre></div>
+</div>
+</section>
+<section id="registry">
+<h3><code class="docutils literal notranslate"><span class="pre">registry</span></code><a class="headerlink" href="#registry" title="Permalink to this headline"></a></h3>
+<p>By default the CLI will launch the registry whenever a synchronisation or run is called. The server will only be halted once all ongoing CLI processes (in the case of multiple parallel calls) have been completed.</p>
+<p>However the user may also specify a manual launch that will override this behaviour, instead leaving the server running constantly allowing them to view the registry in the browser.</p>
+<p>The commands:</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span>fair registry start
+</pre></div>
+</div>
+<p>and</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span>fair registry stop
+</pre></div>
+</div>
+<p>will launch and halt the server respectively.</p>
+</section>
+<section id="log">
+<h3><code class="docutils literal notranslate"><span class="pre">log</span></code><a class="headerlink" href="#log" title="Permalink to this headline"></a></h3>
+<p>Runs are logged locally within the local FAIR repository. A full list of runs is shown by running:</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span>fair log
+</pre></div>
+</div>
+<p>This will present a list of runs in a summary analogous to a <code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">log</span></code> call:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="l l-Scalar l-Scalar-Plain">run 0db35c20946a1ebeaafdc3b30103cd74a57eb6b6</span><span class="w"></span>
+<span class="l l-Scalar l-Scalar-Plain">Author</span><span class="p p-Indicator">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Joe Bloggs &lt;jbloggs@noreply.uk&gt;</span><span class="w"></span>
+<span class="nt">Date</span><span class="p">:</span><span class="w">   </span><span class="l l-Scalar l-Scalar-Plain">Wed Jun 30 09:09:30 2021</span><span class="w"></span>
+</pre></div>
+</div>
+<table class="colwidths-auto docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p><strong>NOTE</strong></p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>The SHA for a job is <em>not</em> yet related to a registry code run identifier as multiple code runs can be executed within a single job.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="view">
+<h3><code class="docutils literal notranslate"><span class="pre">view</span></code><a class="headerlink" href="#view" title="Permalink to this headline"></a></h3>
+<p>To view the <code class="docutils literal notranslate"><span class="pre">stdout</span></code> of a run given its SHA as shown by running <code class="docutils literal notranslate"><span class="pre">fair</span> <span class="pre">log</span></code> use the command:</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span>fair view &lt;sha&gt;
+</pre></div>
+</div>
+<p>you do not need to specify the full SHA but rather the first few characters:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>--------------------------------
+ Commenced = Wed Jun 30 09:09:30 2021
+ Author    = Joe Bloggs &lt;jbloggs@noreply.uk&gt;
+ Namespace = joebloggs
+ Command   = bash -eo pipefail /home/jbloggs/.fair/data/coderun/2021-06-30_09_09_30_721358/script.sh
+--------------------------------
+0
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+------- time taken 0:00:00.011910 -------
+</pre></div>
+</div>
+</section>
+</section>
+<section id="template-variables">
+<h2>Template Variables<a class="headerlink" href="#template-variables" title="Permalink to this headline"></a></h2>
+<p>Within the <code class="docutils literal notranslate"><span class="pre">config.yaml</span></code> file, template variables can be specified by using the notation <code class="docutils literal notranslate"><span class="pre">${{</span> <span class="pre">VAR</span> <span class="pre">}}</span></code>, the following variables are currently recognised:</p>
+<table class="colwidths-auto docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p><strong>Variable</strong></p></th>
+<th class="head"><p><strong>Description</strong></p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">DATE</span></code></p></td>
+<td><p>Date in the form <code class="docutils literal notranslate"><span class="pre">%Y%m%d</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">DATETIME</span></code></p></td>
+<td><p>Date and time in the form <code class="docutils literal notranslate"><span class="pre">%Y-%m-%sT%H:%M:S</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">DATETIME-%Y%H%M</span></code></p></td>
+<td><p>Date and time in custom format (where <code class="docutils literal notranslate"><span class="pre">%Y%H%M</span></code> can be any valid form)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">USER</span></code></p></td>
+<td><p>The current user as defined in the CLI</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">REPO_DIR</span></code></p></td>
+<td><p>The FAIR repository root directory</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">CONFIG_DIR</span></code></p></td>
+<td><p>The directory containing the <code class="docutils literal notranslate"><span class="pre">config.yaml</span></code> after template substitution</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">LOCAL_TOKEN</span></code></p></td>
+<td><p>The token for access to the local registry</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">SOURCE_CONFIG</span></code></p></td>
+<td><p>Path of the user defined <code class="docutils literal notranslate"><span class="pre">config.yaml</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">GIT_BRANCH</span></code></p></td>
+<td><p>Current branch of the <code class="docutils literal notranslate"><span class="pre">git</span></code> repository</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">GIT_REMOTE</span></code></p></td>
+<td><p>The URI of the git repository specified during setup</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">GIT_TAG</span></code></p></td>
+<td><p>The latest tag on <code class="docutils literal notranslate"><span class="pre">git</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="index.html" class="btn btn-neutral float-left" title="Welcome to FAIR-CLI’s documentation!" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="fair.html" class="btn btn-neutral float-right" title="fair package API" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, FAIR-CLI Authors.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
