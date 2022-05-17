@@ -146,12 +146,12 @@ cython_debug/
 # Notebooks
 *.ipynb
 
-# GitHub config
-
-!/.github/
-
 # Misc
 *.yaml
 *.yml
 token.txt
 .fair
+
+# GitHub config
+
+!/.github/
