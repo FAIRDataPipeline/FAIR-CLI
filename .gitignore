@@ -146,6 +146,10 @@ cython_debug/
 # Notebooks
 *.ipynb
 
+# GitHub config
+
+!/.github/
+
 # Misc
 *.yaml
 *.yml
