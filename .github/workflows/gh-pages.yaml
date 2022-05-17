@@ -2,7 +2,7 @@ name: Pages
 on:
   push:
     branches:
-    - rtd # ToDo change to develop / main as appropriate
+    - develop
 jobs:
   build:
     runs-on: ubuntu-latest
