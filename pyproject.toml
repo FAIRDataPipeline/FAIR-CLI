@@ -64,7 +64,7 @@ validators = "^0.18.2"
 [tool.poetry.dev-dependencies]
 bandit = "^1.7.2"
 black = "^22.1"
-coverage = "^6.3"
+coverage = "^6.4"
 deepdiff = "^5.5.0"
 flake8 = "^3.9.2"
 isort = "^5.10.1"
