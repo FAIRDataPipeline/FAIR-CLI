@@ -26,6 +26,8 @@ import os
 import tempfile
 import typing
 import urllib.parse
+import urllib.request
+import shutil
 
 import requests
 import simplejson.errors
@@ -473,22 +475,12 @@ def download_file(url: str, chunk_size: int = 8192) -> str:
     _file, _fname = tempfile.mkstemp()
 
     try:
-        with requests.get(url, stream=True) as r_in:
-            try:
-                r_in.raise_for_status()
-            except requests.HTTPError as e:
-                raise fdp_exc.FileNotFoundError(
-                    f"Failed to download file from '{url}'"
-                    f" with status code {r_in.status_code}"
-                ) from e
-
-            with os.fdopen(_file, "wb") as in_f:
-                for chunk in r_in.iter_content(chunk_size=chunk_size):
-                    in_f.write(chunk)
-    except requests.exceptions.ConnectionError as exc:
+        with urllib.request.urlopen(url) as response, open(_file, 'wb') as out_file:
+            shutil.copyfileobj(response, out_file)
+    except urllib.error.URLError as e:
         raise fdp_exc.FAIRCLIException(
-            f"Failed to download file '{url}'" f" due to connection error"
-        ) from exc
+            f"Failed to download file '{url}'" f" due to connection error: {e.reason}"
+        ) from e
 
     return _fname
 
