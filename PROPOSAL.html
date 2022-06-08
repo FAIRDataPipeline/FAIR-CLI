@@ -14,6 +14,7 @@
         <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
         <script src="_static/jquery.js"></script>
         <script src="_static/underscore.js"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
         <script src="_static/doctools.js"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
@@ -67,10 +68,10 @@
              
   <p><img alt="Workflow" src="_images/workflow.svg" /></p>
 <section id="proposal-for-an-scrc-fair-data-pipeline-synchronisation-client-command-line-interface">
-<h1>Proposal for an SCRC FAIR Data Pipeline Synchronisation Client Command Line Interface<a class="headerlink" href="#proposal-for-an-scrc-fair-data-pipeline-synchronisation-client-command-line-interface" title="Permalink to this headline"></a></h1>
+<h1>Proposal for an SCRC FAIR Data Pipeline Synchronisation Client Command Line Interface<a class="headerlink" href="#proposal-for-an-scrc-fair-data-pipeline-synchronisation-client-command-line-interface" title="Permalink to this heading"></a></h1>
 <p>In the following document I outline a proposal for the synchronisation system <code class="docutils literal notranslate"><span class="pre">fair</span></code> which aims to synchronise a local version of the SCRC FAIR Data pipeline registry. Much of this plan proposes using commands which mirror those contained within the <code class="docutils literal notranslate"><span class="pre">git</span></code> interface. My argument for this is it is an interface familiar to many already and so easy to learn.</p>
 <section id="local-cache">
-<h2>Local cache<a class="headerlink" href="#local-cache" title="Permalink to this headline"></a></h2>
+<h2>Local cache<a class="headerlink" href="#local-cache" title="Permalink to this heading"></a></h2>
 <p>I use the term “local cache” to refer to the mirror of the <code class="docutils literal notranslate"><span class="pre">.git</span></code> folder created when initialising a repository. My current understanding is that there is to be a folder <code class="docutils literal notranslate"><span class="pre">$HOME/.scrc</span></code> however this creates the following issues:</p>
 <ul class="simple">
 <li><p>Paths have a constant address that does not vary depending on where you are on the file system. This makes it easy to keep note of which files are being tracked. By having a <code class="docutils literal notranslate"><span class="pre">.git</span></code> folder in each repository Git is able to easily produce reports for commands like <code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">status</span></code> which make sense as it can calculate where the user is in relation to <code class="docutils literal notranslate"><span class="pre">.git</span></code>, e.g.:</p></li>
@@ -98,7 +99,7 @@ Changes to be committed:
 </ul>
 </section>
 <section id="initialisation">
-<h2>Initialisation<a class="headerlink" href="#initialisation" title="Permalink to this headline"></a></h2>
+<h2>Initialisation<a class="headerlink" href="#initialisation" title="Permalink to this heading"></a></h2>
 <p>To ensure that the <code class="docutils literal notranslate"><span class="pre">config.yaml</span></code> location is always alongside a <code class="docutils literal notranslate"><span class="pre">.fair</span></code> folder, encourage users to use a command like:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ fair init
 </pre></div>
@@ -110,7 +111,7 @@ Changes to be committed:
 <p>use <code class="docutils literal notranslate"><span class="pre">config.yaml</span></code> to explicitly state you want to reset the config file, else by default this is ignored as it is not data.</p>
 </section>
 <section id="repository-wide-addition">
-<h2>Repository wide addition<a class="headerlink" href="#repository-wide-addition" title="Permalink to this headline"></a></h2>
+<h2>Repository wide addition<a class="headerlink" href="#repository-wide-addition" title="Permalink to this heading"></a></h2>
 <p>Ideally <code class="docutils literal notranslate"><span class="pre">data_store</span></code> should work like <code class="docutils literal notranslate"><span class="pre">.git</span></code> in that it is a hidden container, I am aware the APIs will want to read from this location, could they perhaps read this hidden folder? If the user works with the original file and commits it then the hidden version would be updated anyway (again mirroring git). Could also even have the option to archive data in <code class="docutils literal notranslate"><span class="pre">.fair</span></code> to save space, retrieving when needed (again like git).</p>
 <p>Assuming a data_store is constructed always relative to a <code class="docutils literal notranslate"><span class="pre">config.yaml</span></code>, allow the user to ultimately add anything in the repository for tracking:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">fair</span> <span class="n">add</span> <span class="o">./</span><span class="n">my_data</span><span class="o">/</span><span class="n">a_data_file</span><span class="o">.</span><span class="n">txt</span>
@@ -119,7 +120,7 @@ Changes to be committed:
 <p>this would copy the version into <code class="docutils literal notranslate"><span class="pre">.fair/data_store/</span></code> and add it to tracking.</p>
 </section>
 <section id="configuration">
-<h2>Configuration<a class="headerlink" href="#configuration" title="Permalink to this headline"></a></h2>
+<h2>Configuration<a class="headerlink" href="#configuration" title="Permalink to this heading"></a></h2>
 <p>Configure the user in a manner again alike to <code class="docutils literal notranslate"><span class="pre">git</span></code>:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ fair config user.name &quot;Kristian Zarebski&quot;
 $ fair config user.email &quot;kristian.zarebski@ukaea.uk&quot;
@@ -128,11 +129,11 @@ $ fair config user.orcid &quot;0000-0002-6773-1049&quot;
 </div>
 </section>
 <section id="status">
-<h2>Status<a class="headerlink" href="#status" title="Permalink to this headline"></a></h2>
+<h2>Status<a class="headerlink" href="#status" title="Permalink to this heading"></a></h2>
 <p>No need to reinvent the wheel here, red for untracked and unstaged, green for staged.</p>
 </section>
 <section id="reset">
-<h2>Reset<a class="headerlink" href="#reset" title="Permalink to this headline"></a></h2>
+<h2>Reset<a class="headerlink" href="#reset" title="Permalink to this heading"></a></h2>
 <p>Remove any staging set before <code class="docutils literal notranslate"><span class="pre">push</span></code>:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ fair reset
 </pre></div>
@@ -143,7 +144,7 @@ $ fair config user.orcid &quot;0000-0002-6773-1049&quot;
 </div>
 </section>
 <section id="removing-files">
-<h2>Removing files<a class="headerlink" href="#removing-files" title="Permalink to this headline"></a></h2>
+<h2>Removing files<a class="headerlink" href="#removing-files" title="Permalink to this heading"></a></h2>
 <p>Again, alike to git have <code class="docutils literal notranslate"><span class="pre">fair</span> <span class="pre">rm</span></code> and <code class="docutils literal notranslate"><span class="pre">fair</span> <span class="pre">rm</span> <span class="pre">--cached</span></code>, to remove from tracking and the file system, or just tracking.</p>
 </section>
 </section>

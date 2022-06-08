@@ -14,6 +14,7 @@
         <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
         <script src="_static/jquery.js"></script>
         <script src="_static/underscore.js"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
         <script src="_static/doctools.js"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
@@ -98,24 +99,24 @@
            <div itemprop="articleBody">
              
   <section id="fair-configuration-package">
-<h1>fair.configuration package<a class="headerlink" href="#fair-configuration-package" title="Permalink to this headline"></a></h1>
+<h1>fair.configuration package<a class="headerlink" href="#fair-configuration-package" title="Permalink to this heading"></a></h1>
 <section id="submodules">
-<h2>Submodules<a class="headerlink" href="#submodules" title="Permalink to this headline"></a></h2>
+<h2>Submodules<a class="headerlink" href="#submodules" title="Permalink to this heading"></a></h2>
 </section>
 <section id="module-fair.configuration.validation">
-<span id="fair-configuration-validation-module"></span><h2>fair.configuration.validation module<a class="headerlink" href="#module-fair.configuration.validation" title="Permalink to this headline"></a></h2>
+<span id="fair-configuration-validation-module"></span><h2>fair.configuration.validation module<a class="headerlink" href="#module-fair.configuration.validation" title="Permalink to this heading"></a></h2>
 <section id="cli-config-validation">
-<h3>CLI Config Validation<a class="headerlink" href="#cli-config-validation" title="Permalink to this headline"></a></h3>
+<h3>CLI Config Validation<a class="headerlink" href="#cli-config-validation" title="Permalink to this heading"></a></h3>
 <p>validation of the CLI configuration files both global and local variants</p>
 </section>
 <section id="contents">
-<h3>Contents<a class="headerlink" href="#contents" title="Permalink to this headline"></a></h3>
+<h3>Contents<a class="headerlink" href="#contents" title="Permalink to this heading"></a></h3>
 <section id="classes">
-<h4>Classes<a class="headerlink" href="#classes" title="Permalink to this headline"></a></h4>
+<h4>Classes<a class="headerlink" href="#classes" title="Permalink to this heading"></a></h4>
 <dl class="py class">
 <dt class="sig sig-object py" id="fair.configuration.validation.Git">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fair.configuration.validation.</span></span><span class="sig-name descname"><span class="pre">Git</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">local_repo</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">pathlib.Path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">remote</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">remote_repo</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#fair.configuration.validation.Git" title="Permalink to this definition"></a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">pydantic.main.BaseModel</span></code></p>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fair.configuration.validation.</span></span><span class="sig-name descname"><span class="pre">Git</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">local_repo</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">remote</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">remote_repo</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#fair.configuration.validation.Git" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">BaseModel</span></code></p>
 <dl class="py class">
 <dt class="sig sig-object py" id="fair.configuration.validation.Git.Config">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">Config</span></span><a class="headerlink" href="#fair.configuration.validation.Git.Config" title="Permalink to this definition"></a></dt>
@@ -129,7 +130,7 @@
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="fair.configuration.validation.Git.local_repo">
-<span class="sig-name descname"><span class="pre">local_repo</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">pathlib.Path</span></em><a class="headerlink" href="#fair.configuration.validation.Git.local_repo" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">local_repo</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Path</span></em><a class="headerlink" href="#fair.configuration.validation.Git.local_repo" title="Permalink to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
@@ -146,8 +147,8 @@
 
 <dl class="py class">
 <dt class="sig sig-object py" id="fair.configuration.validation.GlobalCLIConfig">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fair.configuration.validation.</span></span><span class="sig-name descname"><span class="pre">GlobalCLIConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">namespaces</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#fair.configuration.validation.Namespaces" title="fair.configuration.validation.Namespaces"><span class="pre">fair.configuration.validation.Namespaces</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">registries</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="#fair.configuration.validation.Registry" title="fair.configuration.validation.Registry"><span class="pre">fair.configuration.validation.Registry</span></a><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">user</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#fair.configuration.validation.User" title="fair.configuration.validation.User"><span class="pre">fair.configuration.validation.User</span></a></span></em><span class="sig-paren">)</span><a class="headerlink" href="#fair.configuration.validation.GlobalCLIConfig" title="Permalink to this definition"></a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">pydantic.main.BaseModel</span></code></p>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fair.configuration.validation.</span></span><span class="sig-name descname"><span class="pre">GlobalCLIConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">namespaces</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#fair.configuration.validation.Namespaces" title="fair.configuration.validation.Namespaces"><span class="pre">Namespaces</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">registries</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="#fair.configuration.validation.Registry" title="fair.configuration.validation.Registry"><span class="pre">Registry</span></a><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">user</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#fair.configuration.validation.User" title="fair.configuration.validation.User"><span class="pre">User</span></a></span></em><span class="sig-paren">)</span><a class="headerlink" href="#fair.configuration.validation.GlobalCLIConfig" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">BaseModel</span></code></p>
 <dl class="py class">
 <dt class="sig sig-object py" id="fair.configuration.validation.GlobalCLIConfig.Config">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">Config</span></span><a class="headerlink" href="#fair.configuration.validation.GlobalCLIConfig.Config" title="Permalink to this definition"></a></dt>
@@ -161,25 +162,25 @@
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="fair.configuration.validation.GlobalCLIConfig.namespaces">
-<span class="sig-name descname"><span class="pre">namespaces</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#fair.configuration.validation.Namespaces" title="fair.configuration.validation.Namespaces"><span class="pre">fair.configuration.validation.Namespaces</span></a></em><a class="headerlink" href="#fair.configuration.validation.GlobalCLIConfig.namespaces" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">namespaces</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#fair.configuration.validation.Namespaces" title="fair.configuration.validation.Namespaces"><span class="pre">Namespaces</span></a></em><a class="headerlink" href="#fair.configuration.validation.GlobalCLIConfig.namespaces" title="Permalink to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="fair.configuration.validation.GlobalCLIConfig.registries">
-<span class="sig-name descname"><span class="pre">registries</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="#fair.configuration.validation.Registry" title="fair.configuration.validation.Registry"><span class="pre">fair.configuration.validation.Registry</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#fair.configuration.validation.GlobalCLIConfig.registries" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">registries</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="#fair.configuration.validation.Registry" title="fair.configuration.validation.Registry"><span class="pre">Registry</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#fair.configuration.validation.GlobalCLIConfig.registries" title="Permalink to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="fair.configuration.validation.GlobalCLIConfig.user">
-<span class="sig-name descname"><span class="pre">user</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#fair.configuration.validation.User" title="fair.configuration.validation.User"><span class="pre">fair.configuration.validation.User</span></a></em><a class="headerlink" href="#fair.configuration.validation.GlobalCLIConfig.user" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">user</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#fair.configuration.validation.User" title="fair.configuration.validation.User"><span class="pre">User</span></a></em><a class="headerlink" href="#fair.configuration.validation.GlobalCLIConfig.user" title="Permalink to this definition"></a></dt>
 <dd></dd></dl>
 
 </dd></dl>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="fair.configuration.validation.LocalCLIConfig">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fair.configuration.validation.</span></span><span class="sig-name descname"><span class="pre">LocalCLIConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">git</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#fair.configuration.validation.Git" title="fair.configuration.validation.Git"><span class="pre">fair.configuration.validation.Git</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">namespaces</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#fair.configuration.validation.Namespaces" title="fair.configuration.validation.Namespaces"><span class="pre">fair.configuration.validation.Namespaces</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">registries</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="#fair.configuration.validation.Registry" title="fair.configuration.validation.Registry"><span class="pre">fair.configuration.validation.Registry</span></a><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">user</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#fair.configuration.validation.User" title="fair.configuration.validation.User"><span class="pre">fair.configuration.validation.User</span></a></span></em><span class="sig-paren">)</span><a class="headerlink" href="#fair.configuration.validation.LocalCLIConfig" title="Permalink to this definition"></a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">pydantic.main.BaseModel</span></code></p>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fair.configuration.validation.</span></span><span class="sig-name descname"><span class="pre">LocalCLIConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">git</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#fair.configuration.validation.Git" title="fair.configuration.validation.Git"><span class="pre">Git</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">namespaces</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#fair.configuration.validation.Namespaces" title="fair.configuration.validation.Namespaces"><span class="pre">Namespaces</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">registries</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="#fair.configuration.validation.Registry" title="fair.configuration.validation.Registry"><span class="pre">Registry</span></a><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">user</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#fair.configuration.validation.User" title="fair.configuration.validation.User"><span class="pre">User</span></a></span></em><span class="sig-paren">)</span><a class="headerlink" href="#fair.configuration.validation.LocalCLIConfig" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">BaseModel</span></code></p>
 <dl class="py class">
 <dt class="sig sig-object py" id="fair.configuration.validation.LocalCLIConfig.Config">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">Config</span></span><a class="headerlink" href="#fair.configuration.validation.LocalCLIConfig.Config" title="Permalink to this definition"></a></dt>
@@ -193,22 +194,22 @@
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="fair.configuration.validation.LocalCLIConfig.git">
-<span class="sig-name descname"><span class="pre">git</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#fair.configuration.validation.Git" title="fair.configuration.validation.Git"><span class="pre">fair.configuration.validation.Git</span></a></em><a class="headerlink" href="#fair.configuration.validation.LocalCLIConfig.git" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">git</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#fair.configuration.validation.Git" title="fair.configuration.validation.Git"><span class="pre">Git</span></a></em><a class="headerlink" href="#fair.configuration.validation.LocalCLIConfig.git" title="Permalink to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="fair.configuration.validation.LocalCLIConfig.namespaces">
-<span class="sig-name descname"><span class="pre">namespaces</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#fair.configuration.validation.Namespaces" title="fair.configuration.validation.Namespaces"><span class="pre">fair.configuration.validation.Namespaces</span></a></em><a class="headerlink" href="#fair.configuration.validation.LocalCLIConfig.namespaces" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">namespaces</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#fair.configuration.validation.Namespaces" title="fair.configuration.validation.Namespaces"><span class="pre">Namespaces</span></a></em><a class="headerlink" href="#fair.configuration.validation.LocalCLIConfig.namespaces" title="Permalink to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="fair.configuration.validation.LocalCLIConfig.registries">
-<span class="sig-name descname"><span class="pre">registries</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="#fair.configuration.validation.Registry" title="fair.configuration.validation.Registry"><span class="pre">fair.configuration.validation.Registry</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#fair.configuration.validation.LocalCLIConfig.registries" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">registries</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="#fair.configuration.validation.Registry" title="fair.configuration.validation.Registry"><span class="pre">Registry</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#fair.configuration.validation.LocalCLIConfig.registries" title="Permalink to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="fair.configuration.validation.LocalCLIConfig.user">
-<span class="sig-name descname"><span class="pre">user</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#fair.configuration.validation.User" title="fair.configuration.validation.User"><span class="pre">fair.configuration.validation.User</span></a></em><a class="headerlink" href="#fair.configuration.validation.LocalCLIConfig.user" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">user</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#fair.configuration.validation.User" title="fair.configuration.validation.User"><span class="pre">User</span></a></em><a class="headerlink" href="#fair.configuration.validation.LocalCLIConfig.user" title="Permalink to this definition"></a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -216,7 +217,7 @@
 <dl class="py class">
 <dt class="sig sig-object py" id="fair.configuration.validation.Namespaces">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fair.configuration.validation.</span></span><span class="sig-name descname"><span class="pre">Namespaces</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#fair.configuration.validation.Namespaces" title="Permalink to this definition"></a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">pydantic.main.BaseModel</span></code></p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">BaseModel</span></code></p>
 <dl class="py class">
 <dt class="sig sig-object py" id="fair.configuration.validation.Namespaces.Config">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">Config</span></span><a class="headerlink" href="#fair.configuration.validation.Namespaces.Config" title="Permalink to this definition"></a></dt>
@@ -242,8 +243,8 @@
 
 <dl class="py class">
 <dt class="sig sig-object py" id="fair.configuration.validation.Registry">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fair.configuration.validation.</span></span><span class="sig-name descname"><span class="pre">Registry</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_store</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">pathlib.Path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">token</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">pathlib.Path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">uri</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">pydantic.networks.AnyHttpUrl</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">directory</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">pathlib.Path</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#fair.configuration.validation.Registry" title="Permalink to this definition"></a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">pydantic.main.BaseModel</span></code></p>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fair.configuration.validation.</span></span><span class="sig-name descname"><span class="pre">Registry</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_store</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">token</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">uri</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">AnyHttpUrl</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">directory</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Path</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#fair.configuration.validation.Registry" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">BaseModel</span></code></p>
 <dl class="py class">
 <dt class="sig sig-object py" id="fair.configuration.validation.Registry.Config">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">Config</span></span><a class="headerlink" href="#fair.configuration.validation.Registry.Config" title="Permalink to this definition"></a></dt>
@@ -257,30 +258,30 @@
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="fair.configuration.validation.Registry.data_store">
-<span class="sig-name descname"><span class="pre">data_store</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">pathlib.Path</span></em><a class="headerlink" href="#fair.configuration.validation.Registry.data_store" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">data_store</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Path</span></em><a class="headerlink" href="#fair.configuration.validation.Registry.data_store" title="Permalink to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="fair.configuration.validation.Registry.directory">
-<span class="sig-name descname"><span class="pre">directory</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">pathlib.Path</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#fair.configuration.validation.Registry.directory" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">directory</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">Path</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#fair.configuration.validation.Registry.directory" title="Permalink to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="fair.configuration.validation.Registry.token">
-<span class="sig-name descname"><span class="pre">token</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">pathlib.Path</span></em><a class="headerlink" href="#fair.configuration.validation.Registry.token" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">token</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Path</span></em><a class="headerlink" href="#fair.configuration.validation.Registry.token" title="Permalink to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="fair.configuration.validation.Registry.uri">
-<span class="sig-name descname"><span class="pre">uri</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">pydantic.networks.AnyHttpUrl</span></em><a class="headerlink" href="#fair.configuration.validation.Registry.uri" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">uri</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">AnyHttpUrl</span></em><a class="headerlink" href="#fair.configuration.validation.Registry.uri" title="Permalink to this definition"></a></dt>
 <dd></dd></dl>
 
 </dd></dl>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="fair.configuration.validation.User">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fair.configuration.validation.</span></span><span class="sig-name descname"><span class="pre">User</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">email</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">pydantic.networks.EmailStr</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">family_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">given_names</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">orcid</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">uri</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">uuid</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">pydantic.types.UUID4</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#fair.configuration.validation.User" title="Permalink to this definition"></a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">pydantic.main.BaseModel</span></code></p>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fair.configuration.validation.</span></span><span class="sig-name descname"><span class="pre">User</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">email</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">EmailStr</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">family_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">given_names</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">orcid</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">uri</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">uuid</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">UUID4</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#fair.configuration.validation.User" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">BaseModel</span></code></p>
 <dl class="py class">
 <dt class="sig sig-object py" id="fair.configuration.validation.User.Config">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">Config</span></span><a class="headerlink" href="#fair.configuration.validation.User.Config" title="Permalink to this definition"></a></dt>
@@ -294,7 +295,7 @@
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="fair.configuration.validation.User.email">
-<span class="sig-name descname"><span class="pre">email</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">pydantic.networks.EmailStr</span></em><a class="headerlink" href="#fair.configuration.validation.User.email" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">email</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">EmailStr</span></em><a class="headerlink" href="#fair.configuration.validation.User.email" title="Permalink to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
@@ -319,7 +320,7 @@
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="fair.configuration.validation.User.uuid">
-<span class="sig-name descname"><span class="pre">uuid</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">pydantic.types.UUID4</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#fair.configuration.validation.User.uuid" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">uuid</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">UUID4</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#fair.configuration.validation.User.uuid" title="Permalink to this definition"></a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -328,15 +329,15 @@
 </section>
 </section>
 <section id="module-fair.configuration">
-<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-fair.configuration" title="Permalink to this headline"></a></h2>
+<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-fair.configuration" title="Permalink to this heading"></a></h2>
 <section id="configuration">
-<h3>Configuration<a class="headerlink" href="#configuration" title="Permalink to this headline"></a></h3>
+<h3>Configuration<a class="headerlink" href="#configuration" title="Permalink to this heading"></a></h3>
 <p>Module contains methods relating to configuration of the CLI itself.</p>
 </section>
 <section id="id1">
-<h3>Contents<a class="headerlink" href="#id1" title="Permalink to this headline"></a></h3>
+<h3>Contents<a class="headerlink" href="#id1" title="Permalink to this heading"></a></h3>
 <section id="functions">
-<h4>Functions<a class="headerlink" href="#functions" title="Permalink to this headline"></a></h4>
+<h4>Functions<a class="headerlink" href="#functions" title="Permalink to this heading"></a></h4>
 <blockquote>
 <div><p>read_local_fdpconfig - read the contents of the local CLI config file
 read_global_fdpconfig - read the contents of the global CLI config file

@@ -14,6 +14,7 @@
         <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
         <script src="_static/jquery.js"></script>
         <script src="_static/underscore.js"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
         <script src="_static/doctools.js"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
@@ -167,9 +168,9 @@
            <div itemprop="articleBody">
              
   <section id="fair-package-api">
-<h1>fair package API<a class="headerlink" href="#fair-package-api" title="Permalink to this headline"></a></h1>
+<h1>fair package API<a class="headerlink" href="#fair-package-api" title="Permalink to this heading"></a></h1>
 <section id="subpackages">
-<h2>Subpackages<a class="headerlink" href="#subpackages" title="Permalink to this headline"></a></h2>
+<h2>Subpackages<a class="headerlink" href="#subpackages" title="Permalink to this heading"></a></h2>
 <div class="toctree-wrapper compound">
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="fair.configuration.html">fair.configuration package</a><ul>
@@ -274,12 +275,12 @@
 </div>
 </section>
 <section id="submodules">
-<h2>Submodules<a class="headerlink" href="#submodules" title="Permalink to this headline"></a></h2>
+<h2>Submodules<a class="headerlink" href="#submodules" title="Permalink to this heading"></a></h2>
 </section>
 <section id="module-fair.cli">
-<span id="fair-cli-module"></span><h2>fair.cli module<a class="headerlink" href="#module-fair.cli" title="Permalink to this headline"></a></h2>
+<span id="fair-cli-module"></span><h2>fair.cli module<a class="headerlink" href="#module-fair.cli" title="Permalink to this heading"></a></h2>
 <section id="command-line-interface">
-<h3>Command Line Interface<a class="headerlink" href="#command-line-interface" title="Permalink to this headline"></a></h3>
+<h3>Command Line Interface<a class="headerlink" href="#command-line-interface" title="Permalink to this heading"></a></h3>
 <p>Main command line interface setup script for creation of commands used to
 interact with the synchronisation tool.</p>
 <dl class="py function">
@@ -300,16 +301,16 @@ interact with the synchronisation tool.</p>
 </section>
 </section>
 <section id="module-fair.common">
-<span id="fair-common-module"></span><h2>fair.common module<a class="headerlink" href="#module-fair.common" title="Permalink to this headline"></a></h2>
+<span id="fair-common-module"></span><h2>fair.common module<a class="headerlink" href="#module-fair.common" title="Permalink to this heading"></a></h2>
 <section id="common-paths">
-<h3>Common Paths<a class="headerlink" href="#common-paths" title="Permalink to this headline"></a></h3>
+<h3>Common Paths<a class="headerlink" href="#common-paths" title="Permalink to this heading"></a></h3>
 <p>Functions and constant strings related to the location of directories
 and files for executing a CLI session.</p>
 </section>
 <section id="contents">
-<h3>Contents<a class="headerlink" href="#contents" title="Permalink to this headline"></a></h3>
+<h3>Contents<a class="headerlink" href="#contents" title="Permalink to this heading"></a></h3>
 <section id="members">
-<h4>Members<a class="headerlink" href="#members" title="Permalink to this headline"></a></h4>
+<h4>Members<a class="headerlink" href="#members" title="Permalink to this heading"></a></h4>
 <blockquote>
 <div><p>USER_FAIR_DIR   - user FAIR directory
 FAIR_CLI_CONFIG - name of the FAIR-CLI configuration file
@@ -317,7 +318,7 @@ FAIR_FOLDER     - name for FAIR local repository directory</p>
 </div></blockquote>
 </section>
 <section id="functions">
-<h4>Functions<a class="headerlink" href="#functions" title="Permalink to this headline"></a></h4>
+<h4>Functions<a class="headerlink" href="#functions" title="Permalink to this heading"></a></h4>
 <blockquote>
 <div><p>registry_home       - returns the location of the local data registry
 find_fair_root      - returns the closest ‘.fair’ directory in the upper hierarchy
@@ -334,7 +335,7 @@ session_cache_dir   - returns location of session cache folder</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="fair.common.CMD_MODE">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fair.common.</span></span><span class="sig-name descname"><span class="pre">CMD_MODE</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#fair.common.CMD_MODE" title="Permalink to this definition"></a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">enum.Enum</span></code></p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Enum</span></code></p>
 <p>An enumeration.</p>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="fair.common.CMD_MODE.PASS">
@@ -473,16 +474,16 @@ port number from the file generated by the registry itself</p>
 </section>
 </section>
 <section id="module-fair.exceptions">
-<span id="fair-exceptions-module"></span><h2>fair.exceptions module<a class="headerlink" href="#module-fair.exceptions" title="Permalink to this headline"></a></h2>
+<span id="fair-exceptions-module"></span><h2>fair.exceptions module<a class="headerlink" href="#module-fair.exceptions" title="Permalink to this heading"></a></h2>
 <section id="fair-cli-exceptions">
-<h3>FAIR-CLI Exceptions<a class="headerlink" href="#fair-cli-exceptions" title="Permalink to this headline"></a></h3>
+<h3>FAIR-CLI Exceptions<a class="headerlink" href="#fair-cli-exceptions" title="Permalink to this heading"></a></h3>
 <p>Custom exceptions for the command line interface. These are captured during
 command line usage, but provide a means examining scenarios during testing.</p>
 </section>
 <section id="id1">
-<h3>Contents<a class="headerlink" href="#id1" title="Permalink to this headline"></a></h3>
+<h3>Contents<a class="headerlink" href="#id1" title="Permalink to this heading"></a></h3>
 <section id="exceptions">
-<h4>Exceptions<a class="headerlink" href="#exceptions" title="Permalink to this headline"></a></h4>
+<h4>Exceptions<a class="headerlink" href="#exceptions" title="Permalink to this heading"></a></h4>
 <blockquote>
 <div><p>FAIRCLIException
 RegistryErrorException
@@ -498,14 +499,14 @@ ValidationError</p>
 <dl class="py exception">
 <dt class="sig sig-object py" id="fair.exceptions.CLIConfigurationError">
 <em class="property"><span class="pre">exception</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fair.exceptions.</span></span><span class="sig-name descname"><span class="pre">CLIConfigurationError</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">msg</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hint</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">level</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'Error'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#fair.exceptions.CLIConfigurationError" title="Permalink to this definition"></a></dt>
-<dd><p>Bases: <a class="reference internal" href="#fair.exceptions.FAIRCLIException" title="fair.exceptions.FAIRCLIException"><code class="xref py py-class docutils literal notranslate"><span class="pre">fair.exceptions.FAIRCLIException</span></code></a></p>
+<dd><p>Bases: <a class="reference internal" href="#fair.exceptions.FAIRCLIException" title="fair.exceptions.FAIRCLIException"><code class="xref py py-class docutils literal notranslate"><span class="pre">FAIRCLIException</span></code></a></p>
 <p>Errors relating to CLI configuration</p>
 </dd></dl>
 
 <dl class="py exception">
 <dt class="sig sig-object py" id="fair.exceptions.CommandExecutionError">
 <em class="property"><span class="pre">exception</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fair.exceptions.</span></span><span class="sig-name descname"><span class="pre">CommandExecutionError</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">msg</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">exit_code</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#fair.exceptions.CommandExecutionError" title="Permalink to this definition"></a></dt>
-<dd><p>Bases: <a class="reference internal" href="#fair.exceptions.FAIRCLIException" title="fair.exceptions.FAIRCLIException"><code class="xref py py-class docutils literal notranslate"><span class="pre">fair.exceptions.FAIRCLIException</span></code></a></p>
+<dd><p>Bases: <a class="reference internal" href="#fair.exceptions.FAIRCLIException" title="fair.exceptions.FAIRCLIException"><code class="xref py py-class docutils literal notranslate"><span class="pre">FAIRCLIException</span></code></a></p>
 <p>Errors related to execution of submission script commands</p>
 </dd></dl>
 
@@ -524,91 +525,91 @@ ValidationError</p>
 <dl class="py exception">
 <dt class="sig sig-object py" id="fair.exceptions.FDPRepositoryError">
 <em class="property"><span class="pre">exception</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fair.exceptions.</span></span><span class="sig-name descname"><span class="pre">FDPRepositoryError</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">msg</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hint</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#fair.exceptions.FDPRepositoryError" title="Permalink to this definition"></a></dt>
-<dd><p>Bases: <a class="reference internal" href="#fair.exceptions.FAIRCLIException" title="fair.exceptions.FAIRCLIException"><code class="xref py py-class docutils literal notranslate"><span class="pre">fair.exceptions.FAIRCLIException</span></code></a></p>
+<dd><p>Bases: <a class="reference internal" href="#fair.exceptions.FAIRCLIException" title="fair.exceptions.FAIRCLIException"><code class="xref py py-class docutils literal notranslate"><span class="pre">FAIRCLIException</span></code></a></p>
 <p>Errors relating to FAIR repository</p>
 </dd></dl>
 
 <dl class="py exception">
 <dt class="sig sig-object py" id="fair.exceptions.FileNotFoundError">
 <em class="property"><span class="pre">exception</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fair.exceptions.</span></span><span class="sig-name descname"><span class="pre">FileNotFoundError</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">msg</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hint</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#fair.exceptions.FileNotFoundError" title="Permalink to this definition"></a></dt>
-<dd><p>Bases: <a class="reference internal" href="#fair.exceptions.FAIRCLIException" title="fair.exceptions.FAIRCLIException"><code class="xref py py-class docutils literal notranslate"><span class="pre">fair.exceptions.FAIRCLIException</span></code></a></p>
+<dd><p>Bases: <a class="reference internal" href="#fair.exceptions.FAIRCLIException" title="fair.exceptions.FAIRCLIException"><code class="xref py py-class docutils literal notranslate"><span class="pre">FAIRCLIException</span></code></a></p>
 <p>Attempt to access a non-existent file</p>
 </dd></dl>
 
 <dl class="py exception">
 <dt class="sig sig-object py" id="fair.exceptions.ImplementationError">
 <em class="property"><span class="pre">exception</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fair.exceptions.</span></span><span class="sig-name descname"><span class="pre">ImplementationError</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">msg</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#fair.exceptions.ImplementationError" title="Permalink to this definition"></a></dt>
-<dd><p>Bases: <a class="reference internal" href="#fair.exceptions.FAIRCLIException" title="fair.exceptions.FAIRCLIException"><code class="xref py py-class docutils literal notranslate"><span class="pre">fair.exceptions.FAIRCLIException</span></code></a></p>
+<dd><p>Bases: <a class="reference internal" href="#fair.exceptions.FAIRCLIException" title="fair.exceptions.FAIRCLIException"><code class="xref py py-class docutils literal notranslate"><span class="pre">FAIRCLIException</span></code></a></p>
 <p>Errors relating to setup via API implementation</p>
 </dd></dl>
 
 <dl class="py exception">
 <dt class="sig sig-object py" id="fair.exceptions.InternalError">
 <em class="property"><span class="pre">exception</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fair.exceptions.</span></span><span class="sig-name descname"><span class="pre">InternalError</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">msg</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#fair.exceptions.InternalError" title="Permalink to this definition"></a></dt>
-<dd><p>Bases: <a class="reference internal" href="#fair.exceptions.FAIRCLIException" title="fair.exceptions.FAIRCLIException"><code class="xref py py-class docutils literal notranslate"><span class="pre">fair.exceptions.FAIRCLIException</span></code></a></p>
+<dd><p>Bases: <a class="reference internal" href="#fair.exceptions.FAIRCLIException" title="fair.exceptions.FAIRCLIException"><code class="xref py py-class docutils literal notranslate"><span class="pre">FAIRCLIException</span></code></a></p>
 <p>Errors relating to non-user created issues</p>
 </dd></dl>
 
 <dl class="py exception">
 <dt class="sig sig-object py" id="fair.exceptions.KeyPathError">
 <em class="property"><span class="pre">exception</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fair.exceptions.</span></span><span class="sig-name descname"><span class="pre">KeyPathError</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">key</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">parent_label</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#fair.exceptions.KeyPathError" title="Permalink to this definition"></a></dt>
-<dd><p>Bases: <a class="reference internal" href="#fair.exceptions.FAIRCLIException" title="fair.exceptions.FAIRCLIException"><code class="xref py py-class docutils literal notranslate"><span class="pre">fair.exceptions.FAIRCLIException</span></code></a></p>
+<dd><p>Bases: <a class="reference internal" href="#fair.exceptions.FAIRCLIException" title="fair.exceptions.FAIRCLIException"><code class="xref py py-class docutils literal notranslate"><span class="pre">FAIRCLIException</span></code></a></p>
 <p>Errors relating to key path within a nested mapping</p>
 </dd></dl>
 
 <dl class="py exception">
 <dt class="sig sig-object py" id="fair.exceptions.NotImplementedError">
 <em class="property"><span class="pre">exception</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fair.exceptions.</span></span><span class="sig-name descname"><span class="pre">NotImplementedError</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">msg</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hint</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">level</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'Error'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#fair.exceptions.NotImplementedError" title="Permalink to this definition"></a></dt>
-<dd><p>Bases: <a class="reference internal" href="#fair.exceptions.FAIRCLIException" title="fair.exceptions.FAIRCLIException"><code class="xref py py-class docutils literal notranslate"><span class="pre">fair.exceptions.FAIRCLIException</span></code></a></p>
+<dd><p>Bases: <a class="reference internal" href="#fair.exceptions.FAIRCLIException" title="fair.exceptions.FAIRCLIException"><code class="xref py py-class docutils literal notranslate"><span class="pre">FAIRCLIException</span></code></a></p>
 <p>Errors relating to features that have not yet been implemented</p>
 </dd></dl>
 
 <dl class="py exception">
 <dt class="sig sig-object py" id="fair.exceptions.RegistryAPICallError">
 <em class="property"><span class="pre">exception</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fair.exceptions.</span></span><span class="sig-name descname"><span class="pre">RegistryAPICallError</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">msg</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">error_code</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#fair.exceptions.RegistryAPICallError" title="Permalink to this definition"></a></dt>
-<dd><p>Bases: <a class="reference internal" href="#fair.exceptions.FAIRCLIException" title="fair.exceptions.FAIRCLIException"><code class="xref py py-class docutils literal notranslate"><span class="pre">fair.exceptions.FAIRCLIException</span></code></a></p>
+<dd><p>Bases: <a class="reference internal" href="#fair.exceptions.FAIRCLIException" title="fair.exceptions.FAIRCLIException"><code class="xref py py-class docutils literal notranslate"><span class="pre">FAIRCLIException</span></code></a></p>
 <p>Errors relating to invalid queries to the registry RestAPI</p>
 </dd></dl>
 
 <dl class="py exception">
 <dt class="sig sig-object py" id="fair.exceptions.RegistryError">
 <em class="property"><span class="pre">exception</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fair.exceptions.</span></span><span class="sig-name descname"><span class="pre">RegistryError</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">msg</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hint</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">''</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#fair.exceptions.RegistryError" title="Permalink to this definition"></a></dt>
-<dd><p>Bases: <a class="reference internal" href="#fair.exceptions.FAIRCLIException" title="fair.exceptions.FAIRCLIException"><code class="xref py py-class docutils literal notranslate"><span class="pre">fair.exceptions.FAIRCLIException</span></code></a></p>
+<dd><p>Bases: <a class="reference internal" href="#fair.exceptions.FAIRCLIException" title="fair.exceptions.FAIRCLIException"><code class="xref py py-class docutils literal notranslate"><span class="pre">FAIRCLIException</span></code></a></p>
 <p>Errors relating to registry setup and usage</p>
 </dd></dl>
 
 <dl class="py exception">
 <dt class="sig sig-object py" id="fair.exceptions.StagingError">
 <em class="property"><span class="pre">exception</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fair.exceptions.</span></span><span class="sig-name descname"><span class="pre">StagingError</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">msg</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#fair.exceptions.StagingError" title="Permalink to this definition"></a></dt>
-<dd><p>Bases: <a class="reference internal" href="#fair.exceptions.FAIRCLIException" title="fair.exceptions.FAIRCLIException"><code class="xref py py-class docutils literal notranslate"><span class="pre">fair.exceptions.FAIRCLIException</span></code></a></p>
+<dd><p>Bases: <a class="reference internal" href="#fair.exceptions.FAIRCLIException" title="fair.exceptions.FAIRCLIException"><code class="xref py py-class docutils literal notranslate"><span class="pre">FAIRCLIException</span></code></a></p>
 <p>Errors relating to the staging of jobs</p>
 </dd></dl>
 
 <dl class="py exception">
 <dt class="sig sig-object py" id="fair.exceptions.SynchronisationError">
 <em class="property"><span class="pre">exception</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fair.exceptions.</span></span><span class="sig-name descname"><span class="pre">SynchronisationError</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">msg</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">error_code</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#fair.exceptions.SynchronisationError" title="Permalink to this definition"></a></dt>
-<dd><p>Bases: <a class="reference internal" href="#fair.exceptions.FAIRCLIException" title="fair.exceptions.FAIRCLIException"><code class="xref py py-class docutils literal notranslate"><span class="pre">fair.exceptions.FAIRCLIException</span></code></a></p>
+<dd><p>Bases: <a class="reference internal" href="#fair.exceptions.FAIRCLIException" title="fair.exceptions.FAIRCLIException"><code class="xref py py-class docutils literal notranslate"><span class="pre">FAIRCLIException</span></code></a></p>
 <p>Errors relating to synchronisation between registries</p>
 </dd></dl>
 
 <dl class="py exception">
 <dt class="sig sig-object py" id="fair.exceptions.UnexpectedRegistryServerState">
 <em class="property"><span class="pre">exception</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fair.exceptions.</span></span><span class="sig-name descname"><span class="pre">UnexpectedRegistryServerState</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">msg</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hint</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#fair.exceptions.UnexpectedRegistryServerState" title="Permalink to this definition"></a></dt>
-<dd><p>Bases: <a class="reference internal" href="#fair.exceptions.FAIRCLIException" title="fair.exceptions.FAIRCLIException"><code class="xref py py-class docutils literal notranslate"><span class="pre">fair.exceptions.FAIRCLIException</span></code></a></p>
+<dd><p>Bases: <a class="reference internal" href="#fair.exceptions.FAIRCLIException" title="fair.exceptions.FAIRCLIException"><code class="xref py py-class docutils literal notranslate"><span class="pre">FAIRCLIException</span></code></a></p>
 <p>Errors relating to server start/stop when already up/down)</p>
 </dd></dl>
 
 <dl class="py exception">
 <dt class="sig sig-object py" id="fair.exceptions.UserConfigError">
 <em class="property"><span class="pre">exception</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fair.exceptions.</span></span><span class="sig-name descname"><span class="pre">UserConfigError</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">msg</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hint</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#fair.exceptions.UserConfigError" title="Permalink to this definition"></a></dt>
-<dd><p>Bases: <a class="reference internal" href="#fair.exceptions.FAIRCLIException" title="fair.exceptions.FAIRCLIException"><code class="xref py py-class docutils literal notranslate"><span class="pre">fair.exceptions.FAIRCLIException</span></code></a></p>
+<dd><p>Bases: <a class="reference internal" href="#fair.exceptions.FAIRCLIException" title="fair.exceptions.FAIRCLIException"><code class="xref py py-class docutils literal notranslate"><span class="pre">FAIRCLIException</span></code></a></p>
 <p>Errors relating to the user ‘config.yaml’ file</p>
 </dd></dl>
 
 <dl class="py exception">
 <dt class="sig sig-object py" id="fair.exceptions.ValidationError">
 <em class="property"><span class="pre">exception</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fair.exceptions.</span></span><span class="sig-name descname"><span class="pre">ValidationError</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">info</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">Dict</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#fair.exceptions.ValidationError" title="Permalink to this definition"></a></dt>
-<dd><p>Bases: <a class="reference internal" href="#fair.exceptions.FAIRCLIException" title="fair.exceptions.FAIRCLIException"><code class="xref py py-class docutils literal notranslate"><span class="pre">fair.exceptions.FAIRCLIException</span></code></a></p>
+<dd><p>Bases: <a class="reference internal" href="#fair.exceptions.FAIRCLIException" title="fair.exceptions.FAIRCLIException"><code class="xref py py-class docutils literal notranslate"><span class="pre">FAIRCLIException</span></code></a></p>
 <p>Errors relating to the Pydantic based User Config validation</p>
 </dd></dl>
 
@@ -616,16 +617,16 @@ ValidationError</p>
 </section>
 </section>
 <section id="module-fair.history">
-<span id="fair-history-module"></span><h2>fair.history module<a class="headerlink" href="#module-fair.history" title="Permalink to this headline"></a></h2>
+<span id="fair-history-module"></span><h2>fair.history module<a class="headerlink" href="#module-fair.history" title="Permalink to this heading"></a></h2>
 <section id="run-history">
-<h3>Run History<a class="headerlink" href="#run-history" title="Permalink to this headline"></a></h3>
+<h3>Run History<a class="headerlink" href="#run-history" title="Permalink to this heading"></a></h3>
 <p>Methods relating to the summary of jobs commenced within the given FAIR-CLI
 repository. Allowing user to view any stdout from these.</p>
 </section>
 <section id="id2">
-<h3>Contents<a class="headerlink" href="#id2" title="Permalink to this headline"></a></h3>
+<h3>Contents<a class="headerlink" href="#id2" title="Permalink to this heading"></a></h3>
 <section id="id3">
-<h4>Functions<a class="headerlink" href="#id3" title="Permalink to this headline"></a></h4>
+<h4>Functions<a class="headerlink" href="#id3" title="Permalink to this heading"></a></h4>
 <blockquote>
 <div><p>history_directory - returns the current repository logs directory</p>
 </div></blockquote>
@@ -675,15 +676,15 @@ repository. Allowing user to view any stdout from these.</p>
 </section>
 </section>
 <section id="module-fair.identifiers">
-<span id="fair-identifiers-module"></span><h2>fair.identifiers module<a class="headerlink" href="#module-fair.identifiers" title="Permalink to this headline"></a></h2>
+<span id="fair-identifiers-module"></span><h2>fair.identifiers module<a class="headerlink" href="#module-fair.identifiers" title="Permalink to this heading"></a></h2>
 <section id="identifiers">
-<h3>Identifiers<a class="headerlink" href="#identifiers" title="Permalink to this headline"></a></h3>
+<h3>Identifiers<a class="headerlink" href="#identifiers" title="Permalink to this heading"></a></h3>
 <p>Methods relating to retrieval and parsing of unique identifiers</p>
 </section>
 <section id="id4">
-<h3>Contents<a class="headerlink" href="#id4" title="Permalink to this headline"></a></h3>
+<h3>Contents<a class="headerlink" href="#id4" title="Permalink to this heading"></a></h3>
 <section id="id5">
-<h4>Functions<a class="headerlink" href="#id5" title="Permalink to this headline"></a></h4>
+<h4>Functions<a class="headerlink" href="#id5" title="Permalink to this heading"></a></h4>
 <blockquote>
 <div><p>check_orcid - verify an ORCID and return name information
 check_ror - verify a ROR and return name information
@@ -754,14 +755,14 @@ grid_id : str</p>
 </section>
 </section>
 <section id="module-fair.logging">
-<span id="fair-logging-module"></span><h2>fair.logging module<a class="headerlink" href="#module-fair.logging" title="Permalink to this headline"></a></h2>
+<span id="fair-logging-module"></span><h2>fair.logging module<a class="headerlink" href="#module-fair.logging" title="Permalink to this heading"></a></h2>
 <section id="logging">
-<h3>Logging<a class="headerlink" href="#logging" title="Permalink to this headline"></a></h3>
+<h3>Logging<a class="headerlink" href="#logging" title="Permalink to this heading"></a></h3>
 <p>Creation of job logs when running ‘pull’, ‘run’, ‘push’ etc. This is not to be
 confused with use of the ‘logging’ module which handles debug printouts etc.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="fair.logging.JobLogger">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fair.logging.</span></span><span class="sig-name descname"><span class="pre">JobLogger</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time_stamp</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">datetime.datetime</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">command</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">project_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'/home/runner/work/FAIR-CLI/FAIR-CLI'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#fair.logging.JobLogger" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fair.logging.</span></span><span class="sig-name descname"><span class="pre">JobLogger</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time_stamp</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">datetime</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">command</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">project_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'/home/runner/work/FAIR-CLI/FAIR-CLI'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#fair.logging.JobLogger" title="Permalink to this definition"></a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <dl class="py method">
 <dt class="sig sig-object py" id="fair.logging.JobLogger.append">
@@ -784,16 +785,16 @@ confused with use of the ‘logging’ module which handles debug printouts etc.
 </section>
 </section>
 <section id="module-fair.register">
-<span id="fair-register-module"></span><h2>fair.register module<a class="headerlink" href="#module-fair.register" title="Permalink to this headline"></a></h2>
+<span id="fair-register-module"></span><h2>fair.register module<a class="headerlink" href="#module-fair.register" title="Permalink to this heading"></a></h2>
 <section id="register-key-methods">
-<h3>Register Key Methods<a class="headerlink" href="#register-key-methods" title="Permalink to this headline"></a></h3>
+<h3>Register Key Methods<a class="headerlink" href="#register-key-methods" title="Permalink to this heading"></a></h3>
 <p>Substitute/fetch data relating to ‘register’ entries in the
 <cite>config.yaml</cite> user config</p>
 </section>
 <section id="id6">
-<h3>Contents<a class="headerlink" href="#id6" title="Permalink to this headline"></a></h3>
+<h3>Contents<a class="headerlink" href="#id6" title="Permalink to this heading"></a></h3>
 <section id="id7">
-<h4>Functions<a class="headerlink" href="#id7" title="Permalink to this headline"></a></h4>
+<h4>Functions<a class="headerlink" href="#id7" title="Permalink to this heading"></a></h4>
 <dl class="py function">
 <dt class="sig sig-object py" id="fair.register.convert_key_value_to_id">
 <span class="sig-prename descclassname"><span class="pre">fair.register.</span></span><span class="sig-name descname"><span class="pre">convert_key_value_to_id</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">uri</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">obj_type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">value</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">token</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">int</span></span></span><a class="headerlink" href="#fair.register.convert_key_value_to_id" title="Permalink to this definition"></a></dt>
@@ -834,9 +835,9 @@ confused with use of the ‘logging’ module which handles debug printouts etc.
 </section>
 </section>
 <section id="module-fair.run">
-<span id="fair-run-module"></span><h2>fair.run module<a class="headerlink" href="#module-fair.run" title="Permalink to this headline"></a></h2>
+<span id="fair-run-module"></span><h2>fair.run module<a class="headerlink" href="#module-fair.run" title="Permalink to this heading"></a></h2>
 <section id="execute-job">
-<h3>Execute Job<a class="headerlink" href="#execute-job" title="Permalink to this headline"></a></h3>
+<h3>Execute Job<a class="headerlink" href="#execute-job" title="Permalink to this heading"></a></h3>
 <p>Creates required files for job execution and runs the job itself using the
 retrieved metadata</p>
 <dl class="py function">
@@ -873,22 +874,22 @@ called initiates multiple executions. “Job” here refers to a call of
 </section>
 </section>
 <section id="module-fair.session">
-<span id="fair-session-module"></span><h2>fair.session module<a class="headerlink" href="#module-fair.session" title="Permalink to this headline"></a></h2>
+<span id="fair-session-module"></span><h2>fair.session module<a class="headerlink" href="#module-fair.session" title="Permalink to this heading"></a></h2>
 <section id="session">
-<h3>Session<a class="headerlink" href="#session" title="Permalink to this headline"></a></h3>
+<h3>Session<a class="headerlink" href="#session" title="Permalink to this heading"></a></h3>
 <p>Manage synchronisation of data and metadata relating to runs using the
 FAIR Data Pipeline system.</p>
 </section>
 <section id="id8">
-<h3>Contents<a class="headerlink" href="#id8" title="Permalink to this headline"></a></h3>
+<h3>Contents<a class="headerlink" href="#id8" title="Permalink to this heading"></a></h3>
 <section id="classes">
-<h4>Classes<a class="headerlink" href="#classes" title="Permalink to this headline"></a></h4>
+<h4>Classes<a class="headerlink" href="#classes" title="Permalink to this heading"></a></h4>
 <blockquote>
 <div><p>FAIR - main class for performing synchronisations and executing jobs</p>
 </div></blockquote>
 </section>
 <section id="misc-variables">
-<h4>Misc Variables<a class="headerlink" href="#misc-variables" title="Permalink to this headline"></a></h4>
+<h4>Misc Variables<a class="headerlink" href="#misc-variables" title="Permalink to this heading"></a></h4>
 <blockquote>
 <div><p>__author__
 __license__
@@ -898,7 +899,7 @@ __copyright__</p>
 </div></blockquote>
 <dl class="py class">
 <dt class="sig sig-object py" id="fair.session.FAIR">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fair.session.</span></span><span class="sig-name descname"><span class="pre">FAIR</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">repo_loc</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">user_config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">debug</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">server_mode</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="fair.registry.html#fair.registry.server.SwitchMode" title="fair.registry.server.SwitchMode"><span class="pre">fair.registry.server.SwitchMode</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">SwitchMode.NO_SERVER</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">server_port</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">8000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">allow_dirty</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">testing</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">local</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#fair.session.FAIR" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fair.session.</span></span><span class="sig-name descname"><span class="pre">FAIR</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">repo_loc</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">user_config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">debug</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">server_mode</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="fair.registry.html#fair.registry.server.SwitchMode" title="fair.registry.server.SwitchMode"><span class="pre">SwitchMode</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">SwitchMode.NO_SERVER</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">server_port</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">8000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">allow_dirty</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">testing</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">local</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#fair.session.FAIR" title="Permalink to this definition"></a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <p>A class which provides the main interface for managing runs and data
 transfer between FAIR Data Pipeline registries.</p>
@@ -1055,15 +1056,15 @@ the closest location in the upper hierarchy containing a ‘.fair’ folder).</p
 </section>
 </section>
 <section id="module-fair.staging">
-<span id="fair-staging-module"></span><h2>fair.staging module<a class="headerlink" href="#module-fair.staging" title="Permalink to this headline"></a></h2>
+<span id="fair-staging-module"></span><h2>fair.staging module<a class="headerlink" href="#module-fair.staging" title="Permalink to this heading"></a></h2>
 <section id="staging">
-<h3>Staging<a class="headerlink" href="#staging" title="Permalink to this headline"></a></h3>
+<h3>Staging<a class="headerlink" href="#staging" title="Permalink to this heading"></a></h3>
 <p>Manage object staging for pushing to a remote registry from the local registry</p>
 </section>
 <section id="id9">
-<h3>Contents<a class="headerlink" href="#id9" title="Permalink to this headline"></a></h3>
+<h3>Contents<a class="headerlink" href="#id9" title="Permalink to this heading"></a></h3>
 <section id="id10">
-<h4>Classes<a class="headerlink" href="#id10" title="Permalink to this headline"></a></h4>
+<h4>Classes<a class="headerlink" href="#id10" title="Permalink to this heading"></a></h4>
 <blockquote>
 <div><p>Staging - class handles staging of objects ready to be synchronised</p>
 </div></blockquote>
@@ -1180,10 +1181,10 @@ or has issues.</p>
 </section>
 </section>
 <section id="module-fair.testing">
-<span id="fair-testing-module"></span><h2>fair.testing module<a class="headerlink" href="#module-fair.testing" title="Permalink to this headline"></a></h2>
+<span id="fair-testing-module"></span><h2>fair.testing module<a class="headerlink" href="#module-fair.testing" title="Permalink to this heading"></a></h2>
 <dl class="py function">
 <dt class="sig sig-object py" id="fair.testing.create_configurations">
-<span class="sig-prename descclassname"><span class="pre">fair.testing.</span></span><span class="sig-name descname"><span class="pre">create_configurations</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">registry_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">local_git_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">remote_reg_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">testing_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'/tmp/tmp43u75q7c'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tokenless</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Dict</span></span></span><a class="headerlink" href="#fair.testing.create_configurations" title="Permalink to this definition"></a></dt>
+<span class="sig-prename descclassname"><span class="pre">fair.testing.</span></span><span class="sig-name descname"><span class="pre">create_configurations</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">registry_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">local_git_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">remote_reg_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">testing_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'/tmp/tmpllx0s5m3'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tokenless</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Dict</span></span></span><a class="headerlink" href="#fair.testing.create_configurations" title="Permalink to this definition"></a></dt>
 <dd><p>Setup CLI for testing</p>
 <p>Running without a token limits the functionality, this should only be used
 when testing without need to access a local registry.</p>
@@ -1203,16 +1204,16 @@ when testing without need to access a local registry.</p>
 
 </section>
 <section id="module-fair.utilities">
-<span id="fair-utilities-module"></span><h2>fair.utilities module<a class="headerlink" href="#module-fair.utilities" title="Permalink to this headline"></a></h2>
+<span id="fair-utilities-module"></span><h2>fair.utilities module<a class="headerlink" href="#module-fair.utilities" title="Permalink to this heading"></a></h2>
 <section id="fdp-cli-utilities">
-<h3>FDP-CLI Utilities<a class="headerlink" href="#fdp-cli-utilities" title="Permalink to this headline"></a></h3>
+<h3>FDP-CLI Utilities<a class="headerlink" href="#fdp-cli-utilities" title="Permalink to this heading"></a></h3>
 <p>Collection of methods used which are not specific to the FDP-CLI and so are
 defined as ‘utilities’.</p>
 </section>
 <section id="contains">
-<h3>Contains<a class="headerlink" href="#contains" title="Permalink to this headline"></a></h3>
+<h3>Contains<a class="headerlink" href="#contains" title="Permalink to this heading"></a></h3>
 <section id="id11">
-<h4>Functions<a class="headerlink" href="#id11" title="Permalink to this headline"></a></h4>
+<h4>Functions<a class="headerlink" href="#id11" title="Permalink to this heading"></a></h4>
 <blockquote>
 <div><p>flatten_dict - convert a nested dictionary into a single level version.
 expand_dict  - expands a single level dictionary to a nested version.
@@ -1220,14 +1221,14 @@ remove_dictlist_dupes - removes duplicates from list of depth 1 dictionaries</p>
 </div></blockquote>
 </section>
 <section id="class">
-<h4>Class<a class="headerlink" href="#class" title="Permalink to this headline"></a></h4>
+<h4>Class<a class="headerlink" href="#class" title="Permalink to this heading"></a></h4>
 <blockquote>
 <div><p>JSONDateTimeEncoder - for allowing datetime strings to be json parsed</p>
 </div></blockquote>
 <dl class="py class">
 <dt class="sig sig-object py" id="fair.utilities.JSONDateTimeEncoder">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fair.utilities.</span></span><span class="sig-name descname"><span class="pre">JSONDateTimeEncoder</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">skipkeys</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ensure_ascii</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">check_circular</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">allow_nan</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sort_keys</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">indent</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">separators</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">default</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#fair.utilities.JSONDateTimeEncoder" title="Permalink to this definition"></a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">json.encoder.JSONEncoder</span></code></p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">JSONEncoder</span></code></p>
 <dl class="py method">
 <dt class="sig sig-object py" id="fair.utilities.JSONDateTimeEncoder.default">
 <span class="sig-name descname"><span class="pre">default</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">date_time_candidate</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#fair.utilities.JSONDateTimeEncoder.default" title="Permalink to this definition"></a></dt>
@@ -1343,9 +1344,9 @@ using a separator for the keys.</p>
 </section>
 </section>
 <section id="module-fair.virtualenv">
-<span id="fair-virtualenv-module"></span><h2>fair.virtualenv module<a class="headerlink" href="#module-fair.virtualenv" title="Permalink to this headline"></a></h2>
+<span id="fair-virtualenv-module"></span><h2>fair.virtualenv module<a class="headerlink" href="#module-fair.virtualenv" title="Permalink to this heading"></a></h2>
 <section id="virtual-environment-for-registries">
-<h3>Virtual Environment for Registries<a class="headerlink" href="#virtual-environment-for-registries" title="Permalink to this headline"></a></h3>
+<h3>Virtual Environment for Registries<a class="headerlink" href="#virtual-environment-for-registries" title="Permalink to this heading"></a></h3>
 <p>It was discovered that if building a FAIR-CLI binary “venv” would assume it
 had been called by “python” and not “fair” which would break the setting up
 of a virtual environment when installing a registry. As such a modified version
@@ -1353,10 +1354,10 @@ of the class which sets the Python executable manually is required.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="fair.virtualenv.FAIREnv">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fair.virtualenv.</span></span><span class="sig-name descname"><span class="pre">FAIREnv</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#fair.virtualenv.FAIREnv" title="Permalink to this definition"></a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">venv.EnvBuilder</span></code></p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">EnvBuilder</span></code></p>
 <dl class="py method">
 <dt class="sig sig-object py" id="fair.virtualenv.FAIREnv.ensure_directories">
-<span class="sig-name descname"><span class="pre">ensure_directories</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">env_dir</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">types.SimpleNamespace</span></span></span><a class="headerlink" href="#fair.virtualenv.FAIREnv.ensure_directories" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">ensure_directories</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">env_dir</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">SimpleNamespace</span></span></span><a class="headerlink" href="#fair.virtualenv.FAIREnv.ensure_directories" title="Permalink to this definition"></a></dt>
 <dd><p>Create the directories for the environment.</p>
 <p>Returns a context object which holds paths in the environment,
 for use by subsequent logic.</p>
@@ -1373,14 +1374,14 @@ for use by subsequent logic.</p>
 </section>
 </section>
 <section id="module-fair">
-<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-fair" title="Permalink to this headline"></a></h2>
+<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-fair" title="Permalink to this heading"></a></h2>
 <section id="fair-data-pipeline-command-line-interface-tool">
-<h3>FAIR Data Pipeline Command Line Interface Tool<a class="headerlink" href="#fair-data-pipeline-command-line-interface-tool" title="Permalink to this headline"></a></h3>
+<h3>FAIR Data Pipeline Command Line Interface Tool<a class="headerlink" href="#fair-data-pipeline-command-line-interface-tool" title="Permalink to this heading"></a></h3>
 <p>Contains definitions for the synchronisation tool for communication between
 remote and local FAIR Data Pipeline registries.</p>
 </section>
 <section id="license">
-<h3>License<a class="headerlink" href="#license" title="Permalink to this headline"></a></h3>
+<h3>License<a class="headerlink" href="#license" title="Permalink to this heading"></a></h3>
 <p>BSD 2-Clause License</p>
 <p>Copyright (c) 2021, Scottish COVID Response Consortium
 All rights reserved.</p>
