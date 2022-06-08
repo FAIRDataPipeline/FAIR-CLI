@@ -739,6 +739,7 @@ class JobConfiguration(MutableMapping):
         local: bool = False,
     ) -> str:
         """Initiate a job execution"""
+
         _time_stamp = self._now.strftime("%Y-%m-%d_%H_%M_%S_%f")
         self._job_dir = os.path.join(fdp_com.default_jobs_dir(), _time_stamp)
 
