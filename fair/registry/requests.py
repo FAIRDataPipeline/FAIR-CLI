@@ -23,11 +23,11 @@ import copy
 import json
 import logging
 import os
+import shutil
 import tempfile
 import typing
 import urllib.parse
 import urllib.request
-import shutil
 
 import requests
 import simplejson.errors
@@ -475,11 +475,14 @@ def download_file(url: str, chunk_size: int = 8192) -> str:
     _file, _fname = tempfile.mkstemp()
 
     try:
-        with urllib.request.urlopen(url) as response, open(_file, 'wb') as out_file:
+        with urllib.request.urlopen(url) as response, open(
+            _file, "wb"
+        ) as out_file:
             shutil.copyfileobj(response, out_file)
     except urllib.error.URLError as e:
         raise fdp_exc.FAIRCLIException(
-            f"Failed to download file '{url}'" f" due to connection error: {e.reason}"
+            f"Failed to download file '{url}'"
+            f" due to connection error: {e.reason}"
         ) from e
 
     return _fname

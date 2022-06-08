@@ -736,6 +736,7 @@ class JobConfiguration(MutableMapping):
         allow_dirty: bool = False,
         remote_uri: str = None,
         remote_token: str = None,
+        local: bool = False,
     ) -> str:
         """Initiate a job execution"""
         _time_stamp = self._now.strftime("%Y-%m-%d_%H_%M_%S_%f")
@@ -769,11 +770,12 @@ class JobConfiguration(MutableMapping):
                 raise fdp_exc.InternalError(
                     "Expected URI during wildcard unpacking for 'pull'"
                 )
-            if not remote_token:
-                raise fdp_exc.InternalError(
-                    "Expected token during wildcard unpacking for 'pull'"
-                )
-            self._expand_wildcards(remote_uri, remote_token)
+            if not local:
+                if not remote_token:
+                    raise fdp_exc.InternalError(
+                        "Expected token during wildcard unpacking for 'pull'"
+                    )
+                self._expand_wildcards(remote_uri, remote_token)
         else:
             self._expand_wildcards(self.local_uri, fdp_req.local_token())
 
