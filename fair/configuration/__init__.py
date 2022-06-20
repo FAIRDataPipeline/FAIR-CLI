@@ -291,6 +291,7 @@ def get_remote_token(
             )
 
         return _token
+    return None
 
 
 def get_local_data_store() -> str:

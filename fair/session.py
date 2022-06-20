@@ -400,7 +400,7 @@ class FAIR:
                 fdp_conf.get_remote_uri(self._session_loc, remote),
                 fdp_req.local_token(),
                 fdp_conf.get_remote_token(
-                    self._session_loc, remote, local=self._local
+                    self._session_loc, remote, self._local
                 ),
             )
 
