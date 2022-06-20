@@ -347,7 +347,7 @@ class FAIR:
     def push(self, remote: str = "origin"):
         self._pre_job_setup(remote)
         self._session_config.prepare(
-            fdp_com.CMD_MODE.PUSH, allow_dirty=self._allow_dirty
+            fdp_com.CMD_MODE.PUSH, allow_dirty=self._allow_dirty, local=local
         )
         _staged_data_products = self._stager.get_item_list(
             True, "data_product"
@@ -359,7 +359,9 @@ class FAIR:
         fdp_sync.sync_data_products(
             origin_uri=fdp_conf.get_local_uri(),
             dest_uri=fdp_conf.get_remote_uri(self._session_loc, remote),
-            dest_token=fdp_conf.get_remote_token(self._session_loc, remote),
+            dest_token=fdp_conf.get_remote_token(
+                self._session_loc, remote, local=self._local
+            ),
             origin_token=fdp_req.local_token(),
             remote_label=remote,
             data_products=_staged_data_products,
@@ -380,6 +382,7 @@ class FAIR:
 
     def pull(self, remote: str = "origin"):
         if not self._local:
+
             self._logger.debug("Performing pull on remote '%s'", remote)
 
             _remote_addr = fdp_conf.get_remote_uri(self._session_loc, remote)
@@ -396,7 +399,9 @@ class FAIR:
                 fdp_conf.get_local_uri(),
                 fdp_conf.get_remote_uri(self._session_loc, remote),
                 fdp_req.local_token(),
-                fdp_conf.get_remote_token(self._session_loc, remote),
+                fdp_conf.get_remote_token(
+                    self._session_loc, remote, local=self._local
+                ),
             )
 
             self._logger.debug("Performing pre-job setup")
@@ -406,8 +411,11 @@ class FAIR:
         self._session_config.prepare(
             fdp_com.CMD_MODE.PULL,
             allow_dirty=self._allow_dirty,
+            local=self._local,
             remote_uri=fdp_conf.get_remote_uri(self._session_loc, remote),
-            remote_token=fdp_conf.get_remote_token(self._session_loc, remote),
+            remote_token=fdp_conf.get_remote_token(
+                self._session_loc, remote, local=self._local
+            ),
         )
 
         _readables = self._session_config.get_readables()
@@ -427,7 +435,7 @@ class FAIR:
                 dest_uri=fdp_conf.get_local_uri(),
                 dest_token=fdp_req.local_token(),
                 origin_token=fdp_conf.get_remote_token(
-                    self._session_loc, remote
+                    self._session_loc, remote, local=self._local
                 ),
                 remote_label=remote,
                 data_products=_readables,
@@ -461,6 +469,7 @@ class FAIR:
         self._session_config.prepare(
             fdp_com.CMD_MODE.PASS if passive else fdp_com.CMD_MODE.RUN,
             allow_dirty=self._allow_dirty,
+            local=local,
         )
 
         self._logger.debug("Setting up command execution")
