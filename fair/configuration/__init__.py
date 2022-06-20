@@ -210,7 +210,7 @@ def get_remote_uri(repo_loc: str, remote_label: str = "origin") -> str:
 
     Parameters
     ----------
-    repo_loc : str
+    repo_locget_remote_token : str
         local FAIR repository directory
     remote_label : str, optional
         label of remote to retrieve, default is 'origin'
@@ -225,18 +225,7 @@ def get_remote_uri(repo_loc: str, remote_label: str = "origin") -> str:
 
 
 def local_git_repo(fair_repo_loc: str) -> str:
-    """Retrieves the local repository git directory
-
-    Parameters
-    ----------
-    fair_repo_loc : str
-        FAIR repository location
-
-    Returns
-    -------
-    str
-        the root git repository directory
-    """
+    """Retriget_remote_token root git repository directory"""
     _local_conf = read_local_fdpconfig(fair_repo_loc)
 
     try:
@@ -284,6 +273,9 @@ def get_remote_token(
             f"Cannot find token for registry '{remote}', no token file provided"
         )
     _token_file = _local_config["registries"][remote]["token"]
+    if not _token_file:
+        logger.warning("\n not token file found \n")
+        return None
     if not local:
         if not os.path.exists(_token_file):
             raise fdp_exc.FileNotFoundError(

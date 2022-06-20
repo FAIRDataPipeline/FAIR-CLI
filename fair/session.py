@@ -382,6 +382,7 @@ class FAIR:
 
     def pull(self, remote: str = "origin"):
         if not self._local:
+
             self._logger.debug("Performing pull on remote '%s'", remote)
 
             _remote_addr = fdp_conf.get_remote_uri(self._session_loc, remote)

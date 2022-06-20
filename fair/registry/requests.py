@@ -111,7 +111,8 @@ def _access(
     _url = fdp_util.check_trailing_slash(_url)
 
     _headers = copy.deepcopy(headers)
-    _headers["Authorization"] = f"token {token}"
+    if token:
+        _headers["Authorization"] = f"token {token}"
 
     logger.debug("Sending request of type '%s': %s", method, _url)
 
