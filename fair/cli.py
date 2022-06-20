@@ -36,6 +36,7 @@ __credits__ = [
     "Nathan Cummings (UKAEA)",
     "Kristian Zarebski (UKAEA)",
     "Dennis Reddyhoff (University of Sheffield)",
+    "Ryan Field (University of Glasgow",
 ]
 __license__ = "BSD-2-Clause"
 __status__ = "Development"

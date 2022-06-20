@@ -155,3 +155,6 @@ token.txt
 # GitHub config
 
 !/.github/*
+
+# data_store
+/data_store 

@@ -36,7 +36,7 @@ def test_pull_new(
     _manage = os.path.join(remote_registry._install, "manage.py")
     mocker.patch(
         "fair.configuration.get_remote_token",
-        lambda *args: remote_registry._token,
+        lambda *args, **kwargs: remote_registry._token,
     )
     mocker.patch(
         "fair.registry.requests.local_token",
@@ -154,7 +154,7 @@ def test_pull_existing(
 ):
     mocker.patch(
         "fair.configuration.get_remote_token",
-        lambda *args: remote_registry._token,
+        lambda *args, **kwargs: remote_registry._token,
     )
     mocker.patch(
         "fair.registry.requests.local_token",
