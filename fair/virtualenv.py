@@ -34,7 +34,10 @@ class FAIREnv(EnvBuilder):
         _context: SimpleNamespace = super().ensure_directories(env_dir)
         _python_exe = shutil.which("python3")
         if not _python_exe:
-            raise PythonExecutableIdentificationError
+            self._logger.warning("python3.exe not found trying python.exe")
+            _python_exe = shutil.which("python")
+            if not _python_exe:
+                raise PythonExecutableIdentificationError
 
         self._logger.debug(f"Using python '{_python_exe}' for setup")
 
