@@ -4,7 +4,7 @@ import semver
 import fair.registry.versioning as fdp_ver
 
 
-@pytest.mark.versioning
+@pytest.mark.faircli_versioning
 def test_incrementer_parsing():
     for key in fdp_ver.BUMP_FUNCS:
         assert (
@@ -13,12 +13,12 @@ def test_incrementer_parsing():
         )
 
 
-@pytest.mark.versioning
+@pytest.mark.faircli_versioning
 def test_remove_incrementing():
     assert fdp_ver.undo_incrementer("${{MINOR}}") == "${{ LATEST }}"
 
 
-@pytest.mark.versioning
+@pytest.mark.faircli_versioning
 def test_get_latest():
     assert fdp_ver.get_latest_version() == semver.VersionInfo(0, 0, 0)
     results = [
@@ -29,7 +29,7 @@ def test_get_latest():
     assert fdp_ver.get_latest_version(results) == semver.VersionInfo(2, 1, 0)
 
 
-@pytest.mark.versioning
+@pytest.mark.faircli_versioning
 def test_default_bump():
     assert fdp_ver.default_bump(
         semver.VersionInfo(0, 1, 0)

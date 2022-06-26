@@ -7,7 +7,7 @@ import fair.history as fdp_hist
 from fair.common import FAIR_FOLDER
 
 
-@pytest.mark.history
+@pytest.mark.faircli_history
 def test_history_directory(job_directory: str):
     os.makedirs(os.path.join(os.path.dirname(job_directory), FAIR_FOLDER))
     _expected = os.path.join(
@@ -16,7 +16,7 @@ def test_history_directory(job_directory: str):
     assert fdp_hist.history_directory(job_directory) == _expected
 
 
-@pytest.mark.history
+@pytest.mark.faircli_history
 def test_show_history(
     capsys: pytest.CaptureFixture, job_directory: str, job_log: str
 ):
@@ -34,7 +34,7 @@ def test_show_history(
     )
 
 
-@pytest.mark.history
+@pytest.mark.faircli_history
 def test_job_log_show(
     capsys: pytest.CaptureFixture, job_directory: str, job_log: str
 ):

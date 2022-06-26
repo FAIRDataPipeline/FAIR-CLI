@@ -6,13 +6,13 @@ import shutil
 import subprocess
 import time
 import typing
-import venv
 
 import click
 import git
 import requests
 
 from fair.common import FAIR_FOLDER
+from fair.virtualenv import FAIREnv
 
 FAIR_REGISTRY_REPO = "https://github.com/FAIRDataPipeline/data-registry.git"
 
@@ -88,7 +88,7 @@ def rebuild_local(python: str, install_dir: str = None, silent: bool = False):
 
 def install_registry(
     repository: str = FAIR_REGISTRY_REPO,
-    head: str = "main",
+    reference: str = "",
     install_dir: str = None,
     silent: bool = False,
     force: bool = False,
@@ -107,21 +107,18 @@ def install_registry(
 
     _repo = git.Repo.clone_from(repository, install_dir)
 
-    if head not in _repo.heads:
-        raise FileNotFoundError(
-            f"No such HEAD '{head}' in registry repository"
-        )
-    else:
-        _repo.heads[head].checkout()
+    # If no reference is specified, use the latest tag for the registry
+    if not reference:
+        reference = _repo.tags[-1].name
+
+    _repo.git.checkout(reference)
 
     if not venv_dir:
         venv_dir = os.path.join(install_dir, "venv")
 
-        venv.create(
-            venv_dir,
-            with_pip=True,
-            prompt="TestRegistry",
-        )
+        _venv = FAIREnv(with_pip=True, prompt="RegistryTest")
+
+        _venv.create(venv_dir)
 
     _venv_python = shutil.which("python", path=os.path.join(venv_dir, "bin"))
 
@@ -154,6 +151,10 @@ def install_registry(
     )
 
     rebuild_local(_venv_python, install_dir, silent)
+
+    print(f"[REGISTRY] Installed registry version '{reference}'")
+
+    return reference
 
 
 def refresh(

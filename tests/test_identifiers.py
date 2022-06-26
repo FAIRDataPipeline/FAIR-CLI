@@ -3,7 +3,7 @@ import pytest
 import fair.identifiers as fdp_id
 
 
-@pytest.mark.ids
+@pytest.mark.faircli_ids
 def test_check_orcid():
     _data = fdp_id.check_orcid("0000-0002-6773-1049")
     assert _data["name"] == "Kristian Zarębski"
@@ -13,7 +13,7 @@ def test_check_orcid():
     assert not fdp_id.check_orcid("notanid!")
 
 
-@pytest.mark.ids
+@pytest.mark.faircli_ids
 def test_check_ror():
     _data = fdp_id.check_ror("049s0ch10")
     assert _data["name"] == "Rakon (France)" == _data["family_name"]
@@ -21,7 +21,7 @@ def test_check_ror():
     assert not fdp_id.check_grid("notanid!")
 
 
-@pytest.mark.ids
+@pytest.mark.faircli_ids
 def test_check_grid():
     _data = fdp_id.check_grid("grid.438622.9")
     assert _data["name"] == "Rakon (France)" == _data["family_name"]
@@ -29,7 +29,7 @@ def test_check_grid():
     assert not fdp_id.check_grid("notanid!")
 
 
-@pytest.mark.ids
+@pytest.mark.faircli_ids
 def test_check_permitted():
     assert fdp_id.check_id_permitted("https://orcid.org/0000-0002-6773-1049")
     assert not fdp_id.check_id_permitted("notanid!")
