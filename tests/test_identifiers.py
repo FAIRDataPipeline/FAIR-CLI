@@ -18,8 +18,7 @@ def test_check_ror():
     _data = fdp_id.check_ror("049s0ch10")
     assert _data["name"] == "Rakon (France)" == _data["family_name"]
     assert _data["ror"] == "049s0ch10"
-    assert not fdp_id.check_grid("notanid!")
-
+    assert not fdp_id.check_ror("notanid!")
 
 @pytest.mark.faircli_ids
 def test_check_grid():

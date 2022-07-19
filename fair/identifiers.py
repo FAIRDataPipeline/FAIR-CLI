@@ -28,13 +28,11 @@ import requests.exceptions
 ID_URIS = {
     "orcid": "https://orcid.org/",
     "ror": "https://ror.org/",
-    "grid": "https://www.grid.ac/institutes/",
 }
 
 QUERY_URLS = {
     "orcid": "https://pub.orcid.org/v2.0/",
     "ror": "https://api.ror.org/organizations?query=",
-    "grid": "https://www.grid.ac/institutes/",
 }
 
 
@@ -100,12 +98,13 @@ def check_ror(ror: str) -> typing.Dict:
     if _response.json()["number_of_results"] == 0:
         return _result_dict
 
+    _id = _response.json()["items"][0]["id"]
     _name = _response.json()["items"][0]["name"]
     _result_dict["name"] = _name
     _result_dict["family_name"] = _name
     _result_dict["given_names"] = None
     _result_dict["ror"] = ror
-    _result_dict["uri"] = f'{ID_URIS["ror"]}{ror}'
+    _result_dict["uri"] = _id
 
     return _result_dict
 
@@ -121,21 +120,11 @@ def check_grid(grid_id: str) -> typing.Dict:
     typing.Dict
         metadata from the given ID
     """
-    _header = {"Accept": "application/json"}
-    _response = requests.get(f'{QUERY_URLS["grid"]}{grid_id}', headers=_header)
-
     _result_dict: typing.Dict[str, typing.Any] = {}
-
-    if _response.status_code != 200:
-        return _result_dict
-
-    _name = _response.json()["institute"]["name"]
-
-    _result_dict["name"] = _name
-    _result_dict["family_name"] = _name
-    _result_dict["given_names"] = None
-    _result_dict["grid"] = grid_id
-    _result_dict["uri"] = f'{ID_URIS["grid"]}{grid_id}'
+    _result_dict = check_ror(f'"{grid_id}"')
+    if _result_dict:
+        _result_dict["grid"] = grid_id
+        _result_dict["ror"] = None
 
     return _result_dict
 
