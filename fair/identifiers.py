@@ -87,7 +87,45 @@ def check_ror(ror: str) -> typing.Dict:
         metadata from the given ID
     """
 
-    _url = f"{QUERY_URLS['ror']}{ror}"
+    _result_dict = _check_generic_ror(ror)
+    if _result_dict:
+        _result_dict["ror"] = ror
+
+    return _result_dict
+
+
+def check_grid(grid_id: str) -> typing.Dict:
+    """Checks if valid GRID ID using ROR public api
+    Parameters
+    ----------
+    grid_id : str
+        GRID ID to be checked
+    Returns
+    -------
+    typing.Dict
+        metadata from the given ID
+    """
+    _result_dict = _check_generic_ror(f'"{grid_id}"')
+    if _result_dict:
+        _result_dict["grid"] = grid_id
+
+    return _result_dict
+
+def _check_generic_ror(id: str) -> typing.Dict:
+    """Checks if valid ROR using ROR public api
+
+    Parameters
+    ----------
+    ror : str
+        ROR to be checked
+
+    Returns
+    -------
+    typing.Dict
+        metadata from the given ID
+    """
+
+    _url = f"{QUERY_URLS['ror']}{id}"
     _response = requests.get(_url)
 
     _result_dict: typing.Dict[str, typing.Any] = {}
@@ -103,28 +141,7 @@ def check_ror(ror: str) -> typing.Dict:
     _result_dict["name"] = _name
     _result_dict["family_name"] = _name
     _result_dict["given_names"] = None
-    _result_dict["ror"] = ror
     _result_dict["uri"] = _id
-
-    return _result_dict
-
-
-def check_grid(grid_id: str) -> typing.Dict:
-    """Checks if valid GRID ID using GRID public api
-    Parameters
-    ----------
-    grid_id : str
-        GRID ID to be checked
-    Returns
-    -------
-    typing.Dict
-        metadata from the given ID
-    """
-    _result_dict: typing.Dict[str, typing.Any] = {}
-    _result_dict = check_ror(f'"{grid_id}"')
-    if _result_dict:
-        _result_dict["grid"] = grid_id
-        _result_dict["ror"] = None
 
     return _result_dict
 
