@@ -438,18 +438,10 @@ def get_local_port(local_uri: str = None) -> int:
 
 def update_local_port() -> str:
     """Updates the local port in the global configuration from the session port file"""
-    # If the global configuration does not exist or is empty do nothing
-    if (
-        not os.path.exists(fdp_com.global_fdpconfig())
-        or not read_global_fdpconfig()
-    ):
-        _local_uri = fdp_com.DEFAULT_LOCAL_REGISTRY_URL
-    else:
-        _local_uri = get_local_uri()
-    _old_local_port = get_local_port()
     _current_port = fdp_com.registry_session_port()
+    _current_address = fdp_com.registry_session_address()
 
-    _new_url = _local_uri.replace(f":{_old_local_port}", f":{_current_port}")
+    _new_url = f'http://{_current_address}:{_current_port}/api/'
 
     if os.path.exists(fdp_com.global_fdpconfig()) and read_global_fdpconfig():
         _glob_conf = read_global_fdpconfig()

@@ -324,7 +324,8 @@ def install(debug: bool, force: bool, directory: str, version: str):
 @registry.command()
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
 @click.option("--port", help="port on which to run registry", default=8000)
-def start(debug: bool, port: int) -> None:
+@click.option("--address", help="Address on which to run registry", default="127.0.0.1")
+def start(debug: bool, port: int, address: str) -> None:
     """Start the local registry server"""
     try:
         fdp_session.FAIR(
@@ -332,6 +333,7 @@ def start(debug: bool, port: int) -> None:
             server_mode=fdp_svr.SwitchMode.USER_START,
             debug=debug,
             server_port=port,
+            server_address=address
         )
     except fdp_exc.FAIRCLIException as e:
         if debug:

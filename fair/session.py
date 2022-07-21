@@ -80,6 +80,7 @@ class FAIR:
         debug: bool = False,
         server_mode: fdp_serv.SwitchMode = fdp_serv.SwitchMode.NO_SERVER,
         server_port: int = 8000,
+        server_address: str = "127.0.0.1",
         allow_dirty: bool = False,
         testing: bool = False,
         local: bool = False,
@@ -177,7 +178,7 @@ class FAIR:
 
         self._load_configurations()
 
-        self._setup_server(server_port)
+        self._setup_server(server_port, server_address)
 
     def purge(
         self,
@@ -242,15 +243,15 @@ class FAIR:
             if os.path.exists(_global_dirs):
                 shutil.rmtree(_global_dirs)
 
-    def _setup_server(self, port: int) -> None:
+    def _setup_server(self, port: int, address: str) -> None:
         """Start or stop the server if required"""
         self._logger.debug(
             f"Running server setup for run mode {self._run_mode}"
         )
         if self._run_mode == fdp_serv.SwitchMode.CLI:
-            self._setup_server_cli_mode(port)
+            self._setup_server_cli_mode(port, address)
         elif self._run_mode == fdp_serv.SwitchMode.USER_START:
-            self._setup_server_user_start(port)
+            self._setup_server_user_start(port, address)
         elif self._run_mode in [
             fdp_serv.SwitchMode.USER_STOP,
             fdp_serv.SwitchMode.FORCE_STOP,
@@ -278,7 +279,7 @@ class FAIR:
             force=self._run_mode == fdp_serv.SwitchMode.FORCE_STOP,
         )
 
-    def _setup_server_cli_mode(self, port: int) -> None:
+    def _setup_server_cli_mode(self, port: int, address: str) -> None:
         self.check_is_repo()
         _cache_addr = os.path.join(
             fdp_com.session_cache_dir(), f"{self._session_id}.run"
@@ -288,7 +289,7 @@ class FAIR:
         # If there are no session cache files start the server
         if not glob.glob(os.path.join(fdp_com.session_cache_dir(), "*.run")):
             self._logger.debug("No sessions found, launching server")
-            fdp_serv.launch_server(port=port)
+            fdp_serv.launch_server(port=port, address=address)
 
         self._logger.debug(f"Creating new session #{self._session_id}")
 
@@ -301,7 +302,7 @@ class FAIR:
         # Create new session cache file
         pathlib.Path(_cache_addr).touch()
 
-    def _setup_server_user_start(self, port: int) -> None:
+    def _setup_server_user_start(self, port: int, address: str) -> None:
         if not os.path.exists(fdp_com.session_cache_dir()):
             os.makedirs(fdp_com.session_cache_dir())
 
@@ -319,7 +320,7 @@ class FAIR:
             )
         click.echo("Starting local registry server")
         pathlib.Path(_cache_addr).touch()
-        fdp_serv.launch_server(port=port, verbose=True)
+        fdp_serv.launch_server(port=port, verbose=True, address=address)
 
     def _pre_job_setup(self, remote: str = None) -> None:
         self._logger.debug("Running pre-job setup")

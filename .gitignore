@@ -158,3 +158,9 @@ token.txt
 
 # data_store
 /data_store 
+
+# Mac OS
+.DS_Store
+
+# Coverage
+cov.xml
