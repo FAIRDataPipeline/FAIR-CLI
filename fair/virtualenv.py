@@ -14,6 +14,7 @@ __date__ = "2022-01-05"
 import logging
 import os
 import shutil
+import sys
 from types import SimpleNamespace
 from venv import EnvBuilder
 
@@ -32,12 +33,9 @@ class FAIREnv(EnvBuilder):
     def ensure_directories(self, env_dir) -> SimpleNamespace:
         self._logger.debug(f"Creating virtual environment in '{env_dir}'")
         _context: SimpleNamespace = super().ensure_directories(env_dir)
-        _python_exe = shutil.which("python3")
+        _python_exe = sys.executable
         if not _python_exe:
-            self._logger.warning("python3.exe not found trying python.exe")
-            _python_exe = shutil.which("python")
-            if not _python_exe:
-                raise PythonExecutableIdentificationError
+            raise PythonExecutableIdentificationError
 
         self._logger.debug(f"Using python '{_python_exe}' for setup")
 
