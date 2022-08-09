@@ -359,6 +359,13 @@ def post_else_get(
         _loc = _loc["url"]
     return _loc
 
+def post_upload_url(
+    remote_uri: str,
+    remote_token: str,
+    file_hash: str
+) -> str:
+    _url = urllib.parse.urljoin(remote_uri, "data", file_hash)
+    return post(_url, None, remote_token)
 
 def filter_object_dependencies(
     uri: str, obj_path: str, token: str, filter: typing.Dict[str, typing.Any]

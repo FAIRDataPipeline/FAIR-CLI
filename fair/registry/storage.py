@@ -817,3 +817,14 @@ def check_if_object_exists(
     ]
 
     return "hash_match" if check_match(file_loc, _storage_objs) else _results
+
+def get_upload_url(
+    file_hash: str,
+    remote_uri: str = None,
+    remote_token: str = None,
+) -> str:
+    if not remote_uri: 
+        remote_uri = fdp_conf.get_remote_token()
+    if not remote_token:
+        remote_token = fdp_conf.get_remote_token()
+    return fdp_req.post_upload_url(remote_uri, remote_token, file_hash)
