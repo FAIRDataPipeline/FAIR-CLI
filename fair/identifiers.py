@@ -95,7 +95,7 @@ def check_ror(ror: str) -> typing.Dict:
 
 
 def check_grid(grid_id: str) -> typing.Dict:
-    """Checks if valid GRID ID using ROR public api
+    """Checks if valid GRID ID using ROR (https://ror.org/) public api
     Parameters
     ----------
     grid_id : str
