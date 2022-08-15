@@ -124,6 +124,8 @@ def launch_server(
 
     _cmd = [_server_start_script, "-p", f"{port}", "-a", f"{address}"]
 
+    os.environ["FAIR_ALLOWED_HOSTS"] = address if not "FAIR_ALLOWED_HOSTS" in os.environ else os.environ["FAIR_ALLOWED_HOSTS"] + f",{address}"
+
     logger.debug("Launching server with command '%s'", " ".join(_cmd))
 
     _start = subprocess.Popen(
