@@ -95,7 +95,7 @@ def check_server_running(local_uri: str = None) -> bool:
 
 
 def launch_server(
-    port: int = 8000, registry_dir: str = None, verbose: bool = False
+    port: int = 8000, registry_dir: str = None, verbose: bool = False, address: str = "127.0.0.1"
 ) -> int:
     """Start the registry server.
 
@@ -122,7 +122,9 @@ def launch_server(
             " is the FAIR data pipeline properly installed on this system?"
         )
 
-    _cmd = [_server_start_script, "-p", f"{port}"]
+    _cmd = [_server_start_script, "-p", f"{port}", "-a", f"{address}"]
+
+    os.environ["FAIR_ALLOWED_HOSTS"] = address if not "FAIR_ALLOWED_HOSTS" in os.environ else os.environ["FAIR_ALLOWED_HOSTS"] + f",{address}"
 
     logger.debug("Launching server with command '%s'", " ".join(_cmd))
 
@@ -345,7 +347,7 @@ def install_registry(
 
     logger.debug("Using reference '%s' for registry checkout", reference)
 
-    _candidates = [t.name for t in _repo.tags + _repo.heads]
+    _candidates = [t.name for t in _repo.tags + _repo.heads + _repo.remote().refs]
 
     if reference not in _candidates:
         raise fdp_exc.RegistryError(
