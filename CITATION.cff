@@ -26,7 +26,7 @@ authors:
   affiliation: University of Glasgow
   orcid: https://orcid.org/0000-0002-4424-9890
 
-date-released: 2021-09-13
+date-released: 2022-08-25
 keywords:
 - FAIR Data Pipeline
 - FAIR
@@ -36,4 +36,4 @@ license: BSD-2-Clause
 message: If you use this software, please cite it using these metadata.
 repository-code: https://github.com/FAIRDataPipeline/FAIR-CLI/
 title: "The FAIR Data Pipeline command line tool"
-version: 0.3.1
+version: 0.4.0
