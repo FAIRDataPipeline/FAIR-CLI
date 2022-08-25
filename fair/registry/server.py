@@ -326,6 +326,8 @@ def install_registry(
 
     if force:
         logger.debug("Removing existing installation at '%s'", install_dir)
+        if platform.system() == "Windows":
+            fdp_com.set_file_permissions(install_dir)
         shutil.rmtree(install_dir, ignore_errors=True)
 
     logger.debug("Creating directories for installation if they do not exist")
@@ -417,12 +419,18 @@ def uninstall_registry() -> None:
         logger.debug(
             "Uninstalling registry, removing '%s'", fdp_com.registry_home()
         )
+        # On windows file permisions need to be set prior to removing the directory
+        if platform.system() == "Windows":
+            fdp_com.set_file_permissions(fdp_com.registry_home())
         shutil.rmtree(fdp_com.registry_home())
     elif os.path.exists(fdp_com.DEFAULT_REGISTRY_LOCATION):
         logger.debug(
             "Uninstalling registry, removing '%s'",
             fdp_com.DEFAULT_REGISTRY_LOCATION,
         )
+        # On windows file permisions need to be set prior to removing the directory
+        if platform.system() == "Windows":
+            fdp_com.set_file_permissions(fdp_com.DEFAULT_REGISTRY_LOCATION)
         shutil.rmtree(fdp_com.DEFAULT_REGISTRY_LOCATION)
     else:
         raise fdp_exc.RegistryError(

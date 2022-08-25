@@ -39,6 +39,7 @@ import enum
 import os
 import pathlib
 import logging
+import stat
 
 import git
 import yaml
@@ -289,3 +290,10 @@ def find_git_root(start_directory: str = os.getcwd()) -> str:
         ) from e
 
     return _repository.git.rev_parse("--show-toplevel").strip()
+
+def set_file_permissions(path: str):
+    for root, dirs, files in os.walk(path, topdown=False):
+        for dir in [os.path.join(root,d) for d in dirs]:
+            os.chmod(dir, stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)
+        for file in [os.path.join(root, f) for f in files]:
+            os.chmod(file, stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)

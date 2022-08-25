@@ -38,6 +38,7 @@ import re
 import shutil
 import typing
 import uuid
+import platform
 
 import click
 import git
@@ -206,6 +207,8 @@ class FAIR:
         if os.path.exists(_root_dir):
             if verbose:
                 click.echo(f"Removing directory '{_root_dir}'")
+            if platform.system() == "Windows":
+                fdp_com.set_file_permissions(_root_dir)
             shutil.rmtree(_root_dir)
         if clear_all:
             try:
@@ -218,6 +221,8 @@ class FAIR:
                 )
             if verbose and os.path.exists(fdp_com.USER_FAIR_DIR):
                 click.echo(f"Removing directory '{fdp_com.USER_FAIR_DIR}'")
+            if platform.system() == "Windows":
+                fdp_com.set_file_permissions(fdp_com.USER_FAIR_DIR)
             shutil.rmtree(fdp_com.USER_FAIR_DIR)
             return
         if clear_data:
@@ -227,6 +232,8 @@ class FAIR:
                         f"Removing directory '{fdp_com.default_data_dir()}'"
                     )
                 if os.path.exists(fdp_com.default_data_dir()):
+                    if platform.system() == "Windows":
+                        fdp_com.set_file_permissions(fdp_com.default_data_dir())
                     shutil.rmtree(fdp_com.default_data_dir())
             except FileNotFoundError as e:
                 raise fdp_exc.FileNotFoundError(
@@ -241,6 +248,8 @@ class FAIR:
                 )
             _global_dirs = fdp_com.global_config_dir()
             if os.path.exists(_global_dirs):
+                if platform.system() == "Windows":
+                        fdp_com.set_file_permissions(_global_dirs)
                 shutil.rmtree(_global_dirs)
 
     def _setup_server(self, port: int, address: str) -> None:
@@ -983,8 +992,13 @@ class FAIR:
         self, _fair_dir, e: Exception = None, local_only: bool = False
     ):
         if not local_only:
+            if platform.system() == "Windows":
+                fdp_com.set_file_permissions(fdp_com.session_cache_dir())
+                fdp_com.set_file_permissions(fdp_com.fdp_com.global_config_dir())
             shutil.rmtree(fdp_com.session_cache_dir(), ignore_errors=True)
             shutil.rmtree(fdp_com.global_config_dir(), ignore_errors=True)
+        if platform.system() == "Windows":
+            fdp_com.set_file_permissions(_fair_dir)
         shutil.rmtree(_fair_dir)
         if e:
             raise e
