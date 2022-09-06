@@ -357,7 +357,7 @@ class FAIR:
     def push(self, remote: str = "origin"):
         self._pre_job_setup(remote)
         self._session_config.prepare(
-            fdp_com.CMD_MODE.PUSH, allow_dirty=self._allow_dirty, local=local
+            fdp_com.CMD_MODE.PUSH, allow_dirty=self._allow_dirty
         )
         _staged_data_products = self._stager.get_item_list(
             True, "data_product"
