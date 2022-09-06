@@ -57,7 +57,7 @@ jobs:
       - name: Test Push
         run: |
           poetry run fair add PSU:SEIRS_model/parameters@v1.0.0
-#          poetry run fair push
+          poetry run fair push
         working-directory: py_data_pipeline
   Java:
     runs-on: ubuntu-latest
