@@ -56,7 +56,7 @@ jobs:
 
       - name: Test Push
         run: |
-          poetry run fair add testing:SEIRS_model/parameters@v1.0.0
+          poetry run fair add PSU:SEIRS_model/parameters@v1.0.0
 #          poetry run fair push
         working-directory: py_data_pipeline
   Java:
@@ -82,9 +82,14 @@ jobs:
       run: gradle build
       working-directory: java_example
 
+    - name: Install Poetry
+      uses: snok/install-poetry@v1
+      with:
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+
     - name: install fair-cli
       run: |
-        pip install poetry
         poetry install
 
     - name: run javaSimpleModel with fair cli
@@ -158,9 +163,14 @@ jobs:
         library(rSimpleModel)
       shell: Rscript {0}
 
+    - name: Install Poetry
+      uses: snok/install-poetry@v1
+      with:
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+
     - name: install fair-cli
       run: |
-        pip install poetry
         poetry install
 
     - name: run rSimpleModel with fair cli
@@ -196,9 +206,14 @@ jobs:
     - name: Install Package
       run: julia -e 'using Pkg; Pkg.instantiate()'
 
+    - name: Install Poetry
+      uses: snok/install-poetry@v1
+      with:
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+
     - name: install fair-cli
       run: |
-        pip install poetry
         poetry install
 
     - name: Run SEIRS Model with fair cli
@@ -239,9 +254,14 @@ jobs:
         cmake --build build
       working-directory: cpp_example
 
+    - name: Install Poetry
+      uses: snok/install-poetry@v1
+      with:
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+
     - name: install fair-cli
       run: |
-        pip install poetry
         poetry install
 
     - name: Run Example model with fair-cli
