@@ -105,6 +105,9 @@ class User(pydantic.BaseModel):
     uuid: typing.Optional[pydantic.UUID4] = pydantic.Field(
         None, title="user UUID", description="The users UUID if applicable"
     )
+    name: typing.Optional[str] = pydantic.Field(
+        None, title="Full Name", description="Full name for the user"
+    )
 
     class Config:
         extra = "forbid"
