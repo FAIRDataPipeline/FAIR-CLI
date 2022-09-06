@@ -23,7 +23,7 @@ classifiers = [
 ]
 description = "Synchronization interface for the SCRC FAIR Data Pipeline registry"
 name = "fair-cli"
-version = "0.4.0"
+version = "0.5.0"
 
 homepage = "https://www.fairdatapipeline.org/"
 
@@ -72,7 +72,7 @@ deepdiff = "^5.5.0"
 flake8 = "^3.9.2"
 isort = "^5.10.1"
 loremipsum = "^1.0.5"
-mypy = "^0.931"
+mypy = "^0.971"
 poetry = "^1.1.12"
 pre-commit = "^2.16.0"
 pycodestyle = "^2.7.0"
