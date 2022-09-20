@@ -247,6 +247,8 @@ def fetch_registrations(
         data = copy.deepcopy(entry)
 
         data["namespace_name"] = entry["use"]["namespace"]
+        if "primary" in entry and _external_object
+            data["primary"] = entry["primary"]
 
         _file_url = fdp_store.store_data_file(
             uri=local_uri,
