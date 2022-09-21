@@ -84,6 +84,8 @@ pytest-dependency = "^0.5.1"
 pytest-mock = "^3.7.0"
 pytest-virtualenv = "^1.7.0"
 requests-mock = "^1.9.3"
+boto3 = "^1.24"
+moto = "^4.0.3"
 
 [tool.poetry.scripts]
 fair = 'fair.cli:cli'
