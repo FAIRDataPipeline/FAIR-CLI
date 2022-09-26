@@ -16,6 +16,7 @@
         <script src="_static/underscore.js"></script>
         <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
         <script src="_static/doctools.js"></script>
+        <script src="_static/sphinx_highlight.js"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
@@ -50,91 +51,207 @@
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="#submodules">Submodules</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#module-fair.cli">fair.cli module</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#fair-cli-module">fair.cli module</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#command-line-interface">Command Line Interface</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#fair.cli.complete_data_products"><code class="docutils literal notranslate"><span class="pre">complete_data_products()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#fair.cli.complete_jobs"><code class="docutils literal notranslate"><span class="pre">complete_jobs()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#fair.cli.complete_yamls"><code class="docutils literal notranslate"><span class="pre">complete_yamls()</span></code></a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="#module-fair.common">fair.common module</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#fair-common-module">fair.common module</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#common-paths">Common Paths</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#contents">Contents</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#members">Members</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#functions">Functions</a></li>
 </ul>
 </li>
+<li class="toctree-l3"><a class="reference internal" href="#fair.common.CMD_MODE"><code class="docutils literal notranslate"><span class="pre">CMD_MODE</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#fair.common.CMD_MODE.PASS"><code class="docutils literal notranslate"><span class="pre">CMD_MODE.PASS</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#fair.common.CMD_MODE.PULL"><code class="docutils literal notranslate"><span class="pre">CMD_MODE.PULL</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#fair.common.CMD_MODE.PUSH"><code class="docutils literal notranslate"><span class="pre">CMD_MODE.PUSH</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#fair.common.CMD_MODE.RUN"><code class="docutils literal notranslate"><span class="pre">CMD_MODE.RUN</span></code></a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="#module-fair.exceptions">fair.exceptions module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#fair.common.default_data_dir"><code class="docutils literal notranslate"><span class="pre">default_data_dir()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#fair.common.default_jobs_dir"><code class="docutils literal notranslate"><span class="pre">default_jobs_dir()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#fair.common.find_fair_root"><code class="docutils literal notranslate"><span class="pre">find_fair_root()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#fair.common.find_git_root"><code class="docutils literal notranslate"><span class="pre">find_git_root()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#fair.common.global_config_dir"><code class="docutils literal notranslate"><span class="pre">global_config_dir()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#fair.common.global_fdpconfig"><code class="docutils literal notranslate"><span class="pre">global_fdpconfig()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#fair.common.local_fdpconfig"><code class="docutils literal notranslate"><span class="pre">local_fdpconfig()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#fair.common.local_user_config"><code class="docutils literal notranslate"><span class="pre">local_user_config()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#fair.common.registry_home"><code class="docutils literal notranslate"><span class="pre">registry_home()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#fair.common.registry_session_address"><code class="docutils literal notranslate"><span class="pre">registry_session_address()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#fair.common.registry_session_address_file"><code class="docutils literal notranslate"><span class="pre">registry_session_address_file()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#fair.common.registry_session_port"><code class="docutils literal notranslate"><span class="pre">registry_session_port()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#fair.common.registry_session_port_file"><code class="docutils literal notranslate"><span class="pre">registry_session_port_file()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#fair.common.session_cache_dir"><code class="docutils literal notranslate"><span class="pre">session_cache_dir()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#fair.common.set_file_permissions"><code class="docutils literal notranslate"><span class="pre">set_file_permissions()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#fair.common.staging_cache"><code class="docutils literal notranslate"><span class="pre">staging_cache()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#fair-exceptions-module">fair.exceptions module</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#fair-cli-exceptions">FAIR-CLI Exceptions</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#id1">Contents</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#exceptions">Exceptions</a></li>
 </ul>
 </li>
+<li class="toctree-l3"><a class="reference internal" href="#fair.exceptions.CLIConfigurationError"><code class="docutils literal notranslate"><span class="pre">CLIConfigurationError</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#fair.exceptions.CommandExecutionError"><code class="docutils literal notranslate"><span class="pre">CommandExecutionError</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#fair.exceptions.FAIRCLIException"><code class="docutils literal notranslate"><span class="pre">FAIRCLIException</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#fair.exceptions.FAIRCLIException.err_print"><code class="docutils literal notranslate"><span class="pre">FAIRCLIException.err_print()</span></code></a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="#module-fair.history">fair.history module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#fair.exceptions.FDPRepositoryError"><code class="docutils literal notranslate"><span class="pre">FDPRepositoryError</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#fair.exceptions.FileNotFoundError"><code class="docutils literal notranslate"><span class="pre">FileNotFoundError</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#fair.exceptions.ImplementationError"><code class="docutils literal notranslate"><span class="pre">ImplementationError</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#fair.exceptions.InternalError"><code class="docutils literal notranslate"><span class="pre">InternalError</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#fair.exceptions.KeyPathError"><code class="docutils literal notranslate"><span class="pre">KeyPathError</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#fair.exceptions.NotImplementedError"><code class="docutils literal notranslate"><span class="pre">NotImplementedError</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#fair.exceptions.RegistryAPICallError"><code class="docutils literal notranslate"><span class="pre">RegistryAPICallError</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#fair.exceptions.RegistryError"><code class="docutils literal notranslate"><span class="pre">RegistryError</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#fair.exceptions.StagingError"><code class="docutils literal notranslate"><span class="pre">StagingError</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#fair.exceptions.SynchronisationError"><code class="docutils literal notranslate"><span class="pre">SynchronisationError</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#fair.exceptions.UnexpectedRegistryServerState"><code class="docutils literal notranslate"><span class="pre">UnexpectedRegistryServerState</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#fair.exceptions.UserConfigError"><code class="docutils literal notranslate"><span class="pre">UserConfigError</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#fair.exceptions.ValidationError"><code class="docutils literal notranslate"><span class="pre">ValidationError</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#fair-history-module">fair.history module</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#run-history">Run History</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#id2">Contents</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#id3">Functions</a></li>
 </ul>
 </li>
+<li class="toctree-l3"><a class="reference internal" href="#fair.history.history_directory"><code class="docutils literal notranslate"><span class="pre">history_directory()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#fair.history.show_history"><code class="docutils literal notranslate"><span class="pre">show_history()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#fair.history.show_job_log"><code class="docutils literal notranslate"><span class="pre">show_job_log()</span></code></a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="#module-fair.identifiers">fair.identifiers module</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#fair-identifiers-module">fair.identifiers module</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#identifiers">Identifiers</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#id4">Contents</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#id5">Functions</a></li>
 </ul>
 </li>
+<li class="toctree-l3"><a class="reference internal" href="#fair.identifiers.check_grid"><code class="docutils literal notranslate"><span class="pre">check_grid()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#fair.identifiers.check_id_permitted"><code class="docutils literal notranslate"><span class="pre">check_id_permitted()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#fair.identifiers.check_orcid"><code class="docutils literal notranslate"><span class="pre">check_orcid()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#fair.identifiers.check_ror"><code class="docutils literal notranslate"><span class="pre">check_ror()</span></code></a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="#module-fair.logging">fair.logging module</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#fair-logging-module">fair.logging module</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#logging">Logging</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#fair.logging.JobLogger"><code class="docutils literal notranslate"><span class="pre">JobLogger</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#fair.logging.JobLogger.append"><code class="docutils literal notranslate"><span class="pre">JobLogger.append()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#fair.logging.JobLogger.write"><code class="docutils literal notranslate"><span class="pre">JobLogger.write()</span></code></a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="#module-fair.register">fair.register module</a><ul>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#fair-register-module">fair.register module</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#register-key-methods">Register Key Methods</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#id6">Contents</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#id7">Functions</a></li>
 </ul>
 </li>
+<li class="toctree-l3"><a class="reference internal" href="#fair.register.convert_key_value_to_id"><code class="docutils literal notranslate"><span class="pre">convert_key_value_to_id()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#fair.register.fetch_registrations"><code class="docutils literal notranslate"><span class="pre">fetch_registrations()</span></code></a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="#module-fair.run">fair.run module</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#fair-run-module">fair.run module</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#execute-job">Execute Job</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#fair.run.get_job_dir"><code class="docutils literal notranslate"><span class="pre">get_job_dir()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#fair.run.get_job_hash"><code class="docutils literal notranslate"><span class="pre">get_job_hash()</span></code></a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="#module-fair.session">fair.session module</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#fair-session-module">fair.session module</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#session">Session</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#id8">Contents</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#classes">Classes</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#misc-variables">Misc Variables</a></li>
 </ul>
 </li>
+<li class="toctree-l3"><a class="reference internal" href="#fair.session.FAIR"><code class="docutils literal notranslate"><span class="pre">FAIR</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#fair.session.FAIR.add_remote"><code class="docutils literal notranslate"><span class="pre">FAIR.add_remote()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#fair.session.FAIR.change_staging_state"><code class="docutils literal notranslate"><span class="pre">FAIR.change_staging_state()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#fair.session.FAIR.check_git_repo_state"><code class="docutils literal notranslate"><span class="pre">FAIR.check_git_repo_state()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#fair.session.FAIR.check_is_repo"><code class="docutils literal notranslate"><span class="pre">FAIR.check_is_repo()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#fair.session.FAIR.clear_logs"><code class="docutils literal notranslate"><span class="pre">FAIR.clear_logs()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#fair.session.FAIR.close_session"><code class="docutils literal notranslate"><span class="pre">FAIR.close_session()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#fair.session.FAIR.initialise"><code class="docutils literal notranslate"><span class="pre">FAIR.initialise()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#fair.session.FAIR.list_remotes"><code class="docutils literal notranslate"><span class="pre">FAIR.list_remotes()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#fair.session.FAIR.make_starter_config"><code class="docutils literal notranslate"><span class="pre">FAIR.make_starter_config()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#fair.session.FAIR.modify_remote"><code class="docutils literal notranslate"><span class="pre">FAIR.modify_remote()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#fair.session.FAIR.pull"><code class="docutils literal notranslate"><span class="pre">FAIR.pull()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#fair.session.FAIR.purge"><code class="docutils literal notranslate"><span class="pre">FAIR.purge()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#fair.session.FAIR.push"><code class="docutils literal notranslate"><span class="pre">FAIR.push()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#fair.session.FAIR.remove_job"><code class="docutils literal notranslate"><span class="pre">FAIR.remove_job()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#fair.session.FAIR.remove_remote"><code class="docutils literal notranslate"><span class="pre">FAIR.remove_remote()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#fair.session.FAIR.reset_staging"><code class="docutils literal notranslate"><span class="pre">FAIR.reset_staging()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#fair.session.FAIR.run"><code class="docutils literal notranslate"><span class="pre">FAIR.run()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#fair.session.FAIR.show_data_products"><code class="docutils literal notranslate"><span class="pre">FAIR.show_data_products()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#fair.session.FAIR.status_data_products"><code class="docutils literal notranslate"><span class="pre">FAIR.status_data_products()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#fair.session.FAIR.status_jobs"><code class="docutils literal notranslate"><span class="pre">FAIR.status_jobs()</span></code></a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="#module-fair.staging">fair.staging module</a><ul>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#fair-staging-module">fair.staging module</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#staging">Staging</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#id9">Contents</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#id10">Classes</a></li>
 </ul>
 </li>
+<li class="toctree-l3"><a class="reference internal" href="#fair.staging.Stager"><code class="docutils literal notranslate"><span class="pre">Stager</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#fair.staging.Stager.add_to_staging"><code class="docutils literal notranslate"><span class="pre">Stager.add_to_staging()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#fair.staging.Stager.change_data_product_stage_status"><code class="docutils literal notranslate"><span class="pre">Stager.change_data_product_stage_status()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#fair.staging.Stager.change_job_stage_status"><code class="docutils literal notranslate"><span class="pre">Stager.change_job_stage_status()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#fair.staging.Stager.change_stage_status"><code class="docutils literal notranslate"><span class="pre">Stager.change_stage_status()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#fair.staging.Stager.find_registry_entry_for_file"><code class="docutils literal notranslate"><span class="pre">Stager.find_registry_entry_for_file()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#fair.staging.Stager.get_item_list"><code class="docutils literal notranslate"><span class="pre">Stager.get_item_list()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#fair.staging.Stager.get_job_data"><code class="docutils literal notranslate"><span class="pre">Stager.get_job_data()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#fair.staging.Stager.initialise"><code class="docutils literal notranslate"><span class="pre">Stager.initialise()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#fair.staging.Stager.remove_staging_entry"><code class="docutils literal notranslate"><span class="pre">Stager.remove_staging_entry()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#fair.staging.Stager.reset_staged"><code class="docutils literal notranslate"><span class="pre">Stager.reset_staged()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#fair.staging.Stager.update_data_product_staging"><code class="docutils literal notranslate"><span class="pre">Stager.update_data_product_staging()</span></code></a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="#module-fair.testing">fair.testing module</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#module-fair.utilities">fair.utilities module</a><ul>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#module-fair.testing">fair.testing module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#fair.testing.create_configurations"><code class="docutils literal notranslate"><span class="pre">create_configurations()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#fair-utilities-module">fair.utilities module</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#fdp-cli-utilities">FDP-CLI Utilities</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#contains">Contains</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#id11">Functions</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#class">Class</a></li>
 </ul>
 </li>
+<li class="toctree-l3"><a class="reference internal" href="#fair.utilities.JSONDateTimeEncoder"><code class="docutils literal notranslate"><span class="pre">JSONDateTimeEncoder</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#fair.utilities.JSONDateTimeEncoder.default"><code class="docutils literal notranslate"><span class="pre">JSONDateTimeEncoder.default()</span></code></a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="#module-fair.virtualenv">fair.virtualenv module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#fair.utilities.check_trailing_slash"><code class="docutils literal notranslate"><span class="pre">check_trailing_slash()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#fair.utilities.expand_dict"><code class="docutils literal notranslate"><span class="pre">expand_dict()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#fair.utilities.flatten_dict"><code class="docutils literal notranslate"><span class="pre">flatten_dict()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#fair.utilities.get_nested_key"><code class="docutils literal notranslate"><span class="pre">get_nested_key()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#fair.utilities.is_api_url"><code class="docutils literal notranslate"><span class="pre">is_api_url()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#fair.utilities.remove_dictlist_dupes"><code class="docutils literal notranslate"><span class="pre">remove_dictlist_dupes()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#fair-virtualenv-module">fair.virtualenv module</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#virtual-environment-for-registries">Virtual Environment for Registries</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#fair.virtualenv.FAIREnv"><code class="docutils literal notranslate"><span class="pre">FAIREnv</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#fair.virtualenv.FAIREnv.ensure_directories"><code class="docutils literal notranslate"><span class="pre">FAIREnv.ensure_directories()</span></code></a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="#module-fair">Module contents</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#fair.virtualenv.PythonExecutableIdentificationError"><code class="docutils literal notranslate"><span class="pre">PythonExecutableIdentificationError</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#module-contents">Module contents</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#fair-data-pipeline-command-line-interface-tool">FAIR Data Pipeline Command Line Interface Tool</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#license">License</a></li>
 </ul>
@@ -175,20 +292,88 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="fair.configuration.html">fair.configuration package</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="fair.configuration.html#submodules">Submodules</a></li>
-<li class="toctree-l2"><a class="reference internal" href="fair.configuration.html#module-fair.configuration.validation">fair.configuration.validation module</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="fair.configuration.html#fair-configuration-validation-module">fair.configuration.validation module</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="fair.configuration.html#cli-config-validation">CLI Config Validation</a></li>
 <li class="toctree-l3"><a class="reference internal" href="fair.configuration.html#contents">Contents</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="fair.configuration.html#classes">Classes</a></li>
 </ul>
 </li>
+<li class="toctree-l3"><a class="reference internal" href="fair.configuration.html#fair.configuration.validation.Git"><code class="docutils literal notranslate"><span class="pre">Git</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="fair.configuration.html#fair.configuration.validation.Git.Config"><code class="docutils literal notranslate"><span class="pre">Git.Config</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.configuration.html#fair.configuration.validation.Git.local_repo"><code class="docutils literal notranslate"><span class="pre">Git.local_repo</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.configuration.html#fair.configuration.validation.Git.remote"><code class="docutils literal notranslate"><span class="pre">Git.remote</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.configuration.html#fair.configuration.validation.Git.remote_repo"><code class="docutils literal notranslate"><span class="pre">Git.remote_repo</span></code></a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="fair.configuration.html#module-fair.configuration">Module contents</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="fair.configuration.html#fair.configuration.validation.GlobalCLIConfig"><code class="docutils literal notranslate"><span class="pre">GlobalCLIConfig</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="fair.configuration.html#fair.configuration.validation.GlobalCLIConfig.Config"><code class="docutils literal notranslate"><span class="pre">GlobalCLIConfig.Config</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.configuration.html#fair.configuration.validation.GlobalCLIConfig.namespaces"><code class="docutils literal notranslate"><span class="pre">GlobalCLIConfig.namespaces</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.configuration.html#fair.configuration.validation.GlobalCLIConfig.registries"><code class="docutils literal notranslate"><span class="pre">GlobalCLIConfig.registries</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.configuration.html#fair.configuration.validation.GlobalCLIConfig.user"><code class="docutils literal notranslate"><span class="pre">GlobalCLIConfig.user</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="fair.configuration.html#fair.configuration.validation.LocalCLIConfig"><code class="docutils literal notranslate"><span class="pre">LocalCLIConfig</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="fair.configuration.html#fair.configuration.validation.LocalCLIConfig.Config"><code class="docutils literal notranslate"><span class="pre">LocalCLIConfig.Config</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.configuration.html#fair.configuration.validation.LocalCLIConfig.git"><code class="docutils literal notranslate"><span class="pre">LocalCLIConfig.git</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.configuration.html#fair.configuration.validation.LocalCLIConfig.namespaces"><code class="docutils literal notranslate"><span class="pre">LocalCLIConfig.namespaces</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.configuration.html#fair.configuration.validation.LocalCLIConfig.registries"><code class="docutils literal notranslate"><span class="pre">LocalCLIConfig.registries</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.configuration.html#fair.configuration.validation.LocalCLIConfig.user"><code class="docutils literal notranslate"><span class="pre">LocalCLIConfig.user</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="fair.configuration.html#fair.configuration.validation.Namespaces"><code class="docutils literal notranslate"><span class="pre">Namespaces</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="fair.configuration.html#fair.configuration.validation.Namespaces.Config"><code class="docutils literal notranslate"><span class="pre">Namespaces.Config</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.configuration.html#fair.configuration.validation.Namespaces.input"><code class="docutils literal notranslate"><span class="pre">Namespaces.input</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.configuration.html#fair.configuration.validation.Namespaces.output"><code class="docutils literal notranslate"><span class="pre">Namespaces.output</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="fair.configuration.html#fair.configuration.validation.Registry"><code class="docutils literal notranslate"><span class="pre">Registry</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="fair.configuration.html#fair.configuration.validation.Registry.Config"><code class="docutils literal notranslate"><span class="pre">Registry.Config</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.configuration.html#fair.configuration.validation.Registry.data_store"><code class="docutils literal notranslate"><span class="pre">Registry.data_store</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.configuration.html#fair.configuration.validation.Registry.directory"><code class="docutils literal notranslate"><span class="pre">Registry.directory</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.configuration.html#fair.configuration.validation.Registry.token"><code class="docutils literal notranslate"><span class="pre">Registry.token</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.configuration.html#fair.configuration.validation.Registry.uri"><code class="docutils literal notranslate"><span class="pre">Registry.uri</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="fair.configuration.html#fair.configuration.validation.User"><code class="docutils literal notranslate"><span class="pre">User</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="fair.configuration.html#fair.configuration.validation.User.Config"><code class="docutils literal notranslate"><span class="pre">User.Config</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.configuration.html#fair.configuration.validation.User.email"><code class="docutils literal notranslate"><span class="pre">User.email</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.configuration.html#fair.configuration.validation.User.family_name"><code class="docutils literal notranslate"><span class="pre">User.family_name</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.configuration.html#fair.configuration.validation.User.given_names"><code class="docutils literal notranslate"><span class="pre">User.given_names</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.configuration.html#fair.configuration.validation.User.name"><code class="docutils literal notranslate"><span class="pre">User.name</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.configuration.html#fair.configuration.validation.User.orcid"><code class="docutils literal notranslate"><span class="pre">User.orcid</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.configuration.html#fair.configuration.validation.User.uri"><code class="docutils literal notranslate"><span class="pre">User.uri</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.configuration.html#fair.configuration.validation.User.uuid"><code class="docutils literal notranslate"><span class="pre">User.uuid</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="fair.configuration.html#module-contents">Module contents</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="fair.configuration.html#configuration">Configuration</a></li>
 <li class="toctree-l3"><a class="reference internal" href="fair.configuration.html#id1">Contents</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="fair.configuration.html#functions">Functions</a></li>
 </ul>
 </li>
+<li class="toctree-l3"><a class="reference internal" href="fair.configuration.html#fair.configuration.check_registry_exists"><code class="docutils literal notranslate"><span class="pre">check_registry_exists()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="fair.configuration.html#fair.configuration.get_current_user_email"><code class="docutils literal notranslate"><span class="pre">get_current_user_email()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="fair.configuration.html#fair.configuration.get_current_user_name"><code class="docutils literal notranslate"><span class="pre">get_current_user_name()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="fair.configuration.html#fair.configuration.get_current_user_uri"><code class="docutils literal notranslate"><span class="pre">get_current_user_uri()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="fair.configuration.html#fair.configuration.get_current_user_uuid"><code class="docutils literal notranslate"><span class="pre">get_current_user_uuid()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="fair.configuration.html#fair.configuration.get_local_data_store"><code class="docutils literal notranslate"><span class="pre">get_local_data_store()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="fair.configuration.html#fair.configuration.get_local_port"><code class="docutils literal notranslate"><span class="pre">get_local_port()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="fair.configuration.html#fair.configuration.get_local_uri"><code class="docutils literal notranslate"><span class="pre">get_local_uri()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="fair.configuration.html#fair.configuration.get_remote_token"><code class="docutils literal notranslate"><span class="pre">get_remote_token()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="fair.configuration.html#fair.configuration.get_remote_uri"><code class="docutils literal notranslate"><span class="pre">get_remote_uri()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="fair.configuration.html#fair.configuration.get_session_git_remote"><code class="docutils literal notranslate"><span class="pre">get_session_git_remote()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="fair.configuration.html#fair.configuration.global_config_query"><code class="docutils literal notranslate"><span class="pre">global_config_query()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="fair.configuration.html#fair.configuration.local_config_query"><code class="docutils literal notranslate"><span class="pre">local_config_query()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="fair.configuration.html#fair.configuration.local_git_repo"><code class="docutils literal notranslate"><span class="pre">local_git_repo()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="fair.configuration.html#fair.configuration.read_global_fdpconfig"><code class="docutils literal notranslate"><span class="pre">read_global_fdpconfig()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="fair.configuration.html#fair.configuration.read_local_fdpconfig"><code class="docutils literal notranslate"><span class="pre">read_local_fdpconfig()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="fair.configuration.html#fair.configuration.remote_git_repo"><code class="docutils literal notranslate"><span class="pre">remote_git_repo()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="fair.configuration.html#fair.configuration.set_email"><code class="docutils literal notranslate"><span class="pre">set_email()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="fair.configuration.html#fair.configuration.set_local_uri"><code class="docutils literal notranslate"><span class="pre">set_local_uri()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="fair.configuration.html#fair.configuration.set_user"><code class="docutils literal notranslate"><span class="pre">set_user()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="fair.configuration.html#fair.configuration.update_local_port"><code class="docutils literal notranslate"><span class="pre">update_local_port()</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -196,48 +381,103 @@
 <li class="toctree-l1"><a class="reference internal" href="fair.registry.html">fair.registry package</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="fair.registry.html#submodules">Submodules</a></li>
 <li class="toctree-l2"><a class="reference internal" href="fair.registry.html#module-fair.registry.file_types">fair.registry.file_types module</a></li>
-<li class="toctree-l2"><a class="reference internal" href="fair.registry.html#module-fair.registry.requests">fair.registry.requests module</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="fair.registry.html#fair-registry-requests-module">fair.registry.requests module</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="fair.registry.html#registry-requests">Registry Requests</a></li>
 <li class="toctree-l3"><a class="reference internal" href="fair.registry.html#contents">Contents</a></li>
+<li class="toctree-l3"><a class="reference internal" href="fair.registry.html#fair.registry.requests.download_file"><code class="docutils literal notranslate"><span class="pre">download_file()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="fair.registry.html#fair.registry.requests.filter_object_dependencies"><code class="docutils literal notranslate"><span class="pre">filter_object_dependencies()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="fair.registry.html#fair.registry.requests.get"><code class="docutils literal notranslate"><span class="pre">get()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="fair.registry.html#fair.registry.requests.get_dependency_listing"><code class="docutils literal notranslate"><span class="pre">get_dependency_listing()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="fair.registry.html#fair.registry.requests.get_filter_variables"><code class="docutils literal notranslate"><span class="pre">get_filter_variables()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="fair.registry.html#fair.registry.requests.get_obj_id_from_url"><code class="docutils literal notranslate"><span class="pre">get_obj_id_from_url()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="fair.registry.html#fair.registry.requests.get_obj_type_from_url"><code class="docutils literal notranslate"><span class="pre">get_obj_type_from_url()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="fair.registry.html#fair.registry.requests.get_writable_fields"><code class="docutils literal notranslate"><span class="pre">get_writable_fields()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="fair.registry.html#fair.registry.requests.local_token"><code class="docutils literal notranslate"><span class="pre">local_token()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="fair.registry.html#fair.registry.requests.post"><code class="docutils literal notranslate"><span class="pre">post()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="fair.registry.html#fair.registry.requests.post_else_get"><code class="docutils literal notranslate"><span class="pre">post_else_get()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="fair.registry.html#fair.registry.requests.post_upload_url"><code class="docutils literal notranslate"><span class="pre">post_upload_url()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="fair.registry.html#fair.registry.requests.split_api_url"><code class="docutils literal notranslate"><span class="pre">split_api_url()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="fair.registry.html#fair.registry.requests.url_get"><code class="docutils literal notranslate"><span class="pre">url_get()</span></code></a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="fair.registry.html#module-fair.registry.server">fair.registry.server module</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="fair.registry.html#fair-registry-server-module">fair.registry.server module</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="fair.registry.html#registry-server-control">Registry Server Control</a></li>
 <li class="toctree-l3"><a class="reference internal" href="fair.registry.html#id1">Contents</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="fair.registry.html#functions">Functions</a></li>
 </ul>
 </li>
+<li class="toctree-l3"><a class="reference internal" href="fair.registry.html#fair.registry.server.SwitchMode"><code class="docutils literal notranslate"><span class="pre">SwitchMode</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="fair.registry.html#fair.registry.server.SwitchMode.CLI"><code class="docutils literal notranslate"><span class="pre">SwitchMode.CLI</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.registry.html#fair.registry.server.SwitchMode.FORCE_STOP"><code class="docutils literal notranslate"><span class="pre">SwitchMode.FORCE_STOP</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.registry.html#fair.registry.server.SwitchMode.NO_SERVER"><code class="docutils literal notranslate"><span class="pre">SwitchMode.NO_SERVER</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.registry.html#fair.registry.server.SwitchMode.USER_START"><code class="docutils literal notranslate"><span class="pre">SwitchMode.USER_START</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.registry.html#fair.registry.server.SwitchMode.USER_STOP"><code class="docutils literal notranslate"><span class="pre">SwitchMode.USER_STOP</span></code></a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="fair.registry.html#module-fair.registry.storage">fair.registry.storage module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="fair.registry.html#fair.registry.server.check_server_running"><code class="docutils literal notranslate"><span class="pre">check_server_running()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="fair.registry.html#fair.registry.server.django_environ"><code class="docutils literal notranslate"><span class="pre">django_environ()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="fair.registry.html#fair.registry.server.install_registry"><code class="docutils literal notranslate"><span class="pre">install_registry()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="fair.registry.html#fair.registry.server.launch_server"><code class="docutils literal notranslate"><span class="pre">launch_server()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="fair.registry.html#fair.registry.server.rebuild_local"><code class="docutils literal notranslate"><span class="pre">rebuild_local()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="fair.registry.html#fair.registry.server.stop_server"><code class="docutils literal notranslate"><span class="pre">stop_server()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="fair.registry.html#fair.registry.server.uninstall_registry"><code class="docutils literal notranslate"><span class="pre">uninstall_registry()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="fair.registry.html#fair.registry.server.update_registry_post_setup"><code class="docutils literal notranslate"><span class="pre">update_registry_post_setup()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="fair.registry.html#fair-registry-storage-module">fair.registry.storage module</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="fair.registry.html#registry-storage">Registry Storage</a></li>
 <li class="toctree-l3"><a class="reference internal" href="fair.registry.html#id2">Contents</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="fair.registry.html#id3">Functions</a></li>
 </ul>
 </li>
+<li class="toctree-l3"><a class="reference internal" href="fair.registry.html#fair.registry.storage.calculate_file_hash"><code class="docutils literal notranslate"><span class="pre">calculate_file_hash()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="fair.registry.html#fair.registry.storage.check_if_object_exists"><code class="docutils literal notranslate"><span class="pre">check_if_object_exists()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="fair.registry.html#fair.registry.storage.check_match"><code class="docutils literal notranslate"><span class="pre">check_match()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="fair.registry.html#fair.registry.storage.create_file_type"><code class="docutils literal notranslate"><span class="pre">create_file_type()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="fair.registry.html#fair.registry.storage.get_storage_root_obj_address"><code class="docutils literal notranslate"><span class="pre">get_storage_root_obj_address()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="fair.registry.html#fair.registry.storage.get_upload_url"><code class="docutils literal notranslate"><span class="pre">get_upload_url()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="fair.registry.html#fair.registry.storage.get_write_storage"><code class="docutils literal notranslate"><span class="pre">get_write_storage()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="fair.registry.html#fair.registry.storage.populate_file_type"><code class="docutils literal notranslate"><span class="pre">populate_file_type()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="fair.registry.html#fair.registry.storage.store_author"><code class="docutils literal notranslate"><span class="pre">store_author()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="fair.registry.html#fair.registry.storage.store_data_file"><code class="docutils literal notranslate"><span class="pre">store_data_file()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="fair.registry.html#fair.registry.storage.store_namespace"><code class="docutils literal notranslate"><span class="pre">store_namespace()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="fair.registry.html#fair.registry.storage.store_user"><code class="docutils literal notranslate"><span class="pre">store_user()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="fair.registry.html#fair.registry.storage.store_working_config"><code class="docutils literal notranslate"><span class="pre">store_working_config()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="fair.registry.html#fair.registry.storage.store_working_script"><code class="docutils literal notranslate"><span class="pre">store_working_script()</span></code></a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="fair.registry.html#module-fair.registry.sync">fair.registry.sync module</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="fair.registry.html#fair-registry-sync-module">fair.registry.sync module</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="fair.registry.html#registry-sync">Registry Sync</a></li>
 <li class="toctree-l3"><a class="reference internal" href="fair.registry.html#id4">Contents</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="fair.registry.html#id5">Functions</a></li>
 </ul>
 </li>
+<li class="toctree-l3"><a class="reference internal" href="fair.registry.html#fair.registry.sync.download_from_registry"><code class="docutils literal notranslate"><span class="pre">download_from_registry()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="fair.registry.html#fair.registry.sync.fetch_data_product"><code class="docutils literal notranslate"><span class="pre">fetch_data_product()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="fair.registry.html#fair.registry.sync.get_dependency_chain"><code class="docutils literal notranslate"><span class="pre">get_dependency_chain()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="fair.registry.html#fair.registry.sync.pull_all_namespaces"><code class="docutils literal notranslate"><span class="pre">pull_all_namespaces()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="fair.registry.html#fair.registry.sync.sync_data_products"><code class="docutils literal notranslate"><span class="pre">sync_data_products()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="fair.registry.html#fair.registry.sync.sync_dependency_chain"><code class="docutils literal notranslate"><span class="pre">sync_dependency_chain()</span></code></a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="fair.registry.html#module-fair.registry.versioning">fair.registry.versioning module</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="fair.registry.html#fair-registry-versioning-module">fair.registry.versioning module</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="fair.registry.html#versioning">Versioning</a></li>
 <li class="toctree-l3"><a class="reference internal" href="fair.registry.html#id6">Contents</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="fair.registry.html#id7">Functions</a></li>
 </ul>
 </li>
+<li class="toctree-l3"><a class="reference internal" href="fair.registry.html#fair.registry.versioning.default_bump"><code class="docutils literal notranslate"><span class="pre">default_bump()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="fair.registry.html#fair.registry.versioning.get_correct_version"><code class="docutils literal notranslate"><span class="pre">get_correct_version()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="fair.registry.html#fair.registry.versioning.get_latest_version"><code class="docutils literal notranslate"><span class="pre">get_latest_version()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="fair.registry.html#fair.registry.versioning.parse_incrementer"><code class="docutils literal notranslate"><span class="pre">parse_incrementer()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="fair.registry.html#fair.registry.versioning.undo_incrementer"><code class="docutils literal notranslate"><span class="pre">undo_incrementer()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="fair.registry.html#module-fair.registry">Module contents</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="fair.templates.html">fair.templates package</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="fair.templates.html#module-fair.templates">Module contents</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="fair.templates.html#module-contents">Module contents</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="fair.templates.html#fair-cli-templates">FAIR-CLI Templates</a></li>
 </ul>
 </li>
@@ -245,26 +485,155 @@
 </li>
 <li class="toctree-l1"><a class="reference internal" href="fair.user_config.html">fair.user_config package</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="fair.user_config.html#submodules">Submodules</a></li>
-<li class="toctree-l2"><a class="reference internal" href="fair.user_config.html#module-fair.user_config.globbing">fair.user_config.globbing module</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="fair.user_config.html#fair-user-config-globbing-module">fair.user_config.globbing module</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="fair.user_config.html#user-config-remote-globbing">User Config Remote Globbing</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#constants">Constants</a></li>
 </ul>
 </li>
+<li class="toctree-l3"><a class="reference internal" href="fair.user_config.html#fair.user_config.globbing.get_data_product_objects"><code class="docutils literal notranslate"><span class="pre">get_data_product_objects()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="fair.user_config.html#fair.user_config.globbing.get_external_objects"><code class="docutils literal notranslate"><span class="pre">get_external_objects()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="fair.user_config.html#fair.user_config.globbing.get_single_layer_objects"><code class="docutils literal notranslate"><span class="pre">get_single_layer_objects()</span></code></a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="fair.user_config.html#module-fair.user_config.validation">fair.user_config.validation module</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="fair.user_config.html#fair-user-config-validation-module">fair.user_config.validation module</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="fair.user_config.html#user-config-validation">User Config Validation</a></li>
 <li class="toctree-l3"><a class="reference internal" href="fair.user_config.html#contents">Contents</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#classes">Classes</a></li>
 </ul>
 </li>
+<li class="toctree-l3"><a class="reference internal" href="fair.user_config.html#fair.user_config.validation.Author"><code class="docutils literal notranslate"><span class="pre">Author</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.validation.Author.Config"><code class="docutils literal notranslate"><span class="pre">Author.Config</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.validation.Author.author"><code class="docutils literal notranslate"><span class="pre">Author.author</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.validation.Author.identifier"><code class="docutils literal notranslate"><span class="pre">Author.identifier</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.validation.Author.name"><code class="docutils literal notranslate"><span class="pre">Author.name</span></code></a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="fair.user_config.html#module-fair.user_config">Module contents</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="fair.user_config.html#fair.user_config.validation.DataProduct"><code class="docutils literal notranslate"><span class="pre">DataProduct</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.validation.DataProduct.Config"><code class="docutils literal notranslate"><span class="pre">DataProduct.Config</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.validation.DataProduct.data_product"><code class="docutils literal notranslate"><span class="pre">DataProduct.data_product</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.validation.DataProduct.description"><code class="docutils literal notranslate"><span class="pre">DataProduct.description</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.validation.DataProduct.use"><code class="docutils literal notranslate"><span class="pre">DataProduct.use</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="fair.user_config.html#fair.user_config.validation.DataProductWrite"><code class="docutils literal notranslate"><span class="pre">DataProductWrite</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.validation.DataProductWrite.Config"><code class="docutils literal notranslate"><span class="pre">DataProductWrite.Config</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.validation.DataProductWrite.file_type"><code class="docutils literal notranslate"><span class="pre">DataProductWrite.file_type</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.validation.DataProductWrite.public"><code class="docutils literal notranslate"><span class="pre">DataProductWrite.public</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="fair.user_config.html#fair.user_config.validation.ExternalObject"><code class="docutils literal notranslate"><span class="pre">ExternalObject</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.validation.ExternalObject.Config"><code class="docutils literal notranslate"><span class="pre">ExternalObject.Config</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.validation.ExternalObject.alternate_identifier"><code class="docutils literal notranslate"><span class="pre">ExternalObject.alternate_identifier</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.validation.ExternalObject.alternate_identifier_type"><code class="docutils literal notranslate"><span class="pre">ExternalObject.alternate_identifier_type</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.validation.ExternalObject.description"><code class="docutils literal notranslate"><span class="pre">ExternalObject.description</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.validation.ExternalObject.external_object"><code class="docutils literal notranslate"><span class="pre">ExternalObject.external_object</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.validation.ExternalObject.file_type"><code class="docutils literal notranslate"><span class="pre">ExternalObject.file_type</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.validation.ExternalObject.identifier"><code class="docutils literal notranslate"><span class="pre">ExternalObject.identifier</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.validation.ExternalObject.namespace_full_name"><code class="docutils literal notranslate"><span class="pre">ExternalObject.namespace_full_name</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.validation.ExternalObject.namespace_name"><code class="docutils literal notranslate"><span class="pre">ExternalObject.namespace_name</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.validation.ExternalObject.path"><code class="docutils literal notranslate"><span class="pre">ExternalObject.path</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.validation.ExternalObject.primary"><code class="docutils literal notranslate"><span class="pre">ExternalObject.primary</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.validation.ExternalObject.release_date"><code class="docutils literal notranslate"><span class="pre">ExternalObject.release_date</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.validation.ExternalObject.root"><code class="docutils literal notranslate"><span class="pre">ExternalObject.root</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.validation.ExternalObject.title"><code class="docutils literal notranslate"><span class="pre">ExternalObject.title</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.validation.ExternalObject.version"><code class="docutils literal notranslate"><span class="pre">ExternalObject.version</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="fair.user_config.html#fair.user_config.validation.Namespace"><code class="docutils literal notranslate"><span class="pre">Namespace</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.validation.Namespace.Config"><code class="docutils literal notranslate"><span class="pre">Namespace.Config</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.validation.Namespace.full_name"><code class="docutils literal notranslate"><span class="pre">Namespace.full_name</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.validation.Namespace.namespace"><code class="docutils literal notranslate"><span class="pre">Namespace.namespace</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.validation.Namespace.website"><code class="docutils literal notranslate"><span class="pre">Namespace.website</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="fair.user_config.html#fair.user_config.validation.RunMetadata"><code class="docutils literal notranslate"><span class="pre">RunMetadata</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.validation.RunMetadata.Config"><code class="docutils literal notranslate"><span class="pre">RunMetadata.Config</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.validation.RunMetadata.default_input_namespace"><code class="docutils literal notranslate"><span class="pre">RunMetadata.default_input_namespace</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.validation.RunMetadata.default_output_namespace"><code class="docutils literal notranslate"><span class="pre">RunMetadata.default_output_namespace</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.validation.RunMetadata.default_read_version"><code class="docutils literal notranslate"><span class="pre">RunMetadata.default_read_version</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.validation.RunMetadata.default_write_version"><code class="docutils literal notranslate"><span class="pre">RunMetadata.default_write_version</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.validation.RunMetadata.description"><code class="docutils literal notranslate"><span class="pre">RunMetadata.description</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.validation.RunMetadata.latest_commit"><code class="docutils literal notranslate"><span class="pre">RunMetadata.latest_commit</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.validation.RunMetadata.local_data_registry_url"><code class="docutils literal notranslate"><span class="pre">RunMetadata.local_data_registry_url</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.validation.RunMetadata.local_repo"><code class="docutils literal notranslate"><span class="pre">RunMetadata.local_repo</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.validation.RunMetadata.public"><code class="docutils literal notranslate"><span class="pre">RunMetadata.public</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.validation.RunMetadata.remote_data_registry_url"><code class="docutils literal notranslate"><span class="pre">RunMetadata.remote_data_registry_url</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.validation.RunMetadata.remote_repo"><code class="docutils literal notranslate"><span class="pre">RunMetadata.remote_repo</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.validation.RunMetadata.script"><code class="docutils literal notranslate"><span class="pre">RunMetadata.script</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.validation.RunMetadata.script_path"><code class="docutils literal notranslate"><span class="pre">RunMetadata.script_path</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.validation.RunMetadata.shell"><code class="docutils literal notranslate"><span class="pre">RunMetadata.shell</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.validation.RunMetadata.write_data_store"><code class="docutils literal notranslate"><span class="pre">RunMetadata.write_data_store</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="fair.user_config.html#fair.user_config.validation.SupportedShells"><code class="docutils literal notranslate"><span class="pre">SupportedShells</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.validation.SupportedShells.BASH"><code class="docutils literal notranslate"><span class="pre">SupportedShells.BASH</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.validation.SupportedShells.BATCH"><code class="docutils literal notranslate"><span class="pre">SupportedShells.BATCH</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.validation.SupportedShells.JAVA"><code class="docutils literal notranslate"><span class="pre">SupportedShells.JAVA</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.validation.SupportedShells.JULIA"><code class="docutils literal notranslate"><span class="pre">SupportedShells.JULIA</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.validation.SupportedShells.POWERSHELL"><code class="docutils literal notranslate"><span class="pre">SupportedShells.POWERSHELL</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.validation.SupportedShells.PWSH"><code class="docutils literal notranslate"><span class="pre">SupportedShells.PWSH</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.validation.SupportedShells.PYTHON"><code class="docutils literal notranslate"><span class="pre">SupportedShells.PYTHON</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.validation.SupportedShells.PYTHON2"><code class="docutils literal notranslate"><span class="pre">SupportedShells.PYTHON2</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.validation.SupportedShells.PYTHON3"><code class="docutils literal notranslate"><span class="pre">SupportedShells.PYTHON3</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.validation.SupportedShells.R"><code class="docutils literal notranslate"><span class="pre">SupportedShells.R</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.validation.SupportedShells.SH"><code class="docutils literal notranslate"><span class="pre">SupportedShells.SH</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="fair.user_config.html#fair.user_config.validation.Use"><code class="docutils literal notranslate"><span class="pre">Use</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.validation.Use.Config"><code class="docutils literal notranslate"><span class="pre">Use.Config</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.validation.Use.cache"><code class="docutils literal notranslate"><span class="pre">Use.cache</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.validation.Use.data_product"><code class="docutils literal notranslate"><span class="pre">Use.data_product</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.validation.Use.namespace"><code class="docutils literal notranslate"><span class="pre">Use.namespace</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.validation.Use.version"><code class="docutils literal notranslate"><span class="pre">Use.version</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="fair.user_config.html#fair.user_config.validation.UserConfigModel"><code class="docutils literal notranslate"><span class="pre">UserConfigModel</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.validation.UserConfigModel.Config"><code class="docutils literal notranslate"><span class="pre">UserConfigModel.Config</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.validation.UserConfigModel.read"><code class="docutils literal notranslate"><span class="pre">UserConfigModel.read</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.validation.UserConfigModel.registration"><code class="docutils literal notranslate"><span class="pre">UserConfigModel.registration</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.validation.UserConfigModel.run_metadata"><code class="docutils literal notranslate"><span class="pre">UserConfigModel.run_metadata</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.validation.UserConfigModel.write"><code class="docutils literal notranslate"><span class="pre">UserConfigModel.write</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="fair.user_config.html#module-contents">Module contents</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="fair.user_config.html#user-config-management">User Config Management</a></li>
 <li class="toctree-l3"><a class="reference internal" href="fair.user_config.html#id1">Contents</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#id2">Constants</a></li>
 <li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#id3">Classes</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="fair.user_config.html#fair.user_config.JobConfiguration"><code class="docutils literal notranslate"><span class="pre">JobConfiguration</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.JobConfiguration.close_log"><code class="docutils literal notranslate"><span class="pre">JobConfiguration.close_log()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.JobConfiguration.command"><code class="docutils literal notranslate"><span class="pre">JobConfiguration.command</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.JobConfiguration.content"><code class="docutils literal notranslate"><span class="pre">JobConfiguration.content</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.JobConfiguration.default_data_store"><code class="docutils literal notranslate"><span class="pre">JobConfiguration.default_data_store</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.JobConfiguration.default_input_namespace"><code class="docutils literal notranslate"><span class="pre">JobConfiguration.default_input_namespace</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.JobConfiguration.default_output_namespace"><code class="docutils literal notranslate"><span class="pre">JobConfiguration.default_output_namespace</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.JobConfiguration.default_read_version"><code class="docutils literal notranslate"><span class="pre">JobConfiguration.default_read_version</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.JobConfiguration.default_write_version"><code class="docutils literal notranslate"><span class="pre">JobConfiguration.default_write_version</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.JobConfiguration.environment"><code class="docutils literal notranslate"><span class="pre">JobConfiguration.environment</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.JobConfiguration.execute"><code class="docutils literal notranslate"><span class="pre">JobConfiguration.execute()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.JobConfiguration.get"><code class="docutils literal notranslate"><span class="pre">JobConfiguration.get()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.JobConfiguration.get_readables"><code class="docutils literal notranslate"><span class="pre">JobConfiguration.get_readables()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.JobConfiguration.git_branch"><code class="docutils literal notranslate"><span class="pre">JobConfiguration.git_branch</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.JobConfiguration.git_remote_uri"><code class="docutils literal notranslate"><span class="pre">JobConfiguration.git_remote_uri</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.JobConfiguration.hash"><code class="docutils literal notranslate"><span class="pre">JobConfiguration.hash</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.JobConfiguration.is_public_global"><code class="docutils literal notranslate"><span class="pre">JobConfiguration.is_public_global</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.JobConfiguration.local_repository"><code class="docutils literal notranslate"><span class="pre">JobConfiguration.local_repository</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.JobConfiguration.local_uri"><code class="docutils literal notranslate"><span class="pre">JobConfiguration.local_uri</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.JobConfiguration.pop"><code class="docutils literal notranslate"><span class="pre">JobConfiguration.pop()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.JobConfiguration.prepare"><code class="docutils literal notranslate"><span class="pre">JobConfiguration.prepare()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.JobConfiguration.remote_uri"><code class="docutils literal notranslate"><span class="pre">JobConfiguration.remote_uri</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.JobConfiguration.script"><code class="docutils literal notranslate"><span class="pre">JobConfiguration.script</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.JobConfiguration.set_command"><code class="docutils literal notranslate"><span class="pre">JobConfiguration.set_command()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.JobConfiguration.set_script"><code class="docutils literal notranslate"><span class="pre">JobConfiguration.set_script()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.JobConfiguration.setup_job_script"><code class="docutils literal notranslate"><span class="pre">JobConfiguration.setup_job_script()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.JobConfiguration.shell"><code class="docutils literal notranslate"><span class="pre">JobConfiguration.shell</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.JobConfiguration.update_from_fair"><code class="docutils literal notranslate"><span class="pre">JobConfiguration.update_from_fair()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.JobConfiguration.write"><code class="docutils literal notranslate"><span class="pre">JobConfiguration.write()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="fair.user_config.html#fair.user_config.JobConfiguration.write_log_lines"><code class="docutils literal notranslate"><span class="pre">JobConfiguration.write_log_lines()</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -277,13 +646,14 @@
 <section id="submodules">
 <h2>Submodules<a class="headerlink" href="#submodules" title="Permalink to this heading"></a></h2>
 </section>
-<section id="module-fair.cli">
-<span id="fair-cli-module"></span><h2>fair.cli module<a class="headerlink" href="#module-fair.cli" title="Permalink to this heading"></a></h2>
+<section id="fair-cli-module">
+<h2>fair.cli module<a class="headerlink" href="#fair-cli-module" title="Permalink to this heading"></a></h2>
 <section id="command-line-interface">
 <h3>Command Line Interface<a class="headerlink" href="#command-line-interface" title="Permalink to this heading"></a></h3>
 <p>Main command line interface setup script for creation of commands used to
 interact with the synchronisation tool.</p>
-<dl class="py function">
+</section>
+<span class="target" id="module-fair.cli"></span><dl class="py function">
 <dt class="sig sig-object py" id="fair.cli.complete_data_products">
 <span class="sig-prename descclassname"><span class="pre">fair.cli.</span></span><span class="sig-name descname"><span class="pre">complete_data_products</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ctx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">param</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">incomplete</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#fair.cli.complete_data_products" title="Permalink to this definition"></a></dt>
 <dd></dd></dl>
@@ -299,9 +669,8 @@ interact with the synchronisation tool.</p>
 <dd></dd></dl>
 
 </section>
-</section>
-<section id="module-fair.common">
-<span id="fair-common-module"></span><h2>fair.common module<a class="headerlink" href="#module-fair.common" title="Permalink to this heading"></a></h2>
+<section id="fair-common-module">
+<h2>fair.common module<a class="headerlink" href="#fair-common-module" title="Permalink to this heading"></a></h2>
 <section id="common-paths">
 <h3>Common Paths<a class="headerlink" href="#common-paths" title="Permalink to this heading"></a></h3>
 <p>Functions and constant strings related to the location of directories
@@ -332,7 +701,9 @@ global_config_dir   - returns the FAIR-CLI global config directory
 global_fdpconfig    - returns path of FAIR-CLI global config
 session_cache_dir   - returns location of session cache folder</p>
 </div></blockquote>
-<dl class="py class">
+</section>
+</section>
+<span class="target" id="module-fair.common"></span><dl class="py class">
 <dt class="sig sig-object py" id="fair.common.CMD_MODE">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fair.common.</span></span><span class="sig-name descname"><span class="pre">CMD_MODE</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#fair.common.CMD_MODE" title="Permalink to this definition"></a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Enum</span></code></p>
@@ -506,10 +877,8 @@ port number from the file generated by the registry itself</p>
 </dd></dl>
 
 </section>
-</section>
-</section>
-<section id="module-fair.exceptions">
-<span id="fair-exceptions-module"></span><h2>fair.exceptions module<a class="headerlink" href="#module-fair.exceptions" title="Permalink to this heading"></a></h2>
+<section id="fair-exceptions-module">
+<h2>fair.exceptions module<a class="headerlink" href="#fair-exceptions-module" title="Permalink to this heading"></a></h2>
 <section id="fair-cli-exceptions">
 <h3>FAIR-CLI Exceptions<a class="headerlink" href="#fair-cli-exceptions" title="Permalink to this heading"></a></h3>
 <p>Custom exceptions for the command line interface. These are captured during
@@ -531,7 +900,9 @@ InternalError
 StagingError
 ValidationError</p>
 </div></blockquote>
-<dl class="py exception">
+</section>
+</section>
+<span class="target" id="module-fair.exceptions"></span><dl class="py exception">
 <dt class="sig sig-object py" id="fair.exceptions.CLIConfigurationError">
 <em class="property"><span class="pre">exception</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fair.exceptions.</span></span><span class="sig-name descname"><span class="pre">CLIConfigurationError</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">msg</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hint</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">level</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'Error'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#fair.exceptions.CLIConfigurationError" title="Permalink to this definition"></a></dt>
 <dd><p>Bases: <a class="reference internal" href="#fair.exceptions.FAIRCLIException" title="fair.exceptions.FAIRCLIException"><code class="xref py py-class docutils literal notranslate"><span class="pre">FAIRCLIException</span></code></a></p>
@@ -649,10 +1020,8 @@ ValidationError</p>
 </dd></dl>
 
 </section>
-</section>
-</section>
-<section id="module-fair.history">
-<span id="fair-history-module"></span><h2>fair.history module<a class="headerlink" href="#module-fair.history" title="Permalink to this heading"></a></h2>
+<section id="fair-history-module">
+<h2>fair.history module<a class="headerlink" href="#fair-history-module" title="Permalink to this heading"></a></h2>
 <section id="run-history">
 <h3>Run History<a class="headerlink" href="#run-history" title="Permalink to this heading"></a></h3>
 <p>Methods relating to the summary of jobs commenced within the given FAIR-CLI
@@ -665,7 +1034,9 @@ repository. Allowing user to view any stdout from these.</p>
 <blockquote>
 <div><p>history_directory - returns the current repository logs directory</p>
 </div></blockquote>
-<dl class="py function">
+</section>
+</section>
+<span class="target" id="module-fair.history"></span><dl class="py function">
 <dt class="sig sig-object py" id="fair.history.history_directory">
 <span class="sig-prename descclassname"><span class="pre">fair.history.</span></span><span class="sig-name descname"><span class="pre">history_directory</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">repo_loc</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="headerlink" href="#fair.history.history_directory" title="Permalink to this definition"></a></dt>
 <dd><p>Retrieve the directory containing job logs for the specified repository</p>
@@ -708,10 +1079,8 @@ repository. Allowing user to view any stdout from these.</p>
 </dd></dl>
 
 </section>
-</section>
-</section>
-<section id="module-fair.identifiers">
-<span id="fair-identifiers-module"></span><h2>fair.identifiers module<a class="headerlink" href="#module-fair.identifiers" title="Permalink to this heading"></a></h2>
+<section id="fair-identifiers-module">
+<h2>fair.identifiers module<a class="headerlink" href="#fair-identifiers-module" title="Permalink to this heading"></a></h2>
 <section id="identifiers">
 <h3>Identifiers<a class="headerlink" href="#identifiers" title="Permalink to this heading"></a></h3>
 <p>Methods relating to retrieval and parsing of unique identifiers</p>
@@ -725,7 +1094,9 @@ repository. Allowing user to view any stdout from these.</p>
 check_ror - verify a ROR and return name information
 check_grid - verify a GRID ID and return name information</p>
 </div></blockquote>
-<dl class="py function">
+</section>
+</section>
+<span class="target" id="module-fair.identifiers"></span><dl class="py function">
 <dt class="sig sig-object py" id="fair.identifiers.check_grid">
 <span class="sig-prename descclassname"><span class="pre">fair.identifiers.</span></span><span class="sig-name descname"><span class="pre">check_grid</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">grid_id</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Dict</span></span></span><a class="headerlink" href="#fair.identifiers.check_grid" title="Permalink to this definition"></a></dt>
 <dd><p>Checks if valid GRID ID using ROR (<a class="reference external" href="https://ror.org/">https://ror.org/</a>) public api
@@ -787,15 +1158,14 @@ grid_id : str</p>
 </dd></dl>
 
 </section>
-</section>
-</section>
-<section id="module-fair.logging">
-<span id="fair-logging-module"></span><h2>fair.logging module<a class="headerlink" href="#module-fair.logging" title="Permalink to this heading"></a></h2>
+<section id="fair-logging-module">
+<h2>fair.logging module<a class="headerlink" href="#fair-logging-module" title="Permalink to this heading"></a></h2>
 <section id="logging">
 <h3>Logging<a class="headerlink" href="#logging" title="Permalink to this heading"></a></h3>
 <p>Creation of job logs when running ‘pull’, ‘run’, ‘push’ etc. This is not to be
 confused with use of the ‘logging’ module which handles debug printouts etc.</p>
-<dl class="py class">
+</section>
+<span class="target" id="module-fair.logging"></span><dl class="py class">
 <dt class="sig sig-object py" id="fair.logging.JobLogger">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fair.logging.</span></span><span class="sig-name descname"><span class="pre">JobLogger</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time_stamp</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">datetime</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">command</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">project_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'/home/runner/work/FAIR-CLI/FAIR-CLI'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#fair.logging.JobLogger" title="Permalink to this definition"></a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
@@ -818,9 +1188,8 @@ confused with use of the ‘logging’ module which handles debug printouts etc.
 </dd></dl>
 
 </section>
-</section>
-<section id="module-fair.register">
-<span id="fair-register-module"></span><h2>fair.register module<a class="headerlink" href="#module-fair.register" title="Permalink to this heading"></a></h2>
+<section id="fair-register-module">
+<h2>fair.register module<a class="headerlink" href="#fair-register-module" title="Permalink to this heading"></a></h2>
 <section id="register-key-methods">
 <h3>Register Key Methods<a class="headerlink" href="#register-key-methods" title="Permalink to this heading"></a></h3>
 <p>Substitute/fetch data relating to ‘register’ entries in the
@@ -830,7 +1199,9 @@ confused with use of the ‘logging’ module which handles debug printouts etc.
 <h3>Contents<a class="headerlink" href="#id6" title="Permalink to this heading"></a></h3>
 <section id="id7">
 <h4>Functions<a class="headerlink" href="#id7" title="Permalink to this heading"></a></h4>
-<dl class="py function">
+</section>
+</section>
+<span class="target" id="module-fair.register"></span><dl class="py function">
 <dt class="sig sig-object py" id="fair.register.convert_key_value_to_id">
 <span class="sig-prename descclassname"><span class="pre">fair.register.</span></span><span class="sig-name descname"><span class="pre">convert_key_value_to_id</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">uri</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">obj_type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">value</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">token</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">int</span></span></span><a class="headerlink" href="#fair.register.convert_key_value_to_id" title="Permalink to this definition"></a></dt>
 <dd><p>Converts a config key value to the relevant URL on the local registry</p>
@@ -867,15 +1238,14 @@ confused with use of the ‘logging’ module which handles debug printouts etc.
 </dd></dl>
 
 </section>
-</section>
-</section>
-<section id="module-fair.run">
-<span id="fair-run-module"></span><h2>fair.run module<a class="headerlink" href="#module-fair.run" title="Permalink to this heading"></a></h2>
+<section id="fair-run-module">
+<h2>fair.run module<a class="headerlink" href="#fair-run-module" title="Permalink to this heading"></a></h2>
 <section id="execute-job">
 <h3>Execute Job<a class="headerlink" href="#execute-job" title="Permalink to this heading"></a></h3>
 <p>Creates required files for job execution and runs the job itself using the
 retrieved metadata</p>
-<dl class="py function">
+</section>
+<span class="target" id="module-fair.run"></span><dl class="py function">
 <dt class="sig sig-object py" id="fair.run.get_job_dir">
 <span class="sig-prename descclassname"><span class="pre">fair.run.</span></span><span class="sig-name descname"><span class="pre">get_job_dir</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">job_hash</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="headerlink" href="#fair.run.get_job_dir" title="Permalink to this definition"></a></dt>
 <dd><p>Get job directory from a hash</p>
@@ -907,9 +1277,8 @@ called initiates multiple executions. “Job” here refers to a call of
 </dd></dl>
 
 </section>
-</section>
-<section id="module-fair.session">
-<span id="fair-session-module"></span><h2>fair.session module<a class="headerlink" href="#module-fair.session" title="Permalink to this heading"></a></h2>
+<section id="fair-session-module">
+<h2>fair.session module<a class="headerlink" href="#fair-session-module" title="Permalink to this heading"></a></h2>
 <section id="session">
 <h3>Session<a class="headerlink" href="#session" title="Permalink to this heading"></a></h3>
 <p>Manage synchronisation of data and metadata relating to runs using the
@@ -932,7 +1301,9 @@ __credits__
 __status__
 __copyright__</p>
 </div></blockquote>
-<dl class="py class">
+</section>
+</section>
+<span class="target" id="module-fair.session"></span><dl class="py class">
 <dt class="sig sig-object py" id="fair.session.FAIR">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fair.session.</span></span><span class="sig-name descname"><span class="pre">FAIR</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">repo_loc</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">user_config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">debug</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">server_mode</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="fair.registry.html#fair.registry.server.SwitchMode" title="fair.registry.server.SwitchMode"><span class="pre">SwitchMode</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">SwitchMode.NO_SERVER</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">server_port</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">8000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">server_address</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'127.0.0.1'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">allow_dirty</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">testing</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">local</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#fair.session.FAIR" title="Permalink to this definition"></a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
@@ -1088,10 +1459,8 @@ the closest location in the upper hierarchy containing a ‘.fair’ folder).</p
 </dd></dl>
 
 </section>
-</section>
-</section>
-<section id="module-fair.staging">
-<span id="fair-staging-module"></span><h2>fair.staging module<a class="headerlink" href="#module-fair.staging" title="Permalink to this heading"></a></h2>
+<section id="fair-staging-module">
+<h2>fair.staging module<a class="headerlink" href="#fair-staging-module" title="Permalink to this heading"></a></h2>
 <section id="staging">
 <h3>Staging<a class="headerlink" href="#staging" title="Permalink to this heading"></a></h3>
 <p>Manage object staging for pushing to a remote registry from the local registry</p>
@@ -1103,7 +1472,9 @@ the closest location in the upper hierarchy containing a ‘.fair’ folder).</p
 <blockquote>
 <div><p>Staging - class handles staging of objects ready to be synchronised</p>
 </div></blockquote>
-<dl class="py class">
+</section>
+</section>
+<span class="target" id="module-fair.staging"></span><dl class="py class">
 <dt class="sig sig-object py" id="fair.staging.Stager">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fair.staging.</span></span><span class="sig-name descname"><span class="pre">Stager</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">repo_root</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#fair.staging.Stager" title="Permalink to this definition"></a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
@@ -1213,13 +1584,11 @@ or has issues.</p>
 </dd></dl>
 
 </section>
-</section>
-</section>
 <section id="module-fair.testing">
 <span id="fair-testing-module"></span><h2>fair.testing module<a class="headerlink" href="#module-fair.testing" title="Permalink to this heading"></a></h2>
 <dl class="py function">
 <dt class="sig sig-object py" id="fair.testing.create_configurations">
-<span class="sig-prename descclassname"><span class="pre">fair.testing.</span></span><span class="sig-name descname"><span class="pre">create_configurations</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">registry_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">local_git_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">remote_reg_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">testing_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'/tmp/tmp13u7n8uz'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tokenless</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Dict</span></span></span><a class="headerlink" href="#fair.testing.create_configurations" title="Permalink to this definition"></a></dt>
+<span class="sig-prename descclassname"><span class="pre">fair.testing.</span></span><span class="sig-name descname"><span class="pre">create_configurations</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">registry_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">local_git_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">remote_reg_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">testing_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'/tmp/tmpo46dm_40'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tokenless</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Dict</span></span></span><a class="headerlink" href="#fair.testing.create_configurations" title="Permalink to this definition"></a></dt>
 <dd><p>Setup CLI for testing</p>
 <p>Running without a token limits the functionality, this should only be used
 when testing without need to access a local registry.</p>
@@ -1238,8 +1607,8 @@ when testing without need to access a local registry.</p>
 </dd></dl>
 
 </section>
-<section id="module-fair.utilities">
-<span id="fair-utilities-module"></span><h2>fair.utilities module<a class="headerlink" href="#module-fair.utilities" title="Permalink to this heading"></a></h2>
+<section id="fair-utilities-module">
+<h2>fair.utilities module<a class="headerlink" href="#fair-utilities-module" title="Permalink to this heading"></a></h2>
 <section id="fdp-cli-utilities">
 <h3>FDP-CLI Utilities<a class="headerlink" href="#fdp-cli-utilities" title="Permalink to this heading"></a></h3>
 <p>Collection of methods used which are not specific to the FDP-CLI and so are
@@ -1260,7 +1629,9 @@ remove_dictlist_dupes - removes duplicates from list of depth 1 dictionaries</p>
 <blockquote>
 <div><p>JSONDateTimeEncoder - for allowing datetime strings to be json parsed</p>
 </div></blockquote>
-<dl class="py class">
+</section>
+</section>
+<span class="target" id="module-fair.utilities"></span><dl class="py class">
 <dt class="sig sig-object py" id="fair.utilities.JSONDateTimeEncoder">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fair.utilities.</span></span><span class="sig-name descname"><span class="pre">JSONDateTimeEncoder</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">skipkeys</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ensure_ascii</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">check_circular</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">allow_nan</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sort_keys</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">indent</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">separators</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">default</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#fair.utilities.JSONDateTimeEncoder" title="Permalink to this definition"></a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">JSONEncoder</span></code></p>
@@ -1376,17 +1747,16 @@ using a separator for the keys.</p>
 </dd></dl>
 
 </section>
-</section>
-</section>
-<section id="module-fair.virtualenv">
-<span id="fair-virtualenv-module"></span><h2>fair.virtualenv module<a class="headerlink" href="#module-fair.virtualenv" title="Permalink to this heading"></a></h2>
+<section id="fair-virtualenv-module">
+<h2>fair.virtualenv module<a class="headerlink" href="#fair-virtualenv-module" title="Permalink to this heading"></a></h2>
 <section id="virtual-environment-for-registries">
 <h3>Virtual Environment for Registries<a class="headerlink" href="#virtual-environment-for-registries" title="Permalink to this heading"></a></h3>
 <p>It was discovered that if building a FAIR-CLI binary “venv” would assume it
 had been called by “python” and not “fair” which would break the setting up
 of a virtual environment when installing a registry. As such a modified version
 of the class which sets the Python executable manually is required.</p>
-<dl class="py class">
+</section>
+<span class="target" id="module-fair.virtualenv"></span><dl class="py class">
 <dt class="sig sig-object py" id="fair.virtualenv.FAIREnv">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fair.virtualenv.</span></span><span class="sig-name descname"><span class="pre">FAIREnv</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#fair.virtualenv.FAIREnv" title="Permalink to this definition"></a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">EnvBuilder</span></code></p>
@@ -1407,9 +1777,8 @@ for use by subsequent logic.</p>
 </dd></dl>
 
 </section>
-</section>
-<section id="module-fair">
-<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-fair" title="Permalink to this heading"></a></h2>
+<section id="module-contents">
+<h2>Module contents<a class="headerlink" href="#module-contents" title="Permalink to this heading"></a></h2>
 <section id="fair-data-pipeline-command-line-interface-tool">
 <h3>FAIR Data Pipeline Command Line Interface Tool<a class="headerlink" href="#fair-data-pipeline-command-line-interface-tool" title="Permalink to this heading"></a></h3>
 <p>Contains definitions for the synchronisation tool for communication between
@@ -1440,7 +1809,7 @@ CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.</p>
 </section>
-</section>
+<span class="target" id="module-fair"></span></section>
 </section>
 
 

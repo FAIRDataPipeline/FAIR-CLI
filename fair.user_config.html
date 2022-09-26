@@ -16,6 +16,7 @@
         <script src="_static/underscore.js"></script>
         <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
         <script src="_static/doctools.js"></script>
+        <script src="_static/sphinx_highlight.js"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
@@ -47,28 +48,28 @@
 <li class="toctree-l3"><a class="reference internal" href="fair.templates.html">fair.templates package</a></li>
 <li class="toctree-l3 current"><a class="current reference internal" href="#">fair.user_config package</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#submodules">Submodules</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#module-fair.user_config.globbing">fair.user_config.globbing module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#module-fair.user_config.validation">fair.user_config.validation module</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#module-fair.user_config">Module contents</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#fair-user-config-globbing-module">fair.user_config.globbing module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#fair-user-config-validation-module">fair.user_config.validation module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#module-contents">Module contents</a></li>
 </ul>
 </li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="fair.html#submodules">Submodules</a></li>
-<li class="toctree-l2"><a class="reference internal" href="fair.html#module-fair.cli">fair.cli module</a></li>
-<li class="toctree-l2"><a class="reference internal" href="fair.html#module-fair.common">fair.common module</a></li>
-<li class="toctree-l2"><a class="reference internal" href="fair.html#module-fair.exceptions">fair.exceptions module</a></li>
-<li class="toctree-l2"><a class="reference internal" href="fair.html#module-fair.history">fair.history module</a></li>
-<li class="toctree-l2"><a class="reference internal" href="fair.html#module-fair.identifiers">fair.identifiers module</a></li>
-<li class="toctree-l2"><a class="reference internal" href="fair.html#module-fair.logging">fair.logging module</a></li>
-<li class="toctree-l2"><a class="reference internal" href="fair.html#module-fair.register">fair.register module</a></li>
-<li class="toctree-l2"><a class="reference internal" href="fair.html#module-fair.run">fair.run module</a></li>
-<li class="toctree-l2"><a class="reference internal" href="fair.html#module-fair.session">fair.session module</a></li>
-<li class="toctree-l2"><a class="reference internal" href="fair.html#module-fair.staging">fair.staging module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="fair.html#fair-cli-module">fair.cli module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="fair.html#fair-common-module">fair.common module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="fair.html#fair-exceptions-module">fair.exceptions module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="fair.html#fair-history-module">fair.history module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="fair.html#fair-identifiers-module">fair.identifiers module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="fair.html#fair-logging-module">fair.logging module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="fair.html#fair-register-module">fair.register module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="fair.html#fair-run-module">fair.run module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="fair.html#fair-session-module">fair.session module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="fair.html#fair-staging-module">fair.staging module</a></li>
 <li class="toctree-l2"><a class="reference internal" href="fair.html#module-fair.testing">fair.testing module</a></li>
-<li class="toctree-l2"><a class="reference internal" href="fair.html#module-fair.utilities">fair.utilities module</a></li>
-<li class="toctree-l2"><a class="reference internal" href="fair.html#module-fair.virtualenv">fair.virtualenv module</a></li>
-<li class="toctree-l2"><a class="reference internal" href="fair.html#module-fair">Module contents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="fair.html#fair-utilities-module">fair.utilities module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="fair.html#fair-virtualenv-module">fair.virtualenv module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="fair.html#module-contents">Module contents</a></li>
 </ul>
 </li>
 </ul>
@@ -103,8 +104,8 @@
 <section id="submodules">
 <h2>Submodules<a class="headerlink" href="#submodules" title="Permalink to this heading"></a></h2>
 </section>
-<section id="module-fair.user_config.globbing">
-<span id="fair-user-config-globbing-module"></span><h2>fair.user_config.globbing module<a class="headerlink" href="#module-fair.user_config.globbing" title="Permalink to this heading"></a></h2>
+<section id="fair-user-config-globbing-module">
+<h2>fair.user_config.globbing module<a class="headerlink" href="#fair-user-config-globbing-module" title="Permalink to this heading"></a></h2>
 <section id="user-config-remote-globbing">
 <h3>User Config Remote Globbing<a class="headerlink" href="#user-config-remote-globbing" title="Permalink to this heading"></a></h3>
 <p>Handles the inclusion of wildcards in configuration statements by speaking to
@@ -116,7 +117,9 @@ the local registry and extracting items.</p>
 <li><p>DISPOSABLES: tuple of keys to be removed before adding to config.yaml</p></li>
 </ul>
 </div></blockquote>
-<dl class="py function">
+</section>
+</section>
+<span class="target" id="module-fair.user_config.globbing"></span><dl class="py function">
 <dt class="sig sig-object py" id="fair.user_config.globbing.get_data_product_objects">
 <span class="sig-prename descclassname"><span class="pre">fair.user_config.globbing.</span></span><span class="sig-name descname"><span class="pre">get_data_product_objects</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">registry_token</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">results_list</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">Dict</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">block_type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">version</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">Dict</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#fair.user_config.globbing.get_data_product_objects" title="Permalink to this definition"></a></dt>
 <dd><p>Retrieve results for a wildcard search of a data_product</p>
@@ -160,10 +163,8 @@ the local registry and extracting items.</p>
 </dd></dl>
 
 </section>
-</section>
-</section>
-<section id="module-fair.user_config.validation">
-<span id="fair-user-config-validation-module"></span><h2>fair.user_config.validation module<a class="headerlink" href="#module-fair.user_config.validation" title="Permalink to this heading"></a></h2>
+<section id="fair-user-config-validation-module">
+<h2>fair.user_config.validation module<a class="headerlink" href="#fair-user-config-validation-module" title="Permalink to this heading"></a></h2>
 <section id="user-config-validation">
 <h3>User Config Validation<a class="headerlink" href="#user-config-validation" title="Permalink to this heading"></a></h3>
 <p>validation of the user configuration ‘config.yaml’ to a defined schema. Uses
@@ -186,9 +187,11 @@ pydantic to construct base models which form the components of the configuration
 <li><p>UserConfigModel</p></li>
 </ul>
 </div></blockquote>
-<dl class="py class">
+</section>
+</section>
+<span class="target" id="module-fair.user_config.validation"></span><dl class="py class">
 <dt class="sig sig-object py" id="fair.user_config.validation.Author">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fair.user_config.validation.</span></span><span class="sig-name descname"><span class="pre">Author</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">author</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">identifier</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'9433a717-7334-42b0-ad29-1a4c9be64d79'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#fair.user_config.validation.Author" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fair.user_config.validation.</span></span><span class="sig-name descname"><span class="pre">Author</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">author</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">identifier</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'073c6bea-3969-4d59-818b-bdba7917e4c9'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#fair.user_config.validation.Author" title="Permalink to this definition"></a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">BaseModel</span></code></p>
 <dl class="py class">
 <dt class="sig sig-object py" id="fair.user_config.validation.Author.Config">
@@ -625,10 +628,8 @@ pydantic to construct base models which form the components of the configuration
 </dd></dl>
 
 </section>
-</section>
-</section>
-<section id="module-fair.user_config">
-<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-fair.user_config" title="Permalink to this heading"></a></h2>
+<section id="module-contents">
+<h2>Module contents<a class="headerlink" href="#module-contents" title="Permalink to this heading"></a></h2>
 <section id="user-config-management">
 <h3>User Config Management<a class="headerlink" href="#user-config-management" title="Permalink to this heading"></a></h3>
 <p>Contains classes for the parsing and preparation of the user’s ‘config.yaml’
@@ -652,7 +653,9 @@ prior to the execution of a run or synchronisation</p>
 <li><p>JobConfiguration: handles the setup of the configuration file</p></li>
 </ul>
 </div></blockquote>
-<dl class="py class">
+</section>
+</section>
+<span class="target" id="module-fair.user_config"></span><dl class="py class">
 <dt class="sig sig-object py" id="fair.user_config.JobConfiguration">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fair.user_config.</span></span><span class="sig-name descname"><span class="pre">JobConfiguration</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config_yaml</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#fair.user_config.JobConfiguration" title="Permalink to this definition"></a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">MutableMapping</span></code></p>
@@ -865,8 +868,6 @@ repository and updates assigning any keys</p>
 
 </dd></dl>
 
-</section>
-</section>
 </section>
 </section>
 
