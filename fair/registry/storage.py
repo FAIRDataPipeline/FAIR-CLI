@@ -819,12 +819,25 @@ def check_if_object_exists(
     return "hash_match" if check_match(file_loc, _storage_objs) else _results
 
 def get_upload_url(
-    file_hash: str,
+    file_loc: str,
     remote_uri: str = None,
     remote_token: str = None,
 ) -> str:
+    file_hash = calculate_file_hash(file_loc)
     if not remote_uri: 
         remote_uri = fdp_conf.get_remote_token()
     if not remote_token:
         remote_token = fdp_conf.get_remote_token()
-    return fdp_req.post_upload_url(remote_uri, remote_token, file_hash)
+    return fdp_req.post_upload_url(remote_uri, remote_token, file_hash)['url']
+
+def upload_remote_file(
+    file_loc: str,
+    remote_uri = None,
+    remote_token = None,
+):
+    if not os.path.exists(file_loc):
+        raise fdp_exc.FileNotFoundError(f'File: {file_loc} does not exist')
+    _upload_url = get_upload_url(file_loc, remote_uri, remote_token)
+    logger.debug(f"Uploading to URL: {_upload_url}")
+    print(f"Uploading to URL: {_upload_url}")
+    fdp_req.post_file(_upload_url, file_loc)

@@ -39,6 +39,7 @@ import shutil
 import typing
 import uuid
 import platform
+import traceback
 
 import click
 import git
@@ -363,8 +364,23 @@ class FAIR:
             True, "data_product"
         )
 
-        if not _staged_data_products:
+        _staged_code_runs = self._stager.get_item_list(
+            True, "code_run"
+        )
+
+        if not _staged_data_products or not _staged_code_runs:
             click.echo("Nothing to push.")
+
+        fdp_sync.sync_code_runs(
+            origin_uri=fdp_conf.get_local_uri(),
+            dest_uri=fdp_conf.get_remote_uri(self._session_loc, remote),
+            dest_token=fdp_conf.get_remote_token(
+                self._session_loc, remote, local=self._local
+            ),
+            origin_token=fdp_req.local_token(),
+            remote_label=remote,
+            code_runs=_staged_code_runs,
+        )
 
         fdp_sync.sync_data_products(
             origin_uri=fdp_conf.get_local_uri(),
@@ -378,6 +394,11 @@ class FAIR:
         )
 
         self._session_config.write_log_lines(
+            [f"Pushing code_run(s) to remote '{remote}':"]
+            + [f"\t- {code_run}" for code_run in _staged_code_runs]
+        )
+
+        self._session_config.write_log_lines(
             [f"Pushing data products to remote '{remote}':"]
             + [f"\t- {data_product}" for data_product in _staged_data_products]
         )
@@ -385,6 +406,10 @@ class FAIR:
         self._post_job_breakdown()
 
         # When push successful unstage data products again
+        for code_run in _staged_code_runs:
+            self._stager.change_stage_status(
+                code_run, "code_run", False
+            )
         for data_product in _staged_data_products:
             self._stager.change_stage_status(
                 data_product, "data_product", False
@@ -610,7 +635,7 @@ class FAIR:
     def change_staging_state(
         self,
         identifier: str,
-        type_to_stage: str = "data_product",
+        job: bool = False,
         stage: bool = True,
     ) -> None:
         """Change the staging status of a given run
@@ -623,10 +648,57 @@ class FAIR:
             whether to stage/unstage run, by default True (staged)
         """
         self.check_is_repo()
-        if type_to_stage == "data_product":
-            self._stager.change_stage_status(identifier, type_to_stage, stage)
-        else:
+        type_to_stage = self.get_type_to_stage(identifier, job)
+        if type_to_stage == "job":
             self._stager.change_job_stage_status(identifier, stage)
+        else:
+            self._stager.change_stage_status(identifier, type_to_stage, stage)
+
+    def get_type_to_stage(self, identifier, job: bool = False) ->str:
+        if ":" in identifier and "@" in identifier:
+            return "data_product"
+        elif job:
+            return "job"
+        else:
+            return "code_run"
+
+    def add_to_staging(self, identifier):
+        item_type = self.get_type_to_stage(identifier)
+        if self._stager.is_in_staging_dict(identifier, item_type):
+            self.change_staging_state(identifier)
+        elif self.is_staging_item_in_registry(identifier, item_type):
+            self._stager.add_to_staging(identifier, item_type)
+            self.change_staging_state(identifier)
+        else:
+            raise fdp_exc.StagingError(
+                f"Cannot stage '{item_type}' with label '{identifier}', "
+                "item does not exist in staging or local registry."
+            )
+
+    def is_staging_item_in_registry(self, identifier, item_type) -> bool:
+        local_uri = fdp_conf.get_local_uri()        
+        local_token = fdp_req.local_token()
+
+        if item_type == "data_product":
+            namespace, name, version = re.split("[:@]", identifier)
+            # Get the destination namespace
+            _namespace = fdp_req.get(local_uri, "namespace", local_token, params={"name": namespace})
+            if not _namespace:
+                return False
+            _namespace_url = _namespace[0]["url"]
+            # get the data_product
+            _data_product = fdp_req.get(local_uri, "data_product", local_token, params= {
+                "name": name,
+                "version": version.replace("v", ""),
+                "namespace": fdp_req.get_obj_id_from_url(_namespace_url)
+            })
+            if _data_product: 
+                return True
+        elif item_type == "code_run":
+            _local_code_run = fdp_req.get(local_uri, "code_run", local_token , params={"uuid": identifier})
+            if _local_code_run:
+                return True
+        return False
 
     def remove_job(self, job_id: str, cached: bool = False) -> None:
         """Remove a job from tracking
@@ -741,6 +813,41 @@ class FAIR:
         if not _unstaged_data_products and not _staged_data_products:
             click.echo("No DataProducts marked for tracking.")
 
+    def status_code_runs(self) -> None:
+        """Get the stageing status of code_run(s)"""
+        self._logger.debug("Getting code_run(s) staging status")
+        self.check_is_repo()
+
+        self._stager.update_code_run_staging()
+        _staged_code_runs = self._stager.get_item_list(
+            True, "code_run"
+        )
+        _unstaged_code_runs = self._stager.get_item_list(
+            False, "code_run"
+        )
+
+        if _staged_code_runs:
+            self.show_code_runs(
+                _staged_code_runs,
+                "Changes to be synchronized",
+            )
+
+        if _unstaged_code_runs:
+            self.show_code_runs(
+                _unstaged_code_runs,
+                "code_run(s) not staged for synchronization:",
+                style="red",
+            )
+            click.echo(
+                rich.print(
+                    '(use "fair add <code_rub>..." to stage code_run)'
+                )
+            )
+
+        if not _unstaged_code_runs and not _staged_code_runs:
+            click.echo("No code_run(s) marked for tracking.")
+
+
     def show_data_products(
         self, data_products: typing.List[str], title: str, style="green"
     ) -> None:
@@ -765,6 +872,98 @@ class FAIR:
                 )
                 break
         click.echo(console.print(table))
+
+    def get_code_run_description(self, uuid: str)-> str:
+        _local_uri = fdp_conf.get_local_uri()
+        _local_code_run = fdp_req.get(_local_uri, "code_run", fdp_req.local_token(), params={"uuid": uuid})
+        if _local_code_run:
+            return _local_code_run[0]["description"]
+        try:
+            for label in self._local_config["registries"]:
+                _remote_code_run = fdp_req.get(
+                    fdp_conf.get_remote_uri(self._session_loc, label),
+                    "code_run",
+                    fdp_conf.get_remote_token(self._session_loc, label, local=self._local),
+                    params={"uuid": uuid})
+                if _remote_code_run:
+                    return _remote_code_run[0]["description"]
+        except Exception as e:
+            pass
+        return "Unknown"
+
+    def show_code_runs(
+        self, code_runs: typing.List[str], title: str, style="green"
+    ) -> None:
+        console = Console()
+        table = Table(
+            title=title,
+            title_style="bold",
+            title_justify="left",
+            box=rich.box.SIMPLE,
+        )
+        table.add_column("Code Run UUID", style=style, no_wrap=True)
+        table.add_column("Code Run Description", style=style, no_wrap=True)
+        for i, code_run in enumerate(code_runs):
+
+            table.add_row(code_run, self.get_code_run_description(code_run))
+            if i == 9 and i != len(code_runs) - 1:
+                table.add_row(
+                    f"+ {len(code_runs) - i - 1} more...",
+                    "",
+                    "",
+                )
+                break
+        click.echo(console.print(table))
+
+    def show_all_code_runs(self, remote: str = None):
+        _title = "Local Code Runs"
+        _code_run_uuids = []
+        if not remote:
+            _code_runs = fdp_req.get(fdp_conf.get_local_uri(), "code_run", fdp_req.local_token())
+            for code_run in _code_runs:
+                _code_run_uuids.append(code_run["uuid"])
+        else:
+            _title = f"Remote Code Runs on {remote}"
+            try:
+                _remote_code_runs = fdp_req.get(
+                    fdp_conf.get_remote_uri(self._session_loc, remote),
+                    "code_run",
+                    fdp_conf.get_remote_token(self._session_loc, remote, local=self._local),
+                    )
+                if _remote_code_runs:
+                    for _remote_code_run in _remote_code_runs:
+                        _code_run_uuids.append(_remote_code_run["uuid"])
+            except Exception as e:
+                self._logger.warn("Could not Fetch from a remote registry")
+                self._logger.debug(f'{traceback.format_exc()}')
+        _code_run_uuids = list(set(_code_run_uuids))
+        return self.show_code_runs(_code_run_uuids, _title)
+
+    def show_all_data_products(self, remote: str = None):
+        _title = "Local Data Products"
+        _data_products = []
+        if not remote:
+            _local_data_products = fdp_req.get(fdp_conf.get_local_uri(), "data_product", fdp_req.local_token())
+            for data_product in _local_data_products:
+                _namespace_name = fdp_req.url_get(data_product["namespace"], fdp_req.local_token())["name"]
+                _data_products.append(f'{_namespace_name}:{data_product["name"]}@v{data_product["version"]}')
+        else:
+            _title = f"Remote Code Runs on {remote}"
+            try:
+                _remote_data_products = fdp_req.get(
+                    fdp_conf.get_remote_uri(self._session_loc, remote),
+                    "data_product",
+                    fdp_conf.get_remote_token(self._session_loc, remote, local=self._local),
+                    )
+                if _remote_data_products:
+                    for remote_data_product in _remote_data_products:
+                        _namespace_name = fdp_req.url_get(remote_data_product["namespace"], fdp_conf.get_remote_token(self._session_loc, remote, local=self._local))["name"]
+                        _data_products.append(f'{_namespace_name}:{remote_data_product["name"]}@v{remote_data_product["version"]}')
+            except Exception as e:
+                self._logger.warn("Could not Fetch from a remote registry")
+                self._logger.debug(f'{traceback.format_exc()}')
+        _data_products = list(set(_data_products))
+        return self.show_data_products(_data_products, _title)
 
     def status_jobs(self, verbose: bool = False) -> None:
         """Get the staging status of jobs"""

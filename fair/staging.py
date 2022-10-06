@@ -21,6 +21,7 @@ __date__ = "2021-07-13"
 import logging
 import os
 import typing
+import re
 
 import yaml
 
@@ -81,6 +82,7 @@ class Stager:
             "job": {},
             "file": {},
             "data_product": {},
+            "code_run": {},
         }
         yaml.dump(_staging_dict, open(self._staging_file, "w"))
 
@@ -90,7 +92,7 @@ class Stager:
         for obj_type in _staging_dict:
             for item in _staging_dict[obj_type]:
                 _staging_dict[obj_type][item] = False
-        yaml.dump(_staging_dict, open(self._staging_file, "w"))
+        yaml.dump(_staging_dict, open(self._staging_file, "w"))        
 
     def add_to_staging(self, identifier: str, item_type: str) -> None:
         """Add an item to tracking
@@ -126,20 +128,27 @@ class Stager:
                 "Failed to update tracking, expected staging file"
                 f" '{self._staging_file}' but it does not exist"
             )
-
-        # Open the staging dictionary first
-        _staging_dict = yaml.safe_load(open(self._staging_file))
-
-        if identifier not in _staging_dict[item_type]:
+      
+        if not self.is_in_staging_dict(identifier, item_type):
             raise fdp_exc.StagingError(
                 f"Cannot stage '{item_type}' with label '{identifier}', "
                 "item does not exist."
             )
-
+        
+        # Open the staging dictionary first
+        _staging_dict = yaml.safe_load(open(self._staging_file))
         _staging_dict[item_type][identifier] = stage
 
         with open(self._staging_file, "w") as f:
             yaml.dump(_staging_dict, f)
+
+    def is_in_staging_dict(self, identifier, item_type):
+        # Open the staging dictionary first
+        _staging_dict = yaml.safe_load(open(self._staging_file))
+
+        if identifier in _staging_dict[item_type]:
+            return True
+        return False
 
     def change_data_product_stage_status(
         self, data_product_id: str, stage: bool = True
@@ -443,6 +452,24 @@ class Stager:
             key = f"{namespace}:{name}@v{version}"
             if key not in _staging_dict["data_product"]:
                 _staging_dict["data_product"][key] = False
+
+        with open(self._staging_file, "w") as f:
+            yaml.dump(_staging_dict, f)
+
+    def update_code_run_staging(self) -> None:
+        """Update code_run(s) list in staging file."""
+        with open(self._staging_file) as f:
+            _staging_dict = yaml.safe_load(f)
+
+        result = fdp_req.url_get(
+            f"{fdp_com.DEFAULT_LOCAL_REGISTRY_URL}code_run",
+            fdp_req.local_token(),
+        )
+
+        for code_run in result:
+            key = code_run["uuid"]
+            if key not in _staging_dict["code_run"]:
+                _staging_dict["code_run"][key] = False
 
         with open(self._staging_file, "w") as f:
             yaml.dump(_staging_dict, f)

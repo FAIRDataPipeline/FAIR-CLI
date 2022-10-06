@@ -13,6 +13,10 @@ import pytest_mock
 import pytest_virtualenv
 import yaml
 
+import boto3
+import os
+from moto import mock_s3, mock_sqs
+
 import fair.common as fdp_com
 import fair.registry.server as fdp_serv
 import fair.testing as fdp_test
@@ -259,3 +263,26 @@ def remote_registry(session_virtualenv: pytest_virtualenv.VirtualEnv):
             session_virtualenv.env
         )
         yield RegistryTest(tempd, session_virtualenv, port=8001)
+
+@pytest.fixture
+def aws_credentials():
+    """Mocked AWS Credentials for moto."""
+    os.environ["AWS_ACCESS_KEY_ID"] = "testing"
+    os.environ["AWS_SECRET_ACCESS_KEY"] = "testing"
+    os.environ["AWS_SECURITY_TOKEN"] = "testing"
+    os.environ["AWS_SESSION_TOKEN"] = "testing"
+
+@pytest.fixture
+def bucket_name():
+    return "fair-bucket"
+
+@pytest.fixture
+def s3_client(aws_credentials):
+    with mock_s3():
+        conn = boto3.client("s3", region_name="us-east-1")
+        yield conn
+
+@pytest.fixture
+def s3_test(s3_client, bucket_name):
+    s3_client.create_bucket(Bucket=bucket_name)
+    yield

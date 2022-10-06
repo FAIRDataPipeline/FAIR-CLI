@@ -210,7 +210,7 @@ def get_remote_uri(repo_loc: str, remote_label: str = "origin") -> str:
 
     Parameters
     ----------
-    repo_locget_remote_token : str
+    repo_loc : str
         local FAIR repository directory
     remote_label : str, optional
         label of remote to retrieve, default is 'origin'
@@ -706,7 +706,7 @@ def global_config_query(
 
     _loc_data_store = click.prompt(
         "Default Data Store",
-        default=os.path.join(fdp_com.USER_FAIR_DIR, "data/"),
+        default=os.path.join(fdp_com.USER_FAIR_DIR, f"data{os.path.sep}"),
     )
     if _loc_data_store[-1] != os.path.sep:
         _loc_data_store += os.path.sep

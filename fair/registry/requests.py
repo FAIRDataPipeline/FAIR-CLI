@@ -22,7 +22,9 @@ __date__ = "2021-07-02"
 import copy
 import json
 import logging
+import traceback
 import os
+import re
 import shutil
 import tempfile
 import typing
@@ -35,6 +37,10 @@ import simplejson.errors
 import fair.common as fdp_com
 import fair.exceptions as fdp_exc
 import fair.utilities as fdp_util
+
+import ssl
+from requests.adapters import HTTPAdapter
+from urllib3.poolmanager import PoolManager
 
 logger = logging.getLogger("FAIRDataPipeline.Requests")
 
@@ -90,6 +96,8 @@ def _access(
     headers: typing.Dict[str, typing.Any] = None,
     params: typing.Dict = None,
     data: typing.Dict = None,
+    files: typing.Dict = None,
+    trailing_slash = True,
 ):
     if response_codes is None:
         response_codes = [201, 200]
@@ -108,7 +116,10 @@ def _access(
 
     _url = urllib.parse.urljoin(_uri, obj_path) if obj_path else uri
 
-    _url = fdp_util.check_trailing_slash(_url)
+    if trailing_slash:
+        _url = fdp_util.check_trailing_slash(_url)
+    else:
+        _url = fdp_util.remove_trailing_slash(_url)
 
     _headers = copy.deepcopy(headers)
     if token:
@@ -123,6 +134,10 @@ def _access(
         elif method == "post":
             logger.debug("Post data: %s", data)
             _request = requests.post(_url, headers=_headers, data=data)
+        elif method == "patch":
+            logger.debug("Patch data: %s", data)
+            _headers.update({"Content-Type": "application/json"})
+            _request = requests.patch(_url, headers=_headers, data=json.dumps(data))
         else:
             _request = getattr(requests, method)(_url, headers=_headers)
     except requests.exceptions.ConnectionError as e:
@@ -364,8 +379,9 @@ def post_upload_url(
     remote_token: str,
     file_hash: str
 ) -> str:
-    _url = urllib.parse.urljoin(remote_uri, "data", file_hash)
-    return post(_url, None, remote_token)
+    _url = urllib.parse.urljoin(remote_uri, "data/")
+    _url = urllib.parse.urljoin(_url, file_hash)
+    return _access(_url, "post", remote_token, trailing_slash= False)
 
 def filter_object_dependencies(
     uri: str, obj_path: str, token: str, filter: typing.Dict[str, typing.Any]
@@ -463,6 +479,14 @@ def get_writable_fields(
         uri, obj_path, token, {"read_only": False}
     )
 
+def post_file(upload_url: str, file_loc: str):
+    #with open(file_loc, 'rb') as _file:
+    s = requests.Session()
+    s.mount('https://', DESAdapter())
+    _req = s.put(upload_url, data= open(file_loc,'rb').read())
+    if _req.status_code not in [200, 201]:
+        raise fdp_exc.RegistryError(f"File: {file_loc} could not be uploaded, Registry Returned: {_req.status_code}")
+    return True
 
 def download_file(url: str, chunk_size: int = 8192) -> str:
     """Download a file from a given URL
@@ -480,23 +504,36 @@ def download_file(url: str, chunk_size: int = 8192) -> str:
         path of downloaded temporary file
     """
     # Save the data to a temporary file so we can calculate the hash
-    _file, _fname = tempfile.mkstemp()
+    _file = tempfile.NamedTemporaryFile(delete=False)
+    _fname = _file.name
 
-    try:
-        with urllib.request.urlopen(url) as response, open(
-            _file, "wb"
-        ) as out_file:
-            shutil.copyfileobj(response, out_file)
-    except urllib.error.URLError as e:
-        raise fdp_exc.FAIRCLIException(
-            f"Failed to download file '{url}'"
-            f" due to connection error: {e.reason}"
-        ) from e
+    # Copy File if local (Windows fix)
+    if "file://" in url:
+        _local_fname = url.replace("file://", "")
+        try:
+            shutil.copy2(_local_fname, _fname)
+        except Exception as e:
+            raise fdp_exc.FAIRCLIException(
+                f"Failed to download file '{url}'"
+                f" due to connection error: {traceback.format_exc()}"
+            ) from e
+
+    else:
+        try:
+            with urllib.request.urlopen(url) as response, open(
+                _fname, "wb"
+            ) as out_file:
+                shutil.copyfileobj(response, out_file)
+        except urllib.error.URLError as e:
+            raise fdp_exc.FAIRCLIException(
+                f"Failed to download file '{url}'"
+                f" due to connection error: {e.reason}"
+            ) from e
 
     return _fname
 
 
-def get_dependency_listing(uri: str, token: str) -> typing.Dict:
+def get_dependency_listing(uri: str, token: str, read_only: bool = False) -> typing.Dict:
     """Get complete listing of all objects and their registry based dependencies
 
     Parameters
@@ -511,17 +548,21 @@ def get_dependency_listing(uri: str, token: str) -> typing.Dict:
     typing.Dict
         dictionary of object types and their registry based dependencies
     """
-    _registry_objs = url_get(uri, token)
+    try:
+        _registry_objs = url_get(uri, token)
+    except:
+        return {[]}
 
-    return {
+    _rtn =  {
         obj: filter_object_dependencies(
             uri,
             obj,
             token,
-            {"read_only": False, "type": "field", "local": True},
+            {"read_only": read_only, "type": "field", "local": True},
         )
         for obj in _registry_objs
-    }
+        }
+    return _rtn
 
 
 def get_obj_id_from_url(object_url: str) -> int:
@@ -563,3 +604,21 @@ def get_obj_type_from_url(request_url: str, token: str) -> str:
         if obj_type in request_url:
             return obj_type
     return ""
+
+class DESAdapter(HTTPAdapter):
+    """
+    A TransportAdapter that re-enables 3DES support in Requests.
+    """
+    def create_ssl_context(self):
+        ctx = ssl.create_default_context()
+        ctx.maximum_version = ssl.TLSVersion.TLSv1_2
+        ctx.minimum_version = ssl.TLSVersion.TLSv1_2
+        return ctx  
+    def init_poolmanager(self, *args, **kwargs):
+        print(' ----------- DESAdapter.init_poolmanager -------------- ')
+        kwargs['ssl_context'] = self.create_ssl_context()
+        return super(DESAdapter, self).init_poolmanager(*args, **kwargs)
+    def proxy_manager_for(self, *args, **kwargs):
+        print(' ----------- DESAdapter.proxy_manager_for -------------- ')
+        kwargs['ssl_context'] = self.create_ssl_context()
+        return super(DESAdapter, self).proxy_manager_for(*args, **kwargs)
