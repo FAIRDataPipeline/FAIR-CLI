@@ -18,7 +18,6 @@ __date__ = "2021-08-05"
 
 import collections
 import logging
-from msilib.schema import Component
 import os
 import re
 import shutil
