@@ -368,8 +368,11 @@ class FAIR:
             True, "code_run"
         )
 
-        if not _staged_data_products or not _staged_code_runs:
-            click.echo("Nothing to push.")
+        if not _staged_data_products:
+            click.echo("No Data Products to Push.")
+
+        if not _staged_code_runs:
+            click.echo("No Code Runs to Push.")
 
         fdp_sync.sync_code_runs(
             origin_uri=fdp_conf.get_local_uri(),

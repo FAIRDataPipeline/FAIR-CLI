@@ -13,6 +13,7 @@ __date__ = "2021-06-24"
 
 import glob
 import logging
+from multiprocessing import context
 import os
 import pathlib
 import sys
@@ -84,7 +85,8 @@ def complete_jobs(ctx, param, incomplete) -> typing.List[str]:
 
 @click.group()
 @click.version_option(package_name="fair-cli")
-def cli():
+@click.pass_context
+def cli(ctx):
     """Welcome to FAIR-CLI, the FAIR data pipeline command-line interface."""
     pass
 
@@ -107,16 +109,24 @@ def status(verbose, debug) -> None:
         if e.level.lower() == "error":
             sys.exit(e.exit_code)
 
-@cli.group()
-def list() -> None:
-    """Commands to list data_product(s) and code_run(s)"""
-    pass
-
-@list.command()
-@click.option("--verbose/--not-verbose", help="Display URLs", default=False)
+@cli.group(invoke_without_command=True)
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
 @click.option("--remote", help="Show Remote Code Runs", default= "")
-def data_products(verbose, debug, remote) -> None:
+@click.pass_context
+def list(ctx, debug, remote) -> None:
+    """Commands to list data_product(s) and code_run(s)"""
+    if ctx.obj is None:
+        ctx.obj = {}
+    ctx.obj['DEBUG'] = debug
+    ctx.obj['REMOTE'] = remote
+    ctx.invoke(data_products)
+    ctx.invoke(code_runs)
+
+@list.command()
+@click.pass_context
+def data_products(ctx) -> None:
+    debug = ctx.obj['DEBUG']
+    remote = ctx.obj['REMOTE']
     try:
         with fdp_session.FAIR(
             os.getcwd(), debug=debug, server_mode=fdp_svr.SwitchMode.CLI
@@ -130,10 +140,10 @@ def data_products(verbose, debug, remote) -> None:
             sys.exit(e.exit_code)
 
 @list.command()
-@click.option("--verbose/--not-verbose", help="Display URLs", default=False)
-@click.option("--debug/--no-debug", help="Run in debug mode", default=False)
-@click.option("--remote", help="Show Remote Code Runs", default= "")
-def code_runs(verbose, debug, remote) -> None:
+@click.pass_context
+def code_runs(ctx) -> None:
+    debug = ctx.obj['DEBUG']
+    remote = ctx.obj['REMOTE']
     try:
         with fdp_session.FAIR(
             os.getcwd(), debug=debug, server_mode=fdp_svr.SwitchMode.CLI
@@ -715,4 +725,4 @@ def pull(config: str, debug: bool, local: bool):
 
 
 if __name__ in "__main__":
-    cli()
+    cli(obj={})

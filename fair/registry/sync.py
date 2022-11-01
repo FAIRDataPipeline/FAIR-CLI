@@ -21,6 +21,7 @@ import logging
 import os
 import re
 import shutil
+from threading import local
 import typing
 import urllib.parse
 import traceback
@@ -85,7 +86,10 @@ def get_dependency_chain(object_url: str, token: str) -> collections.deque:
 
 
 def pull_all_namespaces(
-    local_uri: str, remote_uri: str, local_token: str, remote_token: str
+    local_uri: str,
+    remote_uri: str,
+    local_token: str,
+    remote_token: str
 ) -> typing.List[str]:
     """Pull all namespaces from a remote registry
 
@@ -142,6 +146,7 @@ def sync_dependency_chain(
     origin_uri: str,
     dest_token: str,
     origin_token: str,
+    local_data_store: str = None,
     public: bool = False,
 ) -> typing.Dict[str, str]:
     """Push an object and all of its dependencies to the remote registry
@@ -161,6 +166,11 @@ def sync_dependency_chain(
         access token for the destination registry
     origin_token : str
         access token for the origin registry
+    local_data_store : optional, str
+        local data store path
+    public : optional, bool
+        is the associated storage_location public, defaults to True
+
 
     Returns
     -------
@@ -206,29 +216,17 @@ def sync_dependency_chain(
 
         logger.debug("Writable local object data: %s", _writable_data)
 
-        # If public replace storage root, storage_location
-        _new_url = None
-        if public:
-            _remote_storage_root_url = urllib.parse.urljoin(dest_uri, "storage_root/1/")
-            if _obj_type == "storage_root":
-                _new_url = _remote_storage_root_url
-            if _obj_type == "storage_location":
-                _storage_location_data = {
-                    "path": _obj_data["hash"],
-                    "hash": _obj_data["hash"],
-                    "storage_root": _remote_storage_root_url
-                }
-                _new_url = fdp_req.post_else_get(dest_uri, _obj_type, dest_token, _storage_location_data)
-        if not _new_url:
-            _new_url = _get_new_url(
-                origin_uri=origin_uri,
-                origin_token=origin_token,
-                dest_uri=dest_uri,
-                dest_token=dest_token,
-                object_url=object_url,
-                new_urls=_new_urls,
-                writable_data=_writable_data,
-            )
+        _new_url = _get_new_url(
+            origin_uri=origin_uri,
+            origin_token=origin_token,
+            dest_uri=dest_uri,
+            dest_token=dest_token,
+            object_url=object_url,
+            new_urls=_new_urls,
+            writable_data=_writable_data,
+            local_data_store = local_data_store,
+            public = public
+        )
 
         if not fdp_util.is_api_url(dest_uri, _new_url):
             raise fdp_exc.InternalError(
@@ -249,7 +247,28 @@ def _get_new_url(
     object_url: str,
     new_urls: typing.Dict,
     writable_data: typing.Dict,
+    local_data_store = None,
+    public = False
 ) -> typing.Tuple[typing.Dict, typing.List]:
+    """Internal Function to return a resgistry entry from the remote registry given an origin entry URL
+    If the entry does not exist it will be created
+
+    Args:
+        origin_uri (str): Url of the origin registry
+        origin_token (str): Token of the origin registry
+        dest_uri (str): Url of the destination registry
+        dest_token (str): Token of the destination registry
+        object_url (str): Url of the destination registry entry
+        new_urls (typing.Dict): If the entry contains registry URLS, a list of remote registry URLs for these
+        writable_data (typing.Dict): Dictionary of writable fields for the given entity type
+
+    Raises:
+        fdp_exc.RegistryError: If the given new_urls are not valid for the entry a RegistryError will be raised
+        fdp_exc.InternalError: If the origin url and the destination URLs are the same an InternalError with be raised
+
+    Returns:
+        typing.Tuple[typing.Dict, typing.List]: A tuple containing the destination registry entity
+    """
     _new_obj_data: typing.Dict[str, typing.Any] = {}
     _url_fields: typing.List[str] = []
 
@@ -296,6 +315,17 @@ def _get_new_url(
     if dest_uri == origin_uri:
         raise fdp_exc.InternalError("Cannot push object to its source address")
 
+     # If public replace storage root, path
+    if public and not local_data_store:
+        _remote_storage_root_url = urllib.parse.urljoin(dest_uri, "storage_root/1/")
+        if _obj_type == "storage_root":
+            return _remote_storage_root_url
+        if "path" in _new_obj_data:
+            _new_obj_data["path"] = _filters["path"] = _new_obj_data["hash"]
+        if "storage_root" in _new_obj_data:
+            _new_obj_data["storage_root"] = _remote_storage_root_url
+            _filters["storage_root"] = fdp_req.get_obj_id_from_url(_remote_storage_root_url)
+
     return fdp_req.post_else_get(
         dest_uri,
         _obj_type,
@@ -313,6 +343,7 @@ def sync_data_products(
     remote_label: str,
     data_products: typing.List[str],
     local_data_store: str = None,
+    force: bool = False,
 ) -> None:
     """Transfer data products from one registry to another
 
@@ -332,6 +363,8 @@ def sync_data_products(
         list of data products to push
     local_data_store : optional, str
         specified when pulling from remote registry to local
+    force : optional, str
+        whether or not to force pusing of a data product if it already exists on the registry, useful if a previous push failed
     """
     for data_product in data_products:
         namespace, name, version = re.split("[:@]", data_product)
@@ -354,7 +387,7 @@ def sync_data_products(
                     "name": name,
                     "version": version.replace("v", ""),
                 },
-            ):
+            ) and not force:
                 click.echo(
                     f"Data product '{data_product}' already present "
                     f"on remote '{remote_label}', ignoring.",
@@ -392,15 +425,13 @@ def sync_data_products(
             )
         result = result[0]
 
-        result_object = fdp_req._access(result["object"], "get", token = origin_token)
-        result_storage_location = fdp_req._access(result_object["storage_location"], "get", token = origin_token)
+        result_object = fdp_req.url_get(result["object"], token = origin_token)
+        result_storage_location = fdp_req.url_get(result_object["storage_location"], token = origin_token)
         _is_public = result_storage_location["public"]
 
-        if _is_public:
-            upload_object(origin_uri, dest_uri, dest_token, origin_token, result_object["url"])
         # if the data_product is an external object sync that first
         if result["external_object"]:
-            result = fdp_req._access(result["external_object"], "get", token = origin_token)
+            result = fdp_req.url_get(result["external_object"], token = origin_token)
 
         sync_dependency_chain(
             object_url=result["url"],
@@ -408,51 +439,78 @@ def sync_data_products(
             origin_uri=origin_uri,
             dest_token=dest_token,
             origin_token=origin_token,
-            public= _is_public
+            local_data_store=local_data_store,
+            public=_is_public
         )
-
+        # If local_data_store assume we're syncing from remote to local
         if local_data_store:
             logger.debug("Retrieving files from remote registry data storage")
-            fetch_data_product(origin_token, local_data_store, result[0])                    
+            fetch_data_product(origin_token, local_data_store, result[0])
+        # Else going from local to remote
+        else:
+            # If the storage location is public upload the files to object storage
+            if _is_public:
+                upload_object(origin_uri, dest_uri, dest_token, origin_token, result_object["url"])                    
 
-        for origin_component_url in result_object["components"]:
-            origin_input_code_runs = fdp_req.get(
-                    origin_uri,
-                    "code_run",
-                    origin_token,
-                    params= {"inputs": fdp_req.get_obj_id_from_url(origin_component_url)}
-                )
-            for origin_input_code_run in origin_input_code_runs:
-                dest_component_url = get_dest_component_url(origin_component_url, dest_uri, dest_token, origin_token)
-                sync_code_run(origin_uri, dest_uri, dest_token, origin_token, origin_input_code_run["uuid"], inputs= [dest_component_url])
-            
-            origin_output_code_runs = fdp_req.get(
-                    origin_uri,
-                    "code_run",
-                    origin_token,
-                    params= {"outputs": fdp_req.get_obj_id_from_url(origin_component_url)}
-                )
-            for origin_output_code_run in origin_output_code_runs:
-                dest_component_url = get_dest_component_url(origin_component_url, dest_uri, dest_token, origin_token)
-                sync_code_run(origin_uri, dest_uri, dest_token, origin_token, origin_output_code_run["uuid"], outputs= [dest_component_url])
+            for origin_component_url in result_object["components"]:
+                origin_input_code_runs = fdp_req.get(
+                        origin_uri,
+                        "code_run",
+                        origin_token,
+                        params= {"inputs": fdp_req.get_obj_id_from_url(origin_component_url)}
+                    )
+                for origin_input_code_run in origin_input_code_runs:
+                    dest_component_url = get_dest_component_url(origin_component_url, dest_uri, dest_token, origin_token)
+                    dest_inputs = [dest_component_url]
+                    dest_inputs += get_dest_inputs(origin_input_code_run["inputs"], origin_uri, dest_uri, dest_token, origin_token, remote_label)
+                    sync_code_run(origin_uri, dest_uri, dest_token, origin_token, origin_input_code_run["uuid"], inputs= dest_inputs)
                 
-def get_dest_component_url(origin_component_url, dest_uri, dest_token, origin_token):
-        origin_component = fdp_req._access(origin_component_url, "get", token= origin_token)
-        dest_object_url = get_dest_object_url(origin_component["object"], dest_uri, dest_token, origin_token)
-        dest_component = fdp_req.get(
-            dest_uri,
-            "object_component",
-            dest_token,
-            params= {
-                "name": origin_component["name"],
-                "object": fdp_req.get_obj_id_from_url(dest_object_url)
-            }
+                origin_output_code_runs = fdp_req.get(
+                        origin_uri,
+                        "code_run",
+                        origin_token,
+                        params= {"outputs": fdp_req.get_obj_id_from_url(origin_component_url)}
+                    )
+                for origin_output_code_run in origin_output_code_runs:
+                    dest_component_url = get_dest_component_url(origin_component_url, dest_uri, dest_token, origin_token)
+                    dest_inputs = get_dest_inputs(origin_output_code_run["inputs"], origin_uri, dest_uri, dest_token, origin_token, remote_label, force)
+                    sync_code_run(origin_uri, dest_uri, dest_token, origin_token, origin_output_code_run["uuid"], inputs= dest_inputs, outputs= [dest_component_url])
+                    
+def get_dest_component_url(
+    origin_component_url: str,
+    dest_uri: str,
+    dest_token:str,
+    origin_token:str) -> str:
+    """Get the destination component url for the given origin component url
+
+    Args:
+        origin_component_url (str): Url of the origin component
+        dest_uri (str): Destination api uri
+        dest_token (str): Destination Token
+        origin_token (str): Origin Token
+
+    Raises:
+        fdp_exc.RegistryError: If the destination component does not exist a RegistryError will be raised
+
+    Returns:
+        str: Url of the destination component
+    """
+    origin_component = fdp_req.url_get(origin_component_url, token= origin_token)
+    dest_object_url = get_dest_object_url(origin_component["object"], dest_uri, dest_token, origin_token)
+    dest_component = fdp_req.get(
+        dest_uri,
+        "object_component",
+        dest_token,
+        params= {
+            "name": origin_component["name"],
+            "object": fdp_req.get_obj_id_from_url(dest_object_url)
+        }
+    )
+    if not dest_component:
+        raise fdp_exc.RegistryError(
+            f'Failed to access component with object: {fdp_req.get_obj_id_from_url(dest_object_url)} and name {origin_component["name"]} on remote registry'
         )
-        if not dest_component:
-            raise fdp_exc.RegistryError(
-                f'Failed to access component with object: {fdp_req.get_obj_id_from_url(dest_object_url)} and name {origin_component["name"]} on remote registry'
-            )
-        return dest_component[0]["url"]
+    return dest_component[0]["url"]
 
 def sync_code_runs(
     origin_uri: str,
@@ -462,6 +520,7 @@ def sync_code_runs(
     remote_label: str,
     code_runs: typing.List[str],
     local_data_store: str = None,
+    force: bool = False,
 ) -> None:
     """Transfer data code_run(s) from one registry to another
 
@@ -481,6 +540,8 @@ def sync_code_runs(
         list of code_run(s) to push
     local_data_store : optional, str
         specified when pulling from remote registry to local
+    force : optional, bool
+        whether or not to force pusing of any data_products if they already exist on the registry, useful if a previous push failed
     """
     for code_run_uuid in code_runs:
         _code_run = fdp_req.get(origin_uri, "code_run", origin_token, params = {"uuid": code_run_uuid})
@@ -500,8 +561,8 @@ def sync_code_runs(
 
         # get the associated data_product urls
         for component in _components:
-            object_url = fdp_req._access(component, "get", origin_token)["object"]
-            object = fdp_req._access(object_url, "get", origin_token)
+            object_url = fdp_req.url_get(component, origin_token)["object"]
+            object = fdp_req.url_get(object_url, origin_token)
             if component in _input_components:
                 _origin_input_data_products += object["data_products"]
             if component in _output_components:
@@ -514,31 +575,22 @@ def sync_code_runs(
         _dest_outputs = []
         # Get and sync the original data products to the remote registry
         for _origin_data_product_url in _origin_data_products:
-            _origin_data_product = fdp_req._access(_origin_data_product_url, "get", origin_token)
-            if not _origin_data_product:
-                raise fdp_exc.RegistryError(
-                    f"Failed to access {_origin_data_product} on local registry'"
-                )
-            _namespace = fdp_req._access(_origin_data_product["namespace"], "get", origin_token)
-            if not _namespace:
-                raise fdp_exc.RegistryError(
-                    f'Failed to access {_origin_data_product["namespace"]} on local registry'
-                )
-            _data_product_formatted = f'{_namespace["name"]}:{_origin_data_product["name"]}@v{_origin_data_product["version"]}'
+            _data_product_formatted = format_data_product(_origin_data_product_url, origin_token)
             if _origin_data_product_url in _origin_input_data_products:
                 _inputs_data_products.append(_data_product_formatted)
             if _origin_data_product_url in _origin_output_data_products:
                 _outputs_data_products.append(_data_product_formatted)
         _origin_data_products_formatted = _inputs_data_products + _outputs_data_products
         #logger.info(f"data_products: {_origin_data_products_formatted}")
-        # Sync all the data products accosiated with the code run
+        # Sync all the data products associated with the code run
         sync_data_products(origin_uri,
             dest_uri,
             dest_token, 
             origin_token, 
             remote_label, 
             _origin_data_products_formatted, 
-            local_data_store)
+            local_data_store,
+            force)
 
         # Iterate through formatted objects and get their new values from the remote registry
         for _origin_data_product_formatted in _origin_data_products_formatted:
@@ -560,7 +612,7 @@ def sync_code_runs(
                 raise fdp_exc.RegistryError(
                     f'Failed to access data_product: {name} on remote registry'
                 )
-            _dest_object = fdp_req._access(_dest_data_product[0]["object"], "get", dest_token)
+            _dest_object = fdp_req.url_get(_dest_data_product[0]["object"], dest_token)
             if _origin_data_product_formatted in _inputs_data_products:
                 _dest_inputs += _dest_object["components"]
             if _origin_data_product_formatted in _outputs_data_products:
@@ -569,9 +621,29 @@ def sync_code_runs(
         sync_code_run(origin_uri, dest_uri, dest_token, origin_token, code_run_uuid, _dest_inputs, _dest_outputs)
 
 # Internal function to return the (remote) object associated with a code_run field containing and object url
-def get_dest_object_url(origin_object_url, dest_uri, dest_token, origin_token)->str:
-    _origin_object_storage_location = fdp_req._access(origin_object_url, "get", origin_token)["storage_location"]
-    _model_object_hash = fdp_req._access(_origin_object_storage_location, "get", origin_token)["hash"]
+def get_dest_object_url(
+    origin_object_url: str,
+    dest_uri: str,
+    dest_token: str,
+    origin_token: str)->str:
+    """Get the destination object url for a given origin object url
+    Assumes the Object has already been synced and is on the remote registry
+
+    Args:
+        origin_object_url (str): Url of the origin object
+        dest_uri (str): Destination registry URL
+        dest_token (str): Token for the Destination Registry
+        origin_token (str): Token for the Origin Registry
+
+    Raises:
+        fdp_exc.RegistryError: If the object does not have a storage location an RegistryError will be raised
+        fdp_exc.RegistryError: If the destination object does exist an RegistryError will be raised
+
+    Returns:
+        str: URL of the destination object
+    """
+    _origin_object_storage_location = fdp_req.url_get(origin_object_url, origin_token)["storage_location"]
+    _model_object_hash = fdp_req.url_get(_origin_object_storage_location, origin_token)["hash"]
     _dest_object_storage_location = fdp_req.get(dest_uri, "storage_location", dest_token, params={"hash": _model_object_hash})
     if not _dest_object_storage_location:
         raise fdp_exc.RegistryError(
@@ -585,7 +657,31 @@ def get_dest_object_url(origin_object_url, dest_uri, dest_token, origin_token)->
             )
     return _dest_object[0]["url"]
 
-def sync_code_run(origin_uri, dest_uri, dest_token, origin_token, code_run_uuid, inputs = [], outputs = []):
+def sync_code_run(
+    origin_uri: str,
+    dest_uri: str,
+    dest_token: str,
+    origin_token: str,
+    code_run_uuid: str,
+    inputs = [],
+    outputs = []) -> typing.Dict:
+    """_summary_
+
+    Args:
+        origin_uri (str): Origin registry URL
+        dest_uri (str): Destination registry URL
+        dest_token (str): Destingation token
+        origin_token (str): Origin token
+        code_run_uuid (str): Code Run UUID
+        inputs (list, optional): list of destination component urls to use as inputs Defaults to [].
+        outputs (list, optional): list of destination component urls to use as outputs Defaults to [].
+
+    Raises:
+        fdp_exc.RegistryError: If the code run does not exist on the origin registry a RegistryError is raised
+
+    Returns:
+        typing.Dict: A dictionary containing the resulting destination code run 
+    """
     code_run = fdp_req.get(origin_uri, "code_run", origin_token, params = {"uuid": code_run_uuid})
     if not code_run:
         raise fdp_exc.RegistryError(
@@ -658,6 +754,117 @@ def sync_code_run(origin_uri, dest_uri, dest_token, origin_token, code_run_uuid,
                 "uuid": code_run["uuid"]
             })
         return dest_code_run
+
+def is_component_public(component_url: str, token: str) -> bool:
+    """Checks whether component is linked with a storage location and whether or not that is public
+
+    Args:
+        component_url (str): The full component url
+        token (str): Token for the relevent registry
+
+    Returns:
+        bool: True if the component has an object and that object's storage location is public else false
+    """
+    component = fdp_req.url_get(component_url, token)
+    if not component["object"]:
+        return False
+    object = fdp_req.url_get(component["object"], token)
+    if not object["storage_location"]:
+        return False
+    storage_location = fdp_req.url_get(object["storage_location"], token)
+    if not storage_location:
+        return False
+    return storage_location["public"]  
+
+def get_data_products_from_component(component_url: str, token: str) -> typing.List:
+    """Returns data_products association with a component (url)
+
+    Args:
+        component_url (str): Full URL of the component
+        token (str): Token for the relevent registry
+
+    Returns:
+        typing.List: A list of data_product URLs related to the component
+    """
+    component = fdp_req.url_get(component_url, token)
+    object_ = fdp_req.url_get(component["object"], token)
+    return object_["data_products"]
+
+def format_data_product_list(data_product_urls: typing.List, token: str) -> typing.List:
+    """Returns a string formated list for a given list of data_product URLs
+    String is formated like so: {namespace_name}:{data_product_name}@v{data_product_version}
+
+    Args:
+        data_product_urls (typing.List): List of Full data_product URLS
+        token (str): Token for the relevent registry
+
+    Returns:
+        typing.List: A list of formatted data_products as strings in the format: {namespace_name}:{data_product_name}@v{data_product_version}
+    """
+    rtn = []
+    for data_product_url in data_product_urls:
+        data_product = fdp_req.url_get(data_product_url, token)
+        namespace = fdp_req.url_get(data_product["namespace"], token)
+        rtn.append(f'{namespace["name"]}:{data_product["name"]}@v{data_product["version"]}')
+    return rtn
+
+def format_data_product(data_product_url: str, token: str) -> str:
+    """Retuns a formatted string for a given data_product Url
+    String is formated like so: {namespace_name}:{data_product_name}@v{data_product_version}
+
+    Args:
+        data_product_url (str): data_product url
+        token (str): token to the relevent regisrty
+
+    Returns:
+        str: formatted data_product as string in the format: {namespace_name}:{data_product_name}@v{data_product_version}
+    """
+    return(format_data_product_list([data_product_url], token)[0])
+
+def get_dest_inputs(origin_inputs: typing.List, 
+    origin_uri: str,
+    dest_uri: str,
+    dest_token: str,
+    origin_token: str,
+    remote_label: str,
+    force: bool = False) -> list:
+    """Returns a list of input component urls on the destination registry
+     from a given list of input component urls from the origin registry
+     assumes the destination componets already exists in the remote registry
+
+    Args:
+        origin_inputs (typing.List): list of object_component urls from the origin registry
+        origin_uri (str): Origin registry URL
+        dest_uri (str): Destination registry URL
+        dest_token (str): Destination Token
+        origin_token (str): Origin Token
+        remote_label (str): Remote label of the registry as define in the config yaml
+        force (str): whether or not to force pusing of data_products when the already exist on the destination registry
+
+    Returns:
+        list: A list of destination input component URLS
+    """
+    dest_inputs = []
+    for origin_input in origin_inputs:
+        component_data_products = get_data_products_from_component(origin_input, origin_token)
+        if component_data_products:
+            sync_data_products(origin_uri, dest_uri, dest_token, origin_token, remote_label, format_data_product_list(component_data_products, origin_token), force= force)
+            for data_product_url in component_data_products:
+                origin_data_product_object_url = fdp_req.url_get(data_product_url, origin_token)["object"]
+                dest_object_url = get_dest_object_url(origin_data_product_object_url, dest_uri, dest_token, origin_token)
+                dest_object = fdp_req.url_get(dest_object_url, dest_token)
+                dest_inputs += (dest_object["components"])                             
+        else:
+            sync_dependency_chain(
+                object_url=origin_input,
+                dest_uri=dest_uri,
+                origin_uri=origin_uri,
+                dest_token=dest_token,
+                origin_token=origin_token,
+                public= is_component_public(origin_input, origin_token)
+                )
+            dest_inputs.append(get_dest_component_url(origin_input, dest_uri, dest_token, origin_token))
+    return dest_inputs
 
 def fetch_data_product(
     remote_token: str, local_data_store: str, data_product: typing.Dict
@@ -779,7 +986,7 @@ def upload_object(origin_uri:str, dest_uri:str, dest_token:str, origin_token:str
     """
     Upload a file from the remote registry given the object url.
 
-    This function only preduces a warning if the file cannot be uploaded
+    This function only preduces a warning if the file cannot be uploaded, allowing the file to be uploaded manually afterwards
 
     Parameters
     ----------
@@ -800,12 +1007,12 @@ def upload_object(origin_uri:str, dest_uri:str, dest_token:str, origin_token:str
         was the file successfully uploaded
 
     """
-    _object = fdp_req._access(object_url, "get", origin_token)
+    _object = fdp_req.url_get(object_url, origin_token)
     if not _object["storage_location"]:
         logger.warn(f'File upload error: {object_url} ({_object["description"]}) has no storage_location')
         return False
-    _object_storage_location = fdp_req._access(_object["storage_location"], "get", origin_token)
-    _object_storage_location_root = fdp_req._access(_object_storage_location["storage_root"], "get", origin_token)
+    _object_storage_location = fdp_req.url_get(_object["storage_location"], origin_token)
+    _object_storage_location_root = fdp_req.url_get(_object_storage_location["storage_root"], origin_token)
     _file_loc = download_from_registry(origin_uri, _object_storage_location_root["root"], _object_storage_location["path"])
     try:
         fdp_store.upload_remote_file(_file_loc, dest_uri, dest_token)

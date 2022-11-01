@@ -265,7 +265,6 @@ def url_get(url: str, token: str) -> typing.Dict:
     """
     return _access(url, "get", token)
 
-
 def get(
     uri: str,
     obj_path: str,
@@ -379,6 +378,16 @@ def post_upload_url(
     remote_token: str,
     file_hash: str
 ) -> str:
+    """Function to get a tempory url to upload and object to
+
+    Args:
+        remote_uri (str): Remote registry URL
+        remote_token (str): Remote token
+        file_hash (str): Hash of the file to be uploaded
+
+    Returns:
+        str: A tempory url to upload the object to
+    """
     _url = urllib.parse.urljoin(remote_uri, "data/")
     _url = urllib.parse.urljoin(_url, file_hash)
     return _access(_url, "post", remote_token, trailing_slash= False)
@@ -479,10 +488,21 @@ def get_writable_fields(
         uri, obj_path, token, {"read_only": False}
     )
 
-def post_file(upload_url: str, file_loc: str):
-    #with open(file_loc, 'rb') as _file:
+def put_file(upload_url: str, file_loc: str) -> bool:
+    """Upload a file to a given url using put
+    Currently forces the use of TLS 1.2
+
+    Args:
+        upload_url (str): URL of where to send the put request to
+        file_loc (str): Location of the file to be uploaded
+
+    Raises:
+        fdp_exc.RegistryError: If the upload fails a RegistryError will be raised
+
+    Returns:
+        bool: Will return True if the upload succeeded.
+    """
     s = requests.Session()
-    s.mount('https://', DESAdapter())
     _req = s.put(upload_url, data= open(file_loc,'rb').read())
     if _req.status_code not in [200, 201]:
         raise fdp_exc.RegistryError(f"File: {file_loc} could not be uploaded, Registry Returned: {_req.status_code}")
@@ -604,21 +624,3 @@ def get_obj_type_from_url(request_url: str, token: str) -> str:
         if obj_type in request_url:
             return obj_type
     return ""
-
-class DESAdapter(HTTPAdapter):
-    """
-    A TransportAdapter that re-enables 3DES support in Requests.
-    """
-    def create_ssl_context(self):
-        ctx = ssl.create_default_context()
-        ctx.maximum_version = ssl.TLSVersion.TLSv1_2
-        ctx.minimum_version = ssl.TLSVersion.TLSv1_2
-        return ctx  
-    def init_poolmanager(self, *args, **kwargs):
-        print(' ----------- DESAdapter.init_poolmanager -------------- ')
-        kwargs['ssl_context'] = self.create_ssl_context()
-        return super(DESAdapter, self).init_poolmanager(*args, **kwargs)
-    def proxy_manager_for(self, *args, **kwargs):
-        print(' ----------- DESAdapter.proxy_manager_for -------------- ')
-        kwargs['ssl_context'] = self.create_ssl_context()
-        return super(DESAdapter, self).proxy_manager_for(*args, **kwargs)
