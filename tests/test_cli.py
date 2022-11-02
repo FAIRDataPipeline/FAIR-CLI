@@ -57,7 +57,7 @@ def test_status(
     with open(
         os.path.join(local_config[1], fdp_com.FAIR_FOLDER, "staging"), "w"
     ) as staged:
-        yaml.dump({"job": {}, "data_product": {}}, staged)
+        yaml.dump({"job": {}, "data_product": {}, "code_run": {}}, staged)
     mocker.patch(
         "fair.run.get_job_dir", lambda x: os.path.join(os.getcwd(), "jobs", x)
     )
