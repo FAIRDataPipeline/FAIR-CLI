@@ -72,6 +72,7 @@ def test_status(
         },
         "file": {},
         "data_product": {},
+        "code_run": {}
     }
 
     _urls_list = {i: "https://dummyurl.com" for i in _dummy_job_staging["job"]}
