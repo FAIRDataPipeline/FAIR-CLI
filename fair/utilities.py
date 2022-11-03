@@ -180,7 +180,7 @@ def check_trailing_slash(string: str):
 
 def remove_trailing_slash(string: str):
     if string[-1] == "/":
-        string.rstrip(string[-1])
+        string = string.rstrip(string[-1])
     return string
 
 def is_api_url(uri: str, string: str) -> bool:
