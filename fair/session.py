@@ -937,7 +937,7 @@ class FAIR:
                     for _remote_code_run in _remote_code_runs:
                         _code_run_uuids.append(_remote_code_run["uuid"])
             except Exception as e:
-                self._logger.warn("Could not Fetch from a remote registry")
+                self._logger.warning("Could not Fetch from a remote registry")
                 self._logger.debug(f'{traceback.format_exc()}')
         _code_run_uuids = list(set(_code_run_uuids))
         return self.show_code_runs(_code_run_uuids, _title)
@@ -963,7 +963,7 @@ class FAIR:
                         _namespace_name = fdp_req.url_get(remote_data_product["namespace"], fdp_conf.get_remote_token(self._session_loc, remote, local=self._local))["name"]
                         _data_products.append(f'{_namespace_name}:{remote_data_product["name"]}@v{remote_data_product["version"]}')
             except Exception as e:
-                self._logger.warn("Could not Fetch from a remote registry")
+                self._logger.warning("Could not Fetch from a remote registry")
                 self._logger.debug(f'{traceback.format_exc()}')
         _data_products = list(set(_data_products))
         return self.show_data_products(_data_products, _title)

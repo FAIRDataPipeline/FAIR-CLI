@@ -28,6 +28,7 @@ import re
 import shutil
 import tempfile
 import typing
+import platform
 import urllib.parse
 import urllib.request
 
@@ -230,7 +231,7 @@ def post(
 
     for param, value in data.copy().items():
         if not value:
-            logger.warning(
+            logger.info(
                 f"Key in post data '{param}' has no value so will be ignored"
             )
             del data[param]
@@ -528,7 +529,7 @@ def download_file(url: str, chunk_size: int = 8192) -> str:
     _fname = _file.name
 
     # Copy File if local (Windows fix)
-    if "file://" in url:
+    if "file://" in url and platform.system() == "Windows":
         _local_fname = url.replace("file://", "")
         try:
             shutil.copy2(_local_fname, _fname)

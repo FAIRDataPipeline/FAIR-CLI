@@ -15,17 +15,32 @@ from fair.common import FAIR_FOLDER
 from fair.virtualenv import FAIREnv
 
 FAIR_REGISTRY_REPO = "https://github.com/FAIRDataPipeline/data-registry.git"
+TEST_DRAMS_FILE = os.path.join(
+        os.path.dirname(__file__), "data", "registry-test-settings.py"
+        )
+TEST_DRAMS = "drams.registry-test-settings"
+CONFIG_INI = os.path.join(
+        os.path.dirname(__file__), "data", "config.ini"
+    )
 
 
-def django_environ(environ: typing.Dict = os.environ):
+def django_environ(environ: typing.Dict = os.environ, remote:bool = False):
     _environ = environ.copy()
-    _environ["DJANGO_SETTINGS_MODULE"] = "drams.local-settings"
     _environ["DJANGO_SUPERUSER_USERNAME"] = "admin"
     _environ["DJANGO_SUPERUSER_PASSWORD"] = "admin"
+    if remote:
+        _environ["DJANGO_SETTINGS_MODULE"] = TEST_DRAMS
+        _environ["FAIR_CONFIG"] = CONFIG_INI
+    else:
+        _environ["DJANGO_SETTINGS_MODULE"] = "drams.local-settings"
     return _environ
 
 
-def rebuild_local(python: str, install_dir: str = None, silent: bool = False):
+def rebuild_local(
+    python: str,
+    install_dir: str = None,
+    silent: bool = False,
+    remote:bool = False):
     if not install_dir:
         install_dir = os.path.join(
             pathlib.Path.home(), FAIR_FOLDER, "registry"
@@ -62,6 +77,7 @@ def rebuild_local(python: str, install_dir: str = None, silent: bool = False):
         ),
         ("collectstatic", "--noinput"),
         ("createsuperuser", "--noinput"),
+        ("set_site_info",)
     ]
 
     for sub in _sub_cmds:
@@ -69,7 +85,7 @@ def rebuild_local(python: str, install_dir: str = None, silent: bool = False):
             [python, _manage, *sub],
             shell=False,
             stdout=subprocess.DEVNULL if silent else None,
-            env=django_environ(),
+            env=django_environ(remote=remote),
         )
 
     if shutil.which("dot"):
@@ -88,11 +104,12 @@ def rebuild_local(python: str, install_dir: str = None, silent: bool = False):
 
 def install_registry(
     repository: str = FAIR_REGISTRY_REPO,
-    reference: str = "",
+    reference: str = "remote-test-registry",
     install_dir: str = None,
     silent: bool = False,
     force: bool = False,
     venv_dir: str = None,
+    remote: bool = False,
 ) -> None:
 
     if not install_dir:
@@ -150,15 +167,25 @@ def install_registry(
         stdout=subprocess.DEVNULL if silent else None,
     )
 
-    rebuild_local(_venv_python, install_dir, silent)
+    if remote:
+        _TEST_DRAMS_FILE = os.path.join(install_dir, "drams", "registry-test-settings.py")
+        shutil.copy2(TEST_DRAMS_FILE, _TEST_DRAMS_FILE)
+        #with open(_TEST_DRAMS_FILE, "a") as _file:
+        #    _file.write("\n")
+        #    _file.write(f'CONFIG_LOCATION = "{CONFIG_INI}"')
+        #print(f'Using Config: {CONFIG_INI}')
+    rebuild_local(_venv_python, install_dir, silent, remote= remote)
 
     print(f"[REGISTRY] Installed registry version '{reference}'")
+    print(f'using: {django_environ(remote = remote)["DJANGO_SETTINGS_MODULE"]}')
 
     return reference
 
-
 def refresh(
-    install_dir: str = None, silent: bool = False, venv_dir: str = None
+    install_dir: str = None,
+    silent: bool = False,
+    venv_dir: str = None,
+    remote: bool = False
 ):
     if not install_dir:
         install_dir = os.path.join(
@@ -174,7 +201,7 @@ def refresh(
 
     _venv_python = shutil.which("python", path=os.path.join(_venv_dir, "bin"))
 
-    rebuild_local(_venv_python, install_dir, silent)
+    rebuild_local(_venv_python, install_dir, silent, remote)
 
 
 def launch(
@@ -182,6 +209,7 @@ def launch(
     port: int = 8000,
     silent: bool = False,
     venv_dir: str = None,
+    remote: bool = False
 ):
     if not install_dir:
         install_dir = os.path.join(
@@ -206,7 +234,7 @@ def launch(
         _process = subprocess.Popen(
             [_venv_python, _manage, "runserver", str(port)],
             stdout=out_f,
-            env=django_environ(),
+            env=django_environ(remote= remote),
             stderr=subprocess.STDOUT,
             shell=False,
         )
@@ -229,17 +257,23 @@ def launch(
     if _req.status_code != 200:
         raise requests.ConnectionError("Error starting local registry")
 
+    _token_path = os.path.join(install_dir, "token")
+    if os.path.isfile(_token_path):
+        os.remove(_token_path)
     with open(os.path.join(install_dir, "token"), "w") as out_f:
         subprocess.check_call(
             [_venv_python, _manage, "get_token"],
             stdout=out_f,
             stderr=subprocess.STDOUT,
-            env=django_environ(),
+            env=django_environ(remote= remote),
             shell=False,
         )
 
     if not os.path.exists(os.path.join(install_dir, "token")):
         raise FileNotFoundError("Expected token file, but none created.")
+    
+    if open(_token_path).read().strip() == "":
+        raise FileNotFoundError("Expected token. but file empty.")
 
     if not silent:
         click.echo(
@@ -294,8 +328,9 @@ def fair_reg():
 )
 @click.option("--port", help="Port to run registry on", default=8000)
 @click.option("--silent/--normal", help="Run in silent mode", default=False)
-def reg_launch(directory, port, silent):
-    launch(directory, port, silent)
+@click.option("--remote--local", help="Run in silent mode", default=False)
+def reg_launch(directory, port, silent, remote):
+    launch(directory, port, silent, remote)
 
 
 @fair_reg.command(name="stop")
@@ -327,13 +362,14 @@ def reg_stop(directory, silent):
 )
 @click.option("--silent/--normal", help="Run in debug mode", default=False)
 @click.option("--force/--no-force", help="Force re-install", default=False)
-def reg_install(repository, head, directory, silent, force):
+@click.option("--remote--local", help="Run in silent mode", default=False)
+def reg_install(repository, head, directory, silent, force, remote):
     if force:
         force = click.confirm(
             f"Are you sure you want to remove directory '{directory}'?",
             default=False,
         )
-    install_registry(repository, head, directory, silent, force)
+    install_registry(repository, head, directory, silent, force, remote= remote)
 
 
 @fair_reg.command(name="refresh")
@@ -343,8 +379,9 @@ def reg_install(repository, head, directory, silent, force):
     help="Install location",
 )
 @click.option("--silent/--normal", help="Run in debug mode", default=False)
-def reg_refresh(directory, silent):
-    refresh(directory, silent)
+@click.option("--remote--local", help="Run in silent mode", default=False)
+def reg_refresh(directory, silent, remote):
+    refresh(directory, silent, remote)
 
 
 if __name__ in "__main__":

@@ -581,7 +581,6 @@ def sync_code_runs(
             if _origin_data_product_url in _origin_output_data_products:
                 _outputs_data_products.append(_data_product_formatted)
         _origin_data_products_formatted = _inputs_data_products + _outputs_data_products
-        #logger.info(f"data_products: {_origin_data_products_formatted}")
         # Sync all the data products associated with the code run
         sync_data_products(origin_uri,
             dest_uri,
@@ -1009,15 +1008,16 @@ def upload_object(origin_uri:str, dest_uri:str, dest_token:str, origin_token:str
     """
     _object = fdp_req.url_get(object_url, origin_token)
     if not _object["storage_location"]:
-        logger.warn(f'File upload error: {object_url} ({_object["description"]}) has no storage_location')
+        logger.warning(f'File upload error: {object_url} ({_object["description"]}) has no storage_location')
         return False
     _object_storage_location = fdp_req.url_get(_object["storage_location"], origin_token)
     _object_storage_location_root = fdp_req.url_get(_object_storage_location["storage_root"], origin_token)
     _file_loc = download_from_registry(origin_uri, _object_storage_location_root["root"], _object_storage_location["path"])
     try:
         fdp_store.upload_remote_file(_file_loc, dest_uri, dest_token)
+        logger.debug(f"File {_file_loc} Uploaded Successfully")
         return True
     except Exception as e:
-        logger.warn(f'File upload error: {_object["description"]} was not uploaded to remote registry please upload the file manually')
+        logger.warning(f'File upload error: {_object["description"]} was not uploaded to remote registry please upload the file manually')
         logger.debug(f'{traceback.format_exc()}')
         return False

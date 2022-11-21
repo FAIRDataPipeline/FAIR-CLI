@@ -1,10 +1,28 @@
 import tempfile
+import os
+import pathlib
+import typing
 
+import click.testing
 import pytest
 import pytest_mock
+import yaml
 
 import fair.registry.sync as fdp_sync
+import fair.registry.server as fdp_serv
+from fair.cli import cli
+from fair.common import FAIR_FOLDER
+from fair.registry.requests import get, url_get
+from tests.conftest import RegistryTest
+from tests.conftest import MotoTestServer
+import fair.session as fdp_session
+import fair.common as fdp_com
+import fair.testing as fdp_test
 
+REPO_ROOT = pathlib.Path(os.path.dirname(__file__)).parent
+PULL_TEST_CFG = os.path.join(
+    os.path.dirname(__file__), "data", "test_pull_config.yaml"
+)
 
 @pytest.mark.faircli_sync
 def test_pull_download():
@@ -81,3 +99,147 @@ def test_fetch_data_product(mocker: pytest_mock.MockerFixture):
         }
 
         fdp_sync.fetch_data_product("", tempd, _example_data_product)
+
+@pytest.mark.faircli_sync
+@pytest.mark.dependency(name="init")
+def test_init(
+    global_config,
+    local_registry,
+    remote_registry,
+    pyDataPipeline: str,
+    monkeypatch_module,
+    capsys,
+):
+    try:
+        import data_pipeline_api  # noqa
+    except ModuleNotFoundError:
+        pytest.skip("Python API implementation not installed")
+    monkeypatch_module.chdir(pyDataPipeline)
+    monkeypatch_module.setattr(
+        "fair.registry.server.launch_server", lambda *args, **kwargs: False
+    )
+    _cli_runner = click.testing.CliRunner()
+    config_path = os.path.join(
+        pyDataPipeline, fdp_com.FAIR_CLI_CONFIG
+    )
+    _config = fdp_test.create_configurations(local_registry._install, pyDataPipeline, remote_registry._install, global_config, True)
+    yaml.dump(_config, open(config_path, "w"))
+    with capsys.disabled():
+        print (_config)
+        print(f"\tRUNNING: fair init --debug")
+    with local_registry, remote_registry:
+        _res = _cli_runner.invoke(
+            cli,
+            ["init", "--debug", "--using", config_path],
+            catch_exceptions = True
+        )
+        with capsys.disabled():
+            print(f'exit code: {_res.exit_code}')
+            print(f'exc info: {_res.exc_info}')
+            print(f'exception: {_res.exception}')
+    assert _res.exit_code == 0
+
+@pytest.mark.faircli_sync
+@pytest.mark.dependency(name="pull", depends= ["init"])
+def test_pull(
+    local_registry,
+    remote_registry,
+    pyDataPipeline: str,
+    capsys,
+):
+    try:
+        import data_pipeline_api  # noqa
+    except ModuleNotFoundError:
+        pytest.skip("Python API implementation not installed")
+    _cli_runner = click.testing.CliRunner()
+    _cfg_path = os.path.join(
+        pyDataPipeline, "simpleModel", "ext", "SEIRSconfig.yaml"
+    )
+    with capsys.disabled():
+        print(f"\tRUNNING: fair pull {_cfg_path} --debug")
+    with local_registry, remote_registry:
+        _res = _cli_runner.invoke(cli, ["pull", _cfg_path, "--debug"])
+    assert _res.exit_code == 0
+
+@pytest.mark.faircli_sync
+@pytest.mark.faircli_run
+@pytest.mark.dependency(name="run", depends=["pull"])
+def test_run(
+    global_config: str,
+    local_registry: str,
+    remote_registry: str,
+    mocker: pytest_mock.MockerFixture,
+    pyDataPipeline: str,
+    capsys
+):
+    try:
+        import data_pipeline_api  # noqa
+    except ModuleNotFoundError:
+        pytest.skip("Python API implementation not installed")
+        
+    _cli_runner = click.testing.CliRunner()
+    with remote_registry, local_registry:
+        _cfg_path = os.path.join(
+                pyDataPipeline, "simpleModel", "ext", "SEIRSconfig.yaml"
+            )
+        with capsys.disabled():
+            print(f"\tRUNNING: fair pull {_cfg_path} --debug --dirty")
+        _res = _cli_runner.invoke(
+            cli, ["run", _cfg_path, "--debug", "--dirty"]
+        )
+        assert _res.exit_code == 0
+        assert get(
+            "http://127.0.0.1:8000/api/",
+            "data_product",
+            local_registry._token,
+            params={
+                "name": "SEIRS_model/results/figure/python",
+                "version": "0.0.1",
+            },
+        )
+
+@pytest.mark.faircli_sync
+@pytest.mark.faircli_push
+@pytest.mark.dependency(name="push", depends=["run"])
+def test_push(
+    global_config: str,
+    local_registry: RegistryTest,
+    remote_registry: RegistryTest,
+    pyDataPipeline: str,
+    fair_bucket: MotoTestServer,
+    mocker: pytest_mock.MockerFixture,
+    capsys,
+):
+    try:
+        import data_pipeline_api  # noqa
+    except ModuleNotFoundError:
+        pytest.skip("Python API implementation not installed")
+    
+    _cli_runner = click.testing.CliRunner()
+    with remote_registry, local_registry, fair_bucket:
+        _res = _cli_runner.invoke(
+            cli, ["list"]
+        )
+        assert _res.exit_code == 0
+        _res = _cli_runner.invoke(
+            cli, ["add", "testing:SEIRS_model/results/figure/python@v0.0.1"]
+        )
+        assert _res.exit_code == 0
+        _res = _cli_runner.invoke(
+            cli, ["push", "--debug"],  catch_exceptions = True
+        )
+        with capsys.disabled():
+            print(f'exit code: {_res.exit_code}')
+            print(f'exc info: {_res.exc_info}')
+            print(f'exception: {_res.exception}')
+        assert _res.exit_code == 0
+        assert get(
+            "http://127.0.0.1:8001/api/",
+            "data_product",
+            remote_registry._token,
+            params={
+                "name": "SEIRS_model/results/figure/python",
+                "version": "0.0.1",
+            },
+        )
+

@@ -36,6 +36,11 @@ def test_local_token(mocker: pytest_mock.MockerFixture):
         open(_token_file, "w").write(_dummy_key)
         assert fdp_req.local_token() == _dummy_key
 
+@pytest.mark.faircli_requests
+def test_request_error_registy_not_running():
+    with pytest.raises(Exception) as e_info:
+        fdp_req._access(LOCAL_URL)
+        assert e_info.match(r"^Failed to make registry API request.*")
 
 @pytest.mark.faircli_requests
 @pytest.mark.dependency(name="post")
@@ -64,6 +69,38 @@ def test_get(
     with local_registry:
         assert fdp_req.get(LOCAL_URL, "author", local_registry._token)
 
+@pytest.mark.faircli_requests
+@pytest.mark.dependency(depends=["get"])
+def test_get_404(
+    local_registry: conf.RegistryTest, mocker: pytest_mock.MockerFixture
+):
+    mocker.patch("fair.common.registry_home", lambda: local_registry._install)
+    with local_registry:
+        with pytest.raises(Exception) as e_info:
+            fdp_req.get(LOCAL_URL, "nothing_here", local_registry._token)
+            assert e_info.match(r"^Attempt to access an unrecognised resource on registry.*")
+
+@pytest.mark.faircli_requests
+@pytest.mark.dependency(depends=["get"])
+def test_registry_403(
+    local_registry: conf.RegistryTest, mocker: pytest_mock.MockerFixture
+):
+    mocker.patch("fair.common.registry_home", lambda: local_registry._install)
+    with local_registry:
+        with pytest.raises(Exception) as e_info:
+            fdp_req._access(LOCAL_URL, method = "patch", token =local_registry._token, obj_path="user", data={"name": "forbidden"} )
+            assert e_info.match(r"^Failed to run method.*")
+
+@pytest.mark.faircli_requests
+@pytest.mark.dependency(depends=["get"])
+def test_get_incorrect_responce_code(
+    local_registry: conf.RegistryTest, mocker: pytest_mock.MockerFixture
+):
+    mocker.patch("fair.common.registry_home", lambda: local_registry._install)
+    with local_registry:
+        with pytest.raises(Exception) as e_info:
+            fdp_req.get(LOCAL_URL, "nothing_here", local_registry._token)
+            assert e_info.match(r"^Attempt to access an unrecognised resource on registry.*")
 
 @pytest.mark.faircli_requests
 def test_post_else_get(
