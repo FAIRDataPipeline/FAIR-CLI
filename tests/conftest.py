@@ -123,8 +123,8 @@ def monkeypatch_module():
     yield m
     m.undo()
 
-@pytest.fixture(scope = "module")
-def local_config(monkeypatch_module):
+@pytest.fixture
+def local_config(mocker: pytest_mock.MockerFixture):
     with tempfile.TemporaryDirectory() as tempg:
         os.makedirs(os.path.join(tempg, fdp_com.FAIR_FOLDER, "registry"))
         os.makedirs(os.path.join(tempg, fdp_com.FAIR_FOLDER, "sessions"))
@@ -133,11 +133,11 @@ def local_config(monkeypatch_module):
         )
         _cfgg = fdp_test.create_configurations(tempg, None, None, tempg, True)
         yaml.dump(_cfgg, open(_gconfig_path, "w"))
-        monkeypatch_module.setattr(
+        mocker.patch(
             "fair.common.global_config_dir",
             lambda: os.path.dirname(_gconfig_path),
         )
-        monkeypatch_module.setattr("fair.common.global_fdpconfig", lambda: _gconfig_path)
+        mocker.patch("fair.common.global_fdpconfig", lambda: _gconfig_path)
 
         with open(fdp_com.registry_session_port_file(), "w") as pf:
             pf.write("8001")
@@ -155,8 +155,7 @@ def local_config(monkeypatch_module):
                 os.path.join(templ, fdp_com.USER_CONFIG_FILE), "w"
             ) as conf:
                 yaml.dump({"run_metadata": {}}, conf)
-            monkeypatch_module.setattr("fair.common.find_fair_root", lambda *args: templ)
-            #mocker.patch("fair.common.find_fair_root", lambda *args: templ)
+            mocker.patch("fair.common.find_fair_root", lambda *args: templ)
             yield (tempg, templ)
 
 @pytest.fixture(scope = "module")
