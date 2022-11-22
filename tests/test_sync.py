@@ -162,7 +162,6 @@ def test_pull(
     assert _res.exit_code == 0
 
 @pytest.mark.faircli_sync
-@pytest.mark.faircli_run
 @pytest.mark.dependency(name="run", depends=["pull"])
 def test_run(
     global_config: str,
@@ -199,7 +198,6 @@ def test_run(
         )
 
 @pytest.mark.faircli_sync
-@pytest.mark.faircli_push
 @pytest.mark.dependency(name="push", depends=["run"])
 def test_push(
     global_config: str,
