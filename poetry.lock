@@ -55,14 +55,14 @@ uvloop = ["uvloop (>=0.15.2)"]
 
 [[package]]
 name = "boto3"
-version = "1.26.8"
+version = "1.26.14"
 description = "The AWS SDK for Python"
 category = "dev"
 optional = false
 python-versions = ">= 3.7"
 
 [package.dependencies]
-botocore = ">=1.29.8,<1.30.0"
+botocore = ">=1.29.14,<1.30.0"
 jmespath = ">=0.7.1,<2.0.0"
 s3transfer = ">=0.6.0,<0.7.0"
 
@@ -71,7 +71,7 @@ crt = ["botocore[crt] (>=1.21.0,<2.0a0)"]
 
 [[package]]
 name = "botocore"
-version = "1.29.8"
+version = "1.29.14"
 description = "Low-level, data-driven core of boto 3."
 category = "dev"
 optional = false
@@ -332,7 +332,7 @@ idna = ">=2.0.0"
 
 [[package]]
 name = "exceptiongroup"
-version = "1.0.2"
+version = "1.0.4"
 description = "Backport of PEP 654 (exception groups)"
 category = "dev"
 optional = false
@@ -381,7 +381,7 @@ pyflakes = ">=2.3.0,<2.4.0"
 name = "flask"
 version = "2.2.2"
 description = "A simple framework for building complex web applications."
-category = "main"
+category = "dev"
 optional = false
 python-versions = ">=3.7"
 
@@ -400,7 +400,7 @@ dotenv = ["python-dotenv"]
 name = "flask-cors"
 version = "3.0.10"
 description = "A Flask extension adding a decorator for CORS support"
-category = "main"
+category = "dev"
 optional = false
 python-versions = "*"
 
@@ -450,7 +450,7 @@ lxml = ["lxml"]
 
 [[package]]
 name = "identify"
-version = "2.5.8"
+version = "2.5.9"
 description = "File identification library for Python"
 category = "main"
 optional = false
@@ -471,7 +471,7 @@ python-versions = ">=3.5"
 name = "importlib-metadata"
 version = "4.13.0"
 description = "Read metadata from Python packages"
-category = "main"
+category = "dev"
 optional = false
 python-versions = ">=3.7"
 
@@ -524,7 +524,7 @@ plugins = ["setuptools"]
 name = "itsdangerous"
 version = "2.1.2"
 description = "Safely pass data to untrusted environments and back."
-category = "main"
+category = "dev"
 optional = false
 python-versions = ">=3.7"
 
@@ -661,7 +661,7 @@ python-versions = ">=3.7"
 
 [[package]]
 name = "moto"
-version = "4.0.9"
+version = "4.0.10"
 description = "A library that allows your python tests to easily mock out the boto library"
 category = "dev"
 optional = false
@@ -681,13 +681,13 @@ werkzeug = ">=0.5,<2.2.0 || >2.2.0,<2.2.1 || >2.2.1"
 xmltodict = "*"
 
 [package.extras]
-all = ["PyYAML (>=5.1)", "python-jose[cryptography] (>=3.1.0,<4.0.0)", "ecdsa (!=0.15)", "docker (>=2.5.1)", "graphql-core", "jsondiff (>=1.1.2)", "aws-xray-sdk (>=0.93,!=0.96)", "idna (>=2.5,<4)", "cfn-lint (>=0.4.0)", "sshpubkeys (>=3.1.0)", "pyparsing (>=3.0.7)", "openapi-spec-validator (>=0.2.8)", "setuptools"]
+all = ["PyYAML (>=5.1)", "python-jose[cryptography] (>=3.1.0,<4.0.0)", "ecdsa (!=0.15)", "docker (>=2.5.1)", "graphql-core", "jsondiff (>=1.1.2)", "aws-xray-sdk (>=0.93,!=0.96)", "idna (>=2.5,<4)", "cfn-lint (>=0.40.0)", "sshpubkeys (>=3.1.0)", "pyparsing (>=3.0.7)", "openapi-spec-validator (>=0.2.8)", "setuptools"]
 apigateway = ["PyYAML (>=5.1)", "python-jose[cryptography] (>=3.1.0,<4.0.0)", "ecdsa (!=0.15)", "openapi-spec-validator (>=0.2.8)"]
 apigatewayv2 = ["PyYAML (>=5.1)"]
 appsync = ["graphql-core"]
 awslambda = ["docker (>=2.5.1)"]
 batch = ["docker (>=2.5.1)"]
-cloudformation = ["PyYAML (>=5.1)", "python-jose[cryptography] (>=3.1.0,<4.0.0)", "ecdsa (!=0.15)", "docker (>=2.5.1)", "graphql-core", "jsondiff (>=1.1.2)", "aws-xray-sdk (>=0.93,!=0.96)", "idna (>=2.5,<4)", "cfn-lint (>=0.4.0)", "sshpubkeys (>=3.1.0)", "pyparsing (>=3.0.7)", "openapi-spec-validator (>=0.2.8)", "setuptools"]
+cloudformation = ["PyYAML (>=5.1)", "python-jose[cryptography] (>=3.1.0,<4.0.0)", "ecdsa (!=0.15)", "docker (>=2.5.1)", "graphql-core", "jsondiff (>=1.1.2)", "aws-xray-sdk (>=0.93,!=0.96)", "idna (>=2.5,<4)", "cfn-lint (>=0.40.0)", "sshpubkeys (>=3.1.0)", "pyparsing (>=3.0.7)", "openapi-spec-validator (>=0.2.8)", "setuptools"]
 cognitoidp = ["python-jose[cryptography] (>=3.1.0,<4.0.0)", "ecdsa (!=0.15)"]
 ds = ["sshpubkeys (>=3.1.0)"]
 dynamodb = ["docker (>=2.5.1)"]
@@ -700,7 +700,7 @@ glue = ["pyparsing (>=3.0.7)"]
 iotdata = ["jsondiff (>=1.1.2)"]
 route53resolver = ["sshpubkeys (>=3.1.0)"]
 s3 = ["PyYAML (>=5.1)"]
-server = ["PyYAML (>=5.1)", "python-jose[cryptography] (>=3.1.0,<4.0.0)", "ecdsa (!=0.15)", "docker (>=2.5.1)", "graphql-core", "jsondiff (>=1.1.2)", "aws-xray-sdk (>=0.93,!=0.96)", "idna (>=2.5,<4)", "cfn-lint (>=0.4.0)", "sshpubkeys (>=3.1.0)", "pyparsing (>=3.0.7)", "openapi-spec-validator (>=0.2.8)", "setuptools", "flask (!=2.2.0,!=2.2.1)", "flask-cors"]
+server = ["PyYAML (>=5.1)", "python-jose[cryptography] (>=3.1.0,<4.0.0)", "ecdsa (!=0.15)", "docker (>=2.5.1)", "graphql-core", "jsondiff (>=1.1.2)", "aws-xray-sdk (>=0.93,!=0.96)", "idna (>=2.5,<4)", "cfn-lint (>=0.40.0)", "sshpubkeys (>=3.1.0)", "pyparsing (>=3.0.7)", "openapi-spec-validator (>=0.2.8)", "setuptools", "flask (!=2.2.0,!=2.2.1)", "flask-cors"]
 ssm = ["PyYAML (>=5.1)", "dataclasses"]
 xray = ["aws-xray-sdk (>=0.93,!=0.96)", "setuptools"]
 
@@ -739,11 +739,11 @@ python-versions = "*"
 
 [[package]]
 name = "netcdf4"
-version = "1.6.1"
+version = "1.6.2"
 description = "Provides an object-oriented python interface to the netCDF version 4 library."
 category = "main"
 optional = false
-python-versions = "*"
+python-versions = ">=3.6"
 
 [package.dependencies]
 cftime = "*"
@@ -759,7 +759,7 @@ python-versions = ">=2.7,!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*,!=3.5.*,!=3.6.*
 
 [[package]]
 name = "numpy"
-version = "1.23.4"
+version = "1.23.5"
 description = "NumPy is the fundamental package for array computing with Python."
 category = "main"
 optional = false
@@ -1088,7 +1088,7 @@ testing = ["argcomplete", "hypothesis (>=3.56)", "mock", "nose", "pygments (>=2.
 
 [[package]]
 name = "pytest-cov"
-version = "3.0.0"
+version = "4.0.0"
 description = "Pytest plugin for measuring coverage."
 category = "dev"
 optional = false
@@ -1334,7 +1334,7 @@ python-versions = ">=3.4"
 
 [[package]]
 name = "simplejson"
-version = "3.17.6"
+version = "3.18.0"
 description = "Simple, fast, extensible JSON encoder/decoder for Python"
 category = "main"
 optional = false
@@ -1377,7 +1377,7 @@ pbr = ">=2.0.0,<2.1.0 || >2.1.0"
 
 [[package]]
 name = "termcolor"
-version = "2.1.0"
+version = "2.1.1"
 description = "ANSI color formatting for output in terminal"
 category = "dev"
 optional = false
@@ -1483,7 +1483,7 @@ python-versions = "*"
 name = "werkzeug"
 version = "2.2.2"
 description = "The comprehensive WSGI web application library."
-category = "main"
+category = "dev"
 optional = false
 python-versions = ">=3.7"
 
@@ -1516,7 +1516,7 @@ python-versions = ">=3.4"
 name = "zipp"
 version = "3.10.0"
 description = "Backport of pathlib-compatible object wrapper for zip files"
-category = "main"
+category = "dev"
 optional = false
 python-versions = ">=3.7"
 
@@ -1530,7 +1530,7 @@ all = []
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8.0,<4.0"
-content-hash = "5b934cb2c79aa54e956bee6bfe156e476f85e77df91497c6166f0ef475421f18"
+content-hash = "2c771870de73f8de6878039123f9a7c5af76fc3a926c76edd2d59345a7ca1d86"
 
 [metadata.files]
 attrs = []

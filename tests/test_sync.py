@@ -207,7 +207,6 @@ def test_push(
     remote_registry: RegistryTest,
     pyDataPipeline: str,
     fair_bucket: MotoTestServer,
-    mocker: pytest_mock.MockerFixture,
     capsys,
 ):
     try:

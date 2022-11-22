@@ -292,7 +292,6 @@ def local_registry(session_virtualenv: pytest_virtualenv.VirtualEnv):
     if rtest._process:
         os.kill(rtest._process.pid, signal.SIGTERM)
     print("TearDown of Local Registry Complete")
-    #shutil.rmtree(tempd)
 
 @pytest.fixture(scope="module")
 def remote_registry(session_virtualenv: pytest_virtualenv.VirtualEnv):
@@ -309,7 +308,6 @@ def remote_registry(session_virtualenv: pytest_virtualenv.VirtualEnv):
     if rtest._process:
         os.kill(rtest._process.pid, signal.SIGTERM)
     print("TearDown of Remote Registry Complete")
-    #shutil.rmtree(tempd)
 
 @pytest.fixture(scope="module")
 def fair_bucket(port: int = 3005):
