@@ -345,7 +345,8 @@ def install_registry(
                 f"Expected tags in local registry repository '{repository}', "
                 "but found none"
             )
-        reference = _repo.tags[-1].name
+        _tags = sorted(_repo.tags, key=lambda t: t.commit.committed_datetime)
+        reference = _tags[-1].name
 
     logger.debug("Using reference '%s' for registry checkout", reference)
 
