@@ -61,7 +61,7 @@ rich = ">=10.2.3,<12.0.0"
 semver = "^2.13.0"
 simplejson = "^3.17.5"
 toml = "^0.10.2"
-validators = "^0.18.2"
+validators = ">=0.18.2,<0.21.0"
 netCDF4 = "^1.5.8"
 
 [tool.poetry.dev-dependencies]
