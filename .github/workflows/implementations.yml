@@ -1,6 +1,6 @@
 # Check latest release of all implementations still function with new changes
 name: FAIR CLI Implementation Testing
-on: [push]
+on: [push, workflow_dispatch]
 jobs:
   Python:
     runs-on: ubuntu-latest
