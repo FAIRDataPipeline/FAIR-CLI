@@ -1,5 +1,5 @@
 name: FAIR Data Pipeline CLI
-on: [push]
+on: [push, workflow_dispatch]
 jobs:
   test:
     name: Test ${{ matrix.os }} (Python ${{ matrix.python }})
