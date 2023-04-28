@@ -105,7 +105,7 @@ jobs:
       working-directory: java_example
 
   R:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
     steps:
@@ -138,25 +138,20 @@ jobs:
           install.packages("remotes")
       shell: Rscript {0}
 
-    - name: Install R API system requirements (ubuntu-20.04)
-      working-directory: r_data_pipeline
-      run: |
-        while read -r cmd
-        do
-          eval sudo $cmd
-        done < <(Rscript -e 'cat(remotes::system_requirements("ubuntu", "20.04"), sep = "\n")')
+    - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          working-directory: r_data_pipeline
+          extra-packages: |
+            devtools
 
-    - name: Install R Example system requirements (ubuntu-20.04)
-      working-directory: r_example
-      run: |
-        while read -r cmd
-        do
-          eval sudo $cmd
-        done < <(Rscript -e 'cat(remotes::system_requirements("ubuntu", "20.04"), sep = "\n")')
+    - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          working-directory: r_example
+          extra-packages: |
+            devtools
 
     - name: Install implementation
       run: |
-        install.packages("devtools")
         devtools::install_github("FAIRDataPipeline/rDataPipeline")
         library(rDataPipeline)
         devtools::install_github("FAIRDataPipeline/rSimpleModel")
