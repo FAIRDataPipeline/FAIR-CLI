@@ -126,7 +126,8 @@ def install_registry(
 
     # If no reference is specified, use the latest tag for the registry
     if not reference:
-        reference = _repo.tags[-1].name
+        _tags = sorted(_repo.tags, key=lambda t: t.commit.committed_datetime)
+        reference = _tags[-1].name
 
     _repo.git.checkout(reference)
 

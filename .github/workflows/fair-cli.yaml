@@ -1,5 +1,5 @@
 name: FAIR Data Pipeline CLI
-on: [push]
+on: [push, workflow_dispatch]
 jobs:
   test:
     name: Test ${{ matrix.os }} (Python ${{ matrix.python }})
@@ -13,8 +13,8 @@ jobs:
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-python@v2
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python }}
           architecture: "x64"
@@ -41,7 +41,7 @@ jobs:
                 echo "ERROR: Tests for marker '$marker' failed"
               fi
             done
-      - uses: codecov/codecov-action@v2
+      - uses: codecov/codecov-action@v3
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./coverage.xml

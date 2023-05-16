@@ -541,7 +541,7 @@ def _get_url_from_external_obj(
     _external_obj_data = {
         "data_product": data_product_url,
         "title": data["title"],
-        "primary_not_supplement": data["primary"],
+        "primary_not_supplement": f'{data["primary"]}',
         "release_date": data["release_date"],
     }
     _external_obj_data.update(_get_identifier_from_data(data, local_file))

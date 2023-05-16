@@ -1,24 +1,24 @@
 # Check latest release of all implementations still function with new changes
 name: FAIR CLI Implementation Testing
-on: [push]
+on: [push, workflow_dispatch]
 jobs:
   Python:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Clone Python Implementation
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           repository: FAIRDataPipeline/pyDataPipeline
           path: py_data_pipeline
           ref: 'dev'
       - name: Checkout pySimpleModel
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           repository: FAIRDataPipeline/pySimpleModel
           path: py_data_pipeline
       - name: Set up Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v4
         with:
           python-version: "3.9"
           architecture: "x64"
@@ -62,16 +62,16 @@ jobs:
   Java:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - name: Clone Java Implementation
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
       with:
         repository: FAIRDataPipeline/javaSimpleModel
         path: java_example
     - name: Install memcached
       run: sudo apt install -y libmemcached-dev
     - name: Set up JDK 11
-      uses: actions/setup-java@v2
+      uses: actions/setup-java@v3
       with:
         java-version: '11'
         distribution: 'adopt'
@@ -105,30 +105,30 @@ jobs:
       working-directory: java_example
 
   R:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
 
     - name: Install memcached
       run: sudo apt install -y libmemcached-dev
 
     - name: Clone R Data Pipeline
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
       with:
         repository: FAIRDataPipeline/rDataPipeline
         path: r_data_pipeline
         ref: 'main'
 
     - name: Clone R Implementation
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
       with:
         repository: FAIRDataPipeline/rSimpleModel
         path: r_example
         ref: 'main'
 
-    - uses: r-lib/actions/setup-r@v1
+    - uses: r-lib/actions/setup-r@v2
       with:
         r-version: release
         use-public-rspm: true
@@ -138,25 +138,20 @@ jobs:
           install.packages("remotes")
       shell: Rscript {0}
 
-    - name: Install R API system requirements (ubuntu-20.04)
-      working-directory: r_data_pipeline
-      run: |
-        while read -r cmd
-        do
-          eval sudo $cmd
-        done < <(Rscript -e 'cat(remotes::system_requirements("ubuntu", "20.04"), sep = "\n")')
+    - uses: r-lib/actions/setup-r-dependencies@v2
+      with:
+        working-directory: r_data_pipeline
+        extra-packages: |
+          devtools
 
-    - name: Install R Example system requirements (ubuntu-20.04)
-      working-directory: r_example
-      run: |
-        while read -r cmd
-        do
-          eval sudo $cmd
-        done < <(Rscript -e 'cat(remotes::system_requirements("ubuntu", "20.04"), sep = "\n")')
+    - uses: r-lib/actions/setup-r-dependencies@v2
+      with:
+        working-directory: r_example
+        extra-packages: |
+          devtools
 
     - name: Install implementation
       run: |
-        install.packages("devtools")
         devtools::install_github("FAIRDataPipeline/rDataPipeline")
         library(rDataPipeline)
         devtools::install_github("FAIRDataPipeline/rSimpleModel")
@@ -188,9 +183,9 @@ jobs:
   Julia:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - name: Clone Julia Implementation
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
       with:
         repository: FAIRDataPipeline/DataPipeline.jl
         path: julia_example
@@ -231,10 +226,10 @@ jobs:
   CPlusPlus:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
 
     - name: Clone CPlusPlus Model
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
       with:
         repository: FAIRDataPipeline/cppSimpleModel
         path: cpp_example

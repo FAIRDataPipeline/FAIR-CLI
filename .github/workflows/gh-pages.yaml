@@ -6,27 +6,14 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
-    - uses: actions/checkout@v2
-    - uses: actions/setup-python@v2
-      with:
-        python-version: "3.9"
-        architecture: "x64"
-    - name: Checkout
-      uses: actions/checkout@master
-      with:
-        fetch-depth: 0 # otherwise, you will failed to push refs to dest repo
-    - name: install theme
-      run: |
-            pip install sphinx_rtd_theme
-            pip install myst-parser
-            pip install .
-    - name: Build and Commit
-      uses: sphinx-notes/pages@master
+    - id: deployment
+      uses: sphinx-notes/pages@v3
       with:
         documentation_path: docs
-    - name: Push changes
-      uses: ad-m/github-push-action@master
-      with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        branch: gh-pages

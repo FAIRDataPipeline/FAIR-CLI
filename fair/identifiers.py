@@ -31,7 +31,7 @@ ID_URIS = {
 }
 
 QUERY_URLS = {
-    "orcid": "https://pub.orcid.org/v2.0/",
+    "orcid": "https://pub.orcid.org/v3.0/",
     "ror": "https://api.ror.org/organizations?query=",
 }
 
