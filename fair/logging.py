@@ -14,6 +14,8 @@ __date__ = "2021-12-07"
 import datetime
 import os
 import typing
+import logging
+from bisect import bisect
 
 import fair.configuration as fdp_conf
 
@@ -79,3 +81,22 @@ class JobLogger:
     def __exit__(self, type, value, tb) -> None:
         self.write()
         self._file_stream.close()
+
+class LevelFormatter(logging.Formatter):
+    def __init__(self, formats: typing.Dict[int, str], **kwargs):
+        super().__init__()
+
+        if 'fmt' in kwargs:
+            raise ValueError(
+                'Format string must be passed to level-surrogate formatters, '
+                'not this one'
+            )
+
+        self.formats = sorted(
+            (level, logging.Formatter(fmt, **kwargs)) for level, fmt in formats.items()
+        )
+
+    def format(self, record: logging.LogRecord) -> str:
+        idx = bisect(self.formats, (record.levelno,), hi=len(self.formats)-1)
+        level, formatter = self.formats[idx]
+        return formatter.format(record)

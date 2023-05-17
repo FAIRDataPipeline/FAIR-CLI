@@ -231,7 +231,7 @@ def post(
 
     for param, value in data.copy().items():
         if not value:
-            logger.info(
+            logger.debug(
                 f"Key in post data '{param}' has no value so will be ignored"
             )
             del data[param]

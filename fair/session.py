@@ -61,6 +61,7 @@ import fair.staging as fdp_stage
 import fair.templates as fdp_tpl
 import fair.testing as fdp_test
 import fair.user_config as fdp_user
+import fair.logging as fdp_logging
 
 
 class FAIR:
@@ -118,7 +119,7 @@ class FAIR:
         if debug:
             logging.getLogger("FAIRDataPipeline").setLevel(logging.DEBUG)
         else:
-            logging.getLogger("FAIRDataPipeline").setLevel(logging.CRITICAL)
+            self._set_logger_info()
         self._logger.debug("Starting new session.")
         self._testing = testing
         self._local = local
@@ -485,7 +486,7 @@ class FAIR:
                 + [f"\t- {data_product}" for data_product in _readables]
             )
         else:
-            click.echo(f"No items to retrieve from remote '{remote}'.")
+            click.echo(f"There are no items in [read] to pull from '{remote}'.")
 
         self._logger.debug("Performing post-job breakdown")
 
@@ -1119,7 +1120,7 @@ class FAIR:
 
         if not using:
             click.echo(
-                "Initialising FAIR repository, setup will now ask for basic info:\n"
+                "Initialising FAIR repository, setup will now ask for basic info (leave blank for default value):\n"
             )
 
         if not os.path.exists(_fair_dir):
@@ -1298,6 +1299,18 @@ class FAIR:
 
         with open(fdp_com.local_fdpconfig(self._session_loc), "w") as f:
             yaml.dump(_loc_cfg, f)
+
+    def _set_logger_info(self):
+        handler = logging.StreamHandler()
+        handler.setFormatter(
+            fdp_logging.LevelFormatter(
+                {
+                    logging.INFO: '%(message)s'
+                }
+            )
+        )
+        logging.getLogger().setLevel(logging.INFO)
+        logging.getLogger().addHandler(handler)
 
     def __exit__(self, *args) -> None:
         self.close_session()

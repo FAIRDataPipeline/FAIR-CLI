@@ -248,6 +248,8 @@ def fetch_registrations(
 
         data["namespace_name"] = entry["use"]["namespace"]
 
+        logger.info(f"Registering: {_name}")
+
         _file_url = fdp_store.store_data_file(
             uri=local_uri,
             repo_dir=repo_dir,
