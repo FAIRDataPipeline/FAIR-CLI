@@ -44,8 +44,9 @@ jobs:
           cp ${GITHUB_WORKSPACE}/registry-rem/token $PWD/token # Copy the remote token
         working-directory: pySimpleModel
       
-      - name: run Python Model with fair cli
+      - name: Install the registry and init
         run: |
+          fair registry install
           fair init --ci
           fair registry start
         working-directory: pySimpleModel # Use the pySimpleModel Directory
