@@ -5,18 +5,17 @@ jobs:
   Python:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v3 # Clone Fair CLI
       - name: Clone Python Implementation
         uses: actions/checkout@v3
         with:
-          repository: FAIRDataPipeline/pyDataPipeline
-          path: py_data_pipeline
-          ref: 'dev'
+          repository: FAIRDataPipeline/pyDataPipeline # Clone pyDataPipeline
+          path: pyDataPipeline
       - name: Checkout pySimpleModel
         uses: actions/checkout@v3
         with:
-          repository: FAIRDataPipeline/pySimpleModel
-          path: py_data_pipeline
+          repository: FAIRDataPipeline/pySimpleModel # Clone pySimple Model
+          path: pySimpleModel
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
@@ -25,40 +24,47 @@ jobs:
 
       - name: Install memcached
         run: sudo apt install -y libmemcached-dev
-      - name: Install local registry
-        run: |
-              curl -fsSL https://data.scrc.uk/static/localregistry.sh | /bin/bash -s -- -b main
-      - name: Install Poetry
-        uses: snok/install-poetry@v1
-        with:
-          virtualenvs-create: true
-          virtualenvs-in-project: true
 
+      - name: Setup fair
+        run: |
+          python3 -m venv venv # Create venv
+          ./venv/bin/activate # Activate venv
+          pip3 install ../ # Install CLI
+          pip3 install ../pyDataPipeline # Install pyDataPipeline
+          pip3 install . # Install pySimple Model
+        working-directory: pySimpleModel # Use the pySimpleModel Directory
+
+      - name: Install remote registry
+        run: |
+          ./venv/bin/activate # Activate venv
+          fair registry install --directory ${GITHUB_WORKSPACE}/registry-rem
+          ./${GITHUB_WORKSPACE}/registry-rem/scripts/start_fair_registry -p 8001 # Start the remote registry
+          cp ${GITHUB_WORKSPACE}/registry-rem/token $PWD/token # Copy the remote token
+      
       - name: run Python Model with fair cli
         run: |
-          poetry install
-          source .venv/bin/activate
-          pip3 install fair-cli
-          pip3 install pySimpleModel
-          poetry run fair registry install --directory ${GITHUB_WORKSPACE}/registry-rem
-          poetry run fair init --ci
-          poetry run fair registry start
-          poetry run ${GITHUB_WORKSPACE}/registry-rem/scripts/start_fair_registry -p 8001
-          cp ${GITHUB_WORKSPACE}/registry-rem/token $PWD/token
-        working-directory: py_data_pipeline
+          fair init --ci
+          fair registry start
+        working-directory: pySimpleModel # Use the pySimpleModel Directory
+
       - name: Test Pull
-        run: poetry run fair pull --debug simpleModel/ext/SEIRSconfig.yaml
-        working-directory: py_data_pipeline
+        run: |
+          ./venv/bin/activate # Activate venv
+          run fair pull --debug simpleModel/ext/SEIRSconfig.yaml
+        working-directory: pySimpleModel # Use the pySimpleModel Directory
 
       - name: Test Run
-        run: poetry run fair run --debug simpleModel/ext/SEIRSconfig.yaml
-        working-directory: py_data_pipeline
+        run: |
+          ./venv/bin/activate # Activate venv
+          fair run --debug simpleModel/ext/SEIRSconfig.yaml # Run the seirs model
+        working-directory: pySimpleModel # Use the pySimpleModel Directory
 
       - name: Test Push
         run: |
-          poetry run fair add PSU:SEIRS_model/parameters@v1.0.0
-          poetry run fair push
-        working-directory: py_data_pipeline
+          ./venv/bin/activate # Activate venv
+          fair add PSU:SEIRS_model/parameters@v1.0.0 # Stage the model parameters to be pushed
+          run fair push # Push the model parameters
+        working-directory: pySimpleModel # Use the pySimpleModel Directory
   Java:
     runs-on: ubuntu-latest
     if: False
