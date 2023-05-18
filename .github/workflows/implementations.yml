@@ -40,6 +40,7 @@ jobs:
           fair registry install --directory ${GITHUB_WORKSPACE}/registry-rem
           ./${GITHUB_WORKSPACE}/registry-rem/scripts/start_fair_registry -p 8001 # Start the remote registry
           cp ${GITHUB_WORKSPACE}/registry-rem/token $PWD/token # Copy the remote token
+        working-directory: pySimpleModel
       
       - name: run Python Model with fair cli
         run: |
