@@ -54,7 +54,7 @@ jobs:
       - name: Test Pull
         run: |
           ./venv/bin/activate # Activate venv
-          run fair pull --debug simpleModel/ext/SEIRSconfig.yaml
+          fair pull --debug simpleModel/ext/SEIRSconfig.yaml
         working-directory: pySimpleModel # Use the pySimpleModel Directory
 
       - name: Test Run
@@ -67,7 +67,7 @@ jobs:
         run: |
           ./venv/bin/activate # Activate venv
           fair add PSU:SEIRS_model/parameters@v1.0.0 # Stage the model parameters to be pushed
-          run fair push # Push the model parameters
+          fair push # Push the model parameters
         working-directory: pySimpleModel # Use the pySimpleModel Directory
   Java:
     runs-on: ubuntu-latest
