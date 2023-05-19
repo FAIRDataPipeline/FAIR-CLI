@@ -27,48 +27,65 @@ jobs:
 
       - name: Setup fair
         run: |
-          python3 -m venv venv # Create venv
-          ./venv/bin/activate # Activate venv
-          pip3 install ../ # Install CLI
-          pip3 install ../pyDataPipeline # Install pyDataPipeline
-          pip3 install . # Install pySimple Model
+          # Create venv
+          python3 -m venv venv
+          # Activate venv
+          ./venv/bin/activate
+          # Intall CLI
+          pip3 install ../
+          # Install pyDataPipeline
+          pip3 install ../pyDataPipeline
+          # Install pySimple Model
+          pip3 install .
         working-directory: pySimpleModel # Use the pySimpleModel Directory
 
       - name: Install remote registry
         run: |
-          ./venv/bin/activate # Activate venv
+          # Activate venv
+          ./venv/bin/activate
           # Install the remote registry
           #fair registry install --directory ${GITHUB_WORKSPACE}/registry-rem
           curl -fsSL https://data.scrc.uk/static/remoteregistry.sh | /bin/bash -s -- -d ${GITHUB_WORKSPACE}/registry-rem -s drams.test-remote-settings -u admin -p admin
           # Start the remote registry
           ${GITHUB_WORKSPACE}/registry-rem/scripts/start_fair_registry -p 8001 -s drams.test-remote-settings
-          cp ${GITHUB_WORKSPACE}/registry-rem/token $PWD/token # Copy the remote token
+          # Copy the remote token
+          cp ${GITHUB_WORKSPACE}/registry-rem/token $PWD/token
         working-directory: pySimpleModel
       
       - name: Install the registry and init
         run: |
+          # Install the local registry
           fair registry install
+          # Initialise Repository
           fair init --ci
+          # Start the local registry
           fair registry start
         working-directory: pySimpleModel # Use the pySimpleModel Directory
 
       - name: Test Pull
         run: |
-          ./venv/bin/activate # Activate venv
+          # Activate venv
+          ./venv/bin/activate
+          # Pull (Register) the SEIRS Parameters
           fair pull --debug simpleModel/ext/SEIRSconfig.yaml
         working-directory: pySimpleModel # Use the pySimpleModel Directory
 
       - name: Test Run
         run: |
-          ./venv/bin/activate # Activate venv
+          # Activate venv
+          ./venv/bin/activate
+          # Run the Model
           fair run --debug simpleModel/ext/SEIRSconfig.yaml # Run the seirs model
         working-directory: pySimpleModel # Use the pySimpleModel Directory
 
       - name: Test Push
         run: |
-          ./venv/bin/activate # Activate venv
-          fair add PSU:SEIRS_model/parameters@v1.0.0 # Stage the model parameters to be pushed
-          fair push # Push the model parameters
+          # Activate venv
+          ./venv/bin/activate
+          # Stage the SEIRS Parameters to be Pushed
+          fair add PSU:SEIRS_model/parameters@v1.0.0
+          # Push the SEIRS parameters
+          fair push
         working-directory: pySimpleModel # Use the pySimpleModel Directory
   Java:
     runs-on: ubuntu-latest
@@ -80,6 +97,11 @@ jobs:
       with:
         repository: FAIRDataPipeline/javaSimpleModel
         path: java_example
+    - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.9"
+          architecture: "x64"
     - name: Install memcached
       run: sudo apt install -y libmemcached-dev
     - name: Set up JDK 11
@@ -94,34 +116,47 @@ jobs:
       run: gradle build
       working-directory: java_example
 
-    - name: Install Poetry
-      uses: snok/install-poetry@v1
-      with:
-          virtualenvs-create: true
-          virtualenvs-in-project: true
-
-    - name: install fair-cli
+    - name: Setup fair
       run: |
-        poetry install
+        # Create venv
+        python3 -m venv venv
+        # Activate venv
+        ./venv/bin/activate
+        # Intall CLI
+        pip3 install ../
+      working-directory: java_example # Use the java_example Directory
+    - name: Install remote registry
+      run: |
+        ./venv/bin/activate # Activate venv
+        # Install the remote registry
+        curl -fsSL https://data.scrc.uk/static/remoteregistry.sh | /bin/bash -s -- -d ${GITHUB_WORKSPACE}/registry-rem -s drams.test-remote-settings -u admin -p admin
+        # Start the remote registry
+        ${GITHUB_WORKSPACE}/registry-rem/scripts/start_fair_registry -p 8001 -s drams.test-remote-settings
+        # Copy the remote token
+        cp ${GITHUB_WORKSPACE}/registry-rem/token $PWD/token
+      working-directory: java_example # Use the java_example Directory
 
     - name: run javaSimpleModel with fair cli
       run: |
-        poetry run fair registry install
-        poetry run fair registry install --directory ${GITHUB_WORKSPACE}/registry-rem
-        poetry run fair registry start
-        poetry run ${GITHUB_WORKSPACE}/registry-rem/scripts/start_fair_registry -p 8001
-        cp ${GITHUB_WORKSPACE}/registry-rem/token $PWD/token
-        poetry run fair init --ci
-        poetry run fair pull --debug src/main/resources/seirs-config.yaml
-        poetry run fair run --dirty --debug src/main/resources/seirs-config.yaml
-      working-directory: java_example
+        ./venv/bin/activate # Activate venv
+        # Install local registry
+        fair registry install
+        # Start local registry
+        fair registry start
+        # Initialise repository
+        fair init --ci
+        # Pull (Register) SEIRS Parameters
+        fair pull --debug src/main/resources/seirs-config.yaml # Pull SEIRS parameters
+        # Run the model dirty as venv is not in .gitignore (to do)
+        fair run --dirty --debug src/main/resources/seirs-config.yaml # Run the SEIRS Model
+      working-directory: java_example # Use the java_example Directory
 
   R:
     runs-on: ubuntu-latest
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v3 # Clone FAIR CLI
 
     - name: Install memcached
       run: sudo apt install -y libmemcached-dev
@@ -140,15 +175,16 @@ jobs:
         path: r_example
         ref: 'main'
 
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.9"
+        architecture: "x64"
+
     - uses: r-lib/actions/setup-r@v2
       with:
         r-version: release
         use-public-rspm: true
-
-    - name: install remotes
-      run: |
-          install.packages("remotes")
-      shell: Rscript {0}
 
     - uses: r-lib/actions/setup-r-dependencies@v2
       with:
@@ -170,27 +206,43 @@ jobs:
         library(rSimpleModel)
       shell: Rscript {0}
 
-    - name: Install Poetry
-      uses: snok/install-poetry@v1
-      with:
-          virtualenvs-create: true
-          virtualenvs-in-project: true
-
-    - name: install fair-cli
+    - name: Setup fair
       run: |
-        poetry install
+        # Create venv
+        python3 -m venv venv
+        # Activate venv
+        ./venv/bin/activate
+        # Intall CLI
+        pip3 install ../ # Install CLI
+      working-directory: r_example # Use the r_example Directory
+
+    - name: Install remote registry
+      run: |
+        # Activate venv
+        ./venv/bin/activate # Activate venv
+        # Install the remote registry
+        curl -fsSL https://data.scrc.uk/static/remoteregistry.sh | /bin/bash -s -- -d ${GITHUB_WORKSPACE}/registry-rem -s drams.test-remote-settings -u admin -p admin
+        # Start the remote registry
+        ${GITHUB_WORKSPACE}/registry-rem/scripts/start_fair_registry -p 8001 -s drams.test-remote-settings
+        # Copy the remote token
+        cp ${GITHUB_WORKSPACE}/registry-rem/token $PWD/token
+      working-directory: r_example # Use the r_example Directory
 
     - name: run rSimpleModel with fair cli
       run: |
-        poetry run fair registry install
-        poetry run fair registry install --directory ${GITHUB_WORKSPACE}/registry-rem
-        poetry run fair registry start
-        poetry run ${GITHUB_WORKSPACE}/registry-rem/scripts/start_fair_registry -p 8001
-        cp ${GITHUB_WORKSPACE}/registry-rem/token $PWD/token
-        poetry run fair init --ci
-        poetry run fair pull --debug inst/extdata/SEIRSconfig.yaml
-        poetry run fair run --dirty --debug inst/extdata/SEIRSconfig.yaml
-      working-directory: r_example
+        # Activate venv
+        ./venv/bin/activate
+        # Install local registry
+        fair registry install
+        # Start local registry
+        fair registry start
+        # Initialise repository
+        fair init --ci
+        # Pull (Register) SEIRS Parameters
+        fair pull --debug inst/extdata/SEIRSconfig.yaml
+        # Run the model dirty as venv is not in .gitignore (to do)
+        fair run --dirty --debug inst/extdata/SEIRSconfig.yaml
+      working-directory: r_example # Use the r_example Directory
 
   Julia:
     runs-on: ubuntu-latest
@@ -213,27 +265,49 @@ jobs:
     - name: Install Package
       run: julia -e 'using Pkg; Pkg.instantiate()'
 
-    - name: Install Poetry
-      uses: snok/install-poetry@v1
+    - name: Set up Python
+      uses: actions/setup-python@v4
       with:
-          virtualenvs-create: true
-          virtualenvs-in-project: true
+        python-version: "3.9"
+        architecture: "x64"
 
-    - name: install fair-cli
+    - name: Setup fair
       run: |
-        poetry install
+        # Create venv
+        python3 -m venv venv
+        # Activate venv
+        ./venv/bin/activate
+        # Intall CLI
+        pip3 install ../ # Install CLI
+      working-directory: julia_example # Use the julia_example Directory
+
+    - name: Install remote registry
+      run: |
+        # Activate venv
+        ./venv/bin/activate # Activate venv
+        # Install the remote registry
+        curl -fsSL https://data.scrc.uk/static/remoteregistry.sh | /bin/bash -s -- -d ${GITHUB_WORKSPACE}/registry-rem -s drams.test-remote-settings -u admin -p admin
+        # Start the remote registry
+        ${GITHUB_WORKSPACE}/registry-rem/scripts/start_fair_registry -p 8001 -s drams.test-remote-settings
+        # Copy the remote token
+        cp ${GITHUB_WORKSPACE}/registry-rem/token $PWD/token
+      working-directory: julia_example # Use the julia_example Directory
 
     - name: Run SEIRS Model with fair cli
       run: |
-        poetry run fair registry install
-        poetry run fair registry install --directory ${GITHUB_WORKSPACE}/registry-rem
-        poetry run fair registry start
-        poetry run ${GITHUB_WORKSPACE}/registry-rem/scripts/start_fair_registry -p 8001
-        cp ${GITHUB_WORKSPACE}/registry-rem/token $PWD/token
-        poetry run fair init --ci
-        poetry run fair pull --debug examples/fdp/SEIRSconfig.yaml
-        poetry run fair run --dirty --debug examples/fdp/SEIRSconfig.yaml
-      working-directory: julia_example
+        # Activate venv
+        ./venv/bin/activate
+        # Install local registry
+        fair registry install
+        # Start local registry
+        fair registry start
+        # Initialise repository
+        fair init --ci
+        # Pull (Register) SEIRS Parameters
+        fair pull --debug examples/fdp/SEIRSconfig.yaml
+        # Run the model dirty as venv is not in .gitignore (to do)
+        fair run --dirty --debug examples/fdp/SEIRSconfig.yaml
+      working-directory: julia_example # Use the julia_example Directory
 
   CPlusPlus:
     runs-on: ubuntu-latest
@@ -246,6 +320,12 @@ jobs:
         repository: FAIRDataPipeline/cppSimpleModel
         path: cpp_example
         ref: 'main'
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.9"
+        architecture: "x64"
 
     - name: Install requirements
       run: |
@@ -261,24 +341,40 @@ jobs:
         cmake --build build
       working-directory: cpp_example
 
-    - name: Install Poetry
-      uses: snok/install-poetry@v1
-      with:
-          virtualenvs-create: true
-          virtualenvs-in-project: true
-
-    - name: install fair-cli
+    - name: Setup fair
       run: |
-        poetry install
+        # Create venv
+        python3 -m venv venv
+        # Activate venv
+        ./venv/bin/activate
+        # Intall CLI
+        pip3 install ../ # Install CLI
+      working-directory: cpp_example # Use the cpp_example Directory
+
+    - name: Install remote registry
+      run: |
+        # Activate venv
+        ./venv/bin/activate # Activate venv
+        # Install the remote registry
+        curl -fsSL https://data.scrc.uk/static/remoteregistry.sh | /bin/bash -s -- -d ${GITHUB_WORKSPACE}/registry-rem -s drams.test-remote-settings -u admin -p admin
+        # Start the remote registry
+        ${GITHUB_WORKSPACE}/registry-rem/scripts/start_fair_registry -p 8001 -s drams.test-remote-settings
+        # Copy the remote token
+        cp ${GITHUB_WORKSPACE}/registry-rem/token $PWD/token
+      working-directory: cpp_example # Use the cpp_example Directory
 
     - name: Run Example model with fair-cli
       run: |
-        poetry run fair registry install
-        poetry run fair registry install --directory ${GITHUB_WORKSPACE}/registry-rem
-        poetry run fair registry start
-        poetry run ${GITHUB_WORKSPACE}/registry-rem/scripts/start_fair_registry -p 8001
-        cp ${GITHUB_WORKSPACE}/registry-rem/token $PWD/token
-        poetry run fair init --ci
-        poetry run fair pull --debug data/seirs_config.yaml
-        poetry run fair run --dirty --debug data/seirs_config.yaml
-      working-directory: cpp_example
+        # Activate venv
+        ./venv/bin/activate # Activate venv
+        # Install local registry
+        fair registry install
+        # Start local registry
+        fair registry start
+        # Initialise repository
+        fair init --ci
+        # Pull (Register) SEIRS Parameters
+        fair pull --debug data/seirs_config.yaml
+        # Run the model dirty as venv is not in .gitignore (to do)
+        fair run --dirty --debug data/seirs_config.yaml
+      working-directory: cpp_example # Use the cpp_example Directory
