@@ -89,7 +89,7 @@ jobs:
         working-directory: pySimpleModel # Use the pySimpleModel Directory
   Java:
     runs-on: ubuntu-latest
-    if: False
+    #if: False
     steps:
     - uses: actions/checkout@v3
     - name: Clone Java Implementation
