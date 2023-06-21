@@ -1,17 +1,18 @@
 import os
 import pathlib
-import platform
 import tempfile
 import typing
 
 import git
 
+import fair.common as fdp_com
 import fair.identifiers as fdp_id
 
 
 def create_configurations(
     registry_dir: str,
-    local_git_dir: str = None,
+    local_git_dir: typing.Optional[str] = None,
+    remote_reg_dir: typing.Optional[str] = None,
     testing_dir: str = tempfile.mkdtemp(),
     tokenless: bool = False,
 ) -> typing.Dict:
@@ -35,6 +36,16 @@ def create_configurations(
     typing.Dict
         A CLI configuration dictionary that can be loaded for a the CLI session
     """
+    if not registry_dir:
+        if "FAIR_REGISTRY_DIR" in os.environ:
+            registry_dir = os.environ["FAIR_REGISTRY_DIR"]
+        else:
+            registry_dir = fdp_com.DEFAULT_REGISTRY_LOCATION
+    if not remote_reg_dir:
+        remote_reg_dir = os.path.join(
+            os.path.dirname(fdp_com.DEFAULT_REGISTRY_LOCATION), "registry-rem"
+        )
+
     _loc_data_store = os.path.join(testing_dir, "data_store") + os.path.sep
     _proj_dir = os.path.join(testing_dir, "project")
 
@@ -49,32 +60,34 @@ def create_configurations(
     os.makedirs(_loc_data_store, exist_ok=True)
     _local_uri = "http://127.0.0.1:8000/api/"
     _origin_uri = "http://127.0.0.1:8001/api/"
-    if platform.system() == "Windows":
-        _local_uri = "http://127.0.0.1:8000/api/"
-        _origin_uri = "http://127.0.0.1:8001/api/"
     return {
         "namespaces": {"input": "testing", "output": "testing"},
         "registries": {
             "local": {
                 "data_store": _loc_data_store,
                 "directory": registry_dir,
+                "token": os.path.join(registry_dir, "token"),
                 "uri": _local_uri,
             },
             "origin": {
-                "data_store": None,
-                "token": os.path.join(registry_dir, "token.txt"),
+                "data_store": os.path.join(remote_reg_dir, "data"),
+                "token": os.path.join(remote_reg_dir, "token"),
                 "uri": _origin_uri,
             },
         },
         "user": {
-            "email": "test@noreply",
+            "email": "test@noreply.com",
             "family_name": "Test",
             "given_names": "Interface",
             "orcid": "000-0000-0000-0000",
             "uri": f'{fdp_id.ID_URIS["orcid"]}000-0000-0000-0000',
             "uuid": "2ddb2358-84bf-43ff-b2aa-3ac7dc3b49f1",
         },
-        "git": {"local_repo": local_git_dir, "remote": "origin"},
+        "git": {
+            "local_repo": local_git_dir,
+            "remote": "origin",
+            "remote_repo": "git@notagit.com/user/project.git",
+        },
     }
 
 

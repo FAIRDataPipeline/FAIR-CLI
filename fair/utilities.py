@@ -29,7 +29,13 @@ __date__ = "2021-08-04"
 
 import datetime
 import json
+import logging
 import typing
+import urllib.parse
+
+import validators
+
+logger = logging.getLogger("FAIRDataPipeline.Utilities")
 
 
 def flatten_dict(
@@ -126,7 +132,7 @@ def remove_dictlist_dupes(
         new list without duplicates
     """
     # Convert single layer dictionary to a list of key-value tuples
-    _tupleify = [[(k, v) for k, v in d.items()] for d in dicts]
+    _tupleify = [list(d.items()) for d in dicts]
 
     # Only append unique tuple lists
     _set_tupleify = []
@@ -171,3 +177,36 @@ def check_trailing_slash(string: str):
     if string[-1] != "/":
         string += "/"
     return string
+
+def remove_trailing_slash(string: str):
+    if string[-1] == "/":
+        string = string.rstrip(string[-1])
+    return string
+
+def is_api_url(uri: str, string: str) -> bool:
+    """Checks if given string is a valid API URL
+
+    Parameters
+    ----------
+    uri : str
+        the URI of the API to check against
+    string : str
+        URL candidate to check
+
+    Returns
+    -------
+    bool
+        if a valid URL for the given API endpoint
+    """
+    if not validators.url(string):
+        return False
+    _url = urllib.parse.urlparse(string)
+    _uri = urllib.parse.urlparse(uri)
+
+    logger.debug(
+        "Checking if '%s' is a valid API URL against net location '%s'",
+        string,
+        _uri.netloc,
+    )
+
+    return _url.netloc == _uri.netloc

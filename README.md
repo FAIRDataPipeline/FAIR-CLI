@@ -44,7 +44,7 @@ pip uninstall fair
 ## The User Configuration File
 Job runs are configured via `config.yaml` files. Upon initialisation of a project, FAIR-CLI automatically generates a starter configuration file with all requirements in place. To execute a process (e.g. perform a model run from a compiled binary/script) an additional key of either `script` or `script_path` must be provided. Alternatively the command `fair run bash` can be used to append the key and run a command directly.
 
-By default the shell used to execute a process is `sh` or `pwsh` for UNIX and Windows systems respectively. This can be overwritten by assigning the optional `shell` key with one of the following values (where `{0}` is the script file):
+By default the shell used to execute a process is `sh` or `batch` for UNIX and Windows systems respectively. This can be overwritten by assigning the optional `shell` key with one of the following values (where `{0}` is the script file):
 
 | **Shell**    | **Command**                     |
 | ------------ | ------------------------------- |
@@ -58,6 +58,7 @@ By default the shell used to execute a process is `sh` or `pwsh` for UNIX and Wi
 | `python`     | `python {0}`                    |
 | `R`          | `R -f {0}`                      |
 | `sh`         | `sh -e {0}`                     |
+| `batch`      | `{0}`                           |
 
 A full description of `config.yaml` files can be found [here](https://www.fairdatapipeline.org/docs/interface/config/).
 
@@ -86,7 +87,7 @@ registries:
   origin:
     data_store: /remote/registry/data/store/path/
     token: /path/to/remote/token
-    uri: https://data.scrc.uk/api/'
+    uri: https://data.fairdatapipeline.org/api/'
 user:
   email: 'test@noreply',
   family_name: 'Test'
@@ -130,14 +131,40 @@ fair run /path/to/config.yaml
 You can also launch a bash command directly, this will be automatically written into the `config.yaml`:
 
 ```sh
-fair run --script "echo \"Hello World\""
+fair run --script 'echo "Hello World"'
 ```
 
 note the command itself must be quoted as it is a single argument.
 
+By default the CLI will not allow the user to perform a run if the state of the analysis repository is such that it is behind the git remote, or contains uncommitted changes. To override this behaviour use the `--dirty` flag.
+
 ### `pull`
 
-Currently `pull` will update any entries within the `config.yaml` under the `register` heading creating `external_object` and `data_product` objects on the registry and downloading the data to the local data storage. Any data required for a run is downloaded  and stored within the local registry.
+The command `pull` will update any entries within the `config.yaml` under the `register` heading creating `external_object` and `data_product` objects on the registry and downloading the data to the local data storage. Any data required for a run is downloaded and stored within the local registry. In addition any data products requested that are available on the remote registry are pulled locally.
+
+```sh
+fair pull /path/to/config.yaml
+```
+
+### `status`
+This command displays objects which are awaiting staging or have been staged behaving in a manner similar to `git status`:
+```sh
+fair status
+```
+staged changes are displayed in green, and unstaged in red.
+
+### `add`
+Before changes can be pushed to the remote registry they must be staged. This command allows you to stage objects displayed when running `fair status` so that they can be sent to the remote registry. Data products are displayed and staged in the form `namespace:data_product_name@version`:
+```sh
+fair add my_namespace:data_object@v0.1.0
+```
+
+### `push`
+The `push` command will push any staged data products to the remote registry:
+
+```sh
+fair push
+```
 
 ### `purge`
 
@@ -153,13 +180,21 @@ To remove all configurations entirely (including those global to all projects) r
 fair purge --global
 ```
 
-Finally the data directory itself can be removed by running:
+To remove the data directory itself run:
 
 ```sh
 fair purge --data
 ```
 
 **WARNING**: This is not recommended as the registry may still have entries pointing to this location!
+
+Finally to remove everything run:
+
+```sh
+fair purge --all
+```
+
+this will remove the current repository `.fair` folder and the global FAIR directory which also contains the local registry.
 
 You can skip any confirmation messages by running:
 
@@ -186,6 +221,15 @@ fair registry stop
 ```
 
 will launch and halt the server respectively.
+
+The registry can be installed using the CLI as well by running:
+```sh
+fair registry install
+```
+with the additional options to specify the installation location, and the data registry repository tag to install from:
+```sh
+fair registry install --directory ~/.fair/my_registry --version v1.0-rc5
+```
 
 ### `log`
 
@@ -227,6 +271,7 @@ Within the `config.yaml` file, template variables can be specified by using the 
 | `DATETIME`          | Date and time in the form `%Y-%m-%sT%H:%M:S`                                     |
 | `DATETIME-%Y%H%M`   | Date and time in custom format (where `%Y%H%M` can be any valid form)            |
 | `USER`              | The current user as defined in the CLI                                           |
+| `USER_ID`           | The unique identifier for the current user        |
 | `REPO_DIR`          | The FAIR repository root directory                                               |
 | `CONFIG_DIR`        | The directory containing the `config.yaml` after template substitution           |
 | `LOCAL_TOKEN`       | The token for access to the local registry                                       |

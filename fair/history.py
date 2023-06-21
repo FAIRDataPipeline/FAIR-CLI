@@ -85,7 +85,9 @@ def show_job_log(repo_loc: str, job_id: str) -> str:
             # print the list of code_run uuids created in the registry
             if os.path.exists(_jobs_list):
                 click.echo("Related Code Runs: ")
-                click.echo("\n\t- ".join(open(_jobs_list).readlines()))
+                click.echo(
+                    "\t- " + "\n\t- ".join(open(_jobs_list).readlines())
+                )
 
             return _log_file
 

@@ -28,7 +28,6 @@ import shutil
 import subprocess
 import sys
 import typing
-import venv
 
 import git
 import requests
@@ -40,6 +39,7 @@ import fair.exceptions as fdp_exc
 import fair.registry.requests as fdp_req
 import fair.registry.storage as fdp_store
 import fair.utilities as fdp_util
+import fair.virtualenv as fdp_env
 
 
 def django_environ(environ: typing.Dict = os.environ):
@@ -95,7 +95,7 @@ def check_server_running(local_uri: str = None) -> bool:
 
 
 def launch_server(
-    local_uri: str = None, registry_dir: str = None, verbose: bool = False
+    port: int = 8000, registry_dir: str = None, verbose: bool = False, address: str = "127.0.0.1"
 ) -> int:
     """Start the registry server.
 
@@ -122,11 +122,9 @@ def launch_server(
             " is the FAIR data pipeline properly installed on this system?"
         )
 
-    _cmd = [
-        _server_start_script,
-        "-p",
-        f"{fdp_conf.get_local_port(local_uri)}",
-    ]
+    _cmd = [_server_start_script, "-p", f"{port}", "-a", f"{address}"]
+
+    os.environ["FAIR_ALLOWED_HOSTS"] = address if not "FAIR_ALLOWED_HOSTS" in os.environ else os.environ["FAIR_ALLOWED_HOSTS"] + f",{address}"
 
     logger.debug("Launching server with command '%s'", " ".join(_cmd))
 
@@ -142,6 +140,8 @@ def launch_server(
             sys.stdout.buffer.write(c)
 
     _start.wait()
+
+    local_uri = fdp_conf.update_local_port()
 
     if not check_server_running(local_uri):
         raise fdp_exc.RegistryError(
@@ -165,7 +165,7 @@ def stop_server(
     logger = logging.getLogger("FAIRDataPipeline.Server")
 
     registry_dir = registry_dir or fdp_com.registry_home()
-    _session_port_file = os.path.join(registry_dir, "session_port.log")
+    _session_port_file = fdp_com.registry_session_port_file(registry_dir)
 
     if not os.path.exists(_session_port_file):
         raise fdp_exc.FileNotFoundError(
@@ -299,7 +299,7 @@ def install_registry(
     silent: bool = False,
     force: bool = False,
     venv_dir: str = None,
-) -> None:
+) -> str:
 
     logger = logging.getLogger("FAIRDataPipeline.Server")
 
@@ -319,16 +319,15 @@ def install_registry(
     logger.debug("Updating registry path in global CLI configuration")
     if os.path.exists(fdp_com.global_fdpconfig()):
         _glob_conf = fdp_util.flatten_dict(fdp_conf.read_global_fdpconfig())
-    else:
-        _glob_conf = {}
+        _glob_conf["registries.local.directory"] = install_dir
 
-    _glob_conf["registries.local.directory"] = install_dir
-
-    with open(fdp_com.global_fdpconfig(), "w") as out_conf:
-        yaml.dump(fdp_util.expand_dict(_glob_conf), out_conf)
+        with open(fdp_com.global_fdpconfig(), "w") as out_conf:
+            yaml.dump(fdp_util.expand_dict(_glob_conf), out_conf)
 
     if force:
         logger.debug("Removing existing installation at '%s'", install_dir)
+        if platform.system() == "Windows":
+            fdp_com.set_file_permissions(install_dir)
         shutil.rmtree(install_dir, ignore_errors=True)
 
     logger.debug("Creating directories for installation if they do not exist")
@@ -346,11 +345,12 @@ def install_registry(
                 f"Expected tags in local registry repository '{repository}', "
                 "but found none"
             )
-        reference = _repo.tags[-1].name
+        _tags = sorted(_repo.tags, key=lambda t: t.commit.committed_datetime)
+        reference = _tags[-1].name
 
     logger.debug("Using reference '%s' for registry checkout", reference)
 
-    _candidates = [t.name for t in _repo.tags + _repo.heads]
+    _candidates = [t.name for t in _repo.tags + _repo.heads + _repo.remote().refs]
 
     if reference not in _candidates:
         raise fdp_exc.RegistryError(
@@ -363,11 +363,9 @@ def install_registry(
     if not venv_dir:
         venv_dir = os.path.join(install_dir, "venv")
 
-        venv.create(
-            venv_dir,
-            with_pip=True,
-            prompt="TestRegistry",
-        )
+        _venv = fdp_env.FAIREnv(with_pip=True)
+
+        _venv.create(venv_dir)
 
     _python_exe = "python.exe" if platform.system() == "Windows" else "python"
     _binary_loc = "Scripts" if platform.system() == "Windows" else "bin"
@@ -408,6 +406,8 @@ def install_registry(
 
     rebuild_local(_venv_python, install_dir, silent)
 
+    return reference
+
 
 def uninstall_registry() -> None:
     """Uninstall the local registry from the default location"""
@@ -420,12 +420,18 @@ def uninstall_registry() -> None:
         logger.debug(
             "Uninstalling registry, removing '%s'", fdp_com.registry_home()
         )
+        # On windows file permisions need to be set prior to removing the directory
+        if platform.system() == "Windows":
+            fdp_com.set_file_permissions(fdp_com.registry_home())
         shutil.rmtree(fdp_com.registry_home())
     elif os.path.exists(fdp_com.DEFAULT_REGISTRY_LOCATION):
         logger.debug(
             "Uninstalling registry, removing '%s'",
             fdp_com.DEFAULT_REGISTRY_LOCATION,
         )
+        # On windows file permisions need to be set prior to removing the directory
+        if platform.system() == "Windows":
+            fdp_com.set_file_permissions(fdp_com.DEFAULT_REGISTRY_LOCATION)
         shutil.rmtree(fdp_com.DEFAULT_REGISTRY_LOCATION)
     else:
         raise fdp_exc.RegistryError(
@@ -452,28 +458,36 @@ def update_registry_post_setup(
     _is_running = check_server_running(fdp_conf.get_local_uri())
 
     if not _is_running:
-        launch_server(fdp_conf.get_local_uri())
+        launch_server()
 
     if global_setup:
         logger.debug("Populating file types")
-        fdp_store.populate_file_type(fdp_conf.get_local_uri())
+        fdp_store.populate_file_type(
+            fdp_conf.get_local_uri(), fdp_req.local_token()
+        )
 
-    logger.debug("Adding 'author' and 'UserAuthor' entries ig not present")
+    logger.debug("Adding 'author' and 'UserAuthor' entries if not present")
     # Add author and UserAuthor
-    _author_url = fdp_store.store_user(repo_dir, fdp_conf.get_local_uri())
+    _author_url = fdp_store.store_user(
+        repo_dir, fdp_conf.get_local_uri(), fdp_req.local_token()
+    )
 
     try:
         _admin_url = fdp_req.get(
-            fdp_conf.get_local_uri(), "users", params={"username": "admin"}
+            fdp_conf.get_local_uri(),
+            "users",
+            fdp_req.local_token(),
+            params={"username": "admin"},
         )[0]["url"]
-    except (KeyError, IndexError):
-        raise fdp_exc.RegistryAPICallError(
+    except (KeyError, IndexError) as e:
+        raise fdp_exc.RegistryError(
             "Failed to retrieve 'admin' user from registry database"
-        )
+        ) from e
 
     fdp_req.post_else_get(
         fdp_conf.get_local_uri(),
         "user_author",
+        fdp_req.local_token(),
         data={"user": _admin_url, "author": _author_url},
     )
 

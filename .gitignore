@@ -151,3 +151,16 @@ cython_debug/
 *.yml
 token.txt
 .fair
+
+# GitHub config
+
+!/.github/*
+
+# data_store
+/data_store 
+
+# Mac OS
+.DS_Store
+
+# Coverage
+cov.xml

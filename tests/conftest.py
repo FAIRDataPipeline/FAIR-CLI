@@ -1,24 +1,92 @@
 import logging
 import os
+import shutil
 import signal
 import tempfile
+import time
+import typing
+import subprocess
 
+import git
 import pytest
 import pytest_fixture_config
 import pytest_mock
 import pytest_virtualenv
 import yaml
 
+import boto3
+import os
+from moto.server import ThreadedMotoServer
+
 import fair.common as fdp_com
+import fair.registry.server as fdp_serv
 import fair.testing as fdp_test
 
 from . import registry_install as test_reg
 
 TEST_JOB_FILE_TIMESTAMP = "2021-10-11_10_0_0_100000"
+PYTHON_API_GIT = "https://github.com/FAIRDataPipeline/pyDataPipeline.git"
+PYTHON_MODEL_GIT = "https://github.com/FAIRDataPipeline/pySimpleModel.git"
+
+TEST_OUT_DIR = os.path.join(os.getcwd(), "test_outputs")
+os.makedirs(TEST_OUT_DIR, exist_ok=True)
 
 
 logging.getLogger("FAIRDataPipeline").setLevel(logging.DEBUG)
 
+
+def get_example_entries(registry_dir: str):
+    """
+    With the registry examples regularly changing this function parses the
+    relevant file in the reg repository to obtain all example object metadata
+    """
+    SEARCH_STR = "StorageLocation.objects.get_or_create"
+    _example_file = os.path.join(
+        registry_dir,
+        "data_management",
+        "management",
+        "commands",
+        "_example_data.py",
+    )
+
+    _objects: typing.List[typing.Tuple[str, str, str]] = []
+
+    with open(_example_file) as in_f:
+        _lines = in_f.readlines()
+        for i, line in enumerate(_lines):
+            if SEARCH_STR in line:
+                _path_line_offset = 0
+                while "path" not in _lines[i + _path_line_offset]:
+                    _path_line_offset += 1
+                _candidate = _lines[i + _path_line_offset]
+                _candidate = _candidate.replace("path=", "")
+                if _candidate.strip()[0] == "(":
+                    ii = i + _path_line_offset + 1
+                    while ")" not in _candidate:
+                        _candidate += _lines[ii].strip()
+                        ii += 1
+                _candidate = _candidate.replace('"', "")
+                _candidate = _candidate.replace("(", "")
+                _candidate = _candidate.replace(")", "")
+                _candidate = _candidate.replace(",", "")
+                _metadata, _file = _candidate.rsplit("/", 1)
+                _version = ".".join(_file.split(".")[:3])
+                _objects.append((*_metadata.split("/", 1), _version))
+
+    return _objects
+
+
+@pytest.fixture(scope="module")
+def pyDataPipeline():
+    with tempfile.TemporaryDirectory() as _repo_path:
+        _repo = git.Repo.clone_from(PYTHON_API_GIT, _repo_path)
+        _repo.git.checkout("dev")
+        _model_path = os.path.join(_repo_path, "model")
+        _model = git.Repo.clone_from(PYTHON_MODEL_GIT, _model_path)
+        _model.git.checkout("main")
+        simple_model = os.path.join(_model_path, "simpleModel")
+        shutil.move(simple_model, _repo_path)
+        yield _repo_path
 
 @pytest.fixture(scope="session")
 @pytest_fixture_config.yield_requires_config(
@@ -48,6 +116,12 @@ def session_virtualenv():
     yield venv
     venv.teardown()
 
+@pytest.fixture(scope='module')
+def monkeypatch_module():
+    from _pytest.monkeypatch import MonkeyPatch
+    m = MonkeyPatch()
+    yield m
+    m.undo()
 
 @pytest.fixture
 def local_config(mocker: pytest_mock.MockerFixture):
@@ -57,7 +131,7 @@ def local_config(mocker: pytest_mock.MockerFixture):
         _gconfig_path = os.path.join(
             tempg, fdp_com.FAIR_FOLDER, fdp_com.FAIR_CLI_CONFIG
         )
-        _cfgg = fdp_test.create_configurations(tempg, None, tempg, True)
+        _cfgg = fdp_test.create_configurations(tempg, None, None, tempg, True)
         yaml.dump(_cfgg, open(_gconfig_path, "w"))
         mocker.patch(
             "fair.common.global_config_dir",
@@ -65,12 +139,17 @@ def local_config(mocker: pytest_mock.MockerFixture):
         )
         mocker.patch("fair.common.global_fdpconfig", lambda: _gconfig_path)
 
+        with open(fdp_com.registry_session_port_file(), "w") as pf:
+            pf.write("8001")
+
         with tempfile.TemporaryDirectory() as templ:
             os.makedirs(os.path.join(templ, fdp_com.FAIR_FOLDER))
             _lconfig_path = os.path.join(
                 templ, fdp_com.FAIR_FOLDER, fdp_com.FAIR_CLI_CONFIG
             )
-            _cfgl = fdp_test.create_configurations(templ, None, templ, True)
+            _cfgl = fdp_test.create_configurations(
+                templ, None, None, templ, True
+            )
             yaml.dump(_cfgl, open(_lconfig_path, "w"))
             with open(
                 os.path.join(templ, fdp_com.USER_CONFIG_FILE), "w"
@@ -79,6 +158,22 @@ def local_config(mocker: pytest_mock.MockerFixture):
             mocker.patch("fair.common.find_fair_root", lambda *args: templ)
             yield (tempg, templ)
 
+@pytest.fixture(scope = "module")
+def global_config(monkeypatch_module):
+    with tempfile.TemporaryDirectory() as tempg:
+        os.makedirs(os.path.join(tempg, fdp_com.FAIR_FOLDER, "registry"))
+        os.makedirs(os.path.join(tempg, fdp_com.FAIR_FOLDER, "sessions"))
+        _gconfig_path = os.path.join(
+            tempg, fdp_com.FAIR_FOLDER, fdp_com.FAIR_CLI_CONFIG
+        )
+        _cfgg = fdp_test.create_configurations(tempg, None, None, tempg, True)
+        yaml.dump(_cfgg, open(_gconfig_path, "w"))
+        monkeypatch_module.setattr(
+            "fair.common.global_config_dir",
+            lambda: os.path.dirname(_gconfig_path),
+        )
+        monkeypatch_module.setattr("fair.common.global_fdpconfig", lambda: _gconfig_path)
+        yield (tempg)
 
 @pytest.fixture
 def job_directory(mocker: pytest_mock.MockerFixture) -> str:
@@ -113,29 +208,67 @@ def job_log(mocker: pytest_mock.MockerFixture) -> str:
         yield tempd
 
 
-class TestRegistry:
-    def __init__(self, install_loc: str, venv_dir: str):
+class RegistryTest:
+    def __init__(
+        self,
+        install_loc: str,
+        venv: pytest_virtualenv.VirtualEnv,
+        port: int = 8000,
+        remote: bool = False
+    ):
         self._install = install_loc
-        self._venv = os.path.join(venv_dir, ".env")
+        self._venv = venv
+        self._venv_dir = os.path.join(venv.workspace, ".env")
         self._process = None
+        self._port = port
+        self._url = f"http://127.0.0.1:{port}/api/"
+        self._remote = remote
         if not os.path.exists(os.path.join(install_loc, "manage.py")):
             test_reg.install_registry(
-                install_dir=install_loc, silent=True, venv_dir=self._venv
+                install_dir=install_loc, silent=True, venv_dir=self._venv_dir, remote=self._remote
             )
+        # Start then stop to generate key
+        _process = test_reg.launch(
+            self._install,
+            silent=True,
+            venv_dir=self._venv_dir,
+            port=self._port,
+            remote= remote
+        )
+        while not os.path.exists(os.path.join(self._install, "token")):
+            time.sleep(5)
+        self._token = open(os.path.join(self._install, "token")).read().strip()
+        assert self._token
+        os.kill(_process.pid, signal.SIGTERM)
 
     def rebuild(self):
         test_reg.rebuild_local(
-            os.path.join(self._venv, "bin", "python"), self._install
+            os.path.join(self._venv_dir, "bin", "python"), self._install, remote=self._remote
         )
+    
+    def launch(self):
+        self._process = test_reg.launch(
+            self._install,
+            silent=True,
+            venv_dir=self._venv_dir,
+            port=self._port,
+            remote=self._remote
+        )
+            
+    def kill(self):
+        if self._process:
+            os.kill(self._process.pid, signal.SIGTERM)
 
     def __enter__(self):
         try:
             self._process = test_reg.launch(
-                self._install, silent=True, venv_dir=self._venv
-            )
-            self._token = (
-                open(os.path.join(self._install, "token")).read().strip()
-            )
+                self._install,
+                silent=True,
+                venv_dir=self._venv_dir,
+                port=self._port,
+                remote=self._remote
+            )                
+
         except KeyboardInterrupt as e:
             os.kill(self._process.pid, signal.SIGTERM)
             raise e
@@ -144,11 +277,65 @@ class TestRegistry:
         os.kill(self._process.pid, signal.SIGTERM)
         self._process = None
 
-
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def local_registry(session_virtualenv: pytest_virtualenv.VirtualEnv):
-    with tempfile.TemporaryDirectory() as tempd:
-        session_virtualenv.env = test_reg.django_environ(
-            session_virtualenv.env
+    if fdp_serv.check_server_running("http://127.0.0.1:8000"):
+        pytest.skip(
+            "Cannot run registry tests, a server is already running on port 8000"
         )
-        yield TestRegistry(tempd, session_virtualenv.workspace)
+    session_virtualenv.env = test_reg.django_environ(
+        session_virtualenv.env
+    )
+    with tempfile.TemporaryDirectory() as tempd:
+        rtest = RegistryTest(tempd, session_virtualenv, port=8000)
+        yield rtest
+    if rtest._process:
+        os.kill(rtest._process.pid, signal.SIGTERM)
+    print("TearDown of Local Registry Complete")
+
+@pytest.fixture(scope="module")
+def remote_registry(session_virtualenv: pytest_virtualenv.VirtualEnv):
+    if fdp_serv.check_server_running("http://127.0.0.1:8001"):
+        pytest.skip(
+            "Cannot run registry tests, a server is already running on port 8001"
+        )
+    session_virtualenv.env = test_reg.django_environ(
+        session_virtualenv.env, True
+    )
+    with tempfile.TemporaryDirectory() as tempd:
+        rtest = RegistryTest(tempd, session_virtualenv, port=8001, remote= True)
+        yield rtest
+    if rtest._process:
+        os.kill(rtest._process.pid, signal.SIGTERM)
+    print("TearDown of Remote Registry Complete")
+
+@pytest.fixture(scope="module")
+def fair_bucket(port: int = 3005):
+    yield MotoTestServer(port)
+
+class MotoTestServer:
+    def __init__(
+        self,
+        port: int = 3005
+    ):
+        """Mocked AWS Credentials for moto."""
+        os.environ['AWS_ACCESS_KEY_ID'] = 'testing'
+        os.environ['AWS_SECRET_ACCESS_KEY'] = 'testing'
+        os.environ['AWS_SECURITY_TOKEN'] = 'testing'
+        os.environ['AWS_SESSION_TOKEN'] = 'testing'
+        os.environ['AWS_DEFAULT_REGION'] = 'us-east-1'
+        self._port = port
+        self._server = ThreadedMotoServer(port = port)
+    def __enter__(self):
+        try:
+            print("Starting Moto Server")       
+            self._server.start()
+            print("creating Bucket")
+            server_client = boto3.client("s3", endpoint_url=f"http://127.0.0.1:{self._port}")
+            server_client.create_bucket(Bucket="fair")         
+        except KeyboardInterrupt as e:
+            self._server.stop()
+            raise e
+    def __exit__(self, type, value, tb):
+        self._server.stop()
+

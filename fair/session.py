@@ -1,4 +1,5 @@
 #!/usr/bin/python3
+# flake8: noqa
 # -*- coding: utf-8 -*-
 """
     Session
@@ -33,25 +34,34 @@ import glob
 import logging
 import os
 import pathlib
+import re
 import shutil
 import typing
 import uuid
+import platform
+import traceback
 
 import click
 import git
+import pydantic
 import rich
 import yaml
+from rich.console import Console
+from rich.table import Table
 
 import fair.common as fdp_com
 import fair.configuration as fdp_conf
+import fair.configuration.validation as fdp_clivalid
 import fair.exceptions as fdp_exc
 import fair.history as fdp_hist
+import fair.registry.requests as fdp_req
 import fair.registry.server as fdp_serv
 import fair.registry.sync as fdp_sync
-import fair.run as fdp_run
 import fair.staging as fdp_stage
 import fair.templates as fdp_tpl
 import fair.testing as fdp_test
+import fair.user_config as fdp_user
+import fair.logging as fdp_logging
 
 
 class FAIR:
@@ -72,7 +82,11 @@ class FAIR:
         user_config: str = None,
         debug: bool = False,
         server_mode: fdp_serv.SwitchMode = fdp_serv.SwitchMode.NO_SERVER,
+        server_port: int = 8000,
+        server_address: str = "127.0.0.1",
+        allow_dirty: bool = False,
         testing: bool = False,
+        local: bool = False,
     ) -> None:
         """Initialise instance of FAIR sync tool
 
@@ -93,22 +107,31 @@ class FAIR:
             run in verbose mode
         server_mode : fair.registry.server.SwitchMode, optional
             stop/start server mode during session
+        server_port : int, optional
+            port to run local registry on, default is 8000
+        allow_dirty : bool, optional
+            allow runs with uncommitted changes, default is False
         testing : bool
             run in testing mode
-        generate_config : bool
-            if the specified config.yaml does not exist generate it
+        local : bool
+            bypasses storing the remote in the config yamls
         """
         if debug:
             logging.getLogger("FAIRDataPipeline").setLevel(logging.DEBUG)
+        else:
+            self._set_logger_info()
         self._logger.debug("Starting new session.")
         self._testing = testing
+        self._local = local
         self._session_loc = repo_loc
+        self._allow_dirty = allow_dirty
         self._logger.debug(f"Session location: {self._session_loc}")
         self._run_mode = server_mode
         self._stager: fdp_stage.Stager = fdp_stage.Stager(self._session_loc)
         self._session_id = (
             uuid.uuid4() if server_mode == fdp_serv.SwitchMode.CLI else None
         )
+        self._session_config = None
 
         if user_config and not os.path.exists(user_config):
             raise fdp_exc.FileNotFoundError(
@@ -116,9 +139,7 @@ class FAIR:
                 "file not found."
             )
 
-        self._session_config = user_config or fdp_com.local_user_config(
-            self._session_loc
-        )
+        self._session_config = fdp_user.JobConfiguration(user_config)
 
         if (
             server_mode != fdp_serv.SwitchMode.NO_SERVER
@@ -134,6 +155,7 @@ class FAIR:
                 "Creating directory: %s", fdp_com.global_config_dir()
             )
             os.makedirs(fdp_com.global_config_dir())
+            assert os.path.exists(fdp_com.global_config_dir())
 
         # Initialise all configuration status dictionaries
         self._local_config: typing.Dict[str, typing.Any] = {}
@@ -141,38 +163,29 @@ class FAIR:
 
         self._logger.debug(
             "Initialising session with:\n"
+            "\tlocation       = %s\n"
             "\tsession_config = %s\n"
             "\ttesting        = %s\n"
             "\trun_mode       = %s\n"
             "\tstaging_file   = %s\n"
-            "\tsession_id     = %s\n",
-            self._session_config,
+            "\tsession_id     = %s\n"
+            "\tlocal          = %s\n",
+            self._session_loc,
+            user_config,
             self._testing,
             self._run_mode,
             self._stager._staging_file,
             self._session_id,
+            self._local,
         )
 
         self._load_configurations()
 
-        self._setup_server()
-
-    def push(self, remote: str = "origin"):
-        self._logger.debug(
-            f"Pushing items in '{self._session_config}:write' to remote"
-            f" registry '{remote}'"
-        )
-        fdp_sync.push_from_config(
-            fdp_conf.get_local_uri(),
-            fdp_conf.get_remote_uri(self._session_loc, remote),
-            fdp_conf.get_remote_token(self._session_loc, remote),
-            self._session_config,
-        )
+        self._setup_server(server_port, server_address)
 
     def purge(
         self,
         verbose: bool = True,
-        local_cfg: bool = False,
         global_cfg: bool = False,
         clear_data: bool = False,
         clear_all: bool = False,
@@ -181,8 +194,6 @@ class FAIR:
 
         Parameters
         ==========
-        local_cfg : bool, optional
-            remove local directories, default is False
         global_cfg : bool, optional
             remove global directories, default is False
         verbose : bool, optional
@@ -198,25 +209,40 @@ class FAIR:
         if os.path.exists(_root_dir):
             if verbose:
                 click.echo(f"Removing directory '{_root_dir}'")
+            if platform.system() == "Windows":
+                fdp_com.set_file_permissions(_root_dir)
             shutil.rmtree(_root_dir)
         if clear_all:
-            if verbose:
+            try:
+                if fdp_serv.check_server_running():
+                    fdp_serv.stop_server()
+            except (fdp_exc.FileNotFoundError, fdp_exc.CLIConfigurationError):
+                click.echo(
+                    "Warning: Unable to check if server is running, "
+                    "you may need to manually terminate the Django process"
+                )
+            if verbose and os.path.exists(fdp_com.USER_FAIR_DIR):
                 click.echo(f"Removing directory '{fdp_com.USER_FAIR_DIR}'")
+            if platform.system() == "Windows":
+                fdp_com.set_file_permissions(fdp_com.USER_FAIR_DIR)
             shutil.rmtree(fdp_com.USER_FAIR_DIR)
             return
         if clear_data:
             try:
-                if verbose:
+                if verbose and os.path.exists(fdp_com.default_data_dir()):
                     click.echo(
                         f"Removing directory '{fdp_com.default_data_dir()}'"
                     )
                 if os.path.exists(fdp_com.default_data_dir()):
+                    if platform.system() == "Windows":
+                        fdp_com.set_file_permissions(fdp_com.default_data_dir())
                     shutil.rmtree(fdp_com.default_data_dir())
-            except FileNotFoundError:
+            except FileNotFoundError as e:
                 raise fdp_exc.FileNotFoundError(
                     "Cannot remove local data store, a global CLI configuration "
                     "is required to identify its location"
-                )
+                ) from e
+
         if global_cfg:
             if verbose:
                 click.echo(
@@ -224,18 +250,19 @@ class FAIR:
                 )
             _global_dirs = fdp_com.global_config_dir()
             if os.path.exists(_global_dirs):
+                if platform.system() == "Windows":
+                        fdp_com.set_file_permissions(_global_dirs)
                 shutil.rmtree(_global_dirs)
 
-    def _setup_server(self) -> None:
+    def _setup_server(self, port: int, address: str) -> None:
         """Start or stop the server if required"""
-
         self._logger.debug(
             f"Running server setup for run mode {self._run_mode}"
         )
         if self._run_mode == fdp_serv.SwitchMode.CLI:
-            self._setup_server_cli_mode()
+            self._setup_server_cli_mode(port, address)
         elif self._run_mode == fdp_serv.SwitchMode.USER_START:
-            self._setup_server_user_start()
+            self._setup_server_user_start(port, address)
         elif self._run_mode in [
             fdp_serv.SwitchMode.USER_STOP,
             fdp_serv.SwitchMode.FORCE_STOP,
@@ -263,7 +290,7 @@ class FAIR:
             force=self._run_mode == fdp_serv.SwitchMode.FORCE_STOP,
         )
 
-    def _setup_server_cli_mode(self):
+    def _setup_server_cli_mode(self, port: int, address: str) -> None:
         self.check_is_repo()
         _cache_addr = os.path.join(
             fdp_com.session_cache_dir(), f"{self._session_id}.run"
@@ -273,7 +300,7 @@ class FAIR:
         # If there are no session cache files start the server
         if not glob.glob(os.path.join(fdp_com.session_cache_dir(), "*.run")):
             self._logger.debug("No sessions found, launching server")
-            fdp_serv.launch_server()
+            fdp_serv.launch_server(port=port, address=address)
 
         self._logger.debug(f"Creating new session #{self._session_id}")
 
@@ -286,13 +313,13 @@ class FAIR:
         # Create new session cache file
         pathlib.Path(_cache_addr).touch()
 
-    def _setup_server_user_start(self):
+    def _setup_server_user_start(self, port: int, address: str) -> None:
         if not os.path.exists(fdp_com.session_cache_dir()):
             os.makedirs(fdp_com.session_cache_dir())
 
         _cache_addr = os.path.join(fdp_com.session_cache_dir(), "user.run")
 
-        if "registries" not in self._global_config:
+        if self._global_config and "registries" not in self._global_config:
             raise fdp_exc.CLIConfigurationError(
                 "Cannot find server address in current configuration",
                 hint="Is the current location a FAIR repository?",
@@ -304,31 +331,214 @@ class FAIR:
             )
         click.echo("Starting local registry server")
         pathlib.Path(_cache_addr).touch()
-        fdp_serv.launch_server(fdp_conf.get_local_uri(), verbose=True)
+        fdp_serv.launch_server(port=port, verbose=True, address=address)
 
-    def run_job(
-        self, bash_cmd: str = "", mode: fdp_run.CMD_MODE = fdp_run.CMD_MODE.RUN
-    ) -> str:
-        """Execute a run using the given user configuration file"""
+    def _pre_job_setup(self, remote: str = None) -> None:
+        self._logger.debug("Running pre-job setup")
         self.check_is_repo()
-        if not os.path.exists(self._session_config):
-            self.make_starter_config()
-
-        self._logger.debug("Setting up command execution")
-
-        _hash = fdp_run.run_command(
-            repo_dir=self._session_loc,
-            config_yaml=self._session_config,
-            bash_cmd=bash_cmd,
-            mode=mode,
+        self._session_config.update_from_fair(
+            fdp_com.find_fair_root(self._session_loc), remote
         )
 
-        self._logger.debug(f"Tracking job hash {_hash}")
+    def _post_job_breakdown(self, add_run: bool = False) -> None:
+        if add_run:
+            self._logger.debug(
+                f"Tracking job hash {self._session_config.hash}"
+            )
 
-        # Automatically add the run to tracking but unstaged
-        self._stager.change_job_stage_status(_hash, False)
+        self._logger.debug("Updating staging post-run")
 
-        return _hash
+        self._stager.update_data_product_staging()
+
+        if add_run:
+            # Automatically add the run to tracking but unstaged
+            self._stager.add_to_staging(self._session_config.hash, "job")
+
+        self._session_config.close_log()
+
+    def registry_status(self):
+        if fdp_serv.check_server_running():
+            click.echo(f'Server running at: {fdp_conf.get_local_uri()}')
+        else:
+            click.echo(f'Server is not running')
+
+    def push(self, remote: str = "origin"):
+        self._pre_job_setup(remote)
+        self._session_config.prepare(
+            fdp_com.CMD_MODE.PUSH, allow_dirty=self._allow_dirty
+        )
+        _staged_data_products = self._stager.get_item_list(
+            True, "data_product"
+        )
+
+        _staged_code_runs = self._stager.get_item_list(
+            True, "code_run"
+        )
+
+        if not _staged_data_products:
+            click.echo("No Staged Data Products to Push.")
+
+        if not _staged_code_runs:
+            click.echo("No Staged Code Runs to Push.")
+
+        fdp_sync.sync_code_runs(
+            origin_uri=fdp_conf.get_local_uri(),
+            dest_uri=fdp_conf.get_remote_uri(self._session_loc, remote),
+            dest_token=fdp_conf.get_remote_token(
+                self._session_loc, remote, local=self._local
+            ),
+            origin_token=fdp_req.local_token(),
+            remote_label=remote,
+            code_runs=_staged_code_runs,
+        )
+
+        fdp_sync.sync_data_products(
+            origin_uri=fdp_conf.get_local_uri(),
+            dest_uri=fdp_conf.get_remote_uri(self._session_loc, remote),
+            dest_token=fdp_conf.get_remote_token(
+                self._session_loc, remote, local=self._local
+            ),
+            origin_token=fdp_req.local_token(),
+            remote_label=remote,
+            data_products=_staged_data_products,
+        )
+
+        self._session_config.write_log_lines(
+            [f"Pushing code_run(s) to remote '{remote}':"]
+            + [f"\t- {code_run}" for code_run in _staged_code_runs]
+        )
+
+        self._session_config.write_log_lines(
+            [f"Pushing data products to remote '{remote}':"]
+            + [f"\t- {data_product}" for data_product in _staged_data_products]
+        )
+
+        self._post_job_breakdown()
+
+        # When push successful unstage data products again
+        for code_run in _staged_code_runs:
+            self._stager.change_stage_status(
+                code_run, "code_run", False
+            )
+        for data_product in _staged_data_products:
+            self._stager.change_stage_status(
+                data_product, "data_product", False
+            )
+
+    def pull(self, remote: str = "origin"):
+        if not self._local:
+
+            self._logger.debug("Performing pull on remote '%s'", remote)
+
+            _remote_addr = fdp_conf.get_remote_uri(self._session_loc, remote)
+
+            if not fdp_serv.check_server_running(_remote_addr):
+                raise fdp_exc.UnexpectedRegistryServerState(
+                    f"Cannot perform pull from registry '{remote}' as the"
+                    f" server does not exist. Expected response from '{_remote_addr}'.",
+                    hint="Is your FAIR repository configured correctly?",
+                )
+            self._logger.debug("Retrieving namespaces from remote")
+
+            fdp_sync.pull_all_namespaces(
+                fdp_conf.get_local_uri(),
+                fdp_conf.get_remote_uri(self._session_loc, remote),
+                fdp_req.local_token(),
+                fdp_conf.get_remote_token(
+                    self._session_loc, remote, self._local
+                ),
+            )
+
+            self._logger.debug("Performing pre-job setup")
+
+        self._pre_job_setup(remote)
+
+        self._session_config.prepare(
+            fdp_com.CMD_MODE.PULL,
+            allow_dirty=self._allow_dirty,
+            local=self._local,
+            remote_uri=fdp_conf.get_remote_uri(self._session_loc, remote),
+            remote_token=fdp_conf.get_remote_token(
+                self._session_loc, remote, local=self._local
+            ),
+        )
+
+        _readables = self._session_config.get_readables()
+
+        self._session_config.write()
+
+        self._logger.debug("Preparing to retrieve %s items", len(_readables))
+
+        self._logger.debug("Pulling data products locally")
+
+        # Only push data products if there are any to do so, this covers the
+        # case whereby no remote has been setup and we just want to register
+        # items on the local registry
+        if _readables:
+            fdp_sync.sync_data_products(
+                origin_uri=fdp_conf.get_remote_uri(self._session_loc, remote),
+                dest_uri=fdp_conf.get_local_uri(),
+                dest_token=fdp_req.local_token(),
+                origin_token=fdp_conf.get_remote_token(
+                    self._session_loc, remote, local=self._local
+                ),
+                remote_label=remote,
+                data_products=_readables,
+                local_data_store=self._session_config.default_data_store,
+            )
+
+            self._session_config.write_log_lines(
+                [f"Pulled data products from remote '{remote}':"]
+                + [f"\t- {data_product}" for data_product in _readables]
+            )
+        else:
+            click.echo(f"There are no items in [read] to pull from '{remote}'.")
+
+        self._logger.debug("Performing post-job breakdown")
+
+        self._post_job_breakdown()
+        # else:
+        #     click.echo("working with no remote")
+        #     self._logger.debug(f"local is {self._local}")
+
+    def run(
+        self,
+        bash_cmd: str = "",
+        passive: bool = False,
+        allow_dirty: bool = False,
+        local: bool = False,
+    ) -> str:
+        """Execute a run using the given user configuration file"""
+        self._pre_job_setup()
+
+        self._session_config.prepare(
+            fdp_com.CMD_MODE.PASS if passive else fdp_com.CMD_MODE.RUN,
+            allow_dirty=self._allow_dirty,
+            local=local,
+        )
+
+        self._logger.debug("Setting up command execution")
+        if bash_cmd:
+            self._session_config.set_command(bash_cmd)
+
+        self._session_config.setup_job_script()
+
+        if allow_dirty:
+            self._logger.debug("Allowing uncommitted changes during run.")
+
+        # Only apply constraint for clean repository when executing a run
+        if passive:
+            allow_dirty = True
+        if not local:
+            self.check_git_repo_state(allow_dirty=allow_dirty)
+
+        self._session_config.write()
+
+        self._session_config.execute()
+
+        self._post_job_breakdown(add_run=True)
+
+        return self._session_config.hash
 
     def check_is_repo(self, location: str = None) -> None:
         """Check that the current location is a FAIR repository"""
@@ -341,25 +551,73 @@ class FAIR:
             )
 
     def check_git_repo_state(
-        self, git_repo: str, remote_label: str = "origin"
+        self, remote_label: str = "origin", allow_dirty: bool = False
     ) -> bool:
         """Checks the git repository is clean and that local matches remote"""
-        _repo_root = fdp_com.find_git_root(git_repo)
+        _repo_root = fdp_com.find_git_root(self._session_loc)
         _repo = git.Repo(_repo_root)
+        _rem_commit = None
+        _loc_commit = None
+        _current_branch = None
 
         # Firstly get the current branch
-        _current_branch = _repo.active_branch.name
-
-        # Get the latest commit on the current branch locally
-        _loc_commit = _repo.refs[_current_branch].commit.hexsha
+        try:
+            _current_branch = _repo.active_branch.name
+            # Get the latest commit on the current branch locally
+            _loc_commit = _repo.refs[_current_branch].commit.hexsha
+        except (TypeError, IndexError) as e:
+            if allow_dirty:
+                click.echo(f"Warning: {' '.join(e.args)}")
+            else:
+                raise fdp_exc.FDPRepositoryError(" ".join(e.args)) from e
 
         # Get the latest commit on this branch on remote
-        _rem_commit = (
-            _repo.remotes[remote_label].refs[_current_branch].commit.hexsha
-        )
+
+        try:
+            if _current_branch:
+                _rem_commit = (
+                    _repo.remotes[remote_label]
+                    .refs[_current_branch]
+                    .commit.hexsha
+                )
+        except git.InvalidGitRepositoryError as exc:
+            raise fdp_exc.FDPRepositoryError(
+                f"Location '{self._session_loc}' is not a valid git repository"
+            ) from exc
+
+        except ValueError as exc:
+            raise fdp_exc.FDPRepositoryError(
+                f"Failed to retrieve latest commit for local repository '{self._session_loc}'",
+                hint="Have any changes been committed in the project repository?",
+            ) from exc
+
+        except IndexError as exc:
+            _msg = f"Failed to find branch '{_current_branch}' on remote repository"
+            if allow_dirty:
+                click.echo(f"Warning: {_msg}")
+            else:
+                raise fdp_exc.FDPRepositoryError(_msg) from exc
 
         # Commit match
         _com_match = _loc_commit == _rem_commit
+
+        if not _com_match:
+            if allow_dirty:
+                click.echo(
+                    "Warning: local git repository is ahead/behind remote"
+                )
+            else:
+                raise fdp_exc.FDPRepositoryError(
+                    "Cannot run job, local git repository not level with "
+                    f"remote '{remote_label}'"
+                )
+        if _repo.is_dirty():
+            if allow_dirty:
+                click.echo("Warning: running with uncommitted changes")
+            else:
+                raise fdp_exc.FDPRepositoryError(
+                    "Cannot run job, git repository contains uncommitted changes"
+                )
 
         return _repo.is_dirty() and _com_match
 
@@ -380,8 +638,15 @@ class FAIR:
                 self._session_loc
             )
 
+    def reset_staging(self) -> None:
+        """Reset all staged items"""
+        self._stager.reset_staged()
+
     def change_staging_state(
-        self, job_to_stage: str, stage: bool = True
+        self,
+        identifier: str,
+        job: bool = False,
+        stage: bool = True,
     ) -> None:
         """Change the staging status of a given run
 
@@ -393,7 +658,57 @@ class FAIR:
             whether to stage/unstage run, by default True (staged)
         """
         self.check_is_repo()
-        self._stager.change_job_stage_status(job_to_stage, stage)
+        type_to_stage = self.get_type_to_stage(identifier, job)
+        if type_to_stage == "job":
+            self._stager.change_job_stage_status(identifier, stage)
+        else:
+            self._stager.change_stage_status(identifier, type_to_stage, stage)
+
+    def get_type_to_stage(self, identifier, job: bool = False) ->str:
+        if ":" in identifier and "@" in identifier:
+            return "data_product"
+        elif job:
+            return "job"
+        else:
+            return "code_run"
+
+    def add_to_staging(self, identifier):
+        item_type = self.get_type_to_stage(identifier)
+        if self._stager.is_in_staging_dict(identifier, item_type):
+            self.change_staging_state(identifier)
+        elif self.is_staging_item_in_registry(identifier, item_type):
+            self._stager.add_to_staging(identifier, item_type)
+            self.change_staging_state(identifier)
+        else:
+            raise fdp_exc.StagingError(
+                f"Cannot stage '{item_type}' with label '{identifier}', "
+                "item does not exist in staging or local registry."
+            )
+
+    def is_staging_item_in_registry(self, identifier, item_type) -> bool:
+        local_uri = fdp_conf.get_local_uri()        
+        local_token = fdp_req.local_token()
+
+        if item_type == "data_product":
+            namespace, name, version = re.split("[:@]", identifier)
+            # Get the destination namespace
+            _namespace = fdp_req.get(local_uri, "namespace", local_token, params={"name": namespace})
+            if not _namespace:
+                return False
+            _namespace_url = _namespace[0]["url"]
+            # get the data_product
+            _data_product = fdp_req.get(local_uri, "data_product", local_token, params= {
+                "name": name,
+                "version": version.replace("v", ""),
+                "namespace": fdp_req.get_obj_id_from_url(_namespace_url)
+            })
+            if _data_product: 
+                return True
+        elif item_type == "code_run":
+            _local_code_run = fdp_req.get(local_uri, "code_run", local_token , params={"uuid": identifier})
+            if _local_code_run:
+                return True
+        return False
 
     def remove_job(self, job_id: str, cached: bool = False) -> None:
         """Remove a job from tracking
@@ -454,10 +769,9 @@ class FAIR:
 
         This does NOT delete any information from the registry
         """
-        _log_files = glob.glob(
+        if _log_files := glob.glob(
             fdp_hist.history_directory(self._session_loc), "*.log"
-        )
-        if _log_files:
+        ):
             for log in _log_files:
                 os.remove(log)
 
@@ -475,9 +789,195 @@ class FAIR:
         rich.print("\n".join(_remote_print))
         return _remote_print
 
-    def status(self, verbose: bool = False) -> None:
-        """Get the status of staging"""
-        self._logger.debug("Updating staging status")
+    def status_data_products(self) -> None:
+        """Get the stageing status of DataProducts"""
+        self._logger.debug("Getting DataProducts staging status")
+        self.check_is_repo()
+
+        self._stager.update_data_product_staging()
+        _staged_data_products = self._stager.get_item_list(
+            True, "data_product"
+        )
+        _unstaged_data_products = self._stager.get_item_list(
+            False, "data_product"
+        )
+
+        if _staged_data_products:
+            self.show_data_products(
+                _staged_data_products,
+                "Changes to be synchronized",
+            )
+
+        if _unstaged_data_products:
+            self.show_data_products(
+                _unstaged_data_products,
+                "Data products not staged for synchronization:",
+                style="red",
+            )
+            click.echo(
+                rich.print(
+                    '(use "fair add <DataProduct>..." to stage DataProducts)'
+                )
+            )
+
+        if not _unstaged_data_products and not _staged_data_products:
+            click.echo("No DataProducts marked for tracking.")
+
+    def status_code_runs(self) -> None:
+        """Get the stageing status of code_run(s)"""
+        self._logger.debug("Getting code_run(s) staging status")
+        self.check_is_repo()
+
+        self._stager.update_code_run_staging()
+        _staged_code_runs = self._stager.get_item_list(
+            True, "code_run"
+        )
+        _unstaged_code_runs = self._stager.get_item_list(
+            False, "code_run"
+        )
+
+        if _staged_code_runs:
+            self.show_code_runs(
+                _staged_code_runs,
+                "Changes to be synchronized",
+            )
+
+        if _unstaged_code_runs:
+            self.show_code_runs(
+                _unstaged_code_runs,
+                "code_run(s) not staged for synchronization:",
+                style="red",
+            )
+            click.echo(
+                rich.print(
+                    '(use "fair add <code_rub>..." to stage code_run)'
+                )
+            )
+
+        if not _unstaged_code_runs and not _staged_code_runs:
+            click.echo("No code_run(s) marked for tracking.")
+
+
+    def show_data_products(
+        self, data_products: typing.List[str], title: str, style="green"
+    ) -> None:
+        console = Console()
+        table = Table(
+            title=title,
+            title_style="bold",
+            title_justify="left",
+            box=rich.box.SIMPLE,
+        )
+        table.add_column("Namespace", style=style, no_wrap=True)
+        table.add_column("Name", style=style, no_wrap=True)
+        table.add_column("Version", style=style, no_wrap=True)
+        for i, data_product in enumerate(data_products):
+            namespace, name, version = re.split("[:@]", data_product)
+            table.add_row(namespace, name, version)
+            if i == 9 and i != len(data_products) - 1:
+                table.add_row(
+                    f"+ {len(data_products) - i - 1} more...",
+                    "",
+                    "",
+                )
+                break
+        click.echo(console.print(table))
+
+    def get_code_run_description(self, uuid: str)-> str:
+        _local_uri = fdp_conf.get_local_uri()
+        _local_code_run = fdp_req.get(_local_uri, "code_run", fdp_req.local_token(), params={"uuid": uuid})
+        if _local_code_run:
+            return _local_code_run[0]["description"]
+        try:
+            for label in self._local_config["registries"]:
+                _remote_code_run = fdp_req.get(
+                    fdp_conf.get_remote_uri(self._session_loc, label),
+                    "code_run",
+                    fdp_conf.get_remote_token(self._session_loc, label, local=self._local),
+                    params={"uuid": uuid})
+                if _remote_code_run:
+                    return _remote_code_run[0]["description"]
+        except Exception as e:
+            pass
+        return "Unknown"
+
+    def show_code_runs(
+        self, code_runs: typing.List[str], title: str, style="green"
+    ) -> None:
+        console = Console()
+        table = Table(
+            title=title,
+            title_style="bold",
+            title_justify="left",
+            box=rich.box.SIMPLE,
+        )
+        table.add_column("Code Run UUID", style=style, no_wrap=True)
+        table.add_column("Code Run Description", style=style, no_wrap=True)
+        for i, code_run in enumerate(code_runs):
+
+            table.add_row(code_run, self.get_code_run_description(code_run))
+            if i == 9 and i != len(code_runs) - 1:
+                table.add_row(
+                    f"+ {len(code_runs) - i - 1} more...",
+                    "",
+                    "",
+                )
+                break
+        click.echo(console.print(table))
+
+    def show_all_code_runs(self, remote: str = None):
+        _title = "Local Code Runs"
+        _code_run_uuids = []
+        if not remote:
+            _code_runs = fdp_req.get(fdp_conf.get_local_uri(), "code_run", fdp_req.local_token())
+            for code_run in _code_runs:
+                _code_run_uuids.append(code_run["uuid"])
+        else:
+            _title = f"Remote Code Runs on {remote}"
+            try:
+                _remote_code_runs = fdp_req.get(
+                    fdp_conf.get_remote_uri(self._session_loc, remote),
+                    "code_run",
+                    fdp_conf.get_remote_token(self._session_loc, remote, local=self._local),
+                    )
+                if _remote_code_runs:
+                    for _remote_code_run in _remote_code_runs:
+                        _code_run_uuids.append(_remote_code_run["uuid"])
+            except Exception as e:
+                self._logger.warning("Could not Fetch from a remote registry")
+                self._logger.debug(f'{traceback.format_exc()}')
+        _code_run_uuids = list(set(_code_run_uuids))
+        return self.show_code_runs(_code_run_uuids, _title)
+
+    def show_all_data_products(self, remote: str = None):
+        _title = "Local Data Products"
+        _data_products = []
+        if not remote:
+            _local_data_products = fdp_req.get(fdp_conf.get_local_uri(), "data_product", fdp_req.local_token())
+            for data_product in _local_data_products:
+                _namespace_name = fdp_req.url_get(data_product["namespace"], fdp_req.local_token())["name"]
+                _data_products.append(f'{_namespace_name}:{data_product["name"]}@v{data_product["version"]}')
+        else:
+            _title = f"Remote Code Runs on {remote}"
+            try:
+                _remote_data_products = fdp_req.get(
+                    fdp_conf.get_remote_uri(self._session_loc, remote),
+                    "data_product",
+                    fdp_conf.get_remote_token(self._session_loc, remote, local=self._local),
+                    )
+                if _remote_data_products:
+                    for remote_data_product in _remote_data_products:
+                        _namespace_name = fdp_req.url_get(remote_data_product["namespace"], fdp_conf.get_remote_token(self._session_loc, remote, local=self._local))["name"]
+                        _data_products.append(f'{_namespace_name}:{remote_data_product["name"]}@v{remote_data_product["version"]}')
+            except Exception as e:
+                self._logger.warning("Could not Fetch from a remote registry")
+                self._logger.debug(f'{traceback.format_exc()}')
+        _data_products = list(set(_data_products))
+        return self.show_data_products(_data_products, _title)
+
+    def status_jobs(self, verbose: bool = False) -> None:
+        """Get the staging status of jobs"""
+        self._logger.debug("Getting job staging status")
         self.check_is_repo()
 
         _staged_jobs = self._stager.get_item_list(True, "job")
@@ -536,7 +1036,7 @@ class FAIR:
                         click.echo(click.style(f"\t\t\t\t{value}", fg="red"))
 
         if not _unstaged_jobs and not _staged_jobs:
-            click.echo("Nothing marked for tracking.")
+            click.echo("No jobs marked for tracking.")
 
     def make_starter_config(self, output_file_name: str = None) -> None:
         """Create a starter config.yaml"""
@@ -578,11 +1078,13 @@ class FAIR:
         with open(output_file, "w") as f:
             yaml.dump(_cli_config, f)
 
+    # noqa: C901
     def initialise(
         self,
         using: typing.Dict = None,
         registry: str = None,
         export_as: str = None,
+        local: bool = False,
     ) -> None:
         """Initialise an fair repository within the current location
 
@@ -599,7 +1101,10 @@ class FAIR:
 
         if self._testing:
             using = fdp_test.create_configurations(
-                registry, fdp_com.find_git_root(os.getcwd()), os.getcwd()
+                registry,
+                fdp_com.find_git_root(os.getcwd()),
+                os.getcwd(),
+                os.path.join(os.getcwd(), "data_store"),
             )
 
         if os.path.exists(_fair_dir):
@@ -609,9 +1114,19 @@ class FAIR:
             click.echo("FAIR repository is already initialised.")
             return
 
+        if _existing := fdp_com.find_fair_root(self._session_loc):
+            click.echo(
+                "A FAIR repository was initialised for this location at"
+                f" '{_existing}'"
+            )
+            _confirm = click.confirm("Do you want to continue?", default=False)
+            if not _confirm:
+                click.echo("Aborted intialisation.")
+                return
+
         if not using:
             click.echo(
-                "Initialising FAIR repository, setup will now ask for basic info:\n"
+                "Initialising FAIR repository, setup will now ask for basic info (leave blank for default value):\n"
             )
 
         if not os.path.exists(_fair_dir):
@@ -623,19 +1138,23 @@ class FAIR:
 
         if not os.path.exists(fdp_com.global_fdpconfig()):
             try:
-                self._global_config = fdp_conf.global_config_query(registry)
+                self._global_config = fdp_conf.global_config_query(
+                    registry, local
+                )
             except (fdp_exc.CLIConfigurationError, click.Abort) as e:
                 self._clean_reset(_fair_dir, e)
             try:
                 self._local_config = fdp_conf.local_config_query(
-                    self._global_config, first_time_setup=_first_time
+                    self._global_config,
+                    first_time_setup=_first_time,
+                    local=local,
                 )
             except (fdp_exc.CLIConfigurationError, click.Abort) as e:
                 self._clean_reset(_fair_dir, e, True)
         elif not using:
             try:
                 self._local_config = fdp_conf.local_config_query(
-                    self._global_config
+                    self._global_config, local=local
                 )
             except (fdp_exc.CLIConfigurationError, click.Abort) as e:
                 self._clean_reset(_fair_dir, e, True)
@@ -654,15 +1173,44 @@ class FAIR:
             self._export_cli_configuration(export_as)
 
         fdp_serv.update_registry_post_setup(self._session_loc, _first_time)
+        try:
+            fdp_clivalid.LocalCLIConfig(**self._local_config)
+        except pydantic.ValidationError as e:
+            self._logger.debug(f"Local CLI validator returned: {e.json()}")
+            self._clean_reset(_fair_dir, local_only=True)
+            raise fdp_exc.InternalError(
+                "Initialisation failed, validation of local CLI config file did not pass"
+            ) from e
+
+        try:
+            fdp_clivalid.GlobalCLIConfig(**self._global_config)
+        except pydantic.ValidationError as e:
+            self._logger.debug(f"Global CLI validator returned: {e.json()}")
+            self._clean_reset(_fair_dir, local_only=False)
+            raise fdp_exc.InternalError(
+                "Initialisation failed, validation of global CLI config file did not pass"
+            ) from e
+
+        os.makedirs(
+            fdp_hist.history_directory(self._session_loc), exist_ok=True
+        )
 
         click.echo(f"Initialised empty fair repository in {_fair_dir}")
 
-    def _clean_reset(self, _fair_dir, e, local_only: bool = False):
+    def _clean_reset(
+        self, _fair_dir, e: Exception = None, local_only: bool = False
+    ):
         if not local_only:
+            if platform.system() == "Windows":
+                fdp_com.set_file_permissions(fdp_com.session_cache_dir())
+                fdp_com.set_file_permissions(fdp_com.fdp_com.global_config_dir())
             shutil.rmtree(fdp_com.session_cache_dir(), ignore_errors=True)
             shutil.rmtree(fdp_com.global_config_dir(), ignore_errors=True)
+        if platform.system() == "Windows":
+            fdp_com.set_file_permissions(_fair_dir)
         shutil.rmtree(_fair_dir)
-        raise e
+        if e:
+            raise e
 
     def close_session(self) -> None:
         """Upon exiting, dump all configurations to file"""
@@ -678,10 +1226,12 @@ class FAIR:
             )
             os.remove(_cache_addr)
 
-        with open(fdp_com.global_fdpconfig(), "w") as f:
-            yaml.dump(self._global_config, f)
-        with open(fdp_com.local_fdpconfig(self._session_loc), "w") as f:
-            yaml.dump(self._local_config, f)
+        if os.path.exists(fdp_com.global_config_dir()):
+            with open(fdp_com.global_fdpconfig(), "w") as f:
+                yaml.dump(self._global_config, f)
+        if os.path.exists(os.path.dirname(fdp_com.local_fdpconfig())):
+            with open(fdp_com.local_fdpconfig(self._session_loc), "w") as f:
+                yaml.dump(self._local_config, f)
 
     def _validate_and_load_cli_config(self, cli_config: typing.Dict):
         _exp_keys = ["registries", "namespaces", "user", "git"]
@@ -755,6 +1305,18 @@ class FAIR:
 
         with open(fdp_com.local_fdpconfig(self._session_loc), "w") as f:
             yaml.dump(_loc_cfg, f)
+
+    def _set_logger_info(self):
+        handler = logging.StreamHandler()
+        handler.setFormatter(
+            fdp_logging.LevelFormatter(
+                {
+                    logging.INFO: '%(message)s'
+                }
+            )
+        )
+        logging.getLogger().setLevel(logging.INFO)
+        logging.getLogger().addHandler(handler)
 
     def __exit__(self, *args) -> None:
         self.close_session()

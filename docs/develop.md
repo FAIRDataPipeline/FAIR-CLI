@@ -1,4 +1,4 @@
-# FAIR Data Pipeline Command Line Interface
+# FAIR Data Pipeline Developer Notes
 
 [![FAIR Data Pipeline CLI](https://github.com/FAIRDataPipeline/FAIR-CLI/actions/workflows/fair-cli.yaml/badge.svg?branch=dev)](https://github.com/FAIRDataPipeline/FAIR-CLI/actions/workflows/fair-cli.yaml)
 [![codecov](https://codecov.io/gh/FAIRDataPipeline/FAIR-CLI/branch/dev/graph/badge.svg?token=h93TkTiiWf)](https://codecov.io/gh/FAIRDataPipeline/FAIR-CLI)
@@ -167,7 +167,7 @@ Initialising FAIR repository, setup will now ask for basic info:
 
 Checking for local registry
 Local registry found
-Remote Data Storage Root [http://data.scrc.uk/data/]:
+Remote Data Storage Root [http://data.fairdatapipeline.org/data/]:
 Remote API Token File: $HOME/scrc_token.txt
 Local API URL [http://127.0.0.1:8000/api/]:
 Local registry is offline, would you like to start it? [y/N]: y
@@ -175,8 +175,8 @@ Default Data Store:  [/home/joebloggs/.fair/data]:
 Email: jbloggs@noreply.uk
 ORCID [None]:
 Full Name: Joe Bloggs
-Default input namespace [None]: SCRC
-Default output namespace [jbloggs]:
+Default output namespace [joebloggs]:
+Default input namespace [joebloggs]: SCRC
 Project description: Test project
 Local Git repository [/home/joebloggs/Documents/AnalysisProject]:
 Git remote name [origin]:
@@ -196,11 +196,11 @@ Project description: Test Project
 Local Git repository [/home/joebloggs/Documents/AnalysisProject]:
 Git remote name [origin]:
 Using git repository remote 'origin': git@nogit.com:joebloggs/AnalysisProject.git
-Remote API URL [http://data.scrc.uk/api/]:
+Remote API URL [http://data.fairdatapipeline.org/api/]:
 Remote API Token File [/home/kristian/scrc_token.txt]:
 Local API URL [http://127.0.0.1:8000/api/]:
-Default output namespace [jbloggs]:
-Default input namespace [SCRC]:
+Default output namespace [joebloggs]:
+Default input namespace [joebloggs]:
 Initialised empty fair repository in /home/joebloggs/Documents/AnalysisProject/.fair
 ```
 
@@ -209,7 +209,7 @@ Initialised empty fair repository in /home/joebloggs/Documents/AnalysisProject/.
 ```yaml
 run_metadata:
   default_input_namespace: SCRC
-  default_output_namespace: jbloggs
+  default_output_namespace: joebloggs
   description: Test Project
   local_data_registry: http://127.0.0.1:8000/api/
   local_repo: /home/joebloggs/Documents/AnalysisProject
@@ -234,7 +234,7 @@ registries:
   origin:
     data_store: /remote/registry/data/store/path/
     token: /path/to/remote/token
-    uri: https://data.scrc.uk/api/'
+    uri: https://data.fairdatapipeline.org/api/'
 user:
   email: 'test@noreply',
   family_name: 'Test'
@@ -290,7 +290,7 @@ Currently `pull` will update any entries within the `config.yaml` under the `reg
 ```yaml
 run_metadata:
   default_input_namespace: SCRC
-  default_output_namespace: jbloggs
+  default_output_namespace: joebloggs
   description: Test project
   local_data_registry: http://127.0.0.1:8000/api/
   local_repo: /home/joebloggs/Documents/SCRC/FAIR-CLI
@@ -430,7 +430,7 @@ you do not need to specify the full SHA but rather the first few characters:
 --------------------------------
  Commenced = Wed Jun 30 09:09:30 2021
  Author    = Joe Bloggs <jbloggs@noreply.uk>
- Namespace = jbloggs
+ Namespace = joebloggs
  Command   = bash -eo pipefail /home/jbloggs/.fair/data/coderun/2021-06-30_09_09_30_721358/script.sh
 --------------------------------
 0

@@ -21,6 +21,7 @@ __date__ = "2021-07-13"
 import logging
 import os
 import typing
+import re
 
 import yaml
 
@@ -77,8 +78,82 @@ class Stager:
         )
 
     def _create_staging_file(self) -> None:
-        _staging_dict = {"job": {}, "file": {}}
+        _staging_dict = {
+            "job": {},
+            "file": {},
+            "data_product": {},
+            "code_run": {},
+        }
         yaml.dump(_staging_dict, open(self._staging_file, "w"))
+
+    def reset_staged(self) -> None:
+        """Change staging state of all items to unstaged"""
+        _staging_dict = yaml.safe_load(open(self._staging_file))
+        for obj_type in _staging_dict:
+            for item in _staging_dict[obj_type]:
+                _staging_dict[obj_type][item] = False
+        yaml.dump(_staging_dict, open(self._staging_file, "w"))        
+
+    def add_to_staging(self, identifier: str, item_type: str) -> None:
+        """Add an item to tracking
+
+        Parameters
+        ----------
+        identifier : str
+            unique identifier for the item
+        item_type : str
+            the item type
+        """
+        # Open the staging dictionary first
+        with open(self._staging_file) as f:
+            _staging_dict = yaml.safe_load(f)
+
+        _staging_dict[item_type][identifier] = False
+
+        with open(self._staging_file, "w") as f:
+            yaml.dump(_staging_dict, f)
+
+    def change_stage_status(
+        self,
+        identifier: str,
+        item_type: str,
+        stage: bool = True,
+    ) -> None:
+        self._logger.debug(
+            "Setting %s '%s' status to staged=%s", item_type, identifier, stage
+        )
+
+        if not os.path.exists(self._staging_file):
+            raise fdp_exc.FileNotFoundError(
+                "Failed to update tracking, expected staging file"
+                f" '{self._staging_file}' but it does not exist"
+            )
+      
+        if not self.is_in_staging_dict(identifier, item_type):
+            raise fdp_exc.StagingError(
+                f"Cannot stage '{item_type}' with label '{identifier}', "
+                "item does not exist."
+            )
+        
+        # Open the staging dictionary first
+        _staging_dict = yaml.safe_load(open(self._staging_file))
+        _staging_dict[item_type][identifier] = stage
+
+        with open(self._staging_file, "w") as f:
+            yaml.dump(_staging_dict, f)
+
+    def is_in_staging_dict(self, identifier, item_type):
+        # Open the staging dictionary first
+        _staging_dict = yaml.safe_load(open(self._staging_file))
+
+        if identifier in _staging_dict[item_type]:
+            return True
+        return False
+
+    def change_data_product_stage_status(
+        self, data_product_id: str, stage: bool = True
+    ) -> None:
+        self.change_stage_status(data_product_id, "data_product", stage)
 
     def change_job_stage_status(self, job_id: str, stage: bool = True) -> None:
         """Stage a local code job ready to be pushed to the remote registry
@@ -90,18 +165,6 @@ class Stager:
         stage : bool, optional
             whether job is staged, default True
         """
-        self._logger.debug(
-            "Setting job '%s' status to staged=%s", job_id, stage
-        )
-
-        if not os.path.exists(self._staging_file):
-            raise fdp_exc.FileNotFoundError(
-                "Failed to update tracking, expected staging file"
-                f" '{self._staging_file}' but it does not exist"
-            )
-
-        # Open the staging dictionary first
-        _staging_dict = yaml.safe_load(open(self._staging_file))
 
         # When a job is completed by a language implementation the CLI should
         # have already registered it into staging with a status of staged=False
@@ -110,10 +173,8 @@ class Stager:
                 f"Failed to recognise job with ID '{job_id}'"
             )
 
-        _staging_dict["job"][job_id] = stage
-
-        with open(self._staging_file, "w") as f:
-            yaml.dump(_staging_dict, f)
+        self.add_to_staging(job_id, "job")
+        self.change_stage_status(job_id, "job", stage)
 
     def find_registry_entry_for_file(
         self, local_uri: str, file_path: str
@@ -139,7 +200,7 @@ class Stager:
         _obj_type = "storage_location"
 
         _results = fdp_req.get(
-            local_uri, _obj_type, params={"path": file_path}
+            local_uri, _obj_type, fdp_req.local_token(), {"path": file_path}
         )
 
         if not _results:
@@ -196,7 +257,10 @@ class Stager:
 
             for run in _runs:
                 _results = fdp_req.get(
-                    local_uri, "code_run", params={"uuid": run}
+                    local_uri,
+                    "code_run",
+                    fdp_req.local_token(),
+                    params={"uuid": run},
                 )
 
                 if not _results:
@@ -220,7 +284,10 @@ class Stager:
         for write_obj in config_dict["write"]:
             _data_product = write_obj["data_product"]
             _results = fdp_req.get(
-                local_uri, "data_product", params={"name": _data_product}
+                local_uri,
+                "data_product",
+                fdp_req.local_token(),
+                params={"name": _data_product},
             )
 
             if not _results:
@@ -280,18 +347,9 @@ class Stager:
             _script_url = None
         else:
 
-            # Find the relevant script path on the local registry, this involves
-            # firstly getting the path commencing from the 'jobs' folder
-            self._logger.debug("Finding job script within local registry")
-            _script_path = _config_dict["run_metadata"]["script_path"]
-            _rel_script_path = _script_path.split(fdp_com.JOBS_DIR)[1]
-            _rel_script_path = f"{fdp_com.JOBS_DIR}{_rel_script_path}"
-
-            _script_url = self.find_registry_entry_for_file(
-                local_uri, _rel_script_path
-            )["url"]
-            self._logger.debug("Script URL: %s", _script_url)
-
+            _script_url = self._extracted_from_get_job_data_50(
+                _config_dict, local_uri
+            )
         self._logger.debug("Retrieving code runs and written objects")
 
         _code_run_urls = self._get_code_run_entries(local_uri, _directory)
@@ -305,6 +363,23 @@ class Stager:
             "config_file": _config_url,
             "script_file": _script_url,
         }
+
+    # TODO Rename this here and in `get_job_data`
+    def _extracted_from_get_job_data_50(self, _config_dict, local_uri):
+        # Find the relevant script path on the local registry, this involves
+        # firstly getting the path commencing from the 'jobs' folder
+        self._logger.debug("Finding job script within local registry")
+        _script_path = _config_dict["run_metadata"]["script_path"]
+        _rel_script_path = _script_path.split(fdp_com.JOBS_DIR)[1]
+        _rel_script_path = f"{fdp_com.JOBS_DIR}{_rel_script_path}"
+
+        result = self.find_registry_entry_for_file(
+            local_uri, _rel_script_path
+        )["url"]
+
+        self._logger.debug("Script URL: %s", result)
+
+        return result
 
     def remove_staging_entry(
         self, identifier: str, stage_type: str = "job"
@@ -357,3 +432,54 @@ class Stager:
             )
 
         return [k for k, v in _staging_dict[stage_type].items() if v == staged]
+
+    def update_data_product_staging(self) -> None:
+        """Update DataProduct list in staging file."""
+        with open(self._staging_file) as f:
+            _staging_dict = yaml.safe_load(f)
+
+        result = fdp_req.url_get(
+            f"{fdp_com.DEFAULT_LOCAL_REGISTRY_URL}data_product",
+            fdp_req.local_token(),
+        )
+
+        for data_product in result:
+            namespace = fdp_req.url_get(
+                data_product["namespace"], fdp_req.local_token()
+            )["name"]
+            name = data_product["name"]
+            version = data_product["version"]
+            key = f"{namespace}:{name}@v{version}"
+            if key not in _staging_dict["data_product"]:
+                _staging_dict["data_product"][key] = False
+
+        with open(self._staging_file, "w") as f:
+            yaml.dump(_staging_dict, f)
+
+    def update_code_run_staging(self) -> None:
+        """Update code_run(s) list in staging file."""
+        with open(self._staging_file) as f:
+            _staging_dict = yaml.safe_load(f)
+
+        result = fdp_req.url_get(
+            f"{fdp_com.DEFAULT_LOCAL_REGISTRY_URL}code_run",
+            fdp_req.local_token(),
+        )
+
+        for code_run in result:
+            key = code_run["uuid"]
+            if key not in _staging_dict["code_run"]:
+                _staging_dict["code_run"][key] = False
+
+        with open(self._staging_file, "w") as f:
+            yaml.dump(_staging_dict, f)
+
+    def _load_from_file(self, file_name: str = None) -> typing.Dict[str, bool]:
+        if not file_name:
+            file_name = self._staging_file
+
+        with open(file_name, "w") as f:
+            _staging_dict = yaml.safe_load(f)
+
+        self._staging_file = file_name
+        return _staging_dict

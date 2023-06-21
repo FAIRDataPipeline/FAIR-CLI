@@ -225,26 +225,15 @@ def get_remote_uri(repo_loc: str, remote_label: str = "origin") -> str:
 
 
 def local_git_repo(fair_repo_loc: str) -> str:
-    """Retrieves the local repository git directory
-
-    Parameters
-    ----------
-    fair_repo_loc : str
-        FAIR repository location
-
-    Returns
-    -------
-    str
-        the root git repository directory
-    """
+    """Retriget_remote_token root git repository directory"""
     _local_conf = read_local_fdpconfig(fair_repo_loc)
 
     try:
         return _local_conf["git"]["local_repo"]
-    except KeyError:
+    except KeyError as e:
         raise fdp_exc.CLIConfigurationError(
             "Expected key 'git:local_repo' in local CLI configuration"
-        )
+        ) from e
 
 
 def remote_git_repo(fair_repo_loc: str) -> str:
@@ -265,13 +254,15 @@ def remote_git_repo(fair_repo_loc: str) -> str:
 
     try:
         return _local_conf["git"]["remote_repo"]
-    except KeyError:
+    except KeyError as e:
         raise fdp_exc.CLIConfigurationError(
             "Expected key 'git:remote_repo' in local CLI configuration"
-        )
+        ) from e
 
 
-def get_remote_token(repo_dir: str, remote: str = "origin") -> str:
+def get_remote_token(
+    repo_dir: str, remote: str = "origin", local: bool = False
+) -> str:
     _local_config = read_local_fdpconfig(repo_dir)
     if remote not in _local_config["registries"]:
         raise fdp_exc.CLIConfigurationError(
@@ -282,20 +273,25 @@ def get_remote_token(repo_dir: str, remote: str = "origin") -> str:
             f"Cannot find token for registry '{remote}', no token file provided"
         )
     _token_file = _local_config["registries"][remote]["token"]
+    if not _token_file:
+        logger.warning("\n not token file found \n")
+        return None
+    if not local:
+        if not os.path.exists(_token_file):
+            raise fdp_exc.FileNotFoundError(
+                f"Cannot read token for registry '{remote}', token file '{_token_file}'"
+                " does not exist"
+            )
 
-    if not os.path.exists(_token_file):
-        raise fdp_exc.FileNotFoundError(
-            f"Cannot read token for registry '{remote}', no such token file"
-        )
+        _token = open(_token_file).read().strip()
 
-    _token = open(_token_file).read().strip()
+        if not _token:
+            raise fdp_exc.CLIConfigurationError(
+                f"Cannot read token from file '{_token_file}', file is empty."
+            )
 
-    if not _token:
-        raise fdp_exc.CLIConfigurationError(
-            f"Cannot read token from file '{_token_file}', file is empty."
-        )
-
-    return _token
+        return _token
+    return None
 
 
 def get_local_data_store() -> str:
@@ -304,10 +300,10 @@ def get_local_data_store() -> str:
 
     try:
         return _global_conf["registries"]["local"]["data_store"]
-    except KeyError:
+    except KeyError as e:
         raise fdp_exc.CLIConfigurationError(
             "Expected key 'registries:local:data_store' in global CLI configuration"
-        )
+        ) from e
 
 
 def get_session_git_remote(repo_loc: str, url: bool = False) -> str:
@@ -329,10 +325,10 @@ def get_session_git_remote(repo_loc: str, url: bool = False) -> str:
 
     try:
         _remote_label = _local_conf["git"]["remote"]
-    except KeyError:
+    except KeyError as e:
         raise fdp_exc.InternalError(
             "Failed to retrieve project git repository remote"
-        )
+        ) from e
 
     if not url:
         return _remote_label
@@ -341,10 +337,10 @@ def get_session_git_remote(repo_loc: str, url: bool = False) -> str:
 
     try:
         return git.Repo(_repo_root).remote(_remote_label).url
-    except ValueError:
+    except ValueError as e:
         raise fdp_exc.CLIConfigurationError(
             f"Failed to retrieve URL for git remote '{_remote_label}'"
-        )
+        ) from e
 
 
 def get_current_user_uuid(repo_loc: str) -> str:
@@ -383,29 +379,49 @@ def get_current_user_uri(repo_loc: str) -> str:
     return _uri
 
 
-def check_registry_exists(registry: str = None) -> bool:
+def check_registry_exists(registry: str = None) -> typing.Optional[str]:
     """Checks if fair registry is set up on users machine
 
     Returns
     -------
-    bool
-        True if registry exists, else False
+    str
+        registry location if found
     """
     if not registry:
         registry = fdp_com.DEFAULT_REGISTRY_LOCATION
-    return os.path.isdir(registry)
+    if os.path.isdir(registry):
+        return registry
 
 
 def get_local_uri() -> str:
     """Retrieve the local registry URI"""
     _global_conf = read_global_fdpconfig()
 
+    if not _global_conf:
+        return fdp_com.DEFAULT_LOCAL_REGISTRY_URL
+
     try:
         return _global_conf["registries"]["local"]["uri"]
-    except KeyError:
+    except KeyError as e:
         raise fdp_exc.CLIConfigurationError(
             "Expected key 'registries:local:uri' in global CLI configuration"
-        )
+        ) from e
+
+
+def set_local_uri(uri: str) -> str:
+    """Sets the local URI
+
+    Parameters
+    ----------
+    uri: str
+        new local URI for the registry
+    """
+    _global_conf = read_global_fdpconfig()
+
+    _global_conf["registries"]["local"]["uri"] = uri
+
+    with open(fdp_com.global_fdpconfig(), "w") as out_f:
+        yaml.dump(_global_conf, out_f)
 
 
 def get_local_port(local_uri: str = None) -> int:
@@ -418,6 +434,22 @@ def get_local_port(local_uri: str = None) -> int:
             "Failed to determine port number from local registry URL"
         )
     return _port
+
+
+def update_local_port() -> str:
+    """Updates the local port in the global configuration from the session port file"""
+    _current_port = fdp_com.registry_session_port()
+    _current_address = fdp_com.registry_session_address()
+
+    _new_url = f'http://{_current_address}:{_current_port}/api/'
+
+    if os.path.exists(fdp_com.global_fdpconfig()) and read_global_fdpconfig():
+        _glob_conf = read_global_fdpconfig()
+        _glob_conf["registries"]["local"]["uri"] = _new_url
+        with open(fdp_com.global_fdpconfig(), "w") as out_f:
+            yaml.dump(_glob_conf, out_f)
+
+    return _new_url
 
 
 def _handle_orcid(user_orcid: str) -> typing.Tuple[typing.Dict, str]:
@@ -445,16 +477,12 @@ def _handle_orcid(user_orcid: str) -> typing.Tuple[typing.Dict, str]:
     _user_info["orcid"] = user_orcid
 
     click.echo(
-        f"Found entry: {_user_info['given_names']} "
-        f"{_user_info['family_name']}"
+        f"Found entry: {_user_info['given_names']} {_user_info['family_name']}"
     )
 
-    _def_ospace = _user_info["given_names"][0]
+    _def_ospace = "".join(_user_info["given_names"]).lower()
 
-    if len(_user_info["family_name"].split()) > 1:
-        _def_ospace += _user_info["family_name"].split()[-1]
-    else:
-        _def_ospace += _user_info["family_name"]
+    _def_ospace += _user_info["family_name"].lower().replace(" ", "")
 
     return _user_info, _def_ospace
 
@@ -536,8 +564,7 @@ def _handle_uuid() -> typing.Tuple[typing.Dict, str]:
     _user_info = {}
     if len(_full_name.split()) > 1:
         _given_name, _family_name = _full_name.split(" ", 1)
-        _def_ospace = _full_name.lower().strip()[0]
-        _def_ospace += _full_name.lower().split()[-1]
+        _def_ospace = _full_name.lower().replace(" ", "")
         _user_info["given_names"] = _given_name.strip()
         _user_info["family_name"] = _family_name.strip()
     else:
@@ -579,74 +606,90 @@ def _get_user_info_and_namespaces() -> typing.Dict[str, typing.Dict]:
     _user_info["email"] = _user_email
 
     _def_ospace = _def_ospace.lower().replace(" ", "").strip()
-
-    _def_ispace = click.prompt("Default input namespace", default="None")
-    _def_ispace = _def_ispace if _def_ispace != "None" else None
     _def_ospace = click.prompt("Default output namespace", default=_def_ospace)
+    _def_ispace = click.prompt("Default input namespace", default=_def_ospace)
 
     _namespaces = {"input": _def_ispace, "output": _def_ospace}
 
     return {"user": _user_info, "namespaces": _namespaces}
 
 
-def global_config_query(registry: str = None) -> typing.Dict[str, typing.Any]:
+def global_config_query(
+    registry: str = None, local: bool = False
+) -> typing.Dict[str, typing.Any]:
     """Ask user question set for creating global FAIR config"""
-    if not registry:
-        registry = fdp_serv.DEFAULT_REGISTRY_LOCATION
     logger.debug(
         "Running global configuration query with registry at '%s'", registry
     )
     click.echo("Checking for local registry")
-    if check_registry_exists(registry):
-        click.echo("Local registry found")
+    if not registry and "FAIR_REGISTRY_DIR" in os.environ:
+        registry = os.environ["FAIR_REGISTRY_DIR"]
+    if check_reg := check_registry_exists(registry):
+        registry = check_reg
+        click.echo(f"Local registry found at '{check_reg}'")
+    elif not registry:
+        if _ := click.confirm(
+            "Local registry not found at default location"
+            f"'{fdp_com.DEFAULT_REGISTRY_LOCATION}', "
+            "would you like to specify an existing installation?",
+            default=False,
+        ):
+            _reg_loc = click.prompt("Local registry directory")
+            _manage_script = os.path.join(_reg_loc, "manage.py")
+            while not os.path.exists(_manage_script):
+                click.echo(
+                    f"Error: Location '{_reg_loc}' is not a valid registry installation"
+                )
+                _reg_loc = click.prompt("Local registry directory")
+                _manage_script = os.path.join(_reg_loc, "manage.py")
+            registry = _reg_loc
+        else:
+            registry = fdp_com.DEFAULT_REGISTRY_LOCATION
+            click.echo(f"Installing registry to '{registry}'")
+            fdp_serv.install_registry(install_dir=registry)
     else:
-        _install_reg = click.confirm(
-            f"Local registry not found at location '{registry}',"
-            "would you like to install now?",
-            default=True,
-        )
-        if not _install_reg:
-            raise fdp_exc.CLIConfigurationError(
-                "FAIR repository initialisation requires a local registry installation, aborting."
-            )
+        click.echo(f"Will install registry to '{registry}'")
         fdp_serv.install_registry(install_dir=registry)
 
-    _local_uri = click.prompt(
-        "Local Registry URL", default=fdp_com.DEFAULT_LOCAL_REGISTRY_URL
+    _local_port: int = click.prompt("Local Registry Port", default="8000")
+    _local_uri = fdp_com.DEFAULT_LOCAL_REGISTRY_URL.replace(
+        ":8000", f":{_local_port}"
     )
+    if local:
+        _remote_url = "http://127.0.0.1:8000/api/"
+        _rem_key_file = os.path.join(registry, "token")
+        _rem_data_store = os.path.join(os.curdir, "data_store") + os.path.sep
+    else:
+        _default_rem = urljoin(fdp_com.DEFAULT_REGISTRY_DOMAIN, "api/")
+        _remote_url = click.prompt("Remote API URL", default=_default_rem)
 
-    _default_rem = urljoin(fdp_com.DEFAULT_REGISTRY_DOMAIN, "api/")
-    _remote_url = click.prompt("Remote API URL", default=_default_rem)
-
-    _rem_data_store = click.prompt(
-        "Remote Data Storage Root", default=_remote_url.replace("api", "data")
-    )
-
-    _default_token = os.path.join(registry, "remote-token")
-    _rem_key_file = click.prompt(
-        "Remote API Token File", default=_default_token
-    )
-    _rem_key_file = os.path.expandvars(_rem_key_file)
-
-    # TODO fix search for valid token
-    while False and (
-        not os.path.exists(_rem_key_file)
-        or not open(_rem_key_file).read().strip()
-    ):
-        click.echo(
-            f"Token file '{_rem_key_file}' does not exist or is empty, "
-            "please provide a valid token file."
+        _rem_data_store = click.prompt(
+            "Remote Data Storage Root",
+            default=_remote_url.replace("/api/", "/data/"),
         )
-        _rem_key_file = click.prompt("Remote API Token File")
+
+        _rem_key_file = click.prompt(
+            "Remote API Token File",
+        )
         _rem_key_file = os.path.expandvars(_rem_key_file)
 
-    if not fdp_serv.check_server_running(_local_uri):
-        _run_server = click.confirm(
+        while (
+            not os.path.exists(_rem_key_file)
+            or not open(_rem_key_file).read().strip()
+        ):
+            click.echo(
+                f"Token file '{_rem_key_file}' does not exist or is empty, "
+                "please provide a valid token file."
+            )
+            _rem_key_file = click.prompt("Remote API Token File")
+            _rem_key_file = os.path.expandvars(_rem_key_file)
+
+    if not fdp_serv.check_server_running():
+        if _ := click.confirm(
             "Local registry is offline, would you like to start it?",
             default=False,
-        )
-        if _run_server:
-            fdp_serv.launch_server(_local_uri, registry_dir=registry)
+        ):
+            fdp_serv.launch_server(registry_dir=registry)
 
             # Keep server running by creating user run cache file
             _cache_addr = os.path.join(fdp_com.session_cache_dir(), "user.run")
@@ -654,18 +697,18 @@ def global_config_query(registry: str = None) -> typing.Dict[str, typing.Any]:
 
         else:
             click.echo("Temporarily launching server to retrieve API token.")
-            fdp_serv.launch_server(_local_uri, registry_dir=registry)
+            fdp_serv.launch_server(registry_dir=registry)
             fdp_serv.stop_server(registry_dir=registry, local_uri=_local_uri)
             try:
                 fdp_req.local_token(registry_dir=registry)
-            except fdp_exc.FileNotFoundError:
+            except fdp_exc.FileNotFoundError as e:
                 raise fdp_exc.RegistryError(
                     "Failed to retrieve local API token from registry."
-                )
+                ) from e
 
     _loc_data_store = click.prompt(
         "Default Data Store",
-        default=os.path.join(fdp_com.USER_FAIR_DIR, "data/"),
+        default=os.path.join(fdp_com.USER_FAIR_DIR, f"data{os.path.sep}"),
     )
     if _loc_data_store[-1] != os.path.sep:
         _loc_data_store += os.path.sep
@@ -676,6 +719,7 @@ def global_config_query(registry: str = None) -> typing.Dict[str, typing.Any]:
             "uri": _local_uri,
             "directory": os.path.abspath(registry),
             "data_store": _loc_data_store,
+            "token": os.path.join(os.path.abspath(registry), "token"),
         },
         "origin": {
             "uri": _remote_url,
@@ -690,6 +734,7 @@ def global_config_query(registry: str = None) -> typing.Dict[str, typing.Any]:
 def local_config_query(
     global_config: typing.Dict[str, typing.Any] = read_global_fdpconfig(),
     first_time_setup: bool = False,
+    local: bool = False,
 ) -> typing.Dict[str, typing.Any]:
     """Ask user questions to create local user config
 
@@ -714,8 +759,7 @@ def local_config_query(
         _def_user = global_config["user"]
     except KeyError:
         click.echo(
-            "Error: Failed to read global configuration,"
-            " re-running global setup."
+            "Error: Failed to read global configuration, re-running global setup."
         )
         first_time_setup = True
         global_config = global_config_query()
@@ -730,12 +774,8 @@ def local_config_query(
         "input" not in global_config["namespaces"]
         or not global_config["namespaces"]
     ):
-        click.echo(
-            "Warning: No global input namespace declared,"
-            " in order to use the registry you will need to specify one"
-            " within this local configuration."
-        )
-        _def_ispace = None
+        click.echo(f"Will use '{_def_ospace}' as default input namespace")
+        _def_ispace = _def_ospace
     else:
         _def_ispace = global_config["namespaces"]["input"]
 
@@ -791,23 +831,21 @@ def local_config_query(
     _git_remote_repo = _repo.remotes[_git_remote].url
 
     click.echo(
-        f"Using git repository remote '{_git_remote}': " f"{_git_remote_repo}"
+        f"Using git repository remote '{_git_remote}': {_git_remote_repo}"
     )
 
     # If this is not the first setup it means globals are available so these
     # can be suggested as defaults during local setup
-    if not first_time_setup:
+    if not first_time_setup or not local:
         _def_remote = click.prompt("Remote API URL", default=_def_remote)
         _def_rem_key = click.prompt(
             "Remote API Token File", default=_def_rem_key
         )
         _def_rem_key = os.path.expandvars(_def_rem_key)
 
-        # TODO fix search for valid token
         while (
-            False
-            # not os.path.exists(_def_rem_key)
-            # or not open(_def_rem_key).read().strip()
+            not os.path.exists(_def_rem_key)
+            or not open(_def_rem_key).read().strip()
         ):
             click.echo(
                 f"Token file '{_def_rem_key}' does not exist or is empty, "
@@ -822,27 +860,21 @@ def local_config_query(
             "Default input namespace", default=_def_ispace
         )
 
-    _local_config: typing.Dict[str, typing.Any] = {}
-
-    _local_config["namespaces"] = {
-        "output": _def_ospace,
-        "input": _def_ispace,
+    _local_config: typing.Dict[str, typing.Any] = {
+        "namespaces": {"output": _def_ospace, "input": _def_ispace},
+        "git": {
+            "remote": _git_remote,
+            "local_repo": _git_repo,
+            "remote_repo": _git_remote_repo,
+        },
+        "registries": copy.deepcopy(global_config["registries"]),
     }
-
-    _local_config["git"] = {
-        "remote": _git_remote,
-        "local_repo": _git_repo,
-        "remote_repo": _git_remote_repo,
-    }
-
-    # Copy the global configuration then substitute updated
-    # configurations
-    _local_config["registries"] = copy.deepcopy(global_config["registries"])
 
     # Local registry is a globally defined entity
     del _local_config["registries"]["local"]
 
     _local_config["registries"]["origin"]["uri"] = _def_remote
+    _local_config["registries"]["origin"]["token"] = _def_rem_key
 
     _local_config["user"] = _def_user
 

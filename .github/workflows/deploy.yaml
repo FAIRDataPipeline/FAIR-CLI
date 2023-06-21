@@ -10,11 +10,11 @@ jobs:
     name: Deploy Latest Windows Release
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
             fetch-depth: 0
 
-      - uses: actions/setup-python@v2
+      - uses: actions/setup-python@v4
         with:
           python-version: '3.9.7'
           architecture: "x64"
@@ -37,7 +37,7 @@ jobs:
           poetry run pyinstaller -c -F fair/cli.py --collect-all fair
           mv dist/cli.exe dist/fair-cli-${{ steps.previoustag.outputs.tag }}-x64-windows-latest.exe
 
-      - uses: actions/upload-artifact@v1
+      - uses: actions/upload-artifact@v3
         with:
             name: windows_faircli
             path: dist/fair-cli-${{ steps.previoustag.outputs.tag }}-x64-windows-latest.exe
@@ -46,11 +46,11 @@ jobs:
     name: Deploy Latest macOS Release
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
             fetch-depth: 0
 
-      - uses: actions/setup-python@v2
+      - uses: actions/setup-python@v4
         with:
           python-version: '3.9.7'
           architecture: "x64"
@@ -73,7 +73,7 @@ jobs:
           poetry run pyinstaller -c -F fair/cli.py --collect-all fair
           mv dist/cli dist/fair-cli-${{ steps.previoustag.outputs.tag }}-x64-macos-latest
 
-      - uses: actions/upload-artifact@v1
+      - uses: actions/upload-artifact@v3
         with:
             name: macos_faircli
             path: dist/fair-cli-${{ steps.previoustag.outputs.tag }}-x64-macos-latest
@@ -83,11 +83,11 @@ jobs:
     name: Deploy Latest Linux Release
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
             fetch-depth: 0
 
-      - uses: actions/setup-python@v2
+      - uses: actions/setup-python@v4
         with:
           python-version: '3.9.7'
           architecture: "x64"
@@ -124,10 +124,10 @@ jobs:
       - macos-py39
       - windows-py39
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
             fetch-depth: 0
-      - uses: actions/setup-python@v2
+      - uses: actions/setup-python@v4
         with:
           python-version: '3.9.7'
           architecture: "x64"
