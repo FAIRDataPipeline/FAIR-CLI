@@ -835,9 +835,9 @@ def get_upload_url(
     """
     file_hash = calculate_file_hash(file_loc)
     if not remote_uri: 
-        remote_uri = fdp_conf.get_remote_token()
+        remote_uri = fdp_conf.get_remote_uri(fdp_conf._session_loc)
     if not remote_token:
-        remote_token = fdp_conf.get_remote_token()
+        remote_token = fdp_conf.get_remote_token(fdp_conf._session_loc)
     return fdp_req.post_upload_url(remote_uri, remote_token, file_hash)['url']
 
 def upload_remote_file(

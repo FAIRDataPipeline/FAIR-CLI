@@ -90,8 +90,8 @@ def local_token(registry_dir: str = None) -> str:
 
 def _access(
     uri: str,
-    method: str,
-    token: str,
+    method: str = None,
+    token: str = None,
     obj_path: str = None,
     response_codes: typing.List[int] = None,
     headers: typing.Dict[str, typing.Any] = None,
