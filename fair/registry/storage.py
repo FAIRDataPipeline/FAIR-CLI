@@ -858,5 +858,5 @@ def upload_remote_file(
     if not os.path.exists(file_loc):
         raise fdp_exc.FileNotFoundError(f'File: {file_loc} does not exist')
     _upload_url = get_upload_url(file_loc, remote_uri, remote_token)
-    logger.info(f"Uploading to URL: {_upload_url}")
+    logger.debug(f"Uploading {file_loc} to URL: {_upload_url}")
     fdp_req.put_file(_upload_url, file_loc)

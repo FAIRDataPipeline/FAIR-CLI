@@ -356,6 +356,12 @@ class FAIR:
 
         self._session_config.close_log()
 
+    def registry_status(self):
+        if fdp_serv.check_server_running():
+            click.echo(f'Server running at: {fdp_conf.get_local_uri()}')
+        else:
+            click.echo(f'Server is not running')
+
     def push(self, remote: str = "origin"):
         self._pre_job_setup(remote)
         self._session_config.prepare(
@@ -370,10 +376,10 @@ class FAIR:
         )
 
         if not _staged_data_products:
-            click.echo("No Data Products to Push.")
+            click.echo("No Staged Data Products to Push.")
 
         if not _staged_code_runs:
-            click.echo("No Code Runs to Push.")
+            click.echo("No Staged Code Runs to Push.")
 
         fdp_sync.sync_code_runs(
             origin_uri=fdp_conf.get_local_uri(),

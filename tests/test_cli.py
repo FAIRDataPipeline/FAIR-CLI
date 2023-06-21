@@ -108,7 +108,6 @@ def test_status(
         )
         assert _result.exit_code == 0
 
-
 @pytest.mark.faircli_cli
 def test_create(
     local_registry: conf.RegistryTest,
@@ -440,13 +439,19 @@ def test_registry_cli(
         assert _result.exit_code == 0
 
         _result = click_test.invoke(cli, ["registry", "start", "--debug"])
+        _registry_status_result = click_test.invoke(cli, ["registry", "status", "--debug"])
 
         assert _result.exit_code == 0
+        assert _registry_status_result.exit_code == 0
+        assert "Server running at: http://127.0.0.1:8000/api/" in _registry_status_result.output
         assert requests.get(LOCAL_REGISTRY_URL).status_code == 200
 
         _result = click_test.invoke(cli, ["registry", "stop", "--debug"])
+        _registry_status_result = click_test.invoke(cli, ["registry", "status", "--debug"])
 
         assert _result.exit_code == 0
+        assert _registry_status_result.exit_code == 0
+        assert "Server is not running" in _registry_status_result.output
         with pytest.raises(requests.ConnectionError):
             requests.get(LOCAL_REGISTRY_URL)
 

@@ -665,7 +665,7 @@ def global_config_query(
 
         _rem_data_store = click.prompt(
             "Remote Data Storage Root",
-            default=_remote_url.replace("api/", "data/"),
+            default=_remote_url.replace("/api/", "/data/"),
         )
 
         _rem_key_file = click.prompt(

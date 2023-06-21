@@ -412,6 +412,22 @@ def stop(force: bool, debug: bool) -> None:
             sys.exit(e.exit_code)
 
 
+@registry.command()
+@click.option("--debug/--no-debug", help="Run in debug mode", default=False)
+def status(debug) -> None:
+    try:
+        with fdp_session.FAIR(
+            os.getcwd(), debug=debug, server_mode=fdp_svr.SwitchMode.NO_SERVER
+        ) as fair_session:
+            fair_session.registry_status()
+    except fdp_exc.FAIRCLIException as e:
+        if debug:
+            raise e
+        e.err_print()
+        if e.level.lower() == "error":
+            sys.exit(e.exit_code)
+
+
 @cli.command()
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
 def log(debug: bool) -> None:
