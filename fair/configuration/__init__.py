@@ -642,6 +642,7 @@ def global_config_query(
                 )
                 _reg_loc = click.prompt("Local registry directory")
                 _manage_script = os.path.join(_reg_loc, "manage.py")
+            registry = _reg_loc
         else:
             registry = fdp_com.DEFAULT_REGISTRY_LOCATION
             click.echo(f"Installing registry to '{registry}'")

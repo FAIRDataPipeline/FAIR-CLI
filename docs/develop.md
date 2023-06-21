@@ -167,7 +167,7 @@ Initialising FAIR repository, setup will now ask for basic info:
 
 Checking for local registry
 Local registry found
-Remote Data Storage Root [http://data.scrc.uk/data/]:
+Remote Data Storage Root [http://data.fairdatapipeline.org/data/]:
 Remote API Token File: $HOME/scrc_token.txt
 Local API URL [http://127.0.0.1:8000/api/]:
 Local registry is offline, would you like to start it? [y/N]: y
@@ -196,7 +196,7 @@ Project description: Test Project
 Local Git repository [/home/joebloggs/Documents/AnalysisProject]:
 Git remote name [origin]:
 Using git repository remote 'origin': git@nogit.com:joebloggs/AnalysisProject.git
-Remote API URL [http://data.scrc.uk/api/]:
+Remote API URL [http://data.fairdatapipeline.org/api/]:
 Remote API Token File [/home/kristian/scrc_token.txt]:
 Local API URL [http://127.0.0.1:8000/api/]:
 Default output namespace [joebloggs]:
@@ -234,7 +234,7 @@ registries:
   origin:
     data_store: /remote/registry/data/store/path/
     token: /path/to/remote/token
-    uri: https://data.scrc.uk/api/'
+    uri: https://data.fairdatapipeline.org/api/'
 user:
   email: 'test@noreply',
   family_name: 'Test'

@@ -180,7 +180,7 @@ def test_download(
 ):
     mocker.patch("fair.common.registry_home", lambda: local_registry._install)
     with local_registry:
-        _example_file = "https://data.scrc.uk/static/localregistry.sh"
+        _example_file = "https://data.fairdatapipeline.org/static/localregistry.sh"
         _out_file = fdp_req.download_file(_example_file)
         assert os.path.exists(_out_file)
 

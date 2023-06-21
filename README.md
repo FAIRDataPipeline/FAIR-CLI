@@ -87,7 +87,7 @@ registries:
   origin:
     data_store: /remote/registry/data/store/path/
     token: /path/to/remote/token
-    uri: https://data.scrc.uk/api/'
+    uri: https://data.fairdatapipeline.org/api/'
 user:
   email: 'test@noreply',
   family_name: 'Test'
