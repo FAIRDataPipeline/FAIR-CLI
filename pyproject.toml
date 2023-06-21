@@ -13,6 +13,8 @@ classifiers = [
   "Programming Language :: Python :: 3.8",
   "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
   "Topic :: Scientific/Engineering",
   "Development Status :: 4 - Beta",
   "Topic :: Database :: Front-Ends",
@@ -23,7 +25,7 @@ classifiers = [
 ]
 description = "Synchronization interface for the SCRC FAIR Data Pipeline registry"
 name = "fair-cli"
-version = "0.5.2"
+version = "0.7.0"
 
 homepage = "https://www.fairdatapipeline.org/"
 
@@ -79,11 +81,15 @@ pycodestyle = "^2.7.0"
 pydocstyle = "^6.0.0"
 pylama = "^7.7.1"
 pytest = "^7.0.0"
-pytest-cov = "^3.0.0"
+pytest-cov = "^4.0.0"
 pytest-dependency = "^0.5.1"
 pytest-mock = "^3.7.0"
 pytest-virtualenv = "^1.7.0"
 requests-mock = "^1.9.3"
+boto3 = "^1.24"
+moto = "^4.0.3"
+Flask = "^2.2.2"
+Flask-Cors = "^3.0.10"
 
 [tool.poetry.scripts]
 fair = 'fair.cli:cli'
@@ -94,3 +100,6 @@ requires = ["poetry-core>=1.0.0"]
 
 [tool.poetry.urls]
 "Issue Tracker" = "https://github.com/FAIRDataPipeline/FAIR-CLI/issues"
+
+[tool.poetry.extras]
+all = ["moto"]

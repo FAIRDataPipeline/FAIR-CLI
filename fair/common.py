@@ -56,8 +56,8 @@ JOBS_DIR = "jobs"
 
 FAIR_REGISTRY_REPO = "https://github.com/FAIRDataPipeline/data-registry.git"
 
-DEFAULT_REGISTRY_DOMAIN = "https://data.scrc.uk/"
-REGISTRY_INSTALL_URL = "https://data.scrc.uk/static/localregistry.sh"
+DEFAULT_REGISTRY_DOMAIN = "https://data.fairdatapipeline.org/"
+REGISTRY_INSTALL_URL = "https://data.fairdatapipeline.org/static/localregistry.sh"
 
 DEFAULT_REGISTRY_LOCATION = os.path.join(
     pathlib.Path().home(), FAIR_FOLDER, "registry"

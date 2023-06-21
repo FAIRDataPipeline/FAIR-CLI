@@ -13,6 +13,7 @@ __date__ = "2021-06-24"
 
 import glob
 import logging
+from multiprocessing import context
 import os
 import pathlib
 import sys
@@ -84,7 +85,8 @@ def complete_jobs(ctx, param, incomplete) -> typing.List[str]:
 
 @click.group()
 @click.version_option(package_name="fair-cli")
-def cli():
+@click.pass_context
+def cli(ctx):
     """Welcome to FAIR-CLI, the FAIR data pipeline command-line interface."""
     pass
 
@@ -99,6 +101,7 @@ def status(verbose, debug) -> None:
             os.getcwd(), debug=debug, server_mode=fdp_svr.SwitchMode.CLI
         ) as fair_session:
             fair_session.status_data_products()
+            fair_session.status_code_runs()
     except fdp_exc.FAIRCLIException as e:
         if debug:
             raise e
@@ -106,6 +109,52 @@ def status(verbose, debug) -> None:
         if e.level.lower() == "error":
             sys.exit(e.exit_code)
 
+@cli.group(invoke_without_command=True)
+@click.option("--debug/--no-debug", help="Run in debug mode", default=False)
+@click.option("--remote", help="Show Remote Code Runs", default= "")
+@click.pass_context
+def list(ctx, debug, remote) -> None:
+    """Commands to list data_product(s) and code_run(s)"""
+    if ctx.obj is None:
+        ctx.obj = {}
+    ctx.obj['DEBUG'] = debug
+    ctx.obj['REMOTE'] = remote
+    ctx.invoke(data_products)
+    ctx.invoke(code_runs)
+
+@list.command()
+@click.pass_context
+def data_products(ctx) -> None:
+    debug = ctx.obj['DEBUG']
+    remote = ctx.obj['REMOTE']
+    try:
+        with fdp_session.FAIR(
+            os.getcwd(), debug=debug, server_mode=fdp_svr.SwitchMode.CLI
+        ) as fair_session:
+            fair_session.show_all_data_products(remote = remote)
+    except fdp_exc.FAIRCLIException as e:
+        if debug:
+            raise e
+        e.err_print()
+        if e.level.lower() == "error":
+            sys.exit(e.exit_code)
+
+@list.command()
+@click.pass_context
+def code_runs(ctx) -> None:
+    debug = ctx.obj['DEBUG']
+    remote = ctx.obj['REMOTE']
+    try:
+        with fdp_session.FAIR(
+            os.getcwd(), debug=debug, server_mode=fdp_svr.SwitchMode.CLI
+        ) as fair_session:
+            fair_session.show_all_code_runs(remote = remote)
+    except fdp_exc.FAIRCLIException as e:
+        if debug:
+            raise e
+        e.err_print()
+        if e.level.lower() == "error":
+            sys.exit(e.exit_code)
 
 @cli.command()
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
@@ -363,6 +412,22 @@ def stop(force: bool, debug: bool) -> None:
             sys.exit(e.exit_code)
 
 
+@registry.command()
+@click.option("--debug/--no-debug", help="Run in debug mode", default=False)
+def status(debug) -> None:
+    try:
+        with fdp_session.FAIR(
+            os.getcwd(), debug=debug, server_mode=fdp_svr.SwitchMode.NO_SERVER
+        ) as fair_session:
+            fair_session.registry_status()
+    except fdp_exc.FAIRCLIException as e:
+        if debug:
+            raise e
+        e.err_print()
+        if e.level.lower() == "error":
+            sys.exit(e.exit_code)
+
+
 @cli.command()
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
 def log(debug: bool) -> None:
@@ -405,7 +470,7 @@ def unstage(identifier: str, debug: bool, job: bool) -> None:
         ) as fair_session:
             fair_session.change_staging_state(
                 identifier,
-                "job" if job else "data_product",
+                job,
                 stage=False,
             )
     except fdp_exc.FAIRCLIException as e:
@@ -420,15 +485,26 @@ def unstage(identifier: str, debug: bool, job: bool) -> None:
 @click.argument("identifier", shell_complete=complete_data_products)
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
 def add(identifier: str, debug: bool) -> None:
-    """Add a data product to staging"""
+    """
+    Add a data product or coderun to staging
+
+    Data Products should be formatted: 
+    <namespace>:<data product name>@v<version>
+    eg:
+    PSU:SEIRS_model/parameters@v1.0.0
+
+    Code Runs should be specified by code run uuid
+
+    Use `fair list` to view Data Products and Code Runs
+    
+    """
     try:
         with fdp_session.FAIR(
             os.getcwd(),
             debug=debug,
         ) as fair_session:
-            fair_session.change_staging_state(
-                identifier,
-                "data_product",
+            fair_session.add_to_staging(
+                identifier
             )
     except fdp_exc.FAIRCLIException as e:
         if debug:
@@ -665,4 +741,4 @@ def pull(config: str, debug: bool, local: bool):
 
 
 if __name__ in "__main__":
-    cli()
+    cli(obj={})

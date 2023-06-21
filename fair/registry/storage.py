@@ -819,12 +819,44 @@ def check_if_object_exists(
     return "hash_match" if check_match(file_loc, _storage_objs) else _results
 
 def get_upload_url(
-    file_hash: str,
+    file_loc: str,
     remote_uri: str = None,
     remote_token: str = None,
 ) -> str:
+    """Wrapper function to get an upload_url for object storage
+
+    Args:
+        file_loc (str): File Location
+        remote_uri (str, optional): Remote Registry URL. Defaults to None.
+        remote_token (str, optional): Remote Registry Token. Defaults to None.
+
+    Returns:
+        str: Ad upload url for object storage
+    """
+    file_hash = calculate_file_hash(file_loc)
     if not remote_uri: 
         remote_uri = fdp_conf.get_remote_token()
     if not remote_token:
         remote_token = fdp_conf.get_remote_token()
-    return fdp_req.post_upload_url(remote_uri, remote_token, file_hash)
+    return fdp_req.post_upload_url(remote_uri, remote_token, file_hash)['url']
+
+def upload_remote_file(
+    file_loc: str,
+    remote_uri = None,
+    remote_token = None,
+):
+    """Wrapper to upload a file to a remote registry
+
+    Args:
+        file_loc (str): Location of the file
+        remote_uri (_type_, optional): Remote Registry URL. Defaults to None.
+        remote_token (_type_, optional): Remote Registry Token. Defaults to None.
+
+    Raises:
+        fdp_exc.FileNotFoundError: If the file does not exist a FileNotFound error will be raised.
+    """
+    if not os.path.exists(file_loc):
+        raise fdp_exc.FileNotFoundError(f'File: {file_loc} does not exist')
+    _upload_url = get_upload_url(file_loc, remote_uri, remote_token)
+    logger.debug(f"Uploading {file_loc} to URL: {_upload_url}")
+    fdp_req.put_file(_upload_url, file_loc)

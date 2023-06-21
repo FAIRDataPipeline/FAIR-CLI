@@ -210,7 +210,7 @@ def get_remote_uri(repo_loc: str, remote_label: str = "origin") -> str:
 
     Parameters
     ----------
-    repo_locget_remote_token : str
+    repo_loc : str
         local FAIR repository directory
     remote_label : str, optional
         label of remote to retrieve, default is 'origin'
@@ -642,8 +642,10 @@ def global_config_query(
                 )
                 _reg_loc = click.prompt("Local registry directory")
                 _manage_script = os.path.join(_reg_loc, "manage.py")
+            registry = _reg_loc
         else:
             registry = fdp_com.DEFAULT_REGISTRY_LOCATION
+            click.echo(f"Installing registry to '{registry}'")
             fdp_serv.install_registry(install_dir=registry)
     else:
         click.echo(f"Will install registry to '{registry}'")
@@ -663,7 +665,7 @@ def global_config_query(
 
         _rem_data_store = click.prompt(
             "Remote Data Storage Root",
-            default=_remote_url.replace("api", "data"),
+            default=_remote_url.replace("/api/", "/data/"),
         )
 
         _rem_key_file = click.prompt(
@@ -706,7 +708,7 @@ def global_config_query(
 
     _loc_data_store = click.prompt(
         "Default Data Store",
-        default=os.path.join(fdp_com.USER_FAIR_DIR, "data/"),
+        default=os.path.join(fdp_com.USER_FAIR_DIR, f"data{os.path.sep}"),
     )
     if _loc_data_store[-1] != os.path.sep:
         _loc_data_store += os.path.sep

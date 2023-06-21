@@ -57,7 +57,7 @@ def test_status(
     with open(
         os.path.join(local_config[1], fdp_com.FAIR_FOLDER, "staging"), "w"
     ) as staged:
-        yaml.dump({"job": {}, "data_product": {}}, staged)
+        yaml.dump({"job": {}, "data_product": {}, "code_run": {}}, staged)
     mocker.patch(
         "fair.run.get_job_dir", lambda x: os.path.join(os.getcwd(), "jobs", x)
     )
@@ -72,6 +72,7 @@ def test_status(
         },
         "file": {},
         "data_product": {},
+        "code_run": {}
     }
 
     _urls_list = {i: "https://dummyurl.com" for i in _dummy_job_staging["job"]}
@@ -106,7 +107,6 @@ def test_status(
             cli, ["status", "--debug", "--verbose"], catch_exceptions=True
         )
         assert _result.exit_code == 0
-
 
 @pytest.mark.faircli_cli
 def test_create(
@@ -439,13 +439,19 @@ def test_registry_cli(
         assert _result.exit_code == 0
 
         _result = click_test.invoke(cli, ["registry", "start", "--debug"])
+        _registry_status_result = click_test.invoke(cli, ["registry", "status", "--debug"])
 
         assert _result.exit_code == 0
+        assert _registry_status_result.exit_code == 0
+        assert "Server running at: http://127.0.0.1:8000/api/" in _registry_status_result.output
         assert requests.get(LOCAL_REGISTRY_URL).status_code == 200
 
         _result = click_test.invoke(cli, ["registry", "stop", "--debug"])
+        _registry_status_result = click_test.invoke(cli, ["registry", "status", "--debug"])
 
         assert _result.exit_code == 0
+        assert _registry_status_result.exit_code == 0
+        assert "Server is not running" in _registry_status_result.output
         with pytest.raises(requests.ConnectionError):
             requests.get(LOCAL_REGISTRY_URL)
 
