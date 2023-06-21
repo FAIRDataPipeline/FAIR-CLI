@@ -818,6 +818,8 @@ def format_data_product(data_product_url: str, token: str) -> str:
     Returns:
         str: formatted data_product as string in the format: {namespace_name}:{data_product_name}@v{data_product_version}
     """
+    if not format_data_product_list([data_product_url], token):
+        return ""
     return(format_data_product_list([data_product_url], token)[0])
 
 def get_dest_inputs(origin_inputs: typing.List, 
