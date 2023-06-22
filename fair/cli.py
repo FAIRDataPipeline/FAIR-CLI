@@ -106,8 +106,7 @@ def status(verbose, debug) -> None:
         if debug:
             raise e
         e.err_print()
-        if e.level.lower() == "error":
-            sys.exit(e.exit_code)
+        sys.exit(e.exit_code)
 
 @cli.group(invoke_without_command=True)
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
@@ -136,8 +135,7 @@ def data_products(ctx) -> None:
         if debug:
             raise e
         e.err_print()
-        if e.level.lower() == "error":
-            sys.exit(e.exit_code)
+        sys.exit(e.exit_code)
 
 @list.command()
 @click.pass_context
@@ -153,8 +151,7 @@ def code_runs(ctx) -> None:
         if debug:
             raise e
         e.err_print()
-        if e.level.lower() == "error":
-            sys.exit(e.exit_code)
+        sys.exit(e.exit_code)
 
 @cli.command()
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
@@ -184,8 +181,7 @@ def reset(debug: bool) -> None:
         if debug:
             raise e
         e.err_print()
-        if e.level.lower() == "error":
-            sys.exit(e.exit_code)
+        sys.exit(e.exit_code)
 
 
 @cli.command()
@@ -255,8 +251,7 @@ def init(
         if debug:
             raise e
         e.err_print()
-        if e.level.lower() == "error":
-            sys.exit(e.exit_code)
+        sys.exit(e.exit_code)
 
 
 @cli.command()
@@ -312,8 +307,7 @@ def purge(glob: bool, debug: bool, yes: bool, data: bool, all: bool) -> None:
         if debug:
             raise e
         e.err_print()
-        if e.level.lower() == "error":
-            sys.exit(e.exit_code)
+        sys.exit(e.exit_code)
 
 
 @cli.group()
@@ -340,8 +334,7 @@ def uninstall(debug: bool):
         if debug:
             raise e
         e.err_print()
-        if e.level.lower() == "error":
-            sys.exit(e.exit_code)
+        sys.exit(e.exit_code)
 
 
 @registry.command()
@@ -366,8 +359,7 @@ def install(debug: bool, force: bool, directory: str, version: str):
         if debug:
             raise e
         e.err_print()
-        if e.level.lower() == "error":
-            sys.exit(e.exit_code)
+        sys.exit(e.exit_code)
 
 
 @registry.command()
@@ -388,8 +380,7 @@ def start(debug: bool, port: int, address: str) -> None:
         if debug:
             raise e
         e.err_print()
-        if e.level.lower() == "error":
-            sys.exit(e.exit_code)
+        sys.exit(e.exit_code)
 
 
 @registry.command()
@@ -408,8 +399,7 @@ def stop(force: bool, debug: bool) -> None:
         if debug:
             raise e
         e.err_print()
-        if e.level.lower() == "error":
-            sys.exit(e.exit_code)
+        sys.exit(e.exit_code)
 
 
 @registry.command()
@@ -424,8 +414,7 @@ def status(debug) -> None:
         if debug:
             raise e
         e.err_print()
-        if e.level.lower() == "error":
-            sys.exit(e.exit_code)
+        sys.exit(e.exit_code)
 
 
 @cli.command()
@@ -438,8 +427,7 @@ def log(debug: bool) -> None:
         if debug:
             raise e
         e.err_print()
-        if e.level.lower() == "error":
-            sys.exit(e.exit_code)
+        sys.exit(e.exit_code)
 
 
 @cli.command()
@@ -453,8 +441,7 @@ def view(job_id: str, debug: bool) -> None:
         if debug:
             raise e
         e.err_print()
-        if e.level.lower() == "error":
-            sys.exit(e.exit_code)
+        sys.exit(e.exit_code)
 
 
 @cli.command()
@@ -477,8 +464,7 @@ def unstage(identifier: str, debug: bool, job: bool) -> None:
         if debug:
             raise e
         e.err_print()
-        if e.level.lower() == "error":
-            sys.exit(e.exit_code)
+        sys.exit(e.exit_code)
 
 
 @cli.command()
@@ -510,8 +496,7 @@ def add(identifier: str, debug: bool) -> None:
         if debug:
             raise e
         e.err_print()
-        if e.level.lower() == "error":
-            sys.exit(e.exit_code)
+        sys.exit(e.exit_code)
 
 
 @cli.command()
@@ -576,8 +561,7 @@ def run(
         if debug:
             raise e
         e.err_print()
-        if e.level.lower() == "error":
-            sys.exit(e.exit_code)
+        sys.exit(e.exit_code)
 
 
 @cli.group(invoke_without_command=True)
@@ -594,8 +578,7 @@ def remote(ctx, verbose: bool = False, debug: bool = False):
             if debug:
                 raise e
             e.err_print()
-            if e.level.lower() == "error":
-                sys.exit(e.exit_code)
+            sys.exit(e.exit_code)
 
 
 @remote.command()
@@ -622,8 +605,7 @@ def add(options: typing.List[str], debug: bool) -> None:
         if debug:
             raise e
         e.err_print()
-        if e.level.lower() == "error":
-            sys.exit(e.exit_code)
+        sys.exit(e.exit_code)
 
 
 @remote.command()
@@ -644,8 +626,7 @@ def remove(label: str, debug: bool) -> None:
         if debug:
             raise e
         e.err_print()
-        if e.level.lower() == "error":
-            sys.exit(e.exit_code)
+        sys.exit(e.exit_code)
 
 
 @remote.command()
@@ -662,8 +643,7 @@ def modify(ctx, label: str, url: str, debug: bool) -> None:
         if debug:
             raise e
         e.err_print()
-        if e.level.lower() == "error":
-            sys.exit(e.exit_code)
+        sys.exit(e.exit_code)
 
 
 @cli.command()
@@ -689,8 +669,7 @@ def push(remote: str, debug: bool, dirty: bool):
         if debug:
             raise e
         e.err_print()
-        if e.level.lower() == "error":
-            sys.exit(e.exit_code)
+        sys.exit(e.exit_code)
 
 
 @cli.group()
@@ -736,8 +715,7 @@ def pull(config: str, debug: bool, local: bool):
         if debug:
             raise e
         e.err_print()
-        if e.level.lower() == "error":
-            sys.exit(e.exit_code)
+        sys.exit(e.exit_code)
 
 
 if __name__ in "__main__":
