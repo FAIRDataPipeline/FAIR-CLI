@@ -104,7 +104,9 @@ def status(verbose, debug) -> None:
             fair_session.status_code_runs()
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
-        sys.exit(e.exit_code)
+        if e.level.lower() == "error":
+            if e.level.lower() == "error":
+                sys.exit(e.exit_code)
 
 @cli.group(invoke_without_command=True)
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
@@ -131,7 +133,8 @@ def data_products(ctx) -> None:
             fair_session.show_all_data_products(remote = remote)
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
-        sys.exit(e.exit_code)
+        if e.level.lower() == "error":
+            sys.exit(e.exit_code)
 
 @list.command()
 @click.pass_context
@@ -145,7 +148,8 @@ def code_runs(ctx) -> None:
             fair_session.show_all_code_runs(remote = remote)
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
-        sys.exit(e.exit_code)
+        if e.level.lower() == "error":
+            sys.exit(e.exit_code)
 
 @cli.command()
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
@@ -173,7 +177,8 @@ def reset(debug: bool) -> None:
             fair_session.reset_staging()
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
-        sys.exit(e.exit_code)
+        if e.level.lower() == "error":
+            sys.exit(e.exit_code)
 
 
 @cli.command()
@@ -241,8 +246,8 @@ def init(
                 fair_session.make_starter_config(config)
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
-        sys.exit(e.exit_code)
-
+        if e.level.lower() == "error":
+            sys.exit(e.exit_code)
 
 @cli.command()
 @click.option(
@@ -295,7 +300,8 @@ def purge(glob: bool, debug: bool, yes: bool, data: bool, all: bool) -> None:
             fair_session.purge(global_cfg=glob, clear_data=data, clear_all=all)
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
-        sys.exit(e.exit_code)
+        if e.level.lower() == "error":
+            sys.exit(e.exit_code)
 
 
 @cli.group()
@@ -320,7 +326,8 @@ def uninstall(debug: bool):
         fdp_svr.uninstall_registry()
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
-        sys.exit(e.exit_code)
+        if e.level.lower() == "error":
+            sys.exit(e.exit_code)
 
 
 @registry.command()
@@ -343,7 +350,8 @@ def install(debug: bool, force: bool, directory: str, version: str):
         click.echo(f"Installed registry version '{_version}'")
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
-        sys.exit(e.exit_code)
+        if e.level.lower() == "error":
+            sys.exit(e.exit_code)
 
 
 @registry.command()
@@ -362,7 +370,8 @@ def start(debug: bool, port: int, address: str) -> None:
         )
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
-        sys.exit(e.exit_code)
+        if e.level.lower() == "error":
+            sys.exit(e.exit_code)
 
 
 @registry.command()
@@ -379,7 +388,8 @@ def stop(force: bool, debug: bool) -> None:
         fdp_session.FAIR(os.getcwd(), server_mode=_mode, debug=debug)
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
-        sys.exit(e.exit_code)
+        if e.level.lower() == "error":
+            sys.exit(e.exit_code)
 
 
 @registry.command()
@@ -392,7 +402,8 @@ def status(debug) -> None:
             fair_session.registry_status()
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
-        sys.exit(e.exit_code)
+        if e.level.lower() == "error":
+            sys.exit(e.exit_code)
 
 
 @cli.command()
@@ -403,7 +414,8 @@ def log(debug: bool) -> None:
         fdp_hist.show_history(os.getcwd())
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
-        sys.exit(e.exit_code)
+        if e.level.lower() == "error":
+            sys.exit(e.exit_code)
 
 
 @cli.command()
@@ -415,7 +427,8 @@ def view(job_id: str, debug: bool) -> None:
         fdp_hist.show_job_log(os.getcwd(), job_id)
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
-        sys.exit(e.exit_code)
+        if e.level.lower() == "error":
+            sys.exit(e.exit_code)
 
 
 @cli.command()
@@ -436,7 +449,8 @@ def unstage(identifier: str, debug: bool, job: bool) -> None:
             )
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
-        sys.exit(e.exit_code)
+        if e.level.lower() == "error":
+            sys.exit(e.exit_code)
 
 
 @cli.command()
@@ -466,7 +480,8 @@ def add(identifier: str, debug: bool) -> None:
             )
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
-        sys.exit(e.exit_code)
+        if e.level.lower() == "error":
+            sys.exit(e.exit_code)
 
 
 @cli.command()
@@ -529,7 +544,8 @@ def run(
                 click.echo(fdp_run.get_job_dir(_hash))
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
-        sys.exit(e.exit_code)
+        if e.level.lower() == "error":
+            sys.exit(e.exit_code)
 
 
 @cli.group(invoke_without_command=True)
@@ -544,7 +560,8 @@ def remote(ctx, verbose: bool = False, debug: bool = False):
                 fair_session.list_remotes(verbose)
         except fdp_exc.FAIRCLIException as e:
             e.err_print()
-            sys.exit(e.exit_code)
+            if e.level.lower() == "error":
+                sys.exit(e.exit_code)
 
 
 @remote.command()
@@ -569,7 +586,8 @@ def add(options: typing.List[str], debug: bool) -> None:
             fair_session.add_remote(_url, _label)
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
-        sys.exit(e.exit_code)
+        if e.level.lower() == "error":
+            sys.exit(e.exit_code)
 
 
 @remote.command()
@@ -588,7 +606,8 @@ def remove(label: str, debug: bool) -> None:
             fair_session.remove_remove(label)
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
-        sys.exit(e.exit_code)
+        if e.level.lower() == "error":
+            sys.exit(e.exit_code)
 
 
 @remote.command()
@@ -603,7 +622,8 @@ def modify(ctx, label: str, url: str, debug: bool) -> None:
             fair_session.modify_remote(label, url)
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
-        sys.exit(e.exit_code)
+        if e.level.lower() == "error":
+            sys.exit(e.exit_code)
 
 
 @cli.command()
@@ -627,7 +647,8 @@ def push(remote: str, debug: bool, dirty: bool):
             fair_session.push(remote)
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
-        sys.exit(e.exit_code)
+        if e.level.lower() == "error":
+            sys.exit(e.exit_code)
 
 
 @cli.group()
@@ -671,7 +692,8 @@ def pull(config: str, debug: bool, local: bool):
             fair.pull()
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
-        sys.exit(e.exit_code)
+        if e.level.lower() == "error":
+            sys.exit(e.exit_code)
 
 
 if __name__ in "__main__":
