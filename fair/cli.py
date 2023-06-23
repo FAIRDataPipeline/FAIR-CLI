@@ -105,8 +105,7 @@ def status(verbose, debug) -> None:
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
         if e.level.lower() == "error":
-            if e.level.lower() == "error":
-                sys.exit(e.exit_code)
+            sys.exit(e.exit_code)
 
 @cli.group(invoke_without_command=True)
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
@@ -161,7 +160,7 @@ def create(debug, output: str) -> None:
         if output
         else os.path.join(os.getcwd(), fdp_com.USER_CONFIG_FILE)
     )
-    click.echo(f"Generating new user configuration file" f" '{output}'")
+    click.echo(f"Generating new user configuration file '{output}'")
     with fdp_session.FAIR(os.getcwd(), debug=debug) as fair_session:
         fair_session.make_starter_config(output)
 

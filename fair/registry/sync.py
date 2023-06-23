@@ -66,7 +66,7 @@ def get_dependency_chain(object_url: str, token: str) -> collections.deque:
         url_list.appendleft(item)
         try:
             _results = fdp_req.url_get(item, token)
-        except:
+        except Exception:
             _results = {}
         _type = fdp_req.get_obj_type_from_url(item, token)
         for req, val in _results.items():
@@ -124,7 +124,7 @@ def pull_all_namespaces(
     )
 
     if not _remote_namespaces:
-        return
+        return []
 
     _writable_fields = fdp_req.get_writable_fields(
         local_uri, "namespace", local_token
@@ -1019,7 +1019,7 @@ def upload_object(origin_uri:str, dest_uri:str, dest_token:str, origin_token:str
         fdp_store.upload_remote_file(_file_loc, dest_uri, dest_token)
         logger.debug(f"File {_file_loc} Uploaded Successfully")
         return True
-    except Exception as e:
+    except Exception:
         logger.warning(f'File upload error: {_object["description"]} was not uploaded to remote registry please upload the file manually')
         logger.debug(f'{traceback.format_exc()}')
         return False

@@ -571,7 +571,7 @@ def get_dependency_listing(uri: str, token: str, read_only: bool = False) -> typ
     """
     try:
         _registry_objs = url_get(uri, token)
-    except:
+    except Exception:
         return {[]}
 
     _rtn =  {

@@ -360,7 +360,7 @@ class FAIR:
         if fdp_serv.check_server_running():
             click.echo(f'Server running at: {fdp_conf.get_local_uri()}')
         else:
-            click.echo(f'Server is not running')
+            click.echo('Server is not running')
 
     def push(self, remote: str = "origin"):
         self._pre_job_setup(remote)
@@ -897,7 +897,7 @@ class FAIR:
                     params={"uuid": uuid})
                 if _remote_code_run:
                     return _remote_code_run[0]["description"]
-        except Exception as e:
+        except Exception:
             pass
         return "Unknown"
 
@@ -943,7 +943,7 @@ class FAIR:
                 if _remote_code_runs:
                     for _remote_code_run in _remote_code_runs:
                         _code_run_uuids.append(_remote_code_run["uuid"])
-            except Exception as e:
+            except Exception:
                 self._logger.warning("Could not Fetch from a remote registry")
                 self._logger.debug(f'{traceback.format_exc()}')
         _code_run_uuids = list(set(_code_run_uuids))
@@ -969,7 +969,7 @@ class FAIR:
                     for remote_data_product in _remote_data_products:
                         _namespace_name = fdp_req.url_get(remote_data_product["namespace"], fdp_conf.get_remote_token(self._session_loc, remote, local=self._local))["name"]
                         _data_products.append(f'{_namespace_name}:{remote_data_product["name"]}@v{remote_data_product["version"]}')
-            except Exception as e:
+            except Exception:
                 self._logger.warning("Could not Fetch from a remote registry")
                 self._logger.debug(f'{traceback.format_exc()}')
         _data_products = list(set(_data_products))

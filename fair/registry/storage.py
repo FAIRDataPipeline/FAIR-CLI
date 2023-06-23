@@ -580,7 +580,7 @@ def _get_url_from_object(
             raise e
         else:
             raise fdp_exc.RegistryAPICallError(
-                f"Cannot post object" f"'{_desc}', duplicate already exists",
+                f"Cannot post object '{_desc}', duplicate already exists",
                 error_code=409,
             ) from e
 

@@ -262,7 +262,7 @@ def remote_git_repo(fair_repo_loc: str) -> str:
 
 def get_remote_token(
     repo_dir: str, remote: str = "origin", local: bool = False
-) -> str:
+) -> typing.Optional[str]:
     _local_config = read_local_fdpconfig(repo_dir)
     if remote not in _local_config["registries"]:
         raise fdp_exc.CLIConfigurationError(
