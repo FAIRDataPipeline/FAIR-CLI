@@ -139,7 +139,6 @@ def pull_all_namespaces(
             local_uri, "namespace", local_token, _writable_data
         )
 
-
 def sync_dependency_chain(
     object_url: str,
     dest_uri: str,
@@ -148,6 +147,7 @@ def sync_dependency_chain(
     origin_token: str,
     local_data_store: str = None,
     public: bool = False,
+    remote_author_url = None
 ) -> typing.Dict[str, str]:
     """Push an object and all of its dependencies to the remote registry
 
@@ -225,7 +225,8 @@ def sync_dependency_chain(
             new_urls=_new_urls,
             writable_data=_writable_data,
             local_data_store = local_data_store,
-            public = public
+            public = public,
+            remote_author_url = remote_author_url
         )
 
         if not fdp_util.is_api_url(dest_uri, _new_url):
@@ -248,7 +249,8 @@ def _get_new_url(
     new_urls: typing.Dict,
     writable_data: typing.Dict,
     local_data_store = None,
-    public = False
+    public = False,
+    remote_author_url = None
 ) -> typing.Tuple[typing.Dict, typing.List]:
     """Internal Function to return a resgistry entry from the remote registry given an origin entry URL
     If the entry does not exist it will be created
@@ -326,6 +328,9 @@ def _get_new_url(
             _new_obj_data["storage_root"] = _remote_storage_root_url
             _filters["storage_root"] = fdp_req.get_obj_id_from_url(_remote_storage_root_url)
 
+    if remote_author_url and _obj_type == "object":
+        _new_obj_data["authors"] = _filters["authors"] = [remote_author_url]
+
     return fdp_req.post_else_get(
         dest_uri,
         _obj_type,
@@ -334,6 +339,35 @@ def _get_new_url(
         params=_filters,
     )
 
+def sync_author(
+    origin_uri: str,
+    dest_uri: str,
+    dest_token: str,
+    origin_token: str,
+    name: str
+) -> None:
+    current_author = fdp_req.get(
+        origin_uri,
+        "author",
+        origin_token,
+        params= {"name": name}
+    )
+    if not current_author:
+        raise fdp_exc.RegistryError(f"No author matching {name}, on local registry", "Have you run fair init?")
+    current_author_url = current_author[0]['url']
+    new_urls = sync_dependency_chain(
+        current_author_url,
+        dest_uri,
+        origin_uri,
+        dest_token,
+        origin_token
+        )
+    if not new_urls:
+        raise fdp_exc.RegistryError(f"Auther {name}, could not be pushed to {dest_uri}")
+    new_author_url = new_urls[current_author_url]
+    if not new_author_url:
+        raise fdp_exc.RegistryError(f"Auther {name}, was not be pushed to {dest_uri}")
+    return new_author_url
 
 def sync_data_products(
     origin_uri: str,
@@ -344,6 +378,7 @@ def sync_data_products(
     data_products: typing.List[str],
     local_data_store: str = None,
     force: bool = False,
+    remote_author_url = None
 ) -> None:
     """Transfer data products from one registry to another
 
@@ -440,7 +475,8 @@ def sync_data_products(
             dest_token=dest_token,
             origin_token=origin_token,
             local_data_store=local_data_store,
-            public=_is_public
+            public=_is_public,
+            remote_author_url = remote_author_url
         )
         # If local_data_store assume we're syncing from remote to local
         if local_data_store:
@@ -462,8 +498,8 @@ def sync_data_products(
                 for origin_input_code_run in origin_input_code_runs:
                     dest_component_url = get_dest_component_url(origin_component_url, dest_uri, dest_token, origin_token)
                     dest_inputs = [dest_component_url]
-                    dest_inputs += get_dest_inputs(origin_input_code_run["inputs"], origin_uri, dest_uri, dest_token, origin_token, remote_label)
-                    sync_code_run(origin_uri, dest_uri, dest_token, origin_token, origin_input_code_run["uuid"], inputs= dest_inputs)
+                    dest_inputs += get_dest_inputs(origin_input_code_run["inputs"], origin_uri, dest_uri, dest_token, origin_token, remote_label, remote_author_url)
+                    sync_code_run(origin_uri, dest_uri, dest_token, origin_token, origin_input_code_run["uuid"], inputs= dest_inputs, remote_author_url = remote_author_url)
                 
                 origin_output_code_runs = fdp_req.get(
                         origin_uri,
@@ -473,8 +509,8 @@ def sync_data_products(
                     )
                 for origin_output_code_run in origin_output_code_runs:
                     dest_component_url = get_dest_component_url(origin_component_url, dest_uri, dest_token, origin_token)
-                    dest_inputs = get_dest_inputs(origin_output_code_run["inputs"], origin_uri, dest_uri, dest_token, origin_token, remote_label, force)
-                    sync_code_run(origin_uri, dest_uri, dest_token, origin_token, origin_output_code_run["uuid"], inputs= dest_inputs, outputs= [dest_component_url])
+                    dest_inputs = get_dest_inputs(origin_output_code_run["inputs"], origin_uri, dest_uri, dest_token, origin_token, remote_label, force, remote_author_url)
+                    sync_code_run(origin_uri, dest_uri, dest_token, origin_token, origin_output_code_run["uuid"], inputs= dest_inputs, outputs= [dest_component_url], remote_author_url = remote_author_url)
                     
 def get_dest_component_url(
     origin_component_url: str,
@@ -521,6 +557,7 @@ def sync_code_runs(
     code_runs: typing.List[str],
     local_data_store: str = None,
     force: bool = False,
+    remote_author_url = None
 ) -> None:
     """Transfer data code_run(s) from one registry to another
 
@@ -589,7 +626,8 @@ def sync_code_runs(
             remote_label, 
             _origin_data_products_formatted, 
             local_data_store,
-            force)
+            force,
+            remote_author_url)
 
         # Iterate through formatted objects and get their new values from the remote registry
         for _origin_data_product_formatted in _origin_data_products_formatted:
@@ -617,7 +655,7 @@ def sync_code_runs(
             if _origin_data_product_formatted in _outputs_data_products:
                 _dest_outputs += _dest_object["components"]
         logger.debug(f'attempting to sync coderun {code_run_uuid} with inputs {_dest_inputs} and outputs {_dest_outputs}')
-        sync_code_run(origin_uri, dest_uri, dest_token, origin_token, code_run_uuid, _dest_inputs, _dest_outputs)
+        sync_code_run(origin_uri, dest_uri, dest_token, origin_token, code_run_uuid, _dest_inputs, _dest_outputs, remote_author_url = remote_author_url)
 
 # Internal function to return the (remote) object associated with a code_run field containing and object url
 def get_dest_object_url(
@@ -663,7 +701,8 @@ def sync_code_run(
     origin_token: str,
     code_run_uuid: str,
     inputs = [],
-    outputs = []) -> typing.Dict:
+    outputs = [],
+    remote_author_url = None) -> typing.Dict:
     """_summary_
 
     Args:
@@ -710,7 +749,8 @@ def sync_code_run(
         origin_uri=origin_uri,
         dest_token=dest_token,
         origin_token=origin_token,
-        public= True
+        public= True,
+        remote_author_url = remote_author_url
         )
         _dest_code_run_model_config = get_dest_object_url(code_run["model_config"], dest_uri, dest_token, origin_token)
         upload_object(origin_uri, dest_uri, dest_token, origin_token, code_run["model_config"])
@@ -723,7 +763,8 @@ def sync_code_run(
             origin_uri=origin_uri,
             dest_token=dest_token,
             origin_token=origin_token,
-            public= True
+            public= True,
+            remote_author_url = remote_author_url
             )
             _dest_code_run_code_repo = get_dest_object_url(code_run["code_repo"],  dest_uri, dest_token, origin_token)
         # Sync Submision Script
@@ -733,7 +774,8 @@ def sync_code_run(
         origin_uri=origin_uri,
         dest_token=dest_token,
         origin_token=origin_token,
-        public= True
+        public= True,
+        remote_author_url = remote_author_url
         )
         _dest_code_run_submission_script = get_dest_object_url(code_run["submission_script"], dest_uri, dest_token, origin_token)
         upload_object(origin_uri, dest_uri, dest_token, origin_token, code_run["submission_script"])
@@ -828,7 +870,8 @@ def get_dest_inputs(origin_inputs: typing.List,
     dest_token: str,
     origin_token: str,
     remote_label: str,
-    force: bool = False) -> list:
+    force: bool = False,
+    remote_author_url = None) -> list:
     """Returns a list of input component urls on the destination registry
      from a given list of input component urls from the origin registry
      assumes the destination componets already exists in the remote registry
@@ -849,7 +892,7 @@ def get_dest_inputs(origin_inputs: typing.List,
     for origin_input in origin_inputs:
         component_data_products = get_data_products_from_component(origin_input, origin_token)
         if component_data_products:
-            sync_data_products(origin_uri, dest_uri, dest_token, origin_token, remote_label, format_data_product_list(component_data_products, origin_token), force= force)
+            sync_data_products(origin_uri, dest_uri, dest_token, origin_token, remote_label, format_data_product_list(component_data_products, origin_token), force= force, remote_author_url = remote_author_url)
             for data_product_url in component_data_products:
                 origin_data_product_object_url = fdp_req.url_get(data_product_url, origin_token)["object"]
                 dest_object_url = get_dest_object_url(origin_data_product_object_url, dest_uri, dest_token, origin_token)
@@ -862,7 +905,8 @@ def get_dest_inputs(origin_inputs: typing.List,
                 origin_uri=origin_uri,
                 dest_token=dest_token,
                 origin_token=origin_token,
-                public= is_component_public(origin_input, origin_token)
+                public= is_component_public(origin_input, origin_token),
+                remote_author_url = remote_author_url
                 )
             dest_inputs.append(get_dest_component_url(origin_input, dest_uri, dest_token, origin_token))
     return dest_inputs
