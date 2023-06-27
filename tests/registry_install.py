@@ -6,6 +6,7 @@ import shutil
 import subprocess
 import time
 import typing
+import platform
 
 import click
 import git
@@ -104,7 +105,7 @@ def rebuild_local(
 
 def install_registry(
     repository: str = FAIR_REGISTRY_REPO,
-    reference: str = "remote-test-registry",
+    reference: str = "hotfix/lxml",
     install_dir: str = None,
     silent: bool = False,
     force: bool = False,
@@ -138,7 +139,8 @@ def install_registry(
 
         _venv.create(venv_dir)
 
-    _venv_python = shutil.which("python", path=os.path.join(venv_dir, "bin"))
+    _venv_bin_dir = "Scripts" if platform.system() == "Windows" else "bin"
+    _venv_python = shutil.which("python", path=os.path.join(venv_dir, _venv_bin_dir))
 
     if not _venv_python:
         raise FileNotFoundError(
@@ -200,7 +202,8 @@ def refresh(
             f"Location '{install_dir}' is not a valid registry install"
         )
 
-    _venv_python = shutil.which("python", path=os.path.join(_venv_dir, "bin"))
+    _venv_bin_dir = "Scripts" if platform.system() == "Windows" else "bin"
+    _venv_python = shutil.which("python", path=os.path.join(_venv_dir, _venv_bin_dir))
 
     rebuild_local(_venv_python, install_dir, silent, remote)
 
@@ -226,7 +229,9 @@ def launch(
 
     _manage = os.path.join(install_dir, "manage.py")
 
-    _venv_python = shutil.which("python", path=os.path.join(_venv_dir, "bin"))
+    _venv_bin_dir = "Scripts" if platform.system() == "Windows" else "bin"
+
+    _venv_python = shutil.which("python", path=os.path.join(_venv_dir,  _venv_bin_dir))
 
     with open(os.path.join(install_dir, "session_port.log"), "w") as out_f:
         out_f.write(str(port))

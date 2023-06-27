@@ -6,6 +6,7 @@ import tempfile
 import time
 import typing
 import subprocess
+import platform
 
 import git
 import pytest
@@ -242,8 +243,9 @@ class RegistryTest:
         os.kill(_process.pid, signal.SIGTERM)
 
     def rebuild(self):
+        _venv_bin_dir = "Scripts" if platform.system() == "Windows" else "bin"
         test_reg.rebuild_local(
-            os.path.join(self._venv_dir, "bin", "python"), self._install, remote=self._remote
+            os.path.join(self._venv_dir, _venv_bin_dir, "python"), self._install, remote=self._remote
         )
     
     def launch(self):

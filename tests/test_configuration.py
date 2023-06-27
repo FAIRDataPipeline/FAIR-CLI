@@ -1,4 +1,5 @@
 import os
+import platform
 import tempfile
 import typing
 
@@ -250,6 +251,9 @@ def test_global_config_query(
         }
     }
     _expected.update(_default_user)
+
+    if platform.system() == "Windows":
+        _expected['registries']['local']['data_store'] = "data_store/\\"
 
     assert not deepdiff.DeepDiff(
         _expected, fdp_conf.global_config_query(local_config[0])
