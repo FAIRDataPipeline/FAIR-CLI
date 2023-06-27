@@ -18,8 +18,8 @@ def test_find_git_root():
         git.Repo.init(tempd)
         _proj_dir = os.path.join(tempd, "project")
         os.makedirs(_proj_dir)
-        assert fdp_com.find_git_root(tempd) == tempd
-        assert fdp_com.find_git_root(_proj_dir) == tempd
+        assert os.path.realpath(fdp_com.find_git_root(tempd)) == os.path.realpath(tempd)
+        assert os.path.realpath(fdp_com.find_git_root(_proj_dir)) == os.path.realpath(tempd)
 
 
 @pytest.mark.faircli_common
