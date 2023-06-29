@@ -78,16 +78,16 @@ def get_example_entries(registry_dir: str):
 
 
 @pytest.fixture(scope="module")
-def pyDataPipeline():
-    with tempfile.TemporaryDirectory() as _repo_path:
-        _repo = git.Repo.clone_from(PYTHON_API_GIT, _repo_path)
-        _repo.git.checkout("dev")
-        _model_path = os.path.join(_repo_path, "model")
-        _model = git.Repo.clone_from(PYTHON_MODEL_GIT, _model_path)
-        _model.git.checkout("main")
-        simple_model = os.path.join(_model_path, "simpleModel")
-        shutil.move(simple_model, _repo_path)
-        yield _repo_path
+def pyDataPipeline(tmp_path_factory):
+    _repo_path = tmp_path_factory.mktemp("repo_path").__str__()
+    _repo = git.Repo.clone_from(PYTHON_API_GIT, _repo_path)
+    _repo.git.checkout("dev")
+    _model_path = os.path.join(_repo_path, "model")
+    _model = git.Repo.clone_from(PYTHON_MODEL_GIT, _model_path)
+    _model.git.checkout("main")
+    simple_model = os.path.join(_model_path, "simpleModel")
+    shutil.move(simple_model, _repo_path)
+    yield _repo_path
 
 @pytest.fixture(scope="session")
 @pytest_fixture_config.yield_requires_config(
@@ -125,80 +125,75 @@ def monkeypatch_module():
     m.undo()
 
 @pytest.fixture
-def local_config(mocker: pytest_mock.MockerFixture):
-    with tempfile.TemporaryDirectory() as tempg:
-        os.makedirs(os.path.join(tempg, fdp_com.FAIR_FOLDER, "registry"))
-        os.makedirs(os.path.join(tempg, fdp_com.FAIR_FOLDER, "sessions"))
-        _gconfig_path = os.path.join(
-            tempg, fdp_com.FAIR_FOLDER, fdp_com.FAIR_CLI_CONFIG
-        )
-        _cfgg = fdp_test.create_configurations(tempg, None, None, tempg, True)
-        yaml.dump(_cfgg, open(_gconfig_path, "w"))
-        mocker.patch(
-            "fair.common.global_config_dir",
-            lambda: os.path.dirname(_gconfig_path),
-        )
-        mocker.patch("fair.common.global_fdpconfig", lambda: _gconfig_path)
-
-        with open(fdp_com.registry_session_port_file(), "w") as pf:
-            pf.write("8001")
-
-        with tempfile.TemporaryDirectory() as templ:
-            os.makedirs(os.path.join(templ, fdp_com.FAIR_FOLDER))
-            _lconfig_path = os.path.join(
-                templ, fdp_com.FAIR_FOLDER, fdp_com.FAIR_CLI_CONFIG
-            )
-            _cfgl = fdp_test.create_configurations(
-                templ, None, None, templ, True
-            )
-            yaml.dump(_cfgl, open(_lconfig_path, "w"))
-            with open(
-                os.path.join(templ, fdp_com.USER_CONFIG_FILE), "w"
-            ) as conf:
-                yaml.dump({"run_metadata": {}}, conf)
-            mocker.patch("fair.common.find_fair_root", lambda *args: templ)
-            yield (tempg, templ)
+def local_config(mocker: pytest_mock.MockerFixture, tmp_path):
+    tempg = os.path.join(tmp_path, "tempg").__str__()
+    templ = os.path.join(tmp_path, "tempd").__str__()
+    os.makedirs(os.path.join(tempg, fdp_com.FAIR_FOLDER, "registry"))
+    os.makedirs(os.path.join(tempg, fdp_com.FAIR_FOLDER, "sessions"))
+    _gconfig_path = os.path.join(
+        tempg, fdp_com.FAIR_FOLDER, fdp_com.FAIR_CLI_CONFIG
+    )
+    _cfgg = fdp_test.create_configurations(tempg, None, None, tempg, True)
+    yaml.dump(_cfgg, open(_gconfig_path, "w"))
+    mocker.patch(
+        "fair.common.global_config_dir",
+        lambda: os.path.dirname(_gconfig_path),
+    )
+    mocker.patch("fair.common.global_fdpconfig", lambda: _gconfig_path)
+    with open(fdp_com.registry_session_port_file(), "w") as pf:
+        pf.write("8001")
+    os.makedirs(os.path.join(templ, fdp_com.FAIR_FOLDER))
+    _lconfig_path = os.path.join(
+        templ, fdp_com.FAIR_FOLDER, fdp_com.FAIR_CLI_CONFIG
+    )
+    _cfgl = fdp_test.create_configurations(
+        templ, None, None, templ, True
+    )
+    yaml.dump(_cfgl, open(_lconfig_path, "w"))
+    with open(
+        os.path.join(templ, fdp_com.USER_CONFIG_FILE), "w"
+    ) as conf:
+        yaml.dump({"run_metadata": {}}, conf)
+    mocker.patch("fair.common.find_fair_root", lambda *args: templ)
+    yield (tempg, templ)
 
 @pytest.fixture(scope = "module")
-def global_config(monkeypatch_module):
-    with tempfile.TemporaryDirectory() as tempg:
-        os.makedirs(os.path.join(tempg, fdp_com.FAIR_FOLDER, "registry"))
-        os.makedirs(os.path.join(tempg, fdp_com.FAIR_FOLDER, "sessions"))
-        _gconfig_path = os.path.join(
-            tempg, fdp_com.FAIR_FOLDER, fdp_com.FAIR_CLI_CONFIG
-        )
-        _cfgg = fdp_test.create_configurations(tempg, None, None, tempg, True)
-        yaml.dump(_cfgg, open(_gconfig_path, "w"))
-        monkeypatch_module.setattr(
-            "fair.common.global_config_dir",
-            lambda: os.path.dirname(_gconfig_path),
-        )
-        monkeypatch_module.setattr("fair.common.global_fdpconfig", lambda: _gconfig_path)
-        yield (tempg)
+def global_config(monkeypatch_module, tmp_path_factory):
+    tempg = tmp_path_factory.mktemp("tempg").__str__()
+    os.makedirs(os.path.join(tempg, fdp_com.FAIR_FOLDER, "registry"))
+    os.makedirs(os.path.join(tempg, fdp_com.FAIR_FOLDER, "sessions"))
+    _gconfig_path = os.path.join(
+        tempg, fdp_com.FAIR_FOLDER, fdp_com.FAIR_CLI_CONFIG
+    )
+    _cfgg = fdp_test.create_configurations(tempg, None, None, tempg, True)
+    yaml.dump(_cfgg, open(_gconfig_path, "w"))
+    monkeypatch_module.setattr(
+        "fair.common.global_config_dir",
+        lambda: os.path.dirname(_gconfig_path),
+    )
+    monkeypatch_module.setattr("fair.common.global_fdpconfig", lambda: _gconfig_path)
+    yield (tempg)
 
-@pytest.fixture
-def job_directory(mocker: pytest_mock.MockerFixture) -> str:
-    with tempfile.TemporaryDirectory() as tempd:
-        # Set default to point to temporary
-        mocker.patch("fair.common.default_jobs_dir", lambda *args: tempd)
+@pytest.fixture(scope = "module")
+def job_directory(monkeypatch_module, tmp_path_factory) -> str:
+    tempd = tmp_path_factory.mktemp("tempd").__str__()
+    # Set default to point to temporary
+    monkeypatch_module.setattr("fair.common.default_jobs_dir", lambda *args: tempd)
+    # Create a mock job directory
+    os.makedirs(os.path.join(tempd, TEST_JOB_FILE_TIMESTAMP))
+    yield os.path.join(tempd, TEST_JOB_FILE_TIMESTAMP)
 
-        # Create a mock job directory
-        os.makedirs(os.path.join(tempd, TEST_JOB_FILE_TIMESTAMP))
-        yield os.path.join(tempd, TEST_JOB_FILE_TIMESTAMP)
-
-
-@pytest.fixture
-def job_log(mocker: pytest_mock.MockerFixture) -> str:
-    with tempfile.TemporaryDirectory() as tempd:
-        # Set the log directory
-        mocker.patch("fair.history.history_directory", lambda *args: tempd)
-
-        # Create mock job log
-        with open(
-            os.path.join(tempd, f"job_{TEST_JOB_FILE_TIMESTAMP}.log"), "w"
-        ) as out_f:
-            out_f.write(
-                """--------------------------------
+@pytest.fixture(scope = "module")
+def job_log(monkeypatch_module, tmp_path_factory) -> str:
+    tempd = tmp_path_factory.mktemp("tempd").__str__()
+    # Set the log directory
+    monkeypatch_module.setattr("fair.history.history_directory", lambda *args: tempd)
+    # Create mock job log
+    with open(
+        os.path.join(tempd, f"job_{TEST_JOB_FILE_TIMESTAMP}.log"), "w"
+    ) as out_f:
+        out_f.write(
+            """--------------------------------
  Commenced = Fri Oct 08 14:45:43 2021
  Author    = Interface Test <test@noreply>
  Command   = fair pull
@@ -206,7 +201,7 @@ def job_log(mocker: pytest_mock.MockerFixture) -> str:
 ------- time taken 0:00:00.791088 -------"""
             )
 
-        yield tempd
+    yield tempd
 
 
 class RegistryTest:
@@ -240,7 +235,7 @@ class RegistryTest:
             time.sleep(5)
         self._token = open(os.path.join(self._install, "token")).read().strip()
         assert self._token
-        os.kill(_process.pid, signal.SIGTERM)
+        pid_kill(_process.pid)
 
     def rebuild(self):
         _venv_bin_dir = "Scripts" if platform.system() == "Windows" else "bin"
@@ -259,7 +254,7 @@ class RegistryTest:
             
     def kill(self):
         if self._process:
-            os.kill(self._process.pid, signal.SIGTERM)
+            pid_kill(self._process.pid)
 
     def __enter__(self):
         try:
@@ -272,15 +267,15 @@ class RegistryTest:
             )                
 
         except KeyboardInterrupt as e:
-            os.kill(self._process.pid, signal.SIGTERM)
+            pid_kill(self._process.pid)
             raise e
 
     def __exit__(self, type, value, tb):
-        os.kill(self._process.pid, signal.SIGTERM)
+        pid_kill(self._process.pid)
         self._process = None
 
 @pytest.fixture(scope="module")
-def local_registry(session_virtualenv: pytest_virtualenv.VirtualEnv):
+def local_registry(session_virtualenv: pytest_virtualenv.VirtualEnv, tmp_path_factory):
     if fdp_serv.check_server_running("http://127.0.0.1:8000"):
         pytest.skip(
             "Cannot run registry tests, a server is already running on port 8000"
@@ -288,15 +283,15 @@ def local_registry(session_virtualenv: pytest_virtualenv.VirtualEnv):
     session_virtualenv.env = test_reg.django_environ(
         session_virtualenv.env
     )
-    with tempfile.TemporaryDirectory() as tempd:
-        rtest = RegistryTest(tempd, session_virtualenv, port=8000)
-        yield rtest
+    tempd = tmp_path_factory.mktemp("tempd").__str__()
+    rtest = RegistryTest(tempd, session_virtualenv, port=8000)
+    yield rtest
     if rtest._process:
-        os.kill(rtest._process.pid, signal.SIGTERM)
+        pid_kill(rtest._process.pid)
     print("TearDown of Local Registry Complete")
 
 @pytest.fixture(scope="module")
-def remote_registry(session_virtualenv: pytest_virtualenv.VirtualEnv):
+def remote_registry(session_virtualenv: pytest_virtualenv.VirtualEnv, tmp_path_factory):
     if fdp_serv.check_server_running("http://127.0.0.1:8001"):
         pytest.skip(
             "Cannot run registry tests, a server is already running on port 8001"
@@ -304,11 +299,11 @@ def remote_registry(session_virtualenv: pytest_virtualenv.VirtualEnv):
     session_virtualenv.env = test_reg.django_environ(
         session_virtualenv.env, True
     )
-    with tempfile.TemporaryDirectory() as tempd:
-        rtest = RegistryTest(tempd, session_virtualenv, port=8001, remote= True)
-        yield rtest
+    tempd = tmp_path_factory.mktemp("tempd").__str__()
+    rtest = RegistryTest(tempd, session_virtualenv, port=8001, remote= True)
+    yield rtest
     if rtest._process:
-        os.kill(rtest._process.pid, signal.SIGTERM)
+        pid_kill(rtest._process.pid)
     print("TearDown of Remote Registry Complete")
 
 @pytest.fixture(scope="module")
@@ -341,3 +336,8 @@ class MotoTestServer:
     def __exit__(self, type, value, tb):
         self._server.stop()
 
+def pid_kill(pid):
+    if platform.system() == "Windows":
+        subprocess.call(['taskkill', '/F', '/T', '/PID',  str(pid)])
+    else:
+        os.kill(pid, signal.SIGTERM)

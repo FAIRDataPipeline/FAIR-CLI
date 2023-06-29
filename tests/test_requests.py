@@ -26,15 +26,15 @@ def test_split_url():
 
 
 @pytest.mark.faircli_requests
-def test_local_token(mocker: pytest_mock.MockerFixture):
+def test_local_token(mocker: pytest_mock.MockerFixture, tmp_path):
     _dummy_key = "sdfd234ersdf45234"
-    with tempfile.TemporaryDirectory() as tempd:
-        _token_file = os.path.join(tempd, "token")
-        mocker.patch("fair.common.registry_home", lambda: tempd)
-        with pytest.raises(fdp_exc.FileNotFoundError):
-            fdp_req.local_token()
-        open(_token_file, "w").write(_dummy_key)
-        assert fdp_req.local_token() == _dummy_key
+    tempd = tmp_path.__str__()
+    _token_file = os.path.join(tempd, "token")
+    mocker.patch("fair.common.registry_home", lambda: tempd)
+    with pytest.raises(fdp_exc.FileNotFoundError):
+        fdp_req.local_token()
+    open(_token_file, "w").write(_dummy_key)
+    assert fdp_req.local_token() == _dummy_key
 
 @pytest.mark.faircli_requests
 def test_request_error_registy_not_running():

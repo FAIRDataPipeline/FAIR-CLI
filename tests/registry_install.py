@@ -13,6 +13,7 @@ import git
 import requests
 
 from fair.common import FAIR_FOLDER
+from fair.common import remove_readonly
 from fair.virtualenv import FAIREnv
 
 FAIR_REGISTRY_REPO = "https://github.com/FAIRDataPipeline/data-registry.git"
@@ -105,7 +106,7 @@ def rebuild_local(
 
 def install_registry(
     repository: str = FAIR_REGISTRY_REPO,
-    reference: str = "hotfix/lxml",
+    reference: str = None,
     install_dir: str = None,
     silent: bool = False,
     force: bool = False,
@@ -119,7 +120,7 @@ def install_registry(
         )
 
     if force:
-        shutil.rmtree(install_dir, ignore_errors=True)
+        shutil.rmtree(install_dir, onerror=remove_readonly)
 
     os.makedirs(os.path.dirname(install_dir), exist_ok=True)
 
@@ -309,11 +310,19 @@ def stop(install_dir: str = None, port: int = 8000, silent: bool = False):
 
     _manage = os.path.join(install_dir, "manage.py")
 
+    if platform.system() == "Windows":
+        _call = os.path.join(
+            install_dir, "scripts", "stop_fair_registry_windows.bat"
+        )
+    else:
+        _call = ["pgrep", "-f", f'"{_manage} runserver"', "|", "xargs", "kill"]
+
     subprocess.check_call(
-        ["pgrep", "-f", f'"{_manage} runserver"', "|", "xargs", "kill"],
+        _call,
         env=django_environ(),
         shell=False,
     )
+
     try:
         requests.get(f"http://127.0.0.1:{port}/api")
         raise AssertionError("Expected registry termination")

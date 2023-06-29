@@ -328,7 +328,7 @@ def install_registry(
         logger.debug("Removing existing installation at '%s'", install_dir)
         if platform.system() == "Windows":
             fdp_com.set_file_permissions(install_dir)
-        shutil.rmtree(install_dir, ignore_errors=True)
+        shutil.rmtree(install_dir, onerror=fdp_com.remove_readonly)
 
     logger.debug("Creating directories for installation if they do not exist")
 
@@ -423,7 +423,7 @@ def uninstall_registry() -> None:
         # On windows file permisions need to be set prior to removing the directory
         if platform.system() == "Windows":
             fdp_com.set_file_permissions(fdp_com.registry_home())
-        shutil.rmtree(fdp_com.registry_home())
+        shutil.rmtree(fdp_com.registry_home(), onerror=fdp_com.remove_readonly)
     elif os.path.exists(fdp_com.DEFAULT_REGISTRY_LOCATION):
         logger.debug(
             "Uninstalling registry, removing '%s'",
@@ -432,7 +432,7 @@ def uninstall_registry() -> None:
         # On windows file permisions need to be set prior to removing the directory
         if platform.system() == "Windows":
             fdp_com.set_file_permissions(fdp_com.DEFAULT_REGISTRY_LOCATION)
-        shutil.rmtree(fdp_com.DEFAULT_REGISTRY_LOCATION)
+        shutil.rmtree(fdp_com.DEFAULT_REGISTRY_LOCATION, onerror=fdp_com.remove_readonly)
     else:
         raise fdp_exc.RegistryError(
             "Cannot uninstall registry, no local installation identified"

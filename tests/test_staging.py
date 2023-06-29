@@ -82,6 +82,7 @@ def test_get_job_data(
     local_config: typing.Tuple[str, str],
     mocker: pytest_mock.MockerFixture,
     pyDataPipeline: str,
+    tmp_path
 ):
     with local_registry:
         mocker.patch(
@@ -92,40 +93,34 @@ def test_get_job_data(
         with pytest.raises(fdp_exc.StagingError):
             stager.get_job_data(LOCAL_REGISTRY_URL, _id)
 
-        with tempfile.TemporaryDirectory() as tempd:
-            _job_dir = os.path.join(tempd, str(_id))
-            os.makedirs(_job_dir)
-            mocker.patch("fair.run.get_job_dir", lambda x: _job_dir)
-            mocker.patch("fair.common.JOBS_DIR", tempd)
-            with pytest.raises(fdp_exc.FileNotFoundError):
-                stager.get_job_data(LOCAL_REGISTRY_URL, _id)
-
-            _dummy_url = "http://not-a-url.com"
-            mocker.patch.object(
-                stager,
-                "find_registry_entry_for_file",
-                lambda *args: {"url": _dummy_url},
-            )
-
-            mocker.patch(
-                "fair.registry.requests.get",
-                lambda *args, **kwargs: [{"url": _dummy_url}],
-            )
-
-            _cfg_path = os.path.join(
-                pyDataPipeline, "simpleModel", "ext", "SEIRSconfig.yaml"
-            )
-
-            shutil.copy(
-                _cfg_path,
-                os.path.join(_job_dir, fdp_com.USER_CONFIG_FILE),
-            )
-
-            _jobs = stager.get_job_data(LOCAL_REGISTRY_URL, _id)
-
-            assert _jobs == {
-                "jobs": [],
-                "user_written_objects": 2 * [_dummy_url],
-                "config_file": _dummy_url,
-                "script_file": None,
-            }
+        tempd = tmp_path.__str__()
+        _job_dir = os.path.join(tempd, str(_id))
+        os.makedirs(_job_dir)
+        mocker.patch("fair.run.get_job_dir", lambda x: _job_dir)
+        mocker.patch("fair.common.JOBS_DIR", tempd)
+        with pytest.raises(fdp_exc.FileNotFoundError):
+            stager.get_job_data(LOCAL_REGISTRY_URL, _id)
+        _dummy_url = "http://not-a-url.com"
+        mocker.patch.object(
+            stager,
+            "find_registry_entry_for_file",
+            lambda *args: {"url": _dummy_url},
+        )
+        mocker.patch(
+            "fair.registry.requests.get",
+            lambda *args, **kwargs: [{"url": _dummy_url}],
+        )
+        _cfg_path = os.path.join(
+            pyDataPipeline, "simpleModel", "ext", "SEIRSconfig.yaml"
+        )
+        shutil.copy(
+            _cfg_path,
+            os.path.join(_job_dir, fdp_com.USER_CONFIG_FILE),
+        )
+        _jobs = stager.get_job_data(LOCAL_REGISTRY_URL, _id)
+        assert _jobs == {
+            "jobs": [],
+            "user_written_objects": 2 * [_dummy_url],
+            "config_file": _dummy_url,
+            "script_file": None,
+        }

@@ -297,3 +297,10 @@ def set_file_permissions(path: str):
             os.chmod(dir, stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)
         for file in [os.path.join(root, f) for f in files]:
             os.chmod(file, stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)
+
+def remove_readonly(fn, path, excinfo):
+    try:
+        os.chmod(path, stat.S_IWRITE)
+        fn(path)
+    except Exception as exc:
+        print("Skipped:", path, "because:\n", exc)
