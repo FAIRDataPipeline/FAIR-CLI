@@ -11,7 +11,6 @@ import glob
 import os
 import shutil
 import sys
-import tempfile
 import typing
 import uuid
 import platform
