@@ -55,11 +55,11 @@ def test_store_working_config(
         temp_file_name = os.path.join(tmp_path, f'{hashlib.sha1(tmp_path.__str__().encode("utf-8")).hexdigest()}.yaml')
         with open(temp_file_name, "w") as tempf:
             yaml.dump(
-                {"run_metadata": {"write_data_store": "data_store"}}, tempf
+                {"run_metadata": {"write_data_store": os.path.dirname(temp_file_name)}}, tempf
             )
 
         assert fdp_store.store_working_config(
-            local_config[1], LOCAL_URL, tempf.name, local_registry._token
+            local_config[1], LOCAL_URL, temp_file_name, local_registry._token
         )
 
 
@@ -75,7 +75,7 @@ def test_store_working_script(
         temp_file_name = os.path.join(tmp_path, f'{hashlib.sha1(tmp_path.__str__().encode("utf-8")).hexdigest()}.yaml')
         with open(temp_file_name, "w") as tempf:
             yaml.dump(
-                {"run_metadata": {"write_data_store": "data_store"}}, tempf
+                {"run_metadata": {"write_data_store": os.path.dirname(temp_file_name)}}, tempf
             )
 
         temp_script_name = os.path.join(tmp_path, f'{hashlib.sha1(tmp_path.__str__().encode("utf-8")).hexdigest()}.sh')
@@ -85,8 +85,8 @@ def test_store_working_script(
         assert fdp_store.store_working_script(
             local_config[1],
             LOCAL_URL,
-            _temp_script.name,
-            tempf.name,
+            temp_script_name,
+            temp_file_name,
             local_registry._token,
         )
 
