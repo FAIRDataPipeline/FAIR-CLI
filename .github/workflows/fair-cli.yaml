@@ -14,8 +14,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Create Temp Folder
-        run: |
-          mkdir ${GITHUB_WORKSPACE}/temp
+        run: mkdir temp
         shell: bash
       - uses: actions/setup-python@v4
         with:
