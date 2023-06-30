@@ -13,6 +13,8 @@ jobs:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v3
+        with:
+          path:  ${{ runner.temp }}/FAIR_CLI
       - uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python }}
@@ -35,6 +37,7 @@ jobs:
               fi
             done
         shell: bash
+        working-directory: ${{ runner.temp }}/FAIR_CLI
       - uses: codecov/codecov-action@v3
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
