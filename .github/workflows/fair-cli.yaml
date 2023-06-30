@@ -13,7 +13,6 @@ jobs:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v3
-        shell: bash
       - uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python }}
