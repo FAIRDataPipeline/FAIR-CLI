@@ -13,8 +13,10 @@ jobs:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v3
-        with:
-          path:  ${{ runner.temp }}/FAIR_CLI
+      - name: Create Temp Folder
+        run: |
+          mkdir ${GITHUB_WORKSPACE}/temp
+        shell: bash
       - uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python }}
@@ -27,17 +29,19 @@ jobs:
         run: python -m poetry run pip install git+https://github.com/FAIRDataPipeline/pyDataPipeline.git@dev
       - name: Run Tests for Each Marker
         run: |
+            export TMPDIR=${GITHUB_WORKSPACE}/temp
+            export TEMP=${GITHUB_WORKSPACE}/temp
+            export TMP=${GITHUB_WORKSPACE}/temp
             for marker in $(poetry run pytest --markers | grep -oE "faircli_[a-zA-Z|_|0-9]+")
             do
               echo "Running tests for marker '$marker'"
-              python -m poetry run pytest -m $marker --cov=fair --cov-report=xml --cov-report=term --cov-append -s tests/
+              python -m poetry run pytest -m $marker --basetemp=${GITHUB_WORKSPACE}/temp --cov=fair --cov-report=xml --cov-report=term --cov-append -s tests/
               exit_code=$?
               if [ "$exit_code" != "0" ]; then
                 echo "ERROR: Tests for marker '$marker' failed"
               fi
             done
         shell: bash
-        working-directory: ${{ runner.temp }}/FAIR_CLI
       - uses: codecov/codecov-action@v3
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
