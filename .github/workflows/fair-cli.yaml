@@ -30,7 +30,7 @@ jobs:
         run: python -m poetry run pip install git+https://github.com/FAIRDataPipeline/pyDataPipeline.git@dev
       - name: Run Tests for Each Marker
         run: |
-            if [ "$RUNNER_OS" == "Linux" ]; then
+            if [ "$RUNNER_OS" == "Windows" ]; then
               cd ${{ runner.temp }}/FAIR-CLI/FAIRCLI
               pwd
             fi
