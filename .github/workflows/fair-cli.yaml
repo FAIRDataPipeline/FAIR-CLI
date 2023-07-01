@@ -18,6 +18,7 @@ jobs:
         run: |
           mkdir C:/FAIR-CLI
           git clone https://github.com/FAIRDataPipeline/FAIR-CLI.git C:/FAIR-CLI
+          cd C:/FAIR-CLI
           git checkout ${GITHUB_REF}
         if: ${{ runner.os == 'Windows' }}
       - uses: actions/setup-python@v4
