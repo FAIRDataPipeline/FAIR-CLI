@@ -15,7 +15,7 @@ jobs:
       - uses: actions/checkout@v3
       - name: Copy git folder windows
         run: |
-          cp ${GITHUB_WORKSPACE}/FAIR-CLI ${{ runner.temp }}/FAIR_CLI
+          cp ${GITHUB_WORKSPACE} ${{ runner.temp }}/FAIR_CLI
         shell: bash
         if: ${{ runner.os == 'Windows' }}
       - uses: actions/setup-python@v4
