@@ -28,16 +28,21 @@ jobs:
       - name: Install Poetry
         run: python -m pip install poetry
       - name: Install Module
-        run: python -m poetry install
-        if: ${{ runner.os != 'Windows' }}
-      - name: Install Module Windows
         run: |
-          cd C:/FAIR-CLI
+          if [ "$RUNNER_OS" == "Windows" ]; then
+              cd C:/FAIR-CLI
+              pwd
+          fi
           python -m poetry install
         shell: bash
-        if: ${{ runner.os == 'Windows' }}
       - name: Install Python API for API Tests
-        run: python -m poetry run pip install git+https://github.com/FAIRDataPipeline/pyDataPipeline.git@dev
+        run: |
+          if [ "$RUNNER_OS" == "Windows" ]; then
+              cd C:/FAIR-CLI
+              pwd
+          fi
+          python -m poetry run pip install git+https://github.com/FAIRDataPipeline/pyDataPipeline.git@dev
+        shell: bash
       - name: Run Tests for Each Marker
         run: |
             if [ "$RUNNER_OS" == "Windows" ]; then
