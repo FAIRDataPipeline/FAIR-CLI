@@ -30,6 +30,9 @@ jobs:
         run: python -m poetry run pip install git+https://github.com/FAIRDataPipeline/pyDataPipeline.git@dev
       - name: Run Tests for Each Marker
         run: |
+            if [ "$RUNNER_OS" == "Linux" ]; then
+              cd ${{ runner.temp }}/FAIR-CLI
+            fi
             for marker in $(poetry run pytest --markers | grep -oE "faircli_[a-zA-Z|_|0-9]+")
             do
               echo "Running tests for marker '$marker'"
@@ -40,7 +43,6 @@ jobs:
               fi
             done
         shell: bash
-        working-directory: ${{ runner.os == 'Windows' && ${{ runner.temp }}/FAIR-CLI || ${GITHUB_WORKSPACE}/FAIR-CLI }}
       - uses: codecov/codecov-action@v3
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
