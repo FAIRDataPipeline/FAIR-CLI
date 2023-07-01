@@ -15,7 +15,7 @@ jobs:
       - uses: actions/checkout@v3
       - name: Copy git folder windows
         run: |
-          cp ${GITHUB_WORKSPACE} ${{ runner.temp }}/FAIR_CLI
+          cp -r ${GITHUB_WORKSPACE} ${{ runner.temp }}/FAIR_CLI
         shell: bash
         if: ${{ runner.os == 'Windows' }}
       - uses: actions/setup-python@v4
@@ -31,7 +31,8 @@ jobs:
       - name: Run Tests for Each Marker
         run: |
             if [ "$RUNNER_OS" == "Linux" ]; then
-              cd ${{ runner.temp }}/FAIR-CLI
+              cd ${{ runner.temp }}/FAIR-CLI/FAIRCLI
+              pwd
             fi
             for marker in $(poetry run pytest --markers | grep -oE "faircli_[a-zA-Z|_|0-9]+")
             do
