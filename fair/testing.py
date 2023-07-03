@@ -14,7 +14,7 @@ def create_configurations(
     local_git_dir: typing.Optional[str] = None,
     remote_reg_dir: typing.Optional[str] = None,
     testing_dir: str = tempfile.mkdtemp(),
-    tokenless: bool = False,
+    tokenless: bool = False
 ) -> typing.Dict:
     """
     Setup CLI for testing
@@ -80,8 +80,9 @@ def create_configurations(
             "family_name": "Test",
             "given_names": "Interface",
             "orcid": "000-0000-0000-0000",
-            "uri": f'{fdp_id.ID_URIS["orcid"]}000-0000-0000-0000',
+            "uri": f'{fdp_id.ID_URIS["github"]}FAIRDataPipeline',
             "uuid": "2ddb2358-84bf-43ff-b2aa-3ac7dc3b49f1",
+            "github": "FAIRDataPipeline"
         },
         "git": {
             "local_repo": local_git_dir,

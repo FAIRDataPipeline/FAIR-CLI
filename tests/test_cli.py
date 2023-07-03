@@ -135,7 +135,8 @@ def test_init_from_existing(
     local_registry: conf.RegistryTest,
     click_test: click.testing.CliRunner,
     mocker: pytest_mock.MockerFixture,
-    tmp_path
+    tmp_path,
+    pySimpleModel
 ):
     mocker.patch("fair.common.registry_home", lambda: local_registry._install)
 
@@ -177,7 +178,8 @@ def test_init_from_env(
     local_registry: conf.RegistryTest,
     click_test: click.testing.CliRunner,
     mocker: pytest_mock.MockerFixture,
-    tmp_path
+    tmp_path,
+    pySimpleModel
 ):
     mocker.patch("fair.common.registry_home", lambda: local_registry._install)
 
@@ -220,34 +222,33 @@ def test_init_full(
     local_registry: conf.RegistryTest,
     click_test: click.testing.CliRunner,
     mocker: pytest_mock.MockerFixture,
-    tmp_path
+    monkeypatch: pytest.MonkeyPatch,
+    pySimpleModel
 ):
-    mocker.patch("fair.common.registry_home", lambda: local_registry._install)
     mocker.patch(
         "fair.registry.server.update_registry_post_setup", lambda *args: None
     )
     with local_registry:
-        tempd = tmp_path.__str__()
-        with open(os.path.join(tempd, "token"), "w") as tok_f:
-            tok_f.write("hjasdi324ji7823jdsf78234")
-        mocker.patch("fair.common.USER_FAIR_DIR", tempd)
+        mocker.patch("fair.common.USER_FAIR_DIR", pySimpleModel)
         _dummy_name = "Joseph Bloggs"
         _dummy_email = "jbloggs@nowhere.com"
         _args = [
             "8007",
             "",
             "",
-            os.path.join(tempd, "token"),
-            "",
+            "0123456789012345678901234567890123456789",
             "",
             _dummy_email,
-            "",
+            "NONE",
             _dummy_name,
             "",
             "",
-            os.getcwd(),
+            "FairDataPipeline",
+            pySimpleModel,
             "",
         ]
+        monkeypatch.chdir(pySimpleModel)
+        print(os.getcwd())
         click_test.invoke(
             cli,
             ["init", "--debug", "--registry", local_registry._install],
@@ -255,12 +256,12 @@ def test_init_full(
         )
         assert os.path.exists(fair.common.global_config_dir())
         assert os.path.exists(
-            os.path.join(os.getcwd(), fair.common.FAIR_FOLDER)
+            os.path.join(pySimpleModel, fair.common.FAIR_FOLDER)
         )
         _cli_cfg = yaml.safe_load(
             open(
                 os.path.join(
-                    os.getcwd(), fair.common.FAIR_FOLDER, "cli-config.yaml"
+                    pySimpleModel, fair.common.FAIR_FOLDER, "cli-config.yaml"
                 )
             )
         )
@@ -275,9 +276,9 @@ def test_init_full(
             ":8000", ":8007"
         )
         assert _cli_cfg
-        assert _cli_cfg["git"]["local_repo"] == os.getcwd()
+        assert _cli_cfg["git"]["local_repo"] == pySimpleModel
         assert _cli_cfg["git"]["remote"] == "origin"
-        assert _cli_cfg["git"]["remote_repo"] == "git@notagit.com"
+        assert _cli_cfg["git"]["remote_repo"] == "https://github.com/FAIRDataPipeline/pySimpleModel.git"
         assert _cli_cfg["namespaces"]["input"] == "josephbloggs"
         assert _cli_cfg["namespaces"]["output"] == "josephbloggs"
         assert _cli_cfg["registries"]["origin"]["data_store"] == urljoin(
@@ -297,45 +298,43 @@ def test_init_local(
     local_registry: conf.RegistryTest,
     click_test: click.testing.CliRunner,
     mocker: pytest_mock.MockerFixture,
-    tmp_path
+    monkeypatch: pytest.MonkeyPatch,
+    pySimpleModel
 ):
-    mocker.patch("fair.common.registry_home", lambda: local_registry._install)
-    mocker.patch(
-        "fair.registry.server.update_registry_post_setup", lambda *args: None
-    )
     with local_registry:
-        tempd = tmp_path.__str__()
-        with open(os.path.join(tempd, "token"), "w") as tok_f:
-            tok_f.write("hjasdi324ji7823jdsf78234")
-        mocker.patch("fair.common.USER_FAIR_DIR", tempd)
+        mocker.patch(
+            "fair.registry.server.update_registry_post_setup", lambda *args: None
+        )
+        mocker.patch("fair.common.USER_FAIR_DIR", pySimpleModel)
         _dummy_name = "Joseph Bloggs"
         _dummy_email = "jbloggs@nowhere.com"
         _args = [
             "8000",
             "",
-            "",
-            "",
             _dummy_email,
-            "",
+            "NONE",
             _dummy_name,
             "",
             "",
-            os.getcwd(),
+            pySimpleModel,
             "",
         ]
+        monkeypatch.chdir(pySimpleModel)
+        print(os.getcwd())
         click_test.invoke(
             cli,
-            ["init", "--debug", "--local"],
+            ["init", "--debug", "--local", "--registry", local_registry._install],
             input="\n".join(_args),
+
         )
         assert os.path.exists(fair.common.global_config_dir())
         assert os.path.exists(
-            os.path.join(os.getcwd(), fair.common.FAIR_FOLDER)
+            os.path.join(pySimpleModel, fair.common.FAIR_FOLDER)
         )
         _cli_cfg = yaml.safe_load(
             open(
                 os.path.join(
-                    os.getcwd(), fair.common.FAIR_FOLDER, "cli-config.yaml"
+                    pySimpleModel, fair.common.FAIR_FOLDER, "cli-config.yaml"
                 )
             )
         )
@@ -348,9 +347,9 @@ def test_init_local(
         )
         _expected_url = "http://127.0.0.1:8000/api/"
         assert _cli_cfg
-        assert _cli_cfg["git"]["local_repo"] == os.getcwd()
+        assert _cli_cfg["git"]["local_repo"] == pySimpleModel
         assert _cli_cfg["git"]["remote"] == "origin"
-        assert _cli_cfg["git"]["remote_repo"] == "git@notagit.com"
+        assert _cli_cfg["git"]["remote_repo"] == "https://github.com/FAIRDataPipeline/pySimpleModel.git"
         assert _cli_cfg["namespaces"]["input"] == "josephbloggs"
         assert _cli_cfg["namespaces"]["output"] == "josephbloggs"
         if platform.system() == "Windows":
@@ -368,6 +367,7 @@ def test_init_local(
         assert _cli_cfg["user"]["email"] == _dummy_email
         assert _cli_cfg["user"]["family_name"] == "Bloggs"
         assert _cli_cfg["user"]["given_names"] == "Joseph"
+        assert _cli_cfg["user"]["github"] == "FAIRDataPipeline"
         assert _cli_cfg["user"]["uuid"]
 
 @pytest.mark.faircli_cli

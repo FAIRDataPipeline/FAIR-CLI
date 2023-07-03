@@ -436,10 +436,10 @@ def get_local_port(local_uri: str = None) -> int:
     return _port
 
 
-def update_local_port() -> str:
+def update_local_port(registry_dir: str = None) -> str:
     """Updates the local port in the global configuration from the session port file"""
-    _current_port = fdp_com.registry_session_port()
-    _current_address = fdp_com.registry_session_address()
+    _current_port = fdp_com.registry_session_port(registry_dir)
+    _current_address = fdp_com.registry_session_address(registry_dir)
 
     _new_url = f'http://{_current_address}:{_current_port}/api/'
 
@@ -474,7 +474,7 @@ def _handle_orcid(user_orcid: str) -> typing.Tuple[typing.Dict, str]:
         user_orcid = click.prompt("ORCID")
         _user_info = fdp_id.check_orcid(user_orcid.strip())
 
-    _user_info["orcid"] = user_orcid
+    _user_info["orcid"] = user_orcid.strip()
 
     click.echo(
         f"Found entry: {_user_info['given_names']} {_user_info['family_name']}"
@@ -509,7 +509,7 @@ def _handle_ror(user_ror: str) -> typing.Tuple[typing.Dict, str]:
         user_ror = click.prompt("ROR ID")
         _user_info = fdp_id.check_ror(user_ror.strip())
 
-    _user_info["ror"] = user_ror
+    _user_info["ror"] = user_ror.strip()
 
     click.echo(f"Found entry: {_user_info['family_name']} ")
 
@@ -540,13 +540,28 @@ def _handle_grid(user_grid: str) -> typing.Tuple[typing.Dict, str]:
         user_grid = click.prompt("GRID ID")
         _user_info = fdp_id.check_grid(user_grid.strip())
 
-    _user_info["grid"] = user_grid
+    _user_info["grid"] = user_grid.strip()
 
     click.echo(f"Found entry: {_user_info['family_name']} ")
 
     _def_ospace = _user_info["family_name"].lower().replace(" ", "_")
 
     return _user_info, _def_ospace
+
+def _handle_github(user_github: str) -> typing.Tuple[typing.Dict, str]:
+
+    _user_info = fdp_id.check_github(user_github.strip())
+
+    while not _user_info:
+        click.echo("Invalid GitHub Username given.")
+        user_github = click.prompt("GitHub Username")
+        _user_info = fdp_id.check_github(user_github.strip())
+
+    _def_ospace = _user_info["github"].lower()
+    
+    click.echo(f"Found entry: {_user_info['github']} ")
+    return _user_info, _def_ospace
+
 
 
 def _handle_uuid() -> typing.Tuple[typing.Dict, str]:
@@ -575,17 +590,24 @@ def _handle_uuid() -> typing.Tuple[typing.Dict, str]:
     return _user_info, _def_ospace
 
 
-def _get_user_info_and_namespaces() -> typing.Dict[str, typing.Dict]:
-    _user_email = click.prompt("Email")
+def _get_user_info_and_namespaces(local: bool = False) -> typing.Dict[str, typing.Dict]:
+    _user_email = click.prompt("Email (optional)", default = "")
 
     _invalid_input = True
 
     while _invalid_input:
         _id_type = click.prompt(
-            "User ID system (ORCID/ROR/GRID/None)", default="None"
+            "User ID system (GITHUB/ORCID/ROR/GRID/None)", default="GITHUB"
         )
-
-        if _id_type.upper() == "ORCID":
+        if _id_type.upper() == "GITHUB":
+            _user_github = click.prompt("GitHub Username")
+            _user_info, _def_ospace = _handle_github(_user_github)
+            if not _user_info["name"]:
+                _user_info["given_names"] = click.prompt("Given Names")
+                _user_info["family_name"] = click.prompt("Family Name")
+                _user_info["name"] = " ".join([_user_info["given_names"], _user_info["family_name"]])
+            _invalid_input = False
+        elif _id_type.upper() == "ORCID":
             _user_orcid = click.prompt("ORCID")
             _user_info, _def_ospace = _handle_orcid(_user_orcid)
             _invalid_input = False
@@ -603,13 +625,24 @@ def _get_user_info_and_namespaces() -> typing.Dict[str, typing.Dict]:
             _user_info["uuid"] = _user_uuid
             _invalid_input = False
 
-    _user_info["email"] = _user_email
-
     _def_ospace = _def_ospace.lower().replace(" ", "").strip()
     _def_ospace = click.prompt("Default output namespace", default=_def_ospace)
     _def_ispace = click.prompt("Default input namespace", default=_def_ospace)
 
     _namespaces = {"input": _def_ispace, "output": _def_ospace}
+
+    if not "github" in _user_info:
+        if local:
+            _user_info["github"] = "FAIRDataPipeline"
+        else:
+            _user_github = click.prompt("Please provide a GitHub Username for linking with the remote registry")
+            _user_github_info = _handle_github(_user_github)[0]
+            _user_info["github"] = _user_github_info["github"]
+
+    if not _user_email:
+        _user_info["email"] = f'{_user_info["github"]}@users.noreply.github.com'
+    else:
+        _user_info["email"] = _user_email
 
     return {"user": _user_info, "namespaces": _namespaces}
 
@@ -668,21 +701,23 @@ def global_config_query(
             default=_remote_url.replace("/api/", "/data/"),
         )
 
-        _rem_key_file = click.prompt(
-            "Remote API Token File",
-        )
-        _rem_key_file = os.path.expandvars(_rem_key_file)
-
-        while (
-            not os.path.exists(_rem_key_file)
-            or not open(_rem_key_file).read().strip()
-        ):
-            click.echo(
-                f"Token file '{_rem_key_file}' does not exist or is empty, "
-                "please provide a valid token file."
+        _rem_key_valid = False
+        while not _rem_key_valid:
+            _rem_key = click.prompt(
+                f"Remote API ({_remote_url}) Token",
             )
-            _rem_key_file = click.prompt("Remote API Token File")
-            _rem_key_file = os.path.expandvars(_rem_key_file)
+            if len(_rem_key) == 40:
+                _rem_key_valid = True
+            else:
+                click.echo("Remote token should be 40 characters long")
+
+        _rem_key_file = os.path.join(fdp_com.global_config_dir(), "remotetoken.txt")
+
+        with open(_rem_key_file, 'w') as f:
+            f.write(_rem_key)
+
+        if not os.path.exists(_rem_key_file):
+            raise fdp_exc.CLIConfigurationError(f'Token could not be written to {_rem_key_file}')
 
     if not fdp_serv.check_server_running():
         if _ := click.confirm(
@@ -713,7 +748,7 @@ def global_config_query(
     if _loc_data_store[-1] != os.path.sep:
         _loc_data_store += os.path.sep
 
-    _glob_conf_dict = _get_user_info_and_namespaces()
+    _glob_conf_dict = _get_user_info_and_namespaces(local)
     _glob_conf_dict["registries"] = {
         "local": {
             "uri": _local_uri,

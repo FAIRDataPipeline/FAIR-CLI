@@ -141,7 +141,7 @@ def launch_server(
 
     _start.wait()
 
-    local_uri = fdp_conf.update_local_port()
+    local_uri = fdp_conf.update_local_port(registry_dir)
 
     if not check_server_running(local_uri):
         raise fdp_exc.RegistryError(
@@ -193,10 +193,10 @@ def stop_server(
             " is the FAIR data pipeline properly installed on this system?"
         )
 
-    logger.debug("Stopping local registry server.")
+    logger.debug(f"Stopping local registry server with '{_server_stop_script}'.")
 
     _stop = subprocess.Popen(
-        _server_stop_script,
+        [_server_stop_script, ""],
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         shell=False,
@@ -440,7 +440,7 @@ def uninstall_registry() -> None:
 
 
 def update_registry_post_setup(
-    repo_dir: str, global_setup: bool = False
+    repo_dir: str, global_setup: bool = False, registry_dir: str = None
 ) -> None:
     """Add user namespace and file types after CLI setup
 
@@ -458,25 +458,25 @@ def update_registry_post_setup(
     _is_running = check_server_running(fdp_conf.get_local_uri())
 
     if not _is_running:
-        launch_server()
+        launch_server(registry_dir = registry_dir)
 
     if global_setup:
         logger.debug("Populating file types")
         fdp_store.populate_file_type(
-            fdp_conf.get_local_uri(), fdp_req.local_token()
+            fdp_conf.get_local_uri(), fdp_req.local_token(registry_dir)
         )
 
     logger.debug("Adding 'author' and 'UserAuthor' entries if not present")
     # Add author and UserAuthor
     _author_url = fdp_store.store_user(
-        repo_dir, fdp_conf.get_local_uri(), fdp_req.local_token()
+        repo_dir, fdp_conf.get_local_uri(), fdp_req.local_token(registry_dir)
     )
 
     try:
         _admin_url = fdp_req.get(
             fdp_conf.get_local_uri(),
             "users",
-            fdp_req.local_token(),
+            fdp_req.local_token(registry_dir),
             params={"username": "admin"},
         )[0]["url"]
     except (KeyError, IndexError) as e:
@@ -487,10 +487,10 @@ def update_registry_post_setup(
     fdp_req.post_else_get(
         fdp_conf.get_local_uri(),
         "user_author",
-        fdp_req.local_token(),
+        fdp_req.local_token(registry_dir),
         data={"user": _admin_url, "author": _author_url},
     )
 
     # Only stop the server if it was not running initially
     if not _is_running:
-        stop_server()
+        stop_server(registry_dir)

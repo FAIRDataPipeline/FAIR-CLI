@@ -121,7 +121,7 @@ def test_get_git_remote(local_config: typing.Tuple[str, str]):
 def test_get_orcid(local_config: typing.Tuple[str, str]):
     assert (
         fdp_conf.get_current_user_uri(local_config[0])
-        == f'{fdp_id.ID_URIS["orcid"]}000-0000-0000-0000'
+        == f'{fdp_id.ID_URIS["github"]}FAIRDataPipeline'
     )
 
 
@@ -156,18 +156,19 @@ def test_local_port(local_config: typing.Tuple[str, str]):
 def test_user_info(mocker: pytest_mock.MockerFixture):
     _namepaces = {"input": "ispace", "output": "jbloggs"}
     _override = {
-        "Email": "jbloggs@nowhere.com",
+        "Email (optional)": "jbloggs@nowhere.com",
         "Full Name": "Joseph Bloggs",
         "Default input namespace": _namepaces["input"],
         "Default output namespace": _namepaces["output"],
-        "User ID system (ORCID/ROR/GRID/None)": "None",
+        "User ID system (GITHUB/ORCID/ROR/GRID/None)": "None",
+        "Please provide a GitHub Username for linking with the remote registry": "FAIRDataPipeline"
     }
 
     _orcid_override = {
         "family_name": "Bloggs",
         "given_names": "Joseph",
         "uuid": None,
-        "email": _override["Email"],
+        "email": _override["Email (optional)"],
     }
     _uuid_override = _orcid_override.copy()
     _uuid_override["uuid"] = "f45sasd832j234gjk"
@@ -178,7 +179,7 @@ def test_user_info(mocker: pytest_mock.MockerFixture):
     mocker.patch("uuid.uuid4", lambda: _uuid_override["uuid"])
     _noorc = fdp_conf._get_user_info_and_namespaces()
 
-    _override["User ID system (ORCID/ROR/GRID/None)"] = "ORCID"
+    _override["User ID system (GITHUB/ORCID/ROR/GRID/None)"] = "ORCID"
     _override["ORCID"] = "0000-0000-0000"
 
     mocker.patch(
@@ -186,6 +187,9 @@ def test_user_info(mocker: pytest_mock.MockerFixture):
     )
     mocker.patch("fair.identifiers.check_orcid", lambda *args: _orcid_override)
     _orc = fdp_conf._get_user_info_and_namespaces()
+
+    _uuid_override["github"] = "FAIRDataPipeline"
+    _orcid_override["github"] = "FAIRDataPipeline"
 
     _expect_noorc = {"user": _uuid_override, "namespaces": _namepaces}
 
@@ -197,11 +201,12 @@ def test_user_info(mocker: pytest_mock.MockerFixture):
 
 @pytest.mark.faircli_configuration
 def test_global_config_query(
-    mocker: pytest_mock.MockerFixture, local_config: typing.Tuple[str, str]
+    mocker: pytest_mock.MockerFixture, local_config: typing.Tuple[str, str],
+    tmp_path
 ):
     _override = {
         "Remote Data Storage Root": "",
-        "Remote API Token File": os.path.join(local_config[0], "token.txt"),
+        "Remote API (http://127.0.0.1:8007/api/) Token": "0000000000000000000000000000000000000000",
         "Default Data Store": "data_store/",
         "Local Registry Port": "8001",
         "Remote API URL": "http://127.0.0.1:8007/api/",
@@ -224,12 +229,16 @@ def test_global_config_query(
         lambda *args, **kwargs: "92342343243224",
     )
     mocker.patch(
+        "fair.common.global_config_dir",
+        lambda *args, **kwargs: tmp_path.__str__()
+    )
+    mocker.patch(
         "click.prompt", lambda x, default=None: _override[x] or default
     )
     mocker.patch("click.confirm", lambda *args, **kwargs: False)
     mocker.patch(
         "fair.configuration._get_user_info_and_namespaces",
-        lambda: _default_user,
+        lambda local: _default_user,
     )
 
     _expected = {
@@ -242,7 +251,7 @@ def test_global_config_query(
             },
             "origin": {
                 "uri": _override["Remote API URL"],
-                "token": _override["Remote API Token File"],
+                "token": os.path.join(tmp_path, "remotetoken.txt"),
                 "data_store": _override["Remote API URL"].replace(
                     "api", "data"
                 ),
@@ -255,7 +264,7 @@ def test_global_config_query(
         _expected['registries']['local']['data_store'] = "data_store/\\"
 
     assert not deepdiff.DeepDiff(
-        _expected, fdp_conf.global_config_query(local_config[0])
+        _expected, fdp_conf.global_config_query(registry = local_config[0])
     )
 
 

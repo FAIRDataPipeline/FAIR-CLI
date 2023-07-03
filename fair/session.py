@@ -1096,7 +1096,7 @@ class FAIR:
         using: typing.Dict = None,
         registry: str = None,
         export_as: str = None,
-        local: bool = False,
+        local: bool = False
     ) -> None:
         """Initialise an fair repository within the current location
 
@@ -1220,7 +1220,7 @@ class FAIR:
         if not local_only:
             if platform.system() == "Windows":
                 fdp_com.set_file_permissions(fdp_com.session_cache_dir())
-                fdp_com.set_file_permissions(fdp_com.fdp_com.global_config_dir())
+                fdp_com.set_file_permissions(fdp_com.global_config_dir())
             shutil.rmtree(fdp_com.session_cache_dir(), onerror=fdp_com.remove_readonly)
             shutil.rmtree(fdp_com.global_config_dir(), onerror=fdp_com.remove_readonly)
         if platform.system() == "Windows":
@@ -1288,7 +1288,7 @@ class FAIR:
                     "Expected key 'directory' for local registry in CLI configuration"
                 )
 
-        _user_keys = ["email", "family_name", "given_names", "orcid", "uuid"]
+        _user_keys = ["email", "family_name", "given_names", "uuid", "github"]
 
         for key in _user_keys:
             if key not in cli_config["user"]:
@@ -1297,9 +1297,9 @@ class FAIR:
                     f"Expected key 'user:{key}' in CLI configuration file"
                 )
 
-        if not cli_config["user"]["orcid"] and not cli_config["user"]["uuid"]:
+        if not cli_config["user"]["github"] and not cli_config["user"]["uuid"]:
             raise fdp_exc.CLIConfigurationError(
-                "At least one of 'user:orcid' and 'user:uuid' must be provided "
+                "At least one of 'user:github' and 'user:uuid' must be provided "
                 " in CLI configuration"
             )
 

@@ -28,11 +28,13 @@ import requests.exceptions
 ID_URIS = {
     "orcid": "https://orcid.org/",
     "ror": "https://ror.org/",
+    "github" : "https://github.com/"
 }
 
 QUERY_URLS = {
     "orcid": "https://pub.orcid.org/v3.0/",
     "ror": "https://api.ror.org/organizations?query=",
+    "github": "https://api.github.com/users/"
 }
 
 
@@ -72,6 +74,40 @@ def check_orcid(orcid: str) -> typing.Dict:
 
     return _result_dict
 
+def check_github(github: str) -> typing.Dict:
+    """Checks if valid ORCID using ORCID public api
+
+    Parameters
+    ----------
+    github : str
+        github username to be checked
+
+    Returns
+    -------
+    typing.Dict
+        metadata from the given ID
+    """
+    _header = {"Accept": "application/json"}
+    _url = urllib.parse.urljoin(QUERY_URLS["github"], github)
+    _response = requests.get(_url, headers=_header)
+
+    _result_dict: typing.Dict[str, typing.Any] = {}
+
+    if _response.status_code != 200:
+        return _result_dict
+
+    _login = _response.json()["login"]
+    _name = _response.json()["name"]
+    if _name:
+        _result_dict["family_name"] = _name.split()[-1]
+        _result_dict["given_names"] = " ".join(_name.split()[:-1])
+        
+    _result_dict["name"] = _name    
+    _result_dict["github"] = _login
+    _result_dict["uri"] = f'{ID_URIS["github"]}{_login}'
+
+    return _result_dict
+
 
 def check_ror(ror: str) -> typing.Dict:
     """Checks if valid ROR using ROR public api
@@ -86,7 +122,6 @@ def check_ror(ror: str) -> typing.Dict:
     typing.Dict
         metadata from the given ID
     """
-
     _result_dict = _check_generic_ror(ror)
     if _result_dict:
         _result_dict["ror"] = ror
@@ -124,7 +159,6 @@ def _check_generic_ror(id: str) -> typing.Dict:
     typing.Dict
         metadata from the given ID
     """
-
     _url = f"{QUERY_URLS['ror']}{id}"
     _response = requests.get(_url)
 

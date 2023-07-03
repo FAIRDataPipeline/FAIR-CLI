@@ -80,12 +80,18 @@ def get_example_entries(registry_dir: str):
 def pyDataPipeline(tmp_path_factory):
     _repo_path = tmp_path_factory.mktemp("repo_path").__str__()
     _repo = git.Repo.clone_from(PYTHON_API_GIT, _repo_path)
-    _repo.git.checkout("dev")
+    _repo.git.checkout("main")
     _model_path = os.path.join(_repo_path, "model")
     _model = git.Repo.clone_from(PYTHON_MODEL_GIT, _model_path)
     _model.git.checkout("main")
     simple_model = os.path.join(_model_path, "simpleModel")
     shutil.move(simple_model, _repo_path)
+    yield _repo_path
+
+@pytest.fixture()
+def pySimpleModel(tmp_path):
+    _repo_path = tmp_path.__str__()
+    _repo = git.Repo.clone_from(PYTHON_MODEL_GIT, _repo_path)
     yield _repo_path
 
 @pytest.fixture(scope="session")
