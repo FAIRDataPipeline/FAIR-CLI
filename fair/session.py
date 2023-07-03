@@ -1112,21 +1112,26 @@ class FAIR:
         _first_time = not os.path.exists(fdp_com.global_fdpconfig())
 
         if self._testing:
+            if os.path.exists(_fair_dir):
+                if platform.system() == "Windows":
+                    fdp_com.set_file_permissions(_fair_dir)
+                shutil.rmtree(_fair_dir, onerror=fdp_com.remove_readonly)
             using = fdp_test.create_configurations(
                 registry,
                 fdp_com.find_git_root(os.getcwd()),
                 os.getcwd(),
-                os.path.join(os.getcwd(), "data_store"),
+                os.path.join(os.getcwd(), ".fair"),
             )
 
-        if os.path.exists(_fair_dir):
+        if os.path.exists(_fair_dir) and not self._testing:
             if export_as:
                 self._export_cli_configuration(export_as)
                 return
-            click.echo("FAIR repository is already initialised.")
-            return
+            else:
+                click.echo("FAIR repository is already initialised.")
+                return
 
-        if _existing := fdp_com.find_fair_root(self._session_loc):
+        if _existing := fdp_com.find_fair_root(self._session_loc) and not self._testing:
             click.echo(
                 "A FAIR repository was initialised for this location at"
                 f" '{_existing}'"
@@ -1141,8 +1146,8 @@ class FAIR:
                 "Initialising FAIR repository, setup will now ask for basic info (leave blank for default value):\n"
             )
 
-        if not os.path.exists(_fair_dir):
-            os.mkdir(_fair_dir)
+        if not os.path.exists(_fair_dir) or self._testing:
+            os.makedirs(_fair_dir, exist_ok=True)
             os.makedirs(fdp_com.session_cache_dir(), exist_ok=True)
             if using:
                 self._validate_and_load_cli_config(using)
@@ -1184,7 +1189,7 @@ class FAIR:
         if export_as:
             self._export_cli_configuration(export_as)
 
-        fdp_serv.update_registry_post_setup(self._session_loc, _first_time)
+        fdp_serv.update_registry_post_setup(self._session_loc, _first_time, registry)
         try:
             fdp_clivalid.LocalCLIConfig(**self._local_config)
         except pydantic.ValidationError as e:
