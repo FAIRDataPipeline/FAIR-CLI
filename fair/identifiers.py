@@ -49,7 +49,7 @@ def check_orcid(orcid: str) -> typing.Dict:
     typing.Dict
         metadata from the given ID
     """
-
+    orcid = orcid.replace(ID_URIS["orcid"], "")
     _header = {"Accept": "application/json"}
     _url = urllib.parse.urljoin(QUERY_URLS["orcid"], orcid)
     _response = requests.get(_url, headers=_header)
