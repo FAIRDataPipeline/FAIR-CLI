@@ -45,11 +45,12 @@ jobs:
           ./venv/bin/activate
           # Install the remote registry
           #fair registry install --directory ${GITHUB_WORKSPACE}/registry-rem
-          curl -fsSL https://data.fairdatapipeline.org/static/remoteregistry.sh | /bin/bash -s -- -d ${GITHUB_WORKSPACE}/registry-rem -s drams.test-remote-settings -u FAIRDataPipeline -p admin
+          curl -fsSL https://data.fairdatapipeline.org/static/remoteregistry.sh | /bin/bash -s -- -d ${GITHUB_WORKSPACE}/registry-rem -s drams.test-remote-settings -u admin -p admin
           # Start the remote registry
           ${GITHUB_WORKSPACE}/registry-rem/scripts/start_fair_registry -p 8001 -s drams.test-remote-settings
           # Copy the remote token
           cp ${GITHUB_WORKSPACE}/registry-rem/token $PWD/token
+          ${GITHUB_WORKSPACE}/registry-rem/venv/bin/python manage.py shell < ${GITHUB_WORKSPACE}/tests/data/create_user.py
         working-directory: pySimpleModel
       
       - name: Install the registry and init
