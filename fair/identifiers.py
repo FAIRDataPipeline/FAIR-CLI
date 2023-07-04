@@ -59,7 +59,7 @@ def check_orcid(orcid: str) -> typing.Dict:
     orcid = orcid.replace(ID_URIS["orcid"], "")
     _header = {"Accept": "application/json"}
     _url = urllib.parse.urljoin(QUERY_URLS["orcid"], orcid)
-    _response = requests.get(_url, headers=_header)
+    _response = requests.get(_url, headers=_header, verify = False, allow_redirects = True)
 
     _result_dict: typing.Dict[str, typing.Any] = {}
 
@@ -99,7 +99,7 @@ def check_github(github: str) -> typing.Dict:
     _result_dict: typing.Dict[str, typing.Any] = {}
 
     if _response.status_code != 200:
-        logger.warning(f"{_url} Responded with {_response.status_code}")
+        logger.debug(f"{_url} Responded with {_response.status_code}")
         return _result_dict
 
     _login = _response.json()["login"]
