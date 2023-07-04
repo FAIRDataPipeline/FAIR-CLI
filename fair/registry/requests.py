@@ -531,8 +531,8 @@ def download_file(url: str, chunk_size: int = 8192) -> str:
     _file = tempfile.NamedTemporaryFile(delete=False)
     _fname = _file.name
 
-    # Copy File if local (Windows fix)
-    if "file://" in url and platform.system() == "Windows":
+    # Copy File if local
+    if "file://" in url:
         _local_fname = url.replace("file://", "")
         try:
             shutil.copy2(_local_fname, _fname)
@@ -541,13 +541,10 @@ def download_file(url: str, chunk_size: int = 8192) -> str:
                 f"Failed to download file '{url}'"
                 f" due to connection error: {traceback.format_exc()}"
             ) from e
-
     else:
         try:
-            headers = {}
             requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
-            if not "file://" in url:
-                headers = {'User-Agent':str(UserAgent().chrome)}
+            headers = {'User-Agent':str(UserAgent().chrome)}
             response = requests.get(url, allow_redirects = True, verify = False, headers = headers)
             open(_fname, 'wb').write(response.content)
         except Exception as e:
