@@ -24,8 +24,11 @@ import urllib.parse
 
 import requests
 import requests.exceptions
+import logging
 from urllib3.exceptions import InsecureRequestWarning
 from fake_useragent import UserAgent
+
+logger = logging.getLogger("FAIRDataPipeline.Identifiers")
 
 ID_URIS = {
     "orcid": "https://orcid.org/",
@@ -96,6 +99,7 @@ def check_github(github: str) -> typing.Dict:
     _result_dict: typing.Dict[str, typing.Any] = {}
 
     if _response.status_code != 200:
+        logger.warning(f"{_url} Responded with {_response.status_code}")
         return _result_dict
 
     _login = _response.json()["login"]
