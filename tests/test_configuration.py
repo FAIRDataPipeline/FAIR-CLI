@@ -155,20 +155,22 @@ def test_local_port(local_config: typing.Tuple[str, str]):
 @pytest.mark.faircli_configuration
 def test_user_info(mocker: pytest_mock.MockerFixture):
     _namepaces = {"input": "ispace", "output": "jbloggs"}
+    _email = "jbloggs@nowhere.com"
+    _github_username = "FAIRDataPipeline"
     _override = {
-        "Email (optional)": "jbloggs@nowhere.com",
+        "Email (optional)": _email,
         "Full Name": "Joseph Bloggs",
         "Default input namespace": _namepaces["input"],
         "Default output namespace": _namepaces["output"],
         "User ID system (GITHUB/ORCID/ROR/GRID/None)": "None",
-        "Please provide a GitHub Username for linking with the remote registry": "FAIRDataPipeline"
+        "GitHub Username": _github_username
     }
 
     _orcid_override = {
         "family_name": "Bloggs",
         "given_names": "Joseph",
         "uuid": None,
-        "email": _override["Email (optional)"],
+        "email": _email,
     }
     _uuid_override = _orcid_override.copy()
     _uuid_override["uuid"] = "f45sasd832j234gjk"
@@ -188,8 +190,8 @@ def test_user_info(mocker: pytest_mock.MockerFixture):
     mocker.patch("fair.identifiers.check_orcid", lambda *args: _orcid_override)
     _orc = fdp_conf._get_user_info_and_namespaces()
 
-    _uuid_override["github"] = "FAIRDataPipeline"
-    _orcid_override["github"] = "FAIRDataPipeline"
+    _uuid_override["github"] = _github_username
+    _orcid_override["github"] = _github_username
 
     _expect_noorc = {"user": _uuid_override, "namespaces": _namepaces}
 

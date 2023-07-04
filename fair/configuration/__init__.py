@@ -651,7 +651,7 @@ def _get_user_info_and_namespaces(local: bool = False) -> typing.Dict[str, typin
         if local:
             _user_info["github"] = "FAIRDataPipeline"
         else:
-            _user_github = click.prompt("Please provide a GitHub Username for linking with the remote registry")
+            _user_github = click.prompt("GitHub Username")
             _user_github_info = _handle_github(_user_github)[0]
             _user_info["github"] = _user_github_info["github"]
 
