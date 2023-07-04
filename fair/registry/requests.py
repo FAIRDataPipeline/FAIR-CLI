@@ -42,6 +42,9 @@ import fair.utilities as fdp_util
 import ssl
 from requests.adapters import HTTPAdapter
 from urllib3.poolmanager import PoolManager
+from urllib3.exceptions import InsecureRequestWarning
+
+from fake_useragent import UserAgent
 
 logger = logging.getLogger("FAIRDataPipeline.Requests")
 
@@ -541,14 +544,16 @@ def download_file(url: str, chunk_size: int = 8192) -> str:
 
     else:
         try:
-            with urllib.request.urlopen(url) as response, open(
-                _fname, "wb"
-            ) as out_file:
-                shutil.copyfileobj(response, out_file)
-        except urllib.error.URLError as e:
+            headers = {}
+            requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
+            if not "file://" in url:
+                headers = {'User-Agent':str(UserAgent().chrome)}
+            response = requests.get(url, allow_redirects = True, verify = False, headers = headers)
+            open(_fname, 'wb').write(response.content)
+        except Exception as e:
             raise fdp_exc.FAIRCLIException(
                 f"Failed to download file '{url}'"
-                f" due to connection error: {e.reason}"
+                f" due to connection error: {traceback.format_exc()}"
             ) from e
 
     return _fname

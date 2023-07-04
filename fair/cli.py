@@ -117,8 +117,10 @@ def list(ctx, debug, remote) -> None:
         ctx.obj = {}
     ctx.obj['DEBUG'] = debug
     ctx.obj['REMOTE'] = remote
-    ctx.invoke(data_products)
-    ctx.invoke(code_runs)
+    _current_args = " ".join(sys.argv)
+    if not ("data-products" in _current_args or "code-runs" in _current_args):
+        ctx.invoke(data_products)
+        ctx.invoke(code_runs)
 
 @list.command()
 @click.pass_context
@@ -526,6 +528,7 @@ def run(
 ):
     """Initialises a job with the option to specify a bash command"""
     # Allow no config to be specified, if that is the case use default local
+    click.echo("Running run please wait")
     config = config[0] if config else fdp_com.local_user_config(os.getcwd())
     try:
         with fdp_session.FAIR(
@@ -635,6 +638,7 @@ def modify(ctx, label: str, url: str, debug: bool) -> None:
 )
 def push(remote: str, debug: bool, dirty: bool):
     """Push data between the local and remote registry"""
+    click.echo("Running push please wait")
     remote = remote[0] if remote else "origin"
     try:
         with fdp_session.FAIR(
@@ -678,6 +682,7 @@ def config_email(user_email: str) -> None:
 )
 def pull(config: str, debug: bool, local: bool):
     """Update local registry from remotes and sources"""
+    click.echo("Running pull please wait")
     config = config[0] if config else fdp_com.local_user_config(os.getcwd())
     try:
         with fdp_session.FAIR(

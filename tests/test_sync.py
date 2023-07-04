@@ -199,6 +199,7 @@ def test_push(
     remote_registry: RegistryTest,
     pyDataPipeline: str,
     fair_bucket: MotoTestServer,
+    mocker: pytest_mock.MockerFixture,
     capsys,
 ):
     try:
@@ -208,6 +209,10 @@ def test_push(
     
     _cli_runner = click.testing.CliRunner()
     with remote_registry, local_registry, fair_bucket:
+        mocker.patch(
+            "fair.configuration.get_current_user_github",
+            lambda *args, **kwargs: "admin",
+        )
         _res = _cli_runner.invoke(
             cli, ["list"]
         )

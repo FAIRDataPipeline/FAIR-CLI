@@ -136,6 +136,11 @@ def store_user(repo_dir: str, uri: str, token: str) -> str:
 
     return store_author(uri, token, name, _id, _uuid)
 
+def store_user_author(uri:str, token:str, user_uri:str, author_uri:str)-> str:
+    _data = {"user": user_uri, "author": author_uri}
+
+    return fdp_req.post_else_get(uri, "user_author", token, _data, _data)
+
 
 def populate_file_type(uri: str, token: str) -> typing.List[typing.Dict]:
     """Populates file_type table with common file file_types

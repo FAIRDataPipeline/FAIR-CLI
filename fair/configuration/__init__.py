@@ -378,6 +378,22 @@ def get_current_user_uri(repo_loc: str) -> str:
         raise fdp_exc.CLIConfigurationError("No user URI identifier defined.")
     return _uri
 
+def get_current_user_github(repo_loc: str) -> str:
+    """Retrieves the URI identifier for the current user
+
+    Returns
+    -------
+    str
+        github username
+    """
+    _local_conf = read_local_fdpconfig(repo_loc)
+    try:
+        _github = _local_conf["user"]["github"]
+    except KeyError:
+        _github = None
+    if not _github or _github == "None":
+        raise fdp_exc.CLIConfigurationError("No user GitHub username defined.")
+    return _github
 
 def check_registry_exists(registry: str = None) -> typing.Optional[str]:
     """Checks if fair registry is set up on users machine

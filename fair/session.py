@@ -388,7 +388,18 @@ class FAIR:
                 self._session_loc, remote, local=self._local
             ),
             origin_token=fdp_req.local_token(),
-            name= ' '.join(fdp_conf.get_current_user_name(self._session_loc))
+            identifier= fdp_conf.get_current_user_uri(self._session_loc)
+        )
+
+        fdp_sync.sync_user_author(
+            origin_uri=fdp_conf.get_local_uri(),
+            dest_uri=fdp_conf.get_remote_uri(self._session_loc, remote),
+            dest_token=fdp_conf.get_remote_token(
+                self._session_loc, remote, local=self._local
+            ),
+            origin_token=fdp_req.local_token(),
+            author_url = remote_author_url,
+            github = fdp_conf.get_current_user_github(self._session_loc)
         )
 
         fdp_sync.sync_code_runs(

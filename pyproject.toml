@@ -25,7 +25,7 @@ classifiers = [
 ]
 description = "Synchronization interface for the SCRC FAIR Data Pipeline registry"
 name = "fair-cli"
-version = "0.7.4"
+version = "0.8.0"
 
 homepage = "https://www.fairdatapipeline.org/"
 
@@ -64,7 +64,7 @@ semver = "^2.13.0"
 simplejson = "^3.17.5"
 toml = "^0.10.2"
 validators = "^0.18.2"
-netCDF4 = "^1.5.8"
+fake-useragent = "^1"
 
 [tool.poetry.dev-dependencies]
 bandit = "*"

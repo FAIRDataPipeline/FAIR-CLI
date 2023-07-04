@@ -24,6 +24,8 @@ import urllib.parse
 
 import requests
 import requests.exceptions
+from urllib3.exceptions import InsecureRequestWarning
+from fake_useragent import UserAgent
 
 ID_URIS = {
     "orcid": "https://orcid.org/",
@@ -198,10 +200,15 @@ def check_id_permitted(identifier: str, retries: int = 5) -> bool:
         if valid identifier
     """
     _n_attempts = 0
+    fake_agent = False
 
     while _n_attempts < retries:
         try:
-            requests.get(identifier).raise_for_status()
+            requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
+            headers = {}
+            if fake_agent:
+                headers = {'User-Agent':str(UserAgent().chrome)} 
+            requests.get(identifier, verify = False, allow_redirects = True, headers = headers).raise_for_status()
             return True
         except (
             requests.exceptions.MissingSchema,
@@ -210,6 +217,7 @@ def check_id_permitted(identifier: str, retries: int = 5) -> bool:
         ):
             _n_attempts += 1
             time.sleep(1)
+            fake_agent = True
             continue
 
     return False

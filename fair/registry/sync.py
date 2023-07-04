@@ -344,13 +344,13 @@ def sync_author(
     dest_uri: str,
     dest_token: str,
     origin_token: str,
-    name: str
+    identifier: str
 ) -> None:
     current_author = fdp_req.get(
         origin_uri,
         "author",
         origin_token,
-        params= {"name": name}
+        params= {"identifier": identifier}
     )
     if not current_author:
         raise fdp_exc.RegistryError(f"No author matching {name}, on local registry", "Have you run fair init?")
@@ -368,6 +368,25 @@ def sync_author(
     if not new_author_url:
         raise fdp_exc.RegistryError(f"Auther {name}, was not be pushed to {dest_uri}")
     return new_author_url
+
+def sync_user_author(
+    origin_uri: str,
+    dest_uri: str,
+    dest_token: str,
+    origin_token: str,
+    author_url: str,
+    github: str
+) -> None:
+    current_user = fdp_req.get(
+        dest_uri,
+        "users",
+        dest_token,
+        params= {"username": github}
+    )
+    if not current_user:
+        raise fdp_exc.RegistryError(f"No user matching {github}, on remote registry", "Does your GitHub username match the remote registry GitHub user?")
+    current_user_url = current_user[0]['url']
+    fdp_store.store_user_author(dest_uri, dest_token, current_user_url, author_url)
 
 def sync_data_products(
     origin_uri: str,
