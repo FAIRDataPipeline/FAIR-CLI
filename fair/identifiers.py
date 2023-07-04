@@ -94,7 +94,7 @@ def check_github(github: str) -> typing.Dict:
     """
     _header = {"Accept": "application/json"}
     _url = urllib.parse.urljoin(QUERY_URLS["github"], github)
-    _response = requests.get(_url, headers=_header)
+    _response = requests.get(_url, headers=_header, verify = False, allow_redirects = True)
 
     _result_dict: typing.Dict[str, typing.Any] = {}
 
