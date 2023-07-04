@@ -243,7 +243,7 @@ def test_init_full(
             _dummy_name,
             "",
             "",
-            "FairDataPipeline",
+            "FAIRDataPipeline",
             pySimpleModel,
             "",
         ]

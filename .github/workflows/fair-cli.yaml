@@ -43,7 +43,7 @@ jobs:
               cd C:/FAIR-CLI
               pwd
           fi
-          python -m poetry run pip install git+https://github.com/FAIRDataPipeline/pyDataPipeline.git@dev
+          python -m poetry run pip install git+https://github.com/FAIRDataPipeline/pyDataPipeline.git@main
         shell: bash
       - name: Run Tests for Each Marker
         run: |
