@@ -59,6 +59,7 @@ def check_orcid(orcid: str) -> typing.Dict:
     orcid = orcid.replace(ID_URIS["orcid"], "")
     _header = {"Accept": "application/json"}
     _url = urllib.parse.urljoin(QUERY_URLS["orcid"], orcid)
+    requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
     _response = requests.get(_url, headers=_header, verify = False, allow_redirects = True)
 
     _result_dict: typing.Dict[str, typing.Any] = {}
@@ -94,6 +95,7 @@ def check_github(github: str) -> typing.Dict:
     """
     _header = {"Accept": "application/json"}
     _url = urllib.parse.urljoin(QUERY_URLS["github"], github)
+    requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
     _response = requests.get(_url, headers=_header, verify = False, allow_redirects = True)
 
     _result_dict: typing.Dict[str, typing.Any] = {}
