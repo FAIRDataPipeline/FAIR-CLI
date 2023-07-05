@@ -88,7 +88,7 @@ def fetch_registrations(
     typing.List[str]
         list of registered object URLs
     """
-    _expected_keys = [
+    _expected_keys_external_object = [
         "root",
         "path",
         "file_type",
@@ -97,9 +97,23 @@ def fetch_registrations(
         "public",
     ]
 
+    _expected_keys_data_product = [
+        "root",
+        "path",
+        "file_type",
+        "version",
+    ]
+
     _stored_objects: typing.List[str] = []
 
     for entry in user_config_register:
+        logger.debug(f"entry {entry}")
+
+        if "external_object" in entry:
+            _expected_keys = _expected_keys_external_object
+        else:
+            _expected_keys = _expected_keys_data_product
+
         for key in _expected_keys:
             if key not in entry and key not in entry["use"]:
                 raise fdp_exc.UserConfigError(
@@ -166,15 +180,16 @@ def fetch_registrations(
         _search_data["version"] = entry["use"]["version"]
         _namespace = entry["use"]["namespace"]
 
-        if not _identifier and not _unique_name:
-            raise fdp_exc.UserConfigError(
-                "Expected either 'unique_name' or 'identifier' in 'register' item"
-            )
+        if _external_object:
+            if not _identifier and not _unique_name:
+                raise fdp_exc.UserConfigError(
+                    "Expected either 'unique_name' or 'identifier' in 'register' item"
+                )
 
-        elif _identifier and _unique_name:
-            raise fdp_exc.UserConfigError(
-                "Only one unique identifier may be provided (doi/unique_name)"
-            )
+            elif _identifier and _unique_name:
+                raise fdp_exc.UserConfigError(
+                    "Only one unique identifier may be provided (doi/unique_name)"
+                )
 
         if "cache" in entry:
             _temp_data_file = entry["cache"]

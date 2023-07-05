@@ -720,7 +720,7 @@ def global_config_query(
         _rem_key_valid = False
         while not _rem_key_valid:
             _rem_key = click.prompt(
-                f"Remote API ({_remote_url}) Token",
+                f"Remote API Token",
             )
             if len(_rem_key) == 40:
                 _rem_key_valid = True

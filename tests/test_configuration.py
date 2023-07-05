@@ -208,7 +208,7 @@ def test_global_config_query(
 ):
     _override = {
         "Remote Data Storage Root": "",
-        "Remote API (http://127.0.0.1:8007/api/) Token": "0000000000000000000000000000000000000000",
+        "Remote API Token": "0000000000000000000000000000000000000000",
         "Default Data Store": "data_store/",
         "Local Registry Port": "8001",
         "Remote API URL": "http://127.0.0.1:8007/api/",
