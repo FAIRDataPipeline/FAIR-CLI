@@ -247,7 +247,7 @@ class RegistryTest:
             remote= remote
         )
         while not os.path.exists(os.path.join(self._install, "token")):
-            time.sleep(5)
+            time.sleep(3)
         self._token = open(os.path.join(self._install, "token")).read().strip()
         assert self._token
         pid_kill(_process.pid)

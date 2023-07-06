@@ -224,7 +224,7 @@ def check_id_permitted(identifier: str, retries: int = 5) -> bool:
             requests.exceptions.ConnectionError,
         ) as e:
             _n_attempts += 1
-            time.sleep(5)
+            time.sleep(3)
             fake_agent = True
             logger.warning(f"Error identifier: '{identifier}' caused '{e}'")
             continue

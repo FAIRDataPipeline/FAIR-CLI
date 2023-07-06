@@ -332,16 +332,14 @@ class JobConfiguration(MutableMapping):
         for register_entry in register_block:
             _new_entry = register_entry.copy()
             if "namespace_name" not in register_entry:
-                if "use" in register_entry:
+                if not "use" in register_entry:
+                    _new_entry["use"] = {}
+                else:
                     if "namespace" in register_entry["use"]:
                         _new_entry["use"]["namespace"] = register_entry["use"]["namespace"]
-                        _new_register_block.append(_new_entry)
-                elif not "external_object" in register_entry:
-                    _new_entry["use"] = {}
-                    _new_entry["use"]["namespace"] = self.default_input_namespace
-                    _new_register_block.append(_new_entry)
-                else:
-                    self._logger.warning(f'No namespace specified for register entry {register_entry["external_object"]}')
+                    else:
+                        _new_entry["use"]["namespace"] = self.default_input_namespace
+                _new_register_block.append(_new_entry)
                 continue
             if (
                 register_entry["namespace_name"]
