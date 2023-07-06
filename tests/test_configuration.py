@@ -12,6 +12,8 @@ import fair.common as fdp_com
 import fair.configuration as fdp_conf
 import fair.identifiers as fdp_id
 
+GITHUB_USER = "FAIRDataPipeline"
+ORCID_ID = "0000-0002-6773-1049"
 
 @pytest.mark.faircli_configuration
 def test_local_cli_config_read(local_config: typing.Tuple[str, str]):
