@@ -6,6 +6,8 @@ import deepdiff
 import pytest
 import pytest_mock
 
+from . import conftest as conf
+
 import fair.common as fdp_com
 import fair.configuration as fdp_conf
 import fair.identifiers as fdp_id
