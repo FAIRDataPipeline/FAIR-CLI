@@ -569,6 +569,7 @@ def _handle_github(user_github: str) -> typing.Tuple[typing.Dict, str]:
     _user_info = fdp_id.check_github(user_github.strip())
 
     while not _user_info:
+        time.sleep(1)
         click.echo(f"Invalid GitHub Username '{user_github}' given.")
         user_github = click.prompt("GitHub Username")
         _user_info = fdp_id.check_github(user_github.strip())
@@ -747,7 +748,7 @@ def global_config_query(
             pathlib.Path(_cache_addr).touch()
 
         else:
-            click.echo("Temporarily launching server to retrieve API token.")
+            click.echo("Temporarily launching local registry to retrieve API token.")
             fdp_serv.launch_server(registry_dir=registry)
             fdp_serv.stop_server(registry_dir=registry, local_uri=_local_uri)
             try:

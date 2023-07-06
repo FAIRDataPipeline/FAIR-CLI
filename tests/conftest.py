@@ -18,6 +18,9 @@ import boto3
 import os
 from moto.server import ThreadedMotoServer
 
+import requests
+from urllib3.exceptions import InsecureRequestWarning
+
 import fair.common as fdp_com
 import fair.registry.server as fdp_serv
 import fair.testing as fdp_test
@@ -34,6 +37,13 @@ os.makedirs(TEST_OUT_DIR, exist_ok=True)
 
 logging.getLogger("FAIRDataPipeline").setLevel(logging.DEBUG)
 
+def test_can_be_run(url):
+    _header = {"Accept": "application/json"}
+    requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
+    _response = requests.get(url, verify = False, headers = _header, allow_redirects = True)
+    if _response.status_code == 200:
+        return True
+    return False
 
 def get_example_entries(registry_dir: str):
     """

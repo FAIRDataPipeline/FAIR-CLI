@@ -154,6 +154,13 @@ def test_local_port(local_config: typing.Tuple[str, str]):
 
 @pytest.mark.faircli_configuration
 def test_user_info(mocker: pytest_mock.MockerFixture):
+    if not conf.test_can_be_run(f'{fdp_id.QUERY_URLS["github"]}{GITHUB_USER}'):
+        warnings.warn("GitHub API Unavailable")
+        pytest.skip("Cannot Reach GitHub API")
+    if not conf.test_can_be_run(f'{fdp_id.QUERY_URLS["orcid"]}{ORCID_ID}'):
+        warnings.warn("Orcid API Unavailable")
+        pytest.skip("Cannot Reach Orcid API")
+    _data = fdp_id.check_github("FAIRDataPipeline")
     _namepaces = {"input": "ispace", "output": "jbloggs"}
     _email = "jbloggs@nowhere.com"
     _github_username = "FAIRDataPipeline"

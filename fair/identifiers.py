@@ -65,6 +65,7 @@ def check_orcid(orcid: str) -> typing.Dict:
     _result_dict: typing.Dict[str, typing.Any] = {}
 
     if _response.status_code != 200:
+        logger.debug(f"{_url} Responded with {_response.status_code}")
         return _result_dict
 
     _names = _response.json()["person"]["name"]
@@ -173,6 +174,7 @@ def _check_generic_ror(id: str) -> typing.Dict:
     _result_dict: typing.Dict[str, typing.Any] = {}
 
     if _response.status_code != 200:
+        logger.debug(f"{_url} Responded with {_response.status_code}")
         return _result_dict
 
     if _response.json()["number_of_results"] == 0:
@@ -220,10 +222,11 @@ def check_id_permitted(identifier: str, retries: int = 5) -> bool:
             requests.exceptions.MissingSchema,
             requests.exceptions.HTTPError,
             requests.exceptions.ConnectionError,
-        ):
+        ) as e:
             _n_attempts += 1
             time.sleep(1)
             fake_agent = True
+            logger.warning(f"Error identifier: '{identifier}' caused '{e}'")
             continue
 
     return False

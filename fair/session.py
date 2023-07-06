@@ -1166,12 +1166,14 @@ class FAIR:
 
         if not os.path.exists(fdp_com.global_fdpconfig()):
             try:
+                click.echo("Setup will now ask you questions regarding the global configuration")
                 self._global_config = fdp_conf.global_config_query(
                     registry, local
                 )
             except (fdp_exc.CLIConfigurationError, click.Abort) as e:
                 self._clean_reset(_fair_dir, e)
             try:
+                click.echo("Setup will now ask you questions regarding this repo configuration")
                 self._local_config = fdp_conf.local_config_query(
                     self._global_config,
                     first_time_setup=_first_time,
@@ -1181,6 +1183,7 @@ class FAIR:
                 self._clean_reset(_fair_dir, e, True)
         elif not using:
             try:
+                click.echo("Setup will now ask you questions regarding this repo configuration")
                 self._local_config = fdp_conf.local_config_query(
                     self._global_config, local=local
                 )
@@ -1192,7 +1195,9 @@ class FAIR:
             with open(fdp_com.global_fdpconfig(), "w") as f:
                 yaml.dump(self._global_config, f)
         else:
+            click.echo("Setup will now ask you questions regarding the global configuration")
             self._global_config = fdp_conf.read_global_fdpconfig()
+            click.echo("Setup will now ask you questions regarding this repo configuration")
             self._local_config = fdp_conf.read_local_fdpconfig(
                 self._session_loc
             )
