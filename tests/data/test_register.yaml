@@ -1,0 +1,46 @@
+run_metadata:
+  description: Test Register Data Products
+  default_input_namespace: TestDataProduct
+  default_output_namespace: TestDataProduct
+  script: echo test
+
+register:
+- namespace: TestNameSpace
+  full_name: FairDataPipeline Namespace Test
+
+- data_product: Namespace/test/no/namespace
+  root: <TEST_DATA_DIR>
+  path: test1.csv
+  file_type: csv
+  version: "1.0.0"
+
+- data_product: Namespace/test/use/namespace
+  root: <TEST_DATA_DIR>
+  path: test2.csv
+  file_type: csv
+  version: "1.0.0"
+  use:
+    namespace: PSU
+  
+- data_product: Namespace/test/namespace/name
+  root: <TEST_DATA_DIR>
+  path: test3.csv
+  file_type: csv
+  version: "1.0.0"
+  namespace_name: TestNameSpace
+
+- data_product: Namespace/test/use/namespace/unregistered
+  root: <TEST_DATA_DIR>
+  path: test4.csv
+  file_type: csv
+  version: "1.0.0"
+  use:
+    namespace: UnregisteredNamespace
+
+- data_product: Namespace/test/use/same/file
+  root: <TEST_DATA_DIR>
+  path: test4.csv
+  file_type: csv
+  version: "1.0.0"
+  use:
+    namespace: UnregisteredNamespace

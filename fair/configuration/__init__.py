@@ -569,7 +569,7 @@ def _handle_github(user_github: str) -> typing.Tuple[typing.Dict, str]:
     _user_info = fdp_id.check_github(user_github.strip())
 
     while not _user_info:
-        time.sleep(1)
+        time.sleep(5)
         click.echo(f"Invalid GitHub Username '{user_github}' given.")
         user_github = click.prompt("GitHub Username")
         _user_info = fdp_id.check_github(user_github.strip())
