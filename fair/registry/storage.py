@@ -482,7 +482,7 @@ def _get_url_from_storage_loc(
     _storage_loc_data = {
         "path": relative_path,
         "storage_root": root_store_url,
-        "public": is_public,
+        "public": str(is_public).lower(),
         "hash": _hash,
     }
 

@@ -102,6 +102,7 @@ def fetch_registrations(
         "path",
         "file_type",
         "version",
+        "public"
     ]
 
     _stored_objects: typing.List[str] = []
@@ -190,9 +191,12 @@ def fetch_registrations(
                 raise fdp_exc.UserConfigError(
                     "Only one unique identifier may be provided (doi/unique_name)"
                 )
-
+        # Set Remove to True by default so the tempory file gets deleted
+        _remove = True
         if "cache" in entry:
             _temp_data_file = entry["cache"]
+            # Don't delete the tempory file if it's from a cache
+            _remove = False
         else:
             _local_parsed = urllib.parse.urlparse(local_uri)
             _local_url = f"{_local_parsed.scheme}://{_local_parsed.netloc}"
@@ -222,7 +226,8 @@ def fetch_registrations(
                 " present with this name, deleting temporary data file",
                 _name,
             )
-            os.remove(_temp_data_file)
+            if _remove:
+                os.remove(_temp_data_file)
             continue
 
         # Item found but not hash matched retrieve a version number
@@ -254,7 +259,8 @@ def fetch_registrations(
         logger.debug("Saving data file to '%s'", _local_file)
         shutil.copy(_temp_data_file, _local_file)
 
-        os.remove(_temp_data_file)
+        if _remove:
+            os.remove(_temp_data_file)
 
         if "public" in entry:
             _public = entry["public"]
