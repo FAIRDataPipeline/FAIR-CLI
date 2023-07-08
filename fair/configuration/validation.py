@@ -108,6 +108,9 @@ class User(pydantic.BaseModel):
     name: typing.Optional[str] = pydantic.Field(
         None, title="Full Name", description="Full name for the user"
     )
+    github: typing.Optional[str] = pydantic.Field(
+        None, title="GitHub Username", description="GitHub Username for the user"
+    )
 
     class Config:
         extra = "forbid"

@@ -148,6 +148,7 @@ cython_debug/
 
 # Misc
 *.yaml
+!tests/data/*.yaml
 *.yml
 token.txt
 .fair

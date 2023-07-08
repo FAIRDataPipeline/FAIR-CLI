@@ -332,6 +332,14 @@ class JobConfiguration(MutableMapping):
         for register_entry in register_block:
             _new_entry = register_entry.copy()
             if "namespace_name" not in register_entry:
+                if not "use" in register_entry:
+                    _new_entry["use"] = {}
+                else:
+                    if "namespace" in register_entry["use"]:
+                        _new_entry["use"]["namespace"] = register_entry["use"]["namespace"]
+                    else:
+                        _new_entry["use"]["namespace"] = self.default_input_namespace
+                _new_register_block.append(_new_entry)
                 continue
             if (
                 register_entry["namespace_name"]

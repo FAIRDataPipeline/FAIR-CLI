@@ -24,15 +24,22 @@ import urllib.parse
 
 import requests
 import requests.exceptions
+import logging
+from urllib3.exceptions import InsecureRequestWarning
+from fake_useragent import UserAgent
+
+logger = logging.getLogger("FAIRDataPipeline.Identifiers")
 
 ID_URIS = {
     "orcid": "https://orcid.org/",
     "ror": "https://ror.org/",
+    "github" : "https://github.com/"
 }
 
 QUERY_URLS = {
     "orcid": "https://pub.orcid.org/v3.0/",
     "ror": "https://api.ror.org/organizations?query=",
+    "github": "https://api.github.com/users/"
 }
 
 
@@ -49,14 +56,16 @@ def check_orcid(orcid: str) -> typing.Dict:
     typing.Dict
         metadata from the given ID
     """
-
+    orcid = orcid.replace(ID_URIS["orcid"], "")
     _header = {"Accept": "application/json"}
     _url = urllib.parse.urljoin(QUERY_URLS["orcid"], orcid)
-    _response = requests.get(_url, headers=_header)
+    requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
+    _response = requests.get(_url, headers=_header, verify = False, allow_redirects = True)
 
     _result_dict: typing.Dict[str, typing.Any] = {}
 
     if _response.status_code != 200:
+        logger.debug(f"{_url} Responded with {_response.status_code}")
         return _result_dict
 
     _names = _response.json()["person"]["name"]
@@ -69,6 +78,42 @@ def check_orcid(orcid: str) -> typing.Dict:
     _result_dict["given_names"] = _given
     _result_dict["orcid"] = orcid
     _result_dict["uri"] = f'{ID_URIS["orcid"]}{orcid}'
+
+    return _result_dict
+
+def check_github(github: str) -> typing.Dict:
+    """Checks if valid ORCID using ORCID public api
+
+    Parameters
+    ----------
+    github : str
+        github username to be checked
+
+    Returns
+    -------
+    typing.Dict
+        metadata from the given ID
+    """
+    _header = {"Accept": "application/json"}
+    _url = urllib.parse.urljoin(QUERY_URLS["github"], github)
+    requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
+    _response = requests.get(_url, headers=_header, verify = False, allow_redirects = True)
+
+    _result_dict: typing.Dict[str, typing.Any] = {}
+
+    if _response.status_code != 200:
+        logger.debug(f"{_url} Responded with {_response.status_code}")
+        return _result_dict
+
+    _login = _response.json()["login"]
+    _name = _response.json()["name"]
+    if _name:
+        _result_dict["family_name"] = _name.split()[-1]
+        _result_dict["given_names"] = " ".join(_name.split()[:-1])
+        
+    _result_dict["name"] = _name    
+    _result_dict["github"] = _login
+    _result_dict["uri"] = f'{ID_URIS["github"]}{_login}'
 
     return _result_dict
 
@@ -86,7 +131,6 @@ def check_ror(ror: str) -> typing.Dict:
     typing.Dict
         metadata from the given ID
     """
-
     _result_dict = _check_generic_ror(ror)
     if _result_dict:
         _result_dict["ror"] = ror
@@ -124,13 +168,13 @@ def _check_generic_ror(id: str) -> typing.Dict:
     typing.Dict
         metadata from the given ID
     """
-
     _url = f"{QUERY_URLS['ror']}{id}"
     _response = requests.get(_url)
 
     _result_dict: typing.Dict[str, typing.Any] = {}
 
     if _response.status_code != 200:
+        logger.debug(f"{_url} Responded with {_response.status_code}")
         return _result_dict
 
     if _response.json()["number_of_results"] == 0:
@@ -164,18 +208,25 @@ def check_id_permitted(identifier: str, retries: int = 5) -> bool:
         if valid identifier
     """
     _n_attempts = 0
+    fake_agent = False
 
     while _n_attempts < retries:
         try:
-            requests.get(identifier).raise_for_status()
+            requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
+            headers = {}
+            if fake_agent:
+                headers = {'User-Agent':str(UserAgent().chrome)} 
+            requests.get(identifier, verify = False, allow_redirects = True, headers = headers).raise_for_status()
             return True
         except (
             requests.exceptions.MissingSchema,
             requests.exceptions.HTTPError,
             requests.exceptions.ConnectionError,
-        ):
+        ) as e:
             _n_attempts += 1
-            time.sleep(1)
+            time.sleep(3)
+            fake_agent = True
+            logger.warning(f"Error identifier: '{identifier}' caused '{e}'")
             continue
 
     return False

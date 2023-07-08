@@ -42,6 +42,9 @@ import fair.utilities as fdp_util
 import ssl
 from requests.adapters import HTTPAdapter
 from urllib3.poolmanager import PoolManager
+from urllib3.exceptions import InsecureRequestWarning
+
+from fake_useragent import UserAgent
 
 logger = logging.getLogger("FAIRDataPipeline.Requests")
 
@@ -528,8 +531,8 @@ def download_file(url: str, chunk_size: int = 8192) -> str:
     _file = tempfile.NamedTemporaryFile(delete=False)
     _fname = _file.name
 
-    # Copy File if local (Windows fix)
-    if "file://" in url and platform.system() == "Windows":
+    # Copy File if local
+    if "file://" in url:
         _local_fname = url.replace("file://", "")
         try:
             shutil.copy2(_local_fname, _fname)
@@ -538,17 +541,16 @@ def download_file(url: str, chunk_size: int = 8192) -> str:
                 f"Failed to download file '{url}'"
                 f" due to connection error: {traceback.format_exc()}"
             ) from e
-
     else:
         try:
-            with urllib.request.urlopen(url) as response, open(
-                _fname, "wb"
-            ) as out_file:
-                shutil.copyfileobj(response, out_file)
-        except urllib.error.URLError as e:
+            requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
+            headers = {'User-Agent':str(UserAgent().chrome)}
+            response = requests.get(url, allow_redirects = True, verify = False, headers = headers)
+            open(_fname, 'wb').write(response.content)
+        except Exception as e:
             raise fdp_exc.FAIRCLIException(
                 f"Failed to download file '{url}'"
-                f" due to connection error: {e.reason}"
+                f" due to connection error: {traceback.format_exc()}"
             ) from e
 
     return _fname
@@ -571,7 +573,7 @@ def get_dependency_listing(uri: str, token: str, read_only: bool = False) -> typ
     """
     try:
         _registry_objs = url_get(uri, token)
-    except:
+    except Exception:
         return {[]}
 
     _rtn =  {

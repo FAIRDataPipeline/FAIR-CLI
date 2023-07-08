@@ -11,10 +11,11 @@ import glob
 import os
 import shutil
 import sys
-import tempfile
 import typing
 import uuid
+import platform
 from urllib.parse import urljoin
+from pathlib import Path
 
 import click.testing
 import git
@@ -30,7 +31,6 @@ from tests import conftest as conf
 
 LOCAL_REGISTRY_URL = "http://127.0.0.1:8000/api"
 
-
 @pytest.fixture
 def click_test():
     click_test = click.testing.CliRunner()
@@ -38,7 +38,6 @@ def click_test():
         _repo = git.Repo.init(os.getcwd())
         _repo.create_remote("origin", "git@notagit.com")
         yield click_test
-
 
 @pytest.mark.faircli_cli
 def test_status(
@@ -131,262 +130,245 @@ def test_create(
         assert _result.exit_code == 0
         assert os.path.exists(_out_config)
 
-
 @pytest.mark.faircli_cli
 def test_init_from_existing(
     local_registry: conf.RegistryTest,
     click_test: click.testing.CliRunner,
     mocker: pytest_mock.MockerFixture,
+    tmp_path,
+    pySimpleModel
 ):
     mocker.patch("fair.common.registry_home", lambda: local_registry._install)
 
     _out_config = os.path.join(os.getcwd(), fdp_com.USER_CONFIG_FILE)
 
-    with tempfile.TemporaryDirectory() as tempd:
-        _out_cli_config = os.path.join(tempd, "cli-config.yaml")
-        with local_registry:
-            _result = click_test.invoke(
-                cli,
-                [
-                    "init",
-                    "--debug",
-                    "--ci",
-                    "--registry",
-                    local_registry._install,
-                    "--config",
-                    _out_config,
-                    "--export",
-                    _out_cli_config,
-                ],
-            )
-            assert _result.exit_code == 0
-            assert os.path.exists(_out_cli_config)
-            assert os.path.exists(_out_config)
-            assert os.path.exists(
-                os.path.join(os.getcwd(), fdp_com.FAIR_FOLDER)
-            )
-
-            click_test = click.testing.CliRunner()
-            click_test.isolated_filesystem()
-
-            _result = click_test.invoke(
-                cli, ["init", "--debug", "--using", _out_cli_config]
-            )
-
+    tempd = tmp_path.__str__()
+    _out_cli_config = os.path.join(tempd, "cli-config.yaml")
+    with local_registry:
+        _result = click_test.invoke(
+            cli,
+            [
+                "init",
+                "--debug",
+                "--ci",
+                "--registry",
+                local_registry._install,
+                "--config",
+                _out_config,
+                "--export",
+                _out_cli_config,
+            ],
+        )
         assert _result.exit_code == 0
-
-        assert os.path.exists(os.path.join(os.getcwd(), fdp_com.FAIR_FOLDER))
-
+        assert os.path.exists(_out_cli_config)
+        assert os.path.exists(_out_config)
+        assert os.path.exists(
+            os.path.join(os.getcwd(), fdp_com.FAIR_FOLDER)
+        )
+        click_test = click.testing.CliRunner()
+        click_test.isolated_filesystem()
+        _result = click_test.invoke(
+            cli, ["init", "--debug", "--using", _out_cli_config]
+        )
+    assert _result.exit_code == 0
+    assert os.path.exists(os.path.join(os.getcwd(), fdp_com.FAIR_FOLDER))
 
 @pytest.mark.faircli_cli
 def test_init_from_env(
     local_registry: conf.RegistryTest,
     click_test: click.testing.CliRunner,
     mocker: pytest_mock.MockerFixture,
+    tmp_path,
+    pySimpleModel
 ):
     mocker.patch("fair.common.registry_home", lambda: local_registry._install)
 
-    _out_config = os.path.join(os.getcwd(), fdp_com.USER_CONFIG_FILE)
+    _out_config = os.path.normpath(os.path.join(os.getcwd(), fdp_com.USER_CONFIG_FILE))
 
-    with tempfile.TemporaryDirectory() as tempd:
-        _out_cli_config = os.path.join(tempd, "cli-config.yaml")
-        _env = os.environ.copy()
-        _env["FAIR_REGISTRY_DIR"] = local_registry._install
-        with local_registry:
-            _result = click_test.invoke(
-                cli,
-                [
-                    "init",
-                    "--debug",
-                    "--ci",
-                    "--config",
-                    _out_config,
-                    "--export",
-                    _out_cli_config,
-                ],
-                env=_env,
-            )
-            assert _result.exit_code == 0
-            assert os.path.exists(_out_cli_config)
-            assert os.path.exists(_out_config)
-            assert os.path.exists(
-                os.path.join(os.getcwd(), fdp_com.FAIR_FOLDER)
-            )
-
-            click_test = click.testing.CliRunner()
-            click_test.isolated_filesystem()
-
-            _result = click_test.invoke(
-                cli, ["init", "--debug", "--using", _out_cli_config]
-            )
-
+    tempd = tmp_path.__str__()
+    _out_cli_config = os.path.join(tempd, "cli-config.yaml")
+    _env = os.environ.copy()
+    _env["FAIR_REGISTRY_DIR"] = local_registry._install
+    with local_registry:
+        _result = click_test.invoke(
+            cli,
+            [
+                "init",
+                "--debug",
+                "--ci",
+                "--config",
+                _out_config,
+                "--export",
+                _out_cli_config,
+            ],
+            env=_env,
+        )
         assert _result.exit_code == 0
-
-        assert os.path.exists(os.path.join(os.getcwd(), fdp_com.FAIR_FOLDER))
-
+        assert os.path.exists(_out_cli_config)
+        assert os.path.exists(_out_config)
+        assert os.path.exists(
+            os.path.join(os.getcwd(), fdp_com.FAIR_FOLDER)
+        )
+        click_test = click.testing.CliRunner()
+        click_test.isolated_filesystem()
+        _result = click_test.invoke(
+            cli, ["init", "--debug", "--using", _out_cli_config]
+        )
+    assert _result.exit_code == 0
+    assert os.path.exists(os.path.join(os.getcwd(), fdp_com.FAIR_FOLDER))
 
 @pytest.mark.faircli_cli
 def test_init_full(
     local_registry: conf.RegistryTest,
     click_test: click.testing.CliRunner,
     mocker: pytest_mock.MockerFixture,
+    monkeypatch: pytest.MonkeyPatch,
+    pySimpleModel
 ):
-    mocker.patch("fair.common.registry_home", lambda: local_registry._install)
     mocker.patch(
         "fair.registry.server.update_registry_post_setup", lambda *args: None
     )
     with local_registry:
-        with tempfile.TemporaryDirectory() as tempd:
-            with open(os.path.join(tempd, "token"), "w") as tok_f:
-                tok_f.write("hjasdi324ji7823jdsf78234")
-            mocker.patch("fair.common.USER_FAIR_DIR", tempd)
-            _dummy_name = "Joseph Bloggs"
-            _dummy_email = "jbloggs@nowhere.com"
-            _args = [
-                "8007",
-                "",
-                "",
-                os.path.join(tempd, "token"),
-                "",
-                "",
-                _dummy_email,
-                "",
-                _dummy_name,
-                "",
-                "",
-                os.getcwd(),
-                "",
-            ]
-
-            click_test.invoke(
-                cli,
-                ["init", "--debug", "--registry", local_registry._install],
-                input="\n".join(_args),
-            )
-
-            assert os.path.exists(fair.common.global_config_dir())
-            assert os.path.exists(
-                os.path.join(os.getcwd(), fair.common.FAIR_FOLDER)
-            )
-
-            _cli_cfg = yaml.safe_load(
-                open(
-                    os.path.join(
-                        os.getcwd(), fair.common.FAIR_FOLDER, "cli-config.yaml"
-                    )
+        mocker.patch("fair.common.USER_FAIR_DIR", pySimpleModel)
+        _dummy_name = "Joseph Bloggs"
+        _dummy_email = "jbloggs@nowhere.com"
+        _args = [
+            "8007",
+            "",
+            "",
+            "0123456789012345678901234567890123456789",
+            "",
+            _dummy_email,
+            "NONE",
+            _dummy_name,
+            "",
+            "",
+            "FAIRDataPipeline",
+            pySimpleModel,
+            "",
+        ]
+        monkeypatch.chdir(pySimpleModel)
+        print(os.getcwd())
+        click_test.invoke(
+            cli,
+            ["init", "--debug", "--registry", local_registry._install],
+            input="\n".join(_args),
+        )
+        assert os.path.exists(fair.common.global_config_dir())
+        assert os.path.exists(
+            os.path.join(pySimpleModel, fair.common.FAIR_FOLDER)
+        )
+        _cli_cfg = yaml.safe_load(
+            open(
+                os.path.join(
+                    pySimpleModel, fair.common.FAIR_FOLDER, "cli-config.yaml"
                 )
             )
-
-            _cli_glob_cfg = yaml.safe_load(
-                open(
-                    os.path.join(
-                        fair.common.global_config_dir(), "cli-config.yaml"
-                    )
+        )
+        _cli_glob_cfg = yaml.safe_load(
+            open(
+                os.path.join(
+                    fair.common.global_config_dir(), "cli-config.yaml"
                 )
             )
-
-            _expected_url = fdp_com.DEFAULT_LOCAL_REGISTRY_URL.replace(
-                ":8000", ":8007"
-            )
-
-            assert _cli_cfg
-            assert _cli_cfg["git"]["local_repo"] == os.getcwd()
-            assert _cli_cfg["git"]["remote"] == "origin"
-            assert _cli_cfg["git"]["remote_repo"] == "git@notagit.com"
-            assert _cli_cfg["namespaces"]["input"] == "josephbloggs"
-            assert _cli_cfg["namespaces"]["output"] == "josephbloggs"
-            assert _cli_cfg["registries"]["origin"]["data_store"] == urljoin(
-                fair.common.DEFAULT_REGISTRY_DOMAIN, "data/"
-            )
-            assert _cli_cfg["registries"]["origin"]["uri"] == urljoin(
-                fair.common.DEFAULT_REGISTRY_DOMAIN, "api/"
-            )
-            assert _cli_glob_cfg["registries"]["local"]["uri"] == _expected_url
-            assert _cli_cfg["user"]["email"] == _dummy_email
-            assert _cli_cfg["user"]["family_name"] == "Bloggs"
-            assert _cli_cfg["user"]["given_names"] == "Joseph"
-            assert _cli_cfg["user"]["uuid"]
-
+        )
+        _expected_url = fdp_com.DEFAULT_LOCAL_REGISTRY_URL.replace(
+            ":8000", ":8007"
+        )
+        assert _cli_cfg
+        assert _cli_cfg["git"]["local_repo"] == pySimpleModel
+        assert _cli_cfg["git"]["remote"] == "origin"
+        assert _cli_cfg["git"]["remote_repo"] == "https://github.com/FAIRDataPipeline/pySimpleModel.git"
+        assert _cli_cfg["namespaces"]["input"] == "josephbloggs"
+        assert _cli_cfg["namespaces"]["output"] == "josephbloggs"
+        assert _cli_cfg["registries"]["origin"]["data_store"] == urljoin(
+            fair.common.DEFAULT_REGISTRY_DOMAIN, "data/"
+        )
+        assert _cli_cfg["registries"]["origin"]["uri"] == urljoin(
+            fair.common.DEFAULT_REGISTRY_DOMAIN, "api/"
+        )
+        assert _cli_glob_cfg["registries"]["local"]["uri"] == _expected_url
+        assert _cli_cfg["user"]["email"] == _dummy_email
+        assert _cli_cfg["user"]["family_name"] == "Bloggs"
+        assert _cli_cfg["user"]["given_names"] == "Joseph"
+        assert _cli_cfg["user"]["uuid"]
 
 @pytest.mark.faircli_cli
 def test_init_local(
     local_registry: conf.RegistryTest,
     click_test: click.testing.CliRunner,
     mocker: pytest_mock.MockerFixture,
+    monkeypatch: pytest.MonkeyPatch,
+    pySimpleModel
 ):
-    mocker.patch("fair.common.registry_home", lambda: local_registry._install)
-    mocker.patch(
-        "fair.registry.server.update_registry_post_setup", lambda *args: None
-    )
     with local_registry:
-        with tempfile.TemporaryDirectory() as tempd:
-            with open(os.path.join(tempd, "token"), "w") as tok_f:
-                tok_f.write("hjasdi324ji7823jdsf78234")
-            mocker.patch("fair.common.USER_FAIR_DIR", tempd)
-            _dummy_name = "Joseph Bloggs"
-            _dummy_email = "jbloggs@nowhere.com"
-            _args = [
-                "8000",
-                "",
-                "",
-                "",
-                _dummy_email,
-                "",
-                _dummy_name,
-                "",
-                "",
-                os.getcwd(),
-                "",
-            ]
+        mocker.patch(
+            "fair.registry.server.update_registry_post_setup", lambda *args: None
+        )
+        mocker.patch("fair.common.USER_FAIR_DIR", pySimpleModel)
+        _dummy_name = "Joseph Bloggs"
+        _dummy_email = "jbloggs@nowhere.com"
+        _args = [
+            "8000",
+            "",
+            _dummy_email,
+            "NONE",
+            _dummy_name,
+            "",
+            "",
+            pySimpleModel,
+            "",
+        ]
+        monkeypatch.chdir(pySimpleModel)
+        print(os.getcwd())
+        click_test.invoke(
+            cli,
+            ["init", "--debug", "--local", "--registry", local_registry._install],
+            input="\n".join(_args),
 
-            click_test.invoke(
-                cli,
-                ["init", "--debug", "--local"],
-                input="\n".join(_args),
-            )
-
-            assert os.path.exists(fair.common.global_config_dir())
-            assert os.path.exists(
-                os.path.join(os.getcwd(), fair.common.FAIR_FOLDER)
-            )
-
-            _cli_cfg = yaml.safe_load(
-                open(
-                    os.path.join(
-                        os.getcwd(), fair.common.FAIR_FOLDER, "cli-config.yaml"
-                    )
+        )
+        assert os.path.exists(fair.common.global_config_dir())
+        assert os.path.exists(
+            os.path.join(pySimpleModel, fair.common.FAIR_FOLDER)
+        )
+        _cli_cfg = yaml.safe_load(
+            open(
+                os.path.join(
+                    pySimpleModel, fair.common.FAIR_FOLDER, "cli-config.yaml"
                 )
             )
-
-            _cli_glob_cfg = yaml.safe_load(
-                open(
-                    os.path.join(
-                        fair.common.global_config_dir(), "cli-config.yaml"
-                    )
+        )
+        _cli_glob_cfg = yaml.safe_load(
+            open(
+                os.path.join(
+                    fair.common.global_config_dir(), "cli-config.yaml"
                 )
             )
-
-            _expected_url = "http://127.0.0.1:8000/api/"
-
-            assert _cli_cfg
-            assert _cli_cfg["git"]["local_repo"] == os.getcwd()
-            assert _cli_cfg["git"]["remote"] == "origin"
-            assert _cli_cfg["git"]["remote_repo"] == "git@notagit.com"
-            assert _cli_cfg["namespaces"]["input"] == "josephbloggs"
-            assert _cli_cfg["namespaces"]["output"] == "josephbloggs"
+        )
+        _expected_url = "http://127.0.0.1:8000/api/"
+        assert _cli_cfg
+        assert _cli_cfg["git"]["local_repo"] == pySimpleModel
+        assert _cli_cfg["git"]["remote"] == "origin"
+        assert _cli_cfg["git"]["remote_repo"] == "https://github.com/FAIRDataPipeline/pySimpleModel.git"
+        assert _cli_cfg["namespaces"]["input"] == "josephbloggs"
+        assert _cli_cfg["namespaces"]["output"] == "josephbloggs"
+        if platform.system() == "Windows":
+            assert (
+                _cli_cfg["registries"]["origin"]["data_store"]
+                == ".\\data_store\\"
+            )
+        else:
             assert (
                 _cli_cfg["registries"]["origin"]["data_store"]
                 == "./data_store/"
             )
-
-            assert _cli_cfg["registries"]["origin"]["uri"] == _expected_url
-
-            assert _cli_glob_cfg["registries"]["local"]["uri"] == _expected_url
-            assert _cli_cfg["user"]["email"] == _dummy_email
-            assert _cli_cfg["user"]["family_name"] == "Bloggs"
-            assert _cli_cfg["user"]["given_names"] == "Joseph"
-            assert _cli_cfg["user"]["uuid"]
-
+        assert _cli_cfg["registries"]["origin"]["uri"] == _expected_url
+        assert _cli_glob_cfg["registries"]["local"]["uri"] == _expected_url
+        assert _cli_cfg["user"]["email"] == _dummy_email
+        assert _cli_cfg["user"]["family_name"] == "Bloggs"
+        assert _cli_cfg["user"]["given_names"] == "Joseph"
+        assert _cli_cfg["user"]["github"] == "FAIRDataPipeline"
+        assert _cli_cfg["user"]["uuid"]
 
 @pytest.mark.faircli_cli
 def test_purge(
@@ -420,48 +402,43 @@ def test_purge(
         os.path.join(local_config[0], fdp_com.FAIR_FOLDER)
     )
 
-
 @pytest.mark.faircli_cli
 def test_registry_cli(
     local_config: typing.Tuple[str, str],
     click_test: click.testing.CliRunner,
     mocker: pytest_mock.MockerFixture,
+    tmp_path
 ):
     mocker.patch(
         "fair.common.global_config_dir", lambda *args: local_config[0]
     )
-    with tempfile.TemporaryDirectory() as tempd:
-        _reg_dir = os.path.join(tempd, "registry")
-        _result = click_test.invoke(
-            cli, ["registry", "install", "--directory", _reg_dir, "--debug"]
-        )
-
-        assert _result.exit_code == 0
-
-        _result = click_test.invoke(cli, ["registry", "start", "--debug"])
-        _registry_status_result = click_test.invoke(cli, ["registry", "status", "--debug"])
-
-        assert _result.exit_code == 0
-        assert _registry_status_result.exit_code == 0
-        assert "Server running at: http://127.0.0.1:8000/api/" in _registry_status_result.output
-        assert requests.get(LOCAL_REGISTRY_URL).status_code == 200
-
-        _result = click_test.invoke(cli, ["registry", "stop", "--debug"])
-        _registry_status_result = click_test.invoke(cli, ["registry", "status", "--debug"])
-
-        assert _result.exit_code == 0
-        assert _registry_status_result.exit_code == 0
-        assert "Server is not running" in _registry_status_result.output
-        with pytest.raises(requests.ConnectionError):
-            requests.get(LOCAL_REGISTRY_URL)
-
-        _result = click_test.invoke(
-            cli, ["registry", "uninstall", "--debug"], input="Y"
-        )
-
-        assert _result.exit_code == 0
-        assert not glob.glob(os.path.join(tempd, "*"))
-
+    tempd = tmp_path.__str__()
+    _reg_dir = os.path.join(tempd, "registry")
+    _result = click_test.invoke(
+        cli, ["registry", "install", "--directory", _reg_dir, "--debug"]
+    )
+    assert _result.exit_code == 0
+    _result = click_test.invoke(cli, ["registry", "start", "--debug"])
+    print(_result.exit_code)
+    assert _result.exit_code == 0
+    _registry_status_result = click_test.invoke(cli, ["registry", "status", "--debug"])
+    assert _registry_status_result.exit_code == 0
+    assert "Server running at: http://127.0.0.1:8000/api/" in _registry_status_result.output
+    assert requests.get(LOCAL_REGISTRY_URL).status_code == 200
+    _result = click_test.invoke(cli, ["registry", "stop", "--debug"])
+    assert _result.exit_code == 0
+    _registry_status_result = click_test.invoke(cli, ["registry", "status", "--debug"])
+    assert _registry_status_result.exit_code == 0
+    assert "Server is not running" in _registry_status_result.output
+    with pytest.raises(requests.ConnectionError):
+        requests.get(LOCAL_REGISTRY_URL)
+    _result = click_test.invoke(
+        cli, ["registry", "uninstall", "--debug"], input="Y"
+    )
+    assert _result.exit_code == 0
+    if platform.system() == "Windows":
+        tempd  = Path(f"{tempd}")
+    assert not glob.glob(os.path.join(tempd, "registry", "*"))
 
 def test_cli_run(
     local_config: typing.Tuple[str, str],
@@ -487,7 +464,6 @@ def test_cli_run(
         assert _result.output
 
         assert _result.exit_code == 0
-
 
 def test_cli_run_local(
     local_config: typing.Tuple[str, str],

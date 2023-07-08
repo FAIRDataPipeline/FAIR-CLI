@@ -50,6 +50,8 @@ jobs:
           ${GITHUB_WORKSPACE}/registry-rem/scripts/start_fair_registry -p 8001 -s drams.test-remote-settings
           # Copy the remote token
           cp ${GITHUB_WORKSPACE}/registry-rem/token $PWD/token
+          export DJANGO_SETTINGS_MODULE=drams.test-remote-settings
+          ${GITHUB_WORKSPACE}/registry-rem/venv/bin/python  ${GITHUB_WORKSPACE}/registry-rem/manage.py createsuperuser --username FAIRDataPipeline --noinput
         working-directory: pySimpleModel
       
       - name: Install the registry and init

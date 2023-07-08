@@ -22,6 +22,8 @@ import os
 import click
 import rich
 
+from pathlib import Path
+
 import fair.common as fdp_com
 import fair.exceptions as fdp_exc
 import fair.run as fdp_run
@@ -61,8 +63,10 @@ def show_job_log(repo_loc: str, job_id: str) -> str:
     str
         log file location for the given job
     """
+    _job_dir  = Path(f"{fdp_com.default_jobs_dir()}")
+
     _sorted_time_dirs = sorted(
-        glob.glob(os.path.join(fdp_com.default_jobs_dir(), "*")), reverse=True
+        glob.glob(os.path.join(_job_dir, "*")), reverse=True
     )
 
     _log_files = [
@@ -107,8 +111,10 @@ def show_history(repo_loc: str, length: int = 10) -> None:
         max number of entries to display, by default 10
     """
 
+    _job_dir  = Path(f"{fdp_com.default_jobs_dir()}")
+
     _sorted_time_dirs = sorted(
-        glob.glob(os.path.join(fdp_com.default_jobs_dir(), "*")), reverse=True
+        glob.glob(os.path.join(_job_dir, "*")), reverse=True
     )
 
     _log_files = [

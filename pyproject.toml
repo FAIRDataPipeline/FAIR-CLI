@@ -25,7 +25,7 @@ classifiers = [
 ]
 description = "Synchronization interface for the SCRC FAIR Data Pipeline registry"
 name = "fair-cli"
-version = "0.7.3"
+version = "0.8.0"
 
 homepage = "https://www.fairdatapipeline.org/"
 
@@ -64,28 +64,27 @@ semver = "^2.13.0"
 simplejson = "^3.17.5"
 toml = "^0.10.2"
 validators = "^0.18.2"
-netCDF4 = "^1.5.8"
+fake-useragent = "^1"
 
 [tool.poetry.dev-dependencies]
-bandit = "^1.7.2"
-black = "^22.1"
-coverage = "^6.3"
+bandit = "*"
+black = "*"
+coverage = "7.2.*"
 deepdiff = "^5.5.0"
-flake8 = "^3.9.2"
+flake8 = "*"
 isort = "^5.10.1"
-loremipsum = "^1.0.5"
 mypy = "^0.931"
 poetry = "^1.1.12"
-pre-commit = "^2.16.0"
+pre-commit = "^2.17.0"
 pycodestyle = "^2.7.0"
 pydocstyle = "^6.0.0"
 pylama = "^7.7.1"
-pytest = "^7.0.0"
-pytest-cov = "^4.0.0"
-pytest-dependency = "^0.5.1"
-pytest-mock = "^3.7.0"
-pytest-virtualenv = "^1.7.0"
-requests-mock = "^1.9.3"
+pytest = "*"
+pytest-cov = "*"
+pytest-dependency = "*"
+pytest-mock = "*"
+pytest-virtualenv = "*"
+requests-mock = "*"
 boto3 = "^1.24"
 moto = "^4.0.3"
 Flask = "^2.2.2"
@@ -96,7 +95,7 @@ fair = 'fair.cli:cli'
 
 [build-system]
 build-backend = "poetry.core.masonry.api"
-requires = ["poetry-core>=1.0.0"]
+requires = ["poetry>=1.0.0"]
 
 [tool.poetry.urls]
 "Issue Tracker" = "https://github.com/FAIRDataPipeline/FAIR-CLI/issues"

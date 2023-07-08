@@ -1,7 +1,7 @@
 import string
-import tempfile
 import typing
 import os
+import hashlib
 
 import pytest
 import pytest_mock
@@ -48,18 +48,18 @@ def test_store_working_config(
     local_config: typing.Tuple[str, str],
     local_registry: conf.RegistryTest,
     mocker: pytest_mock.MockerFixture,
+    tmp_path
 ):
     mocker.patch("fair.common.registry_home", lambda: local_registry._install)
     with local_registry:
-        with tempfile.NamedTemporaryFile(
-            mode="w+", suffix=".yaml", delete=False
-        ) as tempf:
+        temp_file_name = os.path.join(tmp_path, f'{hashlib.sha1(tmp_path.__str__().encode("utf-8")).hexdigest()}.yaml')
+        with open(temp_file_name, "w") as tempf:
             yaml.dump(
-                {"run_metadata": {"write_data_store": "data_store"}}, tempf
+                {"run_metadata": {"write_data_store": os.path.dirname(temp_file_name)}}, tempf
             )
 
         assert fdp_store.store_working_config(
-            local_config[1], LOCAL_URL, tempf.name, local_registry._token
+            local_config[1], LOCAL_URL, temp_file_name, local_registry._token
         )
 
 
@@ -68,23 +68,25 @@ def test_store_working_script(
     local_config: typing.Tuple[str, str],
     local_registry: conf.RegistryTest,
     mocker: pytest_mock.MockerFixture,
+    tmp_path
 ):
     mocker.patch("fair.common.registry_home", lambda: local_registry._install)
     with local_registry:
-        with tempfile.NamedTemporaryFile(
-            mode="w+", suffix=".yaml", delete=False
-        ) as tempf:
+        temp_file_name = os.path.join(tmp_path, f'{hashlib.sha1(tmp_path.__str__().encode("utf-8")).hexdigest()}.yaml')
+        with open(temp_file_name, "w") as tempf:
             yaml.dump(
-                {"run_metadata": {"write_data_store": "data_store"}}, tempf
+                {"run_metadata": {"write_data_store": os.path.dirname(temp_file_name)}}, tempf
             )
 
-        _temp_script = tempfile.NamedTemporaryFile(suffix=".sh", delete=False)
+        temp_script_name = os.path.join(tmp_path, f'{hashlib.sha1(tmp_path.__str__().encode("utf-8")).hexdigest()}.sh')
+        with open(temp_script_name, "w") as _temp_script:
+            _temp_script.write(string.ascii_letters)
 
         assert fdp_store.store_working_script(
             local_config[1],
             LOCAL_URL,
-            _temp_script.name,
-            tempf.name,
+            temp_script_name,
+            temp_file_name,
             local_registry._token,
         )
 
@@ -105,10 +107,9 @@ def test_store_namespace(
 
 
 @pytest.mark.faircli_storage
-def test_calc_file_hash():
-    with tempfile.NamedTemporaryFile(
-        mode="w+", suffix=".txt", delete=False
-    ) as tempf:
+def test_calc_file_hash(tmp_path):
+    temp_file_name = os.path.join(tmp_path, f'{hashlib.sha1(tmp_path.__str__().encode("utf-8")).hexdigest()}.txt')
+    with open(temp_file_name, "w") as tempf:
         tempf.write(string.ascii_letters)
     _HASH = "db16441c4b330570a9ac83b0e0b006fcd74cc32b"
     # Based on hash calculated at 2021-10-15

@@ -105,8 +105,7 @@ def status(verbose, debug) -> None:
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
         if e.level.lower() == "error":
-            if e.level.lower() == "error":
-                sys.exit(e.exit_code)
+            sys.exit(e.exit_code)
 
 @cli.group(invoke_without_command=True)
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
@@ -118,8 +117,10 @@ def list(ctx, debug, remote) -> None:
         ctx.obj = {}
     ctx.obj['DEBUG'] = debug
     ctx.obj['REMOTE'] = remote
-    ctx.invoke(data_products)
-    ctx.invoke(code_runs)
+    _current_args = " ".join(sys.argv)
+    if not ("data-products" in _current_args or "code-runs" in _current_args):
+        ctx.invoke(data_products)
+        ctx.invoke(code_runs)
 
 @list.command()
 @click.pass_context
@@ -161,7 +162,7 @@ def create(debug, output: str) -> None:
         if output
         else os.path.join(os.getcwd(), fdp_com.USER_CONFIG_FILE)
     )
-    click.echo(f"Generating new user configuration file" f" '{output}'")
+    click.echo(f"Generating new user configuration file '{output}'")
     with fdp_session.FAIR(os.getcwd(), debug=debug) as fair_session:
         fair_session.make_starter_config(output)
 
@@ -527,6 +528,7 @@ def run(
 ):
     """Initialises a job with the option to specify a bash command"""
     # Allow no config to be specified, if that is the case use default local
+    click.echo("Running run please wait")
     config = config[0] if config else fdp_com.local_user_config(os.getcwd())
     try:
         with fdp_session.FAIR(
@@ -636,6 +638,7 @@ def modify(ctx, label: str, url: str, debug: bool) -> None:
 )
 def push(remote: str, debug: bool, dirty: bool):
     """Push data between the local and remote registry"""
+    click.echo("Running push please wait")
     remote = remote[0] if remote else "origin"
     try:
         with fdp_session.FAIR(
@@ -679,6 +682,7 @@ def config_email(user_email: str) -> None:
 )
 def pull(config: str, debug: bool, local: bool):
     """Update local registry from remotes and sources"""
+    click.echo("Running pull please wait")
     config = config[0] if config else fdp_com.local_user_config(os.getcwd())
     try:
         with fdp_session.FAIR(

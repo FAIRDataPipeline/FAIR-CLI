@@ -211,7 +211,7 @@ class FAIR:
                 click.echo(f"Removing directory '{_root_dir}'")
             if platform.system() == "Windows":
                 fdp_com.set_file_permissions(_root_dir)
-            shutil.rmtree(_root_dir)
+            shutil.rmtree(_root_dir, onerror=fdp_com.remove_readonly)
         if clear_all:
             try:
                 if fdp_serv.check_server_running():
@@ -225,7 +225,7 @@ class FAIR:
                 click.echo(f"Removing directory '{fdp_com.USER_FAIR_DIR}'")
             if platform.system() == "Windows":
                 fdp_com.set_file_permissions(fdp_com.USER_FAIR_DIR)
-            shutil.rmtree(fdp_com.USER_FAIR_DIR)
+            shutil.rmtree(fdp_com.USER_FAIR_DIR, onerror=fdp_com.remove_readonly)
             return
         if clear_data:
             try:
@@ -236,7 +236,7 @@ class FAIR:
                 if os.path.exists(fdp_com.default_data_dir()):
                     if platform.system() == "Windows":
                         fdp_com.set_file_permissions(fdp_com.default_data_dir())
-                    shutil.rmtree(fdp_com.default_data_dir())
+                    shutil.rmtree(fdp_com.default_data_dir(), onerror=fdp_com.remove_readonly)
             except FileNotFoundError as e:
                 raise fdp_exc.FileNotFoundError(
                     "Cannot remove local data store, a global CLI configuration "
@@ -252,7 +252,7 @@ class FAIR:
             if os.path.exists(_global_dirs):
                 if platform.system() == "Windows":
                         fdp_com.set_file_permissions(_global_dirs)
-                shutil.rmtree(_global_dirs)
+                shutil.rmtree(_global_dirs, onerror=fdp_com.remove_readonly)
 
     def _setup_server(self, port: int, address: str) -> None:
         """Start or stop the server if required"""
@@ -360,7 +360,7 @@ class FAIR:
         if fdp_serv.check_server_running():
             click.echo(f'Server running at: {fdp_conf.get_local_uri()}')
         else:
-            click.echo(f'Server is not running')
+            click.echo('Server is not running')
 
     def push(self, remote: str = "origin"):
         self._pre_job_setup(remote)
@@ -381,6 +381,27 @@ class FAIR:
         if not _staged_code_runs:
             click.echo("No Staged Code Runs to Push.")
 
+        remote_author_url = fdp_sync.sync_author(
+            origin_uri=fdp_conf.get_local_uri(),
+            dest_uri=fdp_conf.get_remote_uri(self._session_loc, remote),
+            dest_token=fdp_conf.get_remote_token(
+                self._session_loc, remote, local=self._local
+            ),
+            origin_token=fdp_req.local_token(),
+            identifier= fdp_conf.get_current_user_uri(self._session_loc)
+        )
+
+        fdp_sync.sync_user_author(
+            origin_uri=fdp_conf.get_local_uri(),
+            dest_uri=fdp_conf.get_remote_uri(self._session_loc, remote),
+            dest_token=fdp_conf.get_remote_token(
+                self._session_loc, remote, local=self._local
+            ),
+            origin_token=fdp_req.local_token(),
+            author_url = remote_author_url,
+            github = fdp_conf.get_current_user_github(self._session_loc)
+        )
+
         fdp_sync.sync_code_runs(
             origin_uri=fdp_conf.get_local_uri(),
             dest_uri=fdp_conf.get_remote_uri(self._session_loc, remote),
@@ -390,6 +411,7 @@ class FAIR:
             origin_token=fdp_req.local_token(),
             remote_label=remote,
             code_runs=_staged_code_runs,
+            remote_author_url = remote_author_url
         )
 
         fdp_sync.sync_data_products(
@@ -401,6 +423,7 @@ class FAIR:
             origin_token=fdp_req.local_token(),
             remote_label=remote,
             data_products=_staged_data_products,
+            remote_author_url = remote_author_url
         )
 
         self._session_config.write_log_lines(
@@ -897,7 +920,7 @@ class FAIR:
                     params={"uuid": uuid})
                 if _remote_code_run:
                     return _remote_code_run[0]["description"]
-        except Exception as e:
+        except Exception:
             pass
         return "Unknown"
 
@@ -943,7 +966,7 @@ class FAIR:
                 if _remote_code_runs:
                     for _remote_code_run in _remote_code_runs:
                         _code_run_uuids.append(_remote_code_run["uuid"])
-            except Exception as e:
+            except Exception:
                 self._logger.warning("Could not Fetch from a remote registry")
                 self._logger.debug(f'{traceback.format_exc()}')
         _code_run_uuids = list(set(_code_run_uuids))
@@ -969,7 +992,7 @@ class FAIR:
                     for remote_data_product in _remote_data_products:
                         _namespace_name = fdp_req.url_get(remote_data_product["namespace"], fdp_conf.get_remote_token(self._session_loc, remote, local=self._local))["name"]
                         _data_products.append(f'{_namespace_name}:{remote_data_product["name"]}@v{remote_data_product["version"]}')
-            except Exception as e:
+            except Exception:
                 self._logger.warning("Could not Fetch from a remote registry")
                 self._logger.debug(f'{traceback.format_exc()}')
         _data_products = list(set(_data_products))
@@ -1084,7 +1107,7 @@ class FAIR:
         using: typing.Dict = None,
         registry: str = None,
         export_as: str = None,
-        local: bool = False,
+        local: bool = False
     ) -> None:
         """Initialise an fair repository within the current location
 
@@ -1100,21 +1123,26 @@ class FAIR:
         _first_time = not os.path.exists(fdp_com.global_fdpconfig())
 
         if self._testing:
+            if os.path.exists(_fair_dir):
+                if platform.system() == "Windows":
+                    fdp_com.set_file_permissions(_fair_dir)
+                shutil.rmtree(_fair_dir, onerror=fdp_com.remove_readonly)
             using = fdp_test.create_configurations(
                 registry,
                 fdp_com.find_git_root(os.getcwd()),
                 os.getcwd(),
-                os.path.join(os.getcwd(), "data_store"),
+                os.path.join(os.getcwd(), ".fair"),
             )
 
-        if os.path.exists(_fair_dir):
+        if os.path.exists(_fair_dir) and not self._testing:
             if export_as:
                 self._export_cli_configuration(export_as)
                 return
-            click.echo("FAIR repository is already initialised.")
-            return
+            else:
+                click.echo("FAIR repository is already initialised.")
+                return
 
-        if _existing := fdp_com.find_fair_root(self._session_loc):
+        if _existing := fdp_com.find_fair_root(self._session_loc) and not self._testing:
             click.echo(
                 "A FAIR repository was initialised for this location at"
                 f" '{_existing}'"
@@ -1129,8 +1157,8 @@ class FAIR:
                 "Initialising FAIR repository, setup will now ask for basic info (leave blank for default value):\n"
             )
 
-        if not os.path.exists(_fair_dir):
-            os.mkdir(_fair_dir)
+        if not os.path.exists(_fair_dir) or self._testing:
+            os.makedirs(_fair_dir, exist_ok=True)
             os.makedirs(fdp_com.session_cache_dir(), exist_ok=True)
             if using:
                 self._validate_and_load_cli_config(using)
@@ -1138,12 +1166,14 @@ class FAIR:
 
         if not os.path.exists(fdp_com.global_fdpconfig()):
             try:
+                click.echo("Setup will now ask you questions regarding the global configuration")
                 self._global_config = fdp_conf.global_config_query(
                     registry, local
                 )
             except (fdp_exc.CLIConfigurationError, click.Abort) as e:
                 self._clean_reset(_fair_dir, e)
             try:
+                click.echo("Setup will now ask you questions regarding this repo configuration")
                 self._local_config = fdp_conf.local_config_query(
                     self._global_config,
                     first_time_setup=_first_time,
@@ -1153,6 +1183,7 @@ class FAIR:
                 self._clean_reset(_fair_dir, e, True)
         elif not using:
             try:
+                click.echo("Setup will now ask you questions regarding this repo configuration")
                 self._local_config = fdp_conf.local_config_query(
                     self._global_config, local=local
                 )
@@ -1164,7 +1195,9 @@ class FAIR:
             with open(fdp_com.global_fdpconfig(), "w") as f:
                 yaml.dump(self._global_config, f)
         else:
+            click.echo("Setup will now ask you questions regarding the global configuration")
             self._global_config = fdp_conf.read_global_fdpconfig()
+            click.echo("Setup will now ask you questions regarding this repo configuration")
             self._local_config = fdp_conf.read_local_fdpconfig(
                 self._session_loc
             )
@@ -1172,7 +1205,7 @@ class FAIR:
         if export_as:
             self._export_cli_configuration(export_as)
 
-        fdp_serv.update_registry_post_setup(self._session_loc, _first_time)
+        fdp_serv.update_registry_post_setup(self._session_loc, _first_time, registry)
         try:
             fdp_clivalid.LocalCLIConfig(**self._local_config)
         except pydantic.ValidationError as e:
@@ -1203,12 +1236,12 @@ class FAIR:
         if not local_only:
             if platform.system() == "Windows":
                 fdp_com.set_file_permissions(fdp_com.session_cache_dir())
-                fdp_com.set_file_permissions(fdp_com.fdp_com.global_config_dir())
-            shutil.rmtree(fdp_com.session_cache_dir(), ignore_errors=True)
-            shutil.rmtree(fdp_com.global_config_dir(), ignore_errors=True)
+                fdp_com.set_file_permissions(fdp_com.global_config_dir())
+            shutil.rmtree(fdp_com.session_cache_dir(), onerror=fdp_com.remove_readonly)
+            shutil.rmtree(fdp_com.global_config_dir(), onerror=fdp_com.remove_readonly)
         if platform.system() == "Windows":
             fdp_com.set_file_permissions(_fair_dir)
-        shutil.rmtree(_fair_dir)
+        shutil.rmtree(_fair_dir, onerror=fdp_com.remove_readonly)
         if e:
             raise e
 
@@ -1271,7 +1304,7 @@ class FAIR:
                     "Expected key 'directory' for local registry in CLI configuration"
                 )
 
-        _user_keys = ["email", "family_name", "given_names", "orcid", "uuid"]
+        _user_keys = ["email", "family_name", "given_names", "uuid", "github"]
 
         for key in _user_keys:
             if key not in cli_config["user"]:
@@ -1280,9 +1313,9 @@ class FAIR:
                     f"Expected key 'user:{key}' in CLI configuration file"
                 )
 
-        if not cli_config["user"]["orcid"] and not cli_config["user"]["uuid"]:
+        if not cli_config["user"]["github"] and not cli_config["user"]["uuid"]:
             raise fdp_exc.CLIConfigurationError(
-                "At least one of 'user:orcid' and 'user:uuid' must be provided "
+                "At least one of 'user:github' and 'user:uuid' must be provided "
                 " in CLI configuration"
             )
 
