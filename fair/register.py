@@ -25,6 +25,7 @@ import os
 import platform
 import shutil
 import typing
+
 import urllib.parse
 
 import fair.exceptions as fdp_exc
@@ -32,6 +33,7 @@ import fair.registry.requests as fdp_req
 import fair.registry.storage as fdp_store
 import fair.registry.sync as fdp_sync
 import fair.registry.versioning as fdp_ver
+import fair.identifiers as fdp_id
 from fair.registry import SEARCH_KEYS
 
 logger = logging.getLogger("FAIRDataPipeline.Register")
@@ -108,7 +110,6 @@ def fetch_registrations(
     _stored_objects: typing.List[str] = []
 
     for entry in user_config_register:
-        logger.debug(f"entry {entry}")
 
         if "external_object" in entry:
             _expected_keys = _expected_keys_external_object
@@ -267,6 +268,9 @@ def fetch_registrations(
 
         data = copy.deepcopy(entry)
 
+        if "authors" in entry:
+            data["authors"] = fetch_authors(local_uri, entry["authors"])
+
         data["namespace_name"] = entry["use"]["namespace"]
 
         logger.info(f"Registering: {_name}")
@@ -284,3 +288,48 @@ def fetch_registrations(
         _stored_objects.append(_file_url)
 
     return _stored_objects
+
+def fetch_authors(local_uri, authors):
+    _authors = []    
+    if type(authors) is not list:
+        authors = [authors]
+    for author_url in authors:
+        _valid_keys = ["orcid", "github", "ror"]
+        _id_system = None
+        _author_url = str(author_url).lower().strip()
+        _author = []
+        for _key in _valid_keys:
+            if _key in _author_url:
+                _id_system = _key
+        if not _id_system:
+            raise fdp_exc.CLIConfigurationError(f"{_author_url} is not a valid identifier URL")
+        if not fdp_id.check_id_permitted(_author_url):
+            raise fdp_exc.CLIConfigurationError(f"{_author_url} is not a valid URL")
+        _author_id = fdp_id.strip_identifier(_author_url)
+        logger.debug(f"checking author: {_author_id} is a valid {_id_system} URL")
+        if not _author_id:
+            raise fdp_exc.CLIConfigurationError(f"{_author_url} is not a recognised identifier")
+        if _id_system == "orcid":
+            _author = fdp_id.check_orcid(_author_id)
+        elif _id_system == "ror":
+            _author = fdp_id.check_ror(_author_id)
+        elif _id_system == "github":
+            _author = fdp_id.check_github(_author_id)
+        if _author:
+            _authors.append(_author)
+        else:
+            raise fdp_exc.CLIConfigurationError(f"{_author_id} is not a recognised {_id_system}")
+    return _post_authors(local_uri, _authors)
+
+def _post_authors(local_uri, authors):
+    _author_urls = []
+    for _author in authors:
+        _data = {}
+        _search_keys = {}
+        if "name" in _author:
+            _data["name"] = _search_keys["name"] = _author["name"]
+        if "uri" in _author:
+            _data["identifier"] = _search_keys["identifier"] = _author["uri"]
+        _author_url = fdp_req.post_else_get(local_uri, "author", fdp_req.local_token(), _data, _search_keys)
+        _author_urls.append(_author_url)
+    return _author_urls

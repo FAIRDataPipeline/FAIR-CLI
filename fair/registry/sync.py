@@ -328,8 +328,18 @@ def _get_new_url(
             _new_obj_data["storage_root"] = _remote_storage_root_url
             _filters["storage_root"] = fdp_req.get_obj_id_from_url(_remote_storage_root_url)
 
-    if remote_author_url and _obj_type == "object":
-        _new_obj_data["authors"] = _filters["authors"] = [remote_author_url]
+    # if remote_author_url and _obj_type == "object":
+    #     _new_obj_data["authors"] = _filters["authors"] = [remote_author_url]
+
+    if _obj_type == "author":
+        if "identifier" in _new_obj_data:
+            _author = fdp_req.get(
+                dest_uri,
+                "author",
+                dest_token,
+                params={"identifier": _new_obj_data['identifier']})
+            if _author:
+                return _author[0]["url"]
 
     return fdp_req.post_else_get(
         dest_uri,
@@ -353,7 +363,7 @@ def sync_author(
         params= {"identifier": identifier}
     )
     if not current_author:
-        raise fdp_exc.RegistryError(f"No author matching {name}, on local registry", "Have you run fair init?")
+        raise fdp_exc.RegistryError(f"No author matching {identifier}, on local registry", "Have you run fair init?")
     current_author_url = current_author[0]['url']
     new_urls = sync_dependency_chain(
         current_author_url,
@@ -363,10 +373,10 @@ def sync_author(
         origin_token
         )
     if not new_urls:
-        raise fdp_exc.RegistryError(f"Auther {name}, could not be pushed to {dest_uri}")
+        raise fdp_exc.RegistryError(f"Auther {identifier}, could not be pushed to {dest_uri}")
     new_author_url = new_urls[current_author_url]
     if not new_author_url:
-        raise fdp_exc.RegistryError(f"Auther {name}, was not be pushed to {dest_uri}")
+        raise fdp_exc.RegistryError(f"Auther {identifier}, was not be pushed to {dest_uri}")
     return new_author_url
 
 def sync_user_author(
