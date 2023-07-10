@@ -180,7 +180,9 @@ def create_file_type(uri: str, extension: str, token: str) -> str:
     str
         URI for created file type
     """
-    _name = fdp_file.FILE_TYPES[extension]
+    _name = extension
+    if extension in fdp_file.FILE_TYPES:
+        _name = fdp_file.FILE_TYPES[extension]
 
     logger.debug("Adding file type '%s' with extension '%s'", _name, extension)
 
