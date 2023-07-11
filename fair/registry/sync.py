@@ -331,6 +331,28 @@ def _get_new_url(
     # if remote_author_url and _obj_type == "object":
     #     _new_obj_data["authors"] = _filters["authors"] = [remote_author_url]
 
+    if _obj_type == "object":
+        _new_author_urls = []
+        _filters["authors"] = []
+        _tmp_obj = fdp_req.url_get(object_url, origin_token)
+        if "authors" in _tmp_obj:
+            for _author_url in _tmp_obj["authors"]:
+                _new_author_urls.append(sync_dependency_chain(
+                    _author_url,
+                    dest_uri,
+                    origin_uri,
+                    dest_token,
+                    origin_token,
+                    local_data_store,
+                    public,
+                    remote_author_url
+                ))
+        for _new_author_dict in _new_author_urls:
+            for _new_author_url in _new_author_dict.values():
+                if "author" in _new_author_url:
+                    _new_obj_data["authors"].append(_new_author_url)
+                    _filters["authors"].append(fdp_req.get_obj_id_from_url(_new_author_url))
+
     if _obj_type == "author":
         if "identifier" in _new_obj_data:
             _author = fdp_req.get_author_exists(
