@@ -474,10 +474,7 @@ def sync_data_products(
                     "version": version.replace("v", ""),
                 },
             ) and not force:
-                click.echo(
-                    f"Data product '{data_product}' already present "
-                    f"on remote '{remote_label}', ignoring.",
-                )
+                logger.debug(f"Data product '{data_product}' already present on remote '{remote_label}', ignoring.")
                 continue
 
         # Convert namespace name to an ID for retrieval
@@ -562,7 +559,7 @@ def sync_data_products(
                     dest_component_url = get_dest_component_url(origin_component_url, dest_uri, dest_token, origin_token)
                     dest_inputs = get_dest_inputs(origin_output_code_run["inputs"], origin_uri, dest_uri, dest_token, origin_token, remote_label, force, remote_author_url)
                     sync_code_run(origin_uri, dest_uri, dest_token, origin_token, origin_output_code_run["uuid"], inputs= dest_inputs, outputs= [dest_component_url], remote_author_url = remote_author_url)
-                    
+        logger.info(f"Synced Data Product: {data_product}")
 def get_dest_component_url(
     origin_component_url: str,
     dest_uri: str,
@@ -707,6 +704,7 @@ def sync_code_runs(
                 _dest_outputs += _dest_object["components"]
         logger.debug(f'attempting to sync coderun {code_run_uuid} with inputs {_dest_inputs} and outputs {_dest_outputs}')
         sync_code_run(origin_uri, dest_uri, dest_token, origin_token, code_run_uuid, _dest_inputs, _dest_outputs, remote_author_url = remote_author_url)
+        logger.info(f"Synced Code Run: {code_run_uuid}")
 
 # Internal function to return the (remote) object associated with a code_run field containing and object url
 def get_dest_object_url(
