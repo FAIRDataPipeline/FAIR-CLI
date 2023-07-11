@@ -700,7 +700,7 @@ def calculate_file_hash(file_name: str, buffer_size: int = 64 * 1024) -> str:
     # If the file is large we do not want to hash it in one go
     _input_hasher = hashlib.sha1()
 
-    with open(file_name, encoding='utf-8', mode= "rb") as in_f:
+    with open(file_name, mode= "rb") as in_f:
         _buffer = in_f.read(buffer_size)
         while len(_buffer) > 0:
             _input_hasher.update(_buffer)

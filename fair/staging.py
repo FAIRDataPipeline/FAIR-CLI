@@ -88,7 +88,7 @@ class Stager:
 
     def reset_staged(self) -> None:
         """Change staging state of all items to unstaged"""
-        _staging_dict = yaml.safe_load(open(self._staging_file), encoding='utf-8')
+        _staging_dict = yaml.safe_load(open(self._staging_file, encoding='utf-8'))
         for obj_type in _staging_dict:
             for item in _staging_dict[obj_type]:
                 _staging_dict[obj_type][item] = False
@@ -250,7 +250,7 @@ class Stager:
 
         if (
             os.path.exists(_code_run_file)
-            and open(_code_run_file).read().strip()
+            and open(_code_run_file, encoding='utf-8').read().strip()
         ):
             self._logger.debug("Found coderuns file, extracting runs")
             _runs = [i.strip() for i in open(_code_run_file, encoding='utf-8').readlines()]
