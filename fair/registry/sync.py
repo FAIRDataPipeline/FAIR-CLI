@@ -340,14 +340,6 @@ def _get_new_url(
             )
             if _author:
                 return _author
-        if "name" in _new_obj_data:
-            _author = fdp_req.get_author_exists(
-                dest_uri,
-                token= dest_token,
-                name= _new_obj_data['name']
-            )
-            if _author:
-                return _author
 
     return fdp_req.post_else_get(
         dest_uri,
