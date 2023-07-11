@@ -81,7 +81,7 @@ def local_token(registry_dir: str = None) -> str:
             hint="Try creating the file by manually starting the registry "
             "by running 'fair registry start'",
         )
-    _file_lines = open(_local_token_file).readlines()
+    _file_lines = open(_local_token_file, encoding='utf-8').readlines()
 
     if not _file_lines:
         raise fdp_exc.FileNotFoundError(
@@ -507,7 +507,7 @@ def put_file(upload_url: str, file_loc: str) -> bool:
         bool: Will return True if the upload succeeded.
     """
     s = requests.Session()
-    _req = s.put(upload_url, data= open(file_loc,'rb').read())
+    _req = s.put(upload_url, data= open(file_loc, mode='rb').read())
     if _req.status_code not in [200, 201]:
         raise fdp_exc.RegistryError(f"File: {file_loc} could not be uploaded, Registry Returned: {_req.status_code}")
     return True
@@ -546,7 +546,7 @@ def download_file(url: str, chunk_size: int = 8192) -> str:
             requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
             headers = {'User-Agent':str(UserAgent().chrome)}
             response = requests.get(url, allow_redirects = True, verify = False, headers = headers)
-            open(_fname, 'wb').write(response.content)
+            open(_fname, mode= 'wb').write(response.content)
         except Exception as e:
             raise fdp_exc.FAIRCLIException(
                 f"Failed to download file '{url}'"

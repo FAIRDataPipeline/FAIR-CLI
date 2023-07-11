@@ -52,7 +52,7 @@ def create_configurations(
     if tokenless:
         _token = "t35tt0k3n"
         _token_file = os.path.join(registry_dir, "token.txt")
-        with open(_token_file, "w") as out_f:
+        with open(_token_file, encoding='utf-8', mode= "w") as out_f:
             out_f.write(_token)
 
     if not local_git_dir:

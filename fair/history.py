@@ -81,7 +81,7 @@ def show_job_log(repo_loc: str, job_id: str) -> str:
         _job_id = fdp_run.get_job_hash(job_dir)
 
         if _job_id[: len(job_id)] == job_id:
-            with open(_log_file) as f:
+            with open(_log_file, encoding='utf-8') as f:
                 click.echo(f.read())
             _jobs_list = os.path.join(job_dir, "coderuns.txt")
 
@@ -90,7 +90,7 @@ def show_job_log(repo_loc: str, job_id: str) -> str:
             if os.path.exists(_jobs_list):
                 click.echo("Related Code Runs: ")
                 click.echo(
-                    "\t- " + "\n\t- ".join(open(_jobs_list).readlines())
+                    "\t- " + "\n\t- ".join(open(_jobs_list, encoding='utf-8').readlines())
                 )
 
             return _log_file
@@ -133,7 +133,7 @@ def show_history(repo_loc: str, length: int = 10) -> None:
             raise fdp_exc.FileNotFoundError(
                 f"Cannot open log for job '{_job_id}'"
             )
-        with open(_log_file) as f:
+        with open(_log_file, encoding='utf-8') as f:
             _log_lines = f.readlines()
             _metadata = []
             for line in _log_lines:

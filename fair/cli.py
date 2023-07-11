@@ -60,7 +60,7 @@ def complete_data_products(ctx, param, incomplete) -> typing.List[str]:
     _staging_file = fdp_com.staging_cache(os.getcwd())
     if not os.path.exists(_staging_file):
         return []
-    _staging_data = yaml.safe_load(open(_staging_file))
+    _staging_data = yaml.safe_load(open(_staging_file, encoding='utf-8'))
     _candidates = list(_staging_data["data_product"].keys())
     return [
         click.shell_completion.CompletionItem(c)
@@ -235,7 +235,7 @@ def init(
                         f"Cannot load CLI configuration from file '{using}', "
                         "file does not exist."
                     )
-                _use_dict = yaml.safe_load(open(using))
+                _use_dict = yaml.safe_load(open(using, encoding='utf-8'))
 
             fair_session.initialise(
                 using=_use_dict,

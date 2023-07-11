@@ -17,9 +17,9 @@ import jinja2
 templates_dir = os.path.dirname(__file__)
 
 config_template = jinja2.Template(
-    open(os.path.join(templates_dir, "config.jinja")).read()
+    open(os.path.join(templates_dir, "config.jinja"), encoding='utf-8').read()
 )
 
 hist_template = jinja2.Template(
-    open(os.path.join(templates_dir, "hist.jinja")).read()
+    open(os.path.join(templates_dir, "hist.jinja"), encoding='utf-8').read()
 )
