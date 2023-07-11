@@ -13,7 +13,8 @@ register:
   path: test1.csv
   file_type: csv
   version: "1.0.0"
-
+  authors: |
+    https://github.com/FAIRDataPipeline
 - data_product: Namespace/test/use/namespace
   root: <TEST_DATA_DIR>
   path: test2.csv
@@ -21,14 +22,16 @@ register:
   version: "1.0.0"
   use:
     namespace: PSU
-  
+  authors: |
+    https://orcid.org/0000-0002-4424-9890
 - data_product: Namespace/test/namespace/name
   root: <TEST_DATA_DIR>
   path: test3.csv
   file_type: csv
   version: "1.0.0"
   namespace_name: TestNameSpace
-
+  authors: |
+    https://ror.org/04v2xmd71
 - data_product: Namespace/test/use/namespace/unregistered
   root: <TEST_DATA_DIR>
   path: test4.csv

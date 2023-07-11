@@ -642,6 +642,8 @@ def _get_user_info_and_namespaces(local: bool = False) -> typing.Dict[str, typin
             _user_uuid = str(uuid.uuid4())
             _user_info["uuid"] = _user_uuid
             _invalid_input = False
+        else:
+            click.echo("Type a valid ID system: GITHUB/ORCID/ROR/GRID/None")
 
     _def_ospace = _def_ospace.lower().replace(" ", "").strip()
     _def_ospace = click.prompt("Default output namespace", default=_def_ospace)

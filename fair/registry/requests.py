@@ -627,3 +627,24 @@ def get_obj_type_from_url(request_url: str, token: str) -> str:
         if obj_type in request_url:
             return obj_type
     return ""
+
+
+def get_author_exists(registry_uri, token = None, name = None, identifier = None):
+    if not name and not identifier:
+        return {}
+    if not token:
+        token = local_token()
+    _params = {}
+    if name:
+        _params["name"] = name
+    if identifier:
+        _params["identifier"] = identifier
+    _author_exists = get(
+        registry_uri, 
+        "author",
+        token,
+        params= _params
+    )
+    if _author_exists:
+        return _author_exists[0]["url"]
+    return {}

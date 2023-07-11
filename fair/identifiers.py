@@ -101,6 +101,11 @@ def check_github(github: str) -> typing.Dict:
 
     _result_dict: typing.Dict[str, typing.Any] = {}
 
+    if _response.status_code == 403:
+        time.sleep(3)
+        _header = {"Accept": "application/json", 'User-Agent':str(UserAgent().chrome)}
+        _response = requests.get(_url, headers=_header, verify = False, allow_redirects = True)
+
     if _response.status_code != 200:
         logger.debug(f"{_url} Responded with {_response.status_code}")
         return _result_dict
@@ -230,3 +235,11 @@ def check_id_permitted(identifier: str, retries: int = 5) -> bool:
             continue
 
     return False
+
+def strip_identifier(identifier):
+    _url_parse = urllib.parse.urlparse(identifier.strip())
+    if _url_parse:
+        _url_split = _url_parse[2].rpartition('/')
+        if _url_split:
+            return _url_split[2]
+    return ""
