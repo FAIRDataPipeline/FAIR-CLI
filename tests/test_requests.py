@@ -58,6 +58,54 @@ def test_post(
         )
         assert _result["url"]
 
+@pytest.mark.faircli_requests
+@pytest.mark.dependency(name="get_author_exists", depends=["post"])
+def test_get_author_exists(
+    local_registry: conf.RegistryTest, mocker: pytest_mock.MockerFixture
+):
+    mocker.patch("fair.common.registry_home", lambda: local_registry._install)
+    _name = "Joseph Bloggs"
+    _orcid = "https://orcid.org/0000-0000-0000-0000"
+    with local_registry:
+        _author_exists = fdp_req.get_author_exists(
+            LOCAL_URL,
+            local_registry._token,
+            name = _name
+        )
+        assert _author_exists
+        _author_exists = fdp_req.get_author_exists(
+            LOCAL_URL,
+            local_registry._token,
+            identifier = _orcid
+        )
+        assert _author_exists
+        _author_exists = fdp_req.get_author_exists(
+            LOCAL_URL,
+            local_registry._token,
+            name = _name,
+            identifier = _orcid
+        )
+        assert _author_exists
+        _author_does_not_exists = fdp_req.get_author_exists(
+            LOCAL_URL,
+            local_registry._token
+        )
+        assert not _author_does_not_exists
+        _author_does_not_exists = fdp_req.get_author_exists(
+            LOCAL_URL,
+            local_registry._token,
+            identifier = _orcid,
+            name = "Incorrect Nname"
+        )
+        assert not _author_does_not_exists
+        _author_does_not_exists = fdp_req.get_author_exists(
+            LOCAL_URL,
+            local_registry._token,
+            identifier = "https://github.com/FAIRDataPipeline",
+            name = _name
+        )
+        assert not _author_does_not_exists
+        
 
 @pytest.mark.faircli_requests
 @pytest.mark.dependency(name="get", depends=["post"])
