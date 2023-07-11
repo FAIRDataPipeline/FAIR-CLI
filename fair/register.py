@@ -328,8 +328,22 @@ def _post_authors(local_uri, authors):
         _search_keys = {}
         if "name" in _author:
             _data["name"] = _search_keys["name"] = _author["name"]
+            _author_url_exists = fdp_req.get_author_exists(
+                local_uri,
+                name = _data["name"]
+            )
+            if _author_url_exists:
+                _author_urls.append(_author_url_exists)
+                continue
         if "uri" in _author:
             _data["identifier"] = _search_keys["identifier"] = _author["uri"]
+            _author_url_exists = fdp_req.get_author_exists(
+                local_uri,
+                identifier = _data["identifier"]
+            )
+            if _author_url_exists:
+                _author_urls.append(_author_url_exists)
+                continue
         _author_url = fdp_req.post_else_get(local_uri, "author", fdp_req.local_token(), _data, _search_keys)
         _author_urls.append(_author_url)
     return _author_urls

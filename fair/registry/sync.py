@@ -333,13 +333,21 @@ def _get_new_url(
 
     if _obj_type == "author":
         if "identifier" in _new_obj_data:
-            _author = fdp_req.get(
+            _author = fdp_req.get_author_exists(
                 dest_uri,
-                "author",
-                dest_token,
-                params={"identifier": _new_obj_data['identifier']})
+                token= dest_token,
+                identifier= _new_obj_data['identifier']
+            )
             if _author:
-                return _author[0]["url"]
+                return _author
+        if "name" in _new_obj_data:
+            _author = fdp_req.get_author_exists(
+                dest_uri,
+                token= dest_token,
+                name= _new_obj_data['name']
+            )
+            if _author:
+                return _author
 
     return fdp_req.post_else_get(
         dest_uri,
