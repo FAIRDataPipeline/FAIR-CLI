@@ -47,7 +47,7 @@ class JobLogger:
         # print output and write it to the log file
         _timestamp = self._now.strftime("%Y-%m-%d_%H_%M_%S_%f")
         _out_file = os.path.join(self._directory, f"job_{_timestamp}.log")
-        self._file_stream = open(_out_file, "w")
+        self._file_stream = open(_out_file, encoding= 'utf-8', mode= "w")
         _out_str = self._now.strftime("%a %b %d %H:%M:%S %Y %Z")
         _user = fdp_conf.get_current_user_name(self._project)
         _email = fdp_conf.get_current_user_email(self._project)

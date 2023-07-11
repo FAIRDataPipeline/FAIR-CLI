@@ -321,7 +321,7 @@ def install_registry(
         _glob_conf = fdp_util.flatten_dict(fdp_conf.read_global_fdpconfig())
         _glob_conf["registries.local.directory"] = install_dir
 
-        with open(fdp_com.global_fdpconfig(), "w") as out_conf:
+        with open(fdp_com.global_fdpconfig(), encoding='utf-8', mode= "w") as out_conf:
             yaml.dump(fdp_util.expand_dict(_glob_conf), out_conf)
 
     if force:

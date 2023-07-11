@@ -84,11 +84,11 @@ class Stager:
             "data_product": {},
             "code_run": {},
         }
-        yaml.dump(_staging_dict, open(self._staging_file, "w"))
+        yaml.dump(_staging_dict, open(self._staging_file, encoding='utf-8', mode= "w"))
 
     def reset_staged(self) -> None:
         """Change staging state of all items to unstaged"""
-        _staging_dict = yaml.safe_load(open(self._staging_file))
+        _staging_dict = yaml.safe_load(open(self._staging_file), encoding='utf-8')
         for obj_type in _staging_dict:
             for item in _staging_dict[obj_type]:
                 _staging_dict[obj_type][item] = False
@@ -105,12 +105,12 @@ class Stager:
             the item type
         """
         # Open the staging dictionary first
-        with open(self._staging_file) as f:
+        with open(self._staging_file, encoding='utf-8') as f:
             _staging_dict = yaml.safe_load(f)
 
         _staging_dict[item_type][identifier] = False
 
-        with open(self._staging_file, "w") as f:
+        with open(self._staging_file, encoding='utf-8', mode= "w") as f:
             yaml.dump(_staging_dict, f)
 
     def change_stage_status(
@@ -136,15 +136,15 @@ class Stager:
             )
         
         # Open the staging dictionary first
-        _staging_dict = yaml.safe_load(open(self._staging_file))
+        _staging_dict = yaml.safe_load(open(self._staging_file, encoding='utf-8'))
         _staging_dict[item_type][identifier] = stage
 
-        with open(self._staging_file, "w") as f:
+        with open(self._staging_file, encoding='utf-8', mode= "w") as f:
             yaml.dump(_staging_dict, f)
 
     def is_in_staging_dict(self, identifier, item_type):
         # Open the staging dictionary first
-        _staging_dict = yaml.safe_load(open(self._staging_file))
+        _staging_dict = yaml.safe_load(open(self._staging_file, encoding='utf-8'))
 
         if identifier in _staging_dict[item_type]:
             return True
@@ -253,7 +253,7 @@ class Stager:
             and open(_code_run_file).read().strip()
         ):
             self._logger.debug("Found coderuns file, extracting runs")
-            _runs = [i.strip() for i in open(_code_run_file).readlines()]
+            _runs = [i.strip() for i in open(_code_run_file, encoding='utf-8').readlines()]
 
             for run in _runs:
                 _results = fdp_req.get(
@@ -338,7 +338,7 @@ class Stager:
 
         # Find this job script on the local registry, as the script
         # can have any name obtain this information from the config.yaml
-        _config_dict = yaml.safe_load(open(_config_yaml))
+        _config_dict = yaml.safe_load(open(_config_yaml, encoding='utf-8'))
 
         if (
             "run_metadata" not in _config_dict
@@ -394,7 +394,7 @@ class Stager:
                 type of stage item either job (default) or file
         """
         # Open the staging dictionary first
-        _staging_dict = yaml.safe_load(open(self._staging_file))
+        _staging_dict = yaml.safe_load(open(self._staging_file, encoding='utf-8'))
 
         if stage_type not in _staging_dict:
             raise fdp_exc.StagingError(
@@ -409,7 +409,7 @@ class Stager:
 
         del _staging_dict[stage_type][identifier]
 
-        with open(self._staging_file, "w") as f:
+        with open(self._staging_file, encoding='utf-8', mode= "w") as f:
             yaml.dump(_staging_dict, f)
 
     def get_item_list(
@@ -424,7 +424,7 @@ class Stager:
             stage_type : str, optional
                 type of stage item either job (default) or file
         """
-        _staging_dict = yaml.safe_load(open(self._staging_file))
+        _staging_dict = yaml.safe_load(open(self._staging_file, encoding='utf-8'))
 
         if stage_type not in _staging_dict:
             raise fdp_exc.StagingError(
@@ -435,7 +435,7 @@ class Stager:
 
     def update_data_product_staging(self) -> None:
         """Update DataProduct list in staging file."""
-        with open(self._staging_file) as f:
+        with open(self._staging_file, encoding='utf-8') as f:
             _staging_dict = yaml.safe_load(f)
 
         result = fdp_req.url_get(
@@ -453,12 +453,12 @@ class Stager:
             if key not in _staging_dict["data_product"]:
                 _staging_dict["data_product"][key] = False
 
-        with open(self._staging_file, "w") as f:
+        with open(self._staging_file, encoding='utf-8', mode= "w") as f:
             yaml.dump(_staging_dict, f)
 
     def update_code_run_staging(self) -> None:
         """Update code_run(s) list in staging file."""
-        with open(self._staging_file) as f:
+        with open(self._staging_file, encoding='utf-8') as f:
             _staging_dict = yaml.safe_load(f)
 
         result = fdp_req.url_get(
@@ -471,14 +471,14 @@ class Stager:
             if key not in _staging_dict["code_run"]:
                 _staging_dict["code_run"][key] = False
 
-        with open(self._staging_file, "w") as f:
+        with open(self._staging_file, encoding='utf-8', mode="w") as f:
             yaml.dump(_staging_dict, f)
 
     def _load_from_file(self, file_name: str = None) -> typing.Dict[str, bool]:
         if not file_name:
             file_name = self._staging_file
 
-        with open(file_name, "w") as f:
+        with open(file_name, encoding='utf-8', mode= "w") as f:
             _staging_dict = yaml.safe_load(f)
 
         self._staging_file = file_name

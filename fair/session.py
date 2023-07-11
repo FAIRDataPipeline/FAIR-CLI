@@ -1080,7 +1080,7 @@ class FAIR:
                 " by running: \n\n\tfair remote add <url>\n",
             )
 
-        with open(output_file_name, "w") as f:
+        with open(output_file_name, encoding='utf-8', mode= "w") as f:
             _yaml_str = fdp_tpl.config_template.render(
                 instance=self,
                 data_dir=fdp_com.default_data_dir(),
@@ -1098,7 +1098,7 @@ class FAIR:
         _cli_config["git"] = _loc_config["git"]
         _cli_config["registries"].update(_loc_config["registries"])
         _cli_config["user"].update(_loc_config["user"])
-        with open(output_file, "w") as f:
+        with open(output_file, encoding='utf-8', mode= "w") as f:
             yaml.dump(_cli_config, f)
 
     # noqa: C901
@@ -1193,9 +1193,9 @@ class FAIR:
             except (fdp_exc.CLIConfigurationError, click.Abort) as e:
                 self._clean_reset(_fair_dir, e, True)
         if not using:
-            with open(fdp_com.local_fdpconfig(self._session_loc), "w") as f:
+            with open(fdp_com.local_fdpconfig(self._session_loc), encoding='utf-8', mode= "w") as f:
                 yaml.dump(self._local_config, f)
-            with open(fdp_com.global_fdpconfig(), "w") as f:
+            with open(fdp_com.global_fdpconfig(), encoding='utf-8', mode= "w") as f:
                 yaml.dump(self._global_config, f)
         else:
             if not self._testing:
@@ -1265,10 +1265,10 @@ class FAIR:
             os.remove(_cache_addr)
 
         if os.path.exists(fdp_com.global_config_dir()):
-            with open(fdp_com.global_fdpconfig(), "w") as f:
+            with open(fdp_com.global_fdpconfig(), encoding='utf-8', mode= "w") as f:
                 yaml.dump(self._global_config, f)
         if os.path.exists(os.path.dirname(fdp_com.local_fdpconfig())):
-            with open(fdp_com.local_fdpconfig(self._session_loc), "w") as f:
+            with open(fdp_com.local_fdpconfig(self._session_loc), encoding='utf-8', mode= "w") as f:
                 yaml.dump(self._local_config, f)
 
     def _validate_and_load_cli_config(self, cli_config: typing.Dict):
@@ -1338,10 +1338,10 @@ class FAIR:
             del _glob_cfg["description"]
         del _loc_cfg["registries"]["local"]
 
-        with open(fdp_com.global_fdpconfig(), "w") as f:
+        with open(fdp_com.global_fdpconfig(), encoding='utf-8', mode= "w") as f:
             yaml.dump(_glob_cfg, f)
 
-        with open(fdp_com.local_fdpconfig(self._session_loc), "w") as f:
+        with open(fdp_com.local_fdpconfig(self._session_loc), encoding='utf-8', mode= "w") as f:
             yaml.dump(_loc_cfg, f)
 
     def _set_logger_info(self):

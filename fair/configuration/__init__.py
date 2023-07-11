@@ -83,7 +83,7 @@ def read_local_fdpconfig(repo_loc: str) -> typing.MutableMapping:
     # Retrieve the location of this repositories CLI config file
     _local_config_file_addr = fdp_com.local_fdpconfig(repo_loc)
     if os.path.exists(_local_config_file_addr):
-        _local_config = yaml.safe_load(open(_local_config_file_addr))
+        _local_config = yaml.safe_load(open(_local_config_file_addr, encoding='utf-8'))
 
     return _local_config
 
@@ -102,7 +102,7 @@ def read_global_fdpconfig() -> typing.MutableMapping:
     _global_config_addr = fdp_com.global_fdpconfig()
 
     if os.path.exists(_global_config_addr):
-        _global_config = yaml.safe_load(open(_global_config_addr))
+        _global_config = yaml.safe_load(open(_global_config_addr, encoding='utf-8'))
 
     return _global_config
 
@@ -121,11 +121,11 @@ def set_email(repo_loc: str, email: str, is_global: bool = False) -> None:
     """
     _loc_conf = read_local_fdpconfig(repo_loc)
     _loc_conf["user"]["email"] = email
-    yaml.dump(_loc_conf, open(fdp_com.local_fdpconfig(repo_loc), "w"))
+    yaml.dump(_loc_conf, open(fdp_com.local_fdpconfig(repo_loc), encoding='utf-8', mode= "w"))
     if is_global:
         _glob_conf = read_global_fdpconfig()
         _glob_conf["user"]["email"] = email
-        yaml.dump(_glob_conf, open(fdp_com.global_fdpconfig(), "w"))
+        yaml.dump(_glob_conf, open(fdp_com.global_fdpconfig(), encoding='utf-8', mode= "w"))
 
 
 def set_user(repo_loc: str, name: str, is_global: bool = False) -> None:
@@ -149,7 +149,7 @@ def set_user(repo_loc: str, name: str, is_global: bool = False) -> None:
             _glob_conf = read_global_fdpconfig()
             _glob_conf["user"]["given_names"] = _given_name.title().strip()
             _glob_conf["user"]["family_name"] = _family_name.title().strip()
-            yaml.dump(_glob_conf, open(fdp_com.global_fdpconfig(), "w"))
+            yaml.dump(_glob_conf, open(fdp_com.global_fdpconfig(), encoding='utf-8', mode= "w"))
     else:
         _loc_conf["user"]["given_names"] = name.title().strip()
         _loc_conf["user"]["family_name"] = None
@@ -157,12 +157,12 @@ def set_user(repo_loc: str, name: str, is_global: bool = False) -> None:
             _glob_conf = read_global_fdpconfig()
             _glob_conf["user"]["given_names"] = name.title().strip()
             _glob_conf["user"]["family_name"] = None
-            yaml.dump(_glob_conf, open(fdp_com.global_fdpconfig(), "w"))
-    yaml.dump(_loc_conf, open(fdp_com.local_fdpconfig(repo_loc), "w"))
+            yaml.dump(_glob_conf, open(fdp_com.global_fdpconfig(), encoding='utf-8', mode= "w"))
+    yaml.dump(_loc_conf, open(fdp_com.local_fdpconfig(repo_loc), encoding='utf-8', mode= "w"))
     if is_global:
         _glob_conf = read_global_fdpconfig()
         _glob_conf["user"]["name"] = name
-        yaml.dump(_glob_conf, open(fdp_com.global_fdpconfig(), "w"))
+        yaml.dump(_glob_conf, open(fdp_com.global_fdpconfig(), encoding='utf-8', mode= "w"))
 
 
 def get_current_user_name(repo_loc: str) -> typing.Tuple[str]:
@@ -284,7 +284,7 @@ def get_remote_token(
                 " does not exist"
             )
 
-        _token = open(_token_file).read().strip()
+        _token = open(_token_file, encoding='utf-8').read().strip()
 
         if not _token:
             raise fdp_exc.CLIConfigurationError(
@@ -437,7 +437,7 @@ def set_local_uri(uri: str) -> str:
 
     _global_conf["registries"]["local"]["uri"] = uri
 
-    with open(fdp_com.global_fdpconfig(), "w") as out_f:
+    with open(fdp_com.global_fdpconfig(), encoding='utf-8', mode= "w") as out_f:
         yaml.dump(_global_conf, out_f)
 
 
@@ -463,7 +463,7 @@ def update_local_port(registry_dir: str = None) -> str:
     if os.path.exists(fdp_com.global_fdpconfig()) and read_global_fdpconfig():
         _glob_conf = read_global_fdpconfig()
         _glob_conf["registries"]["local"]["uri"] = _new_url
-        with open(fdp_com.global_fdpconfig(), "w") as out_f:
+        with open(fdp_com.global_fdpconfig(), encoding='utf-8', mode= "w") as out_f:
             yaml.dump(_glob_conf, out_f)
 
     return _new_url
@@ -733,7 +733,7 @@ def global_config_query(
 
         _rem_key_file = os.path.join(fdp_com.global_config_dir(), "remotetoken.txt")
 
-        with open(_rem_key_file, 'w') as f:
+        with open(_rem_key_file, encoding='utf-8', mode= 'w') as f:
             f.write(_rem_key)
 
         if not os.path.exists(_rem_key_file):
@@ -900,7 +900,7 @@ def local_config_query(
 
         while (
             not os.path.exists(_def_rem_key)
-            or not open(_def_rem_key).read().strip()
+            or not open(_def_rem_key, encoding='utf-8').read().strip()
         ):
             click.echo(
                 f"Token file '{_def_rem_key}' does not exist or is empty, "

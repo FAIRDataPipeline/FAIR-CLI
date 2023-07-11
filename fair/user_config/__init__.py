@@ -113,7 +113,7 @@ class JobConfiguration(MutableMapping):
                 )
 
             self._logger.debug("Loading file '%s'", config_yaml)
-            self._config: typing.Dict = yaml.safe_load(open(config_yaml))
+            self._config: typing.Dict = yaml.safe_load(open(config_yaml, encoding='utf-8'))
 
         self._fill_missing()
 
@@ -577,7 +577,7 @@ class JobConfiguration(MutableMapping):
             _ext = SHELLS[_shell]["extension"]
             _out_file = os.path.join(self._job_dir, f"script.{_ext}")
             if _cmd:
-                with open(_out_file, "w") as f:
+                with open(_out_file, encoding='utf-8', mode= "w") as f:
                     f.write(_cmd)
 
         elif "script_path" in self["run_metadata"]:
@@ -588,10 +588,10 @@ class JobConfiguration(MutableMapping):
                     " failed to be created.",
                     exit_code=1,
                 )
-            _cmd = open(_path).read()
+            _cmd = open(_path, encoding='utf-8').read()
             _out_file = os.path.join(self._job_dir, os.path.basename(_path))
             if _cmd:
-                with open(_out_file, "w") as f:
+                with open(_out_file, encoding='utf-8', mode= "w") as f:
                     f.write(_cmd)
 
         self._logger.debug("Script command: %s", _cmd)
@@ -736,7 +736,7 @@ class JobConfiguration(MutableMapping):
             f"Will write session log to '{self._log_file_path}'"
         )
         command = command or self.command
-        self._log_file = open(self._log_file_path, "w")
+        self._log_file = open(self._log_file_path, encoding='utf-8', mode= "w")
 
     def prepare(
         self,
@@ -1490,7 +1490,7 @@ class JobConfiguration(MutableMapping):
                     "no job directory created and no alternative filename provided"
                 )
             output_file = os.path.join(self._job_dir, fdp_com.USER_CONFIG_FILE)
-        with open(output_file, "w") as out_f:
+        with open(output_file, encoding='utf-8', mode= "w") as out_f:
             yaml.dump(self._config, out_f)
 
         self.env = self._create_environment()

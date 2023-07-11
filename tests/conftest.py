@@ -61,7 +61,7 @@ def get_example_entries(registry_dir: str):
 
     _objects: typing.List[typing.Tuple[str, str, str]] = []
 
-    with open(_example_file) as in_f:
+    with open(_example_file, encoding='utf-8') as in_f:
         _lines = in_f.readlines()
         for i, line in enumerate(_lines):
             if SEARCH_STR in line:
@@ -149,13 +149,13 @@ def local_config(mocker: pytest_mock.MockerFixture, tmp_path):
         tempg, fdp_com.FAIR_FOLDER, fdp_com.FAIR_CLI_CONFIG
     )
     _cfgg = fdp_test.create_configurations(tempg, None, None, tempg, True)
-    yaml.dump(_cfgg, open(_gconfig_path, "w"))
+    yaml.dump(_cfgg, open(_gconfig_path, encoding='utf-8', mode= "w"))
     mocker.patch(
         "fair.common.global_config_dir",
         lambda: os.path.dirname(_gconfig_path),
     )
     mocker.patch("fair.common.global_fdpconfig", lambda: _gconfig_path)
-    with open(fdp_com.registry_session_port_file(), "w") as pf:
+    with open(fdp_com.registry_session_port_file(), encoding='utf-8', mode= "w") as pf:
         pf.write("8001")
     os.makedirs(os.path.join(templ, fdp_com.FAIR_FOLDER))
     _lconfig_path = os.path.join(
@@ -164,9 +164,9 @@ def local_config(mocker: pytest_mock.MockerFixture, tmp_path):
     _cfgl = fdp_test.create_configurations(
         templ, None, None, templ, True
     )
-    yaml.dump(_cfgl, open(_lconfig_path, "w"))
+    yaml.dump(_cfgl, open(_lconfig_path, encoding='utf-8', mode= "w"))
     with open(
-        os.path.join(templ, fdp_com.USER_CONFIG_FILE), "w"
+        os.path.join(templ, fdp_com.USER_CONFIG_FILE), encoding='utf-8', mode= "w"
     ) as conf:
         yaml.dump({"run_metadata": {}}, conf)
     mocker.patch("fair.common.find_fair_root", lambda *args: templ)
@@ -181,7 +181,7 @@ def global_config(monkeypatch_module, tmp_path_factory):
         tempg, fdp_com.FAIR_FOLDER, fdp_com.FAIR_CLI_CONFIG
     )
     _cfgg = fdp_test.create_configurations(tempg, None, None, tempg, True)
-    yaml.dump(_cfgg, open(_gconfig_path, "w"))
+    yaml.dump(_cfgg, open(_gconfig_path, encoding='utf-8', mode= "w"))
     monkeypatch_module.setattr(
         "fair.common.global_config_dir",
         lambda: os.path.dirname(_gconfig_path),
@@ -205,7 +205,7 @@ def job_log(monkeypatch_module, tmp_path_factory) -> str:
     monkeypatch_module.setattr("fair.history.history_directory", lambda *args: tempd)
     # Create mock job log
     with open(
-        os.path.join(tempd, f"job_{TEST_JOB_FILE_TIMESTAMP}.log"), "w"
+        os.path.join(tempd, f"job_{TEST_JOB_FILE_TIMESTAMP}.log"), encoding='utf-8', mode= "w"
     ) as out_f:
         out_f.write(
             """--------------------------------
@@ -248,7 +248,7 @@ class RegistryTest:
         )
         while not os.path.exists(os.path.join(self._install, "token")):
             time.sleep(3)
-        self._token = open(os.path.join(self._install, "token")).read().strip()
+        self._token = open(os.path.join(self._install, "token"), encoding='utf-8').read().strip()
         assert self._token
         pid_kill(_process.pid)
 

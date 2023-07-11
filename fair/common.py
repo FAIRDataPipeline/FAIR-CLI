@@ -79,7 +79,7 @@ def registry_home() -> str:
             return os.environ["FAIR_REGISTRY_DIR"]
         else:
             return DEFAULT_REGISTRY_LOCATION
-    _glob_conf = yaml.safe_load(open(global_fdpconfig()))
+    _glob_conf = yaml.safe_load(open(global_fdpconfig(), encoding='utf-8'))
     if not _glob_conf:
         return DEFAULT_REGISTRY_LOCATION
     if "registries" not in _glob_conf:
@@ -183,7 +183,7 @@ def registry_session_port(registry_dir: str = None) -> int:
     int
         current/most recent port used to launch the registry
     """
-    return int(open(registry_session_port_file(registry_dir)).read().strip())
+    return int(open(registry_session_port_file(registry_dir), encoding='utf-8').read().strip())
 
 def registry_session_address(registry_dir: str = None) -> str:
     """Retrieve the registry session address
@@ -206,7 +206,7 @@ def registry_session_address(registry_dir: str = None) -> str:
         _logger.info("Using 127.0.0.1")
         return "127.0.0.1"
 
-    _address = open(registry_session_address_file(registry_dir)).read().strip()
+    _address = open(registry_session_address_file(registry_dir), encoding='utf-8').read().strip()
     if _address != "0.0.0.0":
         return _address
     else:
@@ -226,7 +226,7 @@ def default_data_dir(location: str = "local") -> str:
         raise fdp_exc.InternalError(
             f"Failed to read CLI global config file '{global_fdpconfig()}'"
         )
-    _glob_conf = yaml.safe_load(open(global_fdpconfig()))
+    _glob_conf = yaml.safe_load(open(global_fdpconfig(), encoding='utf-8'))
     if "data_store" in _glob_conf["registries"][location]:
         return _glob_conf["registries"][location]["data_store"]
     if location == "local":

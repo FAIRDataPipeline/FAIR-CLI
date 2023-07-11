@@ -226,7 +226,7 @@ def store_working_config(
 
     _root_store = get_write_storage(uri, work_cfg_yml, token)
 
-    _work_cfg = yaml.safe_load(open(work_cfg_yml))
+    _work_cfg = yaml.safe_load(open(work_cfg_yml, encoding='utf-8'))
     _work_cfg_data_store = _work_cfg["run_metadata"]["write_data_store"]
     _rel_path = os.path.relpath(work_cfg_yml, _work_cfg_data_store)
     _time_stamp_dir = os.path.basename(os.path.dirname(work_cfg_yml))
@@ -234,7 +234,7 @@ def store_working_config(
     # Construct hash from config contents and time stamp
     # NOTE: You can have the same file stored N times for N job runs
     # hence the use of a timestamp in the hashing
-    _hashable = open(work_cfg_yml).read() + _time_stamp_dir
+    _hashable = open(work_cfg_yml, encoding='utf-8').read() + _time_stamp_dir
 
     _hash = hashlib.sha1(_hashable.encode("utf-8")).hexdigest()
 
@@ -305,7 +305,7 @@ def store_working_script(
     """
     logger.debug("Storing working script on registry")
 
-    _work_cfg = yaml.safe_load(open(working_config))
+    _work_cfg = yaml.safe_load(open(working_config, encoding='utf-8'))
     _root_store = get_write_storage(uri, working_config, token)
     _data_store = _work_cfg["run_metadata"]["write_data_store"]
 
@@ -316,7 +316,7 @@ def store_working_script(
     # Construct hash from config contents and time
     # NOTE: You can have the same file stored N times for N job runs
     # hence the use of a timestamp in the hashing
-    _hashable = open(script_path).read() + _time_stamp_dir
+    _hashable = open(script_path, encoding='utf-8').read() + _time_stamp_dir
 
     _hash = hashlib.sha1(_hashable.encode("utf-8")).hexdigest()
 
@@ -700,7 +700,7 @@ def calculate_file_hash(file_name: str, buffer_size: int = 64 * 1024) -> str:
     # If the file is large we do not want to hash it in one go
     _input_hasher = hashlib.sha1()
 
-    with open(file_name, "rb") as in_f:
+    with open(file_name, encoding='utf-8', mode= "rb") as in_f:
         _buffer = in_f.read(buffer_size)
         while len(_buffer) > 0:
             _input_hasher.update(_buffer)
