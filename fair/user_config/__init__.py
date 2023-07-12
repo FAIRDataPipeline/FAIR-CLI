@@ -1375,6 +1375,7 @@ class JobConfiguration(MutableMapping):
             shell=False,
             env=self.env,
             cwd=self.local_repository,
+            encoding= 'utf-8'
         )
 
         # Write any stdout to the job log
