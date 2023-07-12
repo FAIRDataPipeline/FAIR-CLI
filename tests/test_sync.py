@@ -239,3 +239,88 @@ def test_push(
             },
         )
 
+@pytest.mark.faircli_sync
+@pytest.mark.dependency(name="find", depends=["push"])
+def test_find(
+    global_config: str,
+    local_registry: RegistryTest,
+    remote_registry: RegistryTest,
+    pyDataPipeline: str,
+    fair_bucket: MotoTestServer,
+    mocker: pytest_mock.MockerFixture,
+    capsys,
+):
+    try:
+        import data_pipeline_api  # noqa
+    except ModuleNotFoundError:
+        pytest.skip("Python API implementation not installed")
+    
+    _cli_runner = click.testing.CliRunner()
+    with remote_registry, local_registry, fair_bucket:
+        mocker.patch(
+            "fair.configuration.get_current_user_github",
+            lambda *args, **kwargs: "admin",
+        )
+        _res = _cli_runner.invoke(
+            cli, ["find", "--debug", "testing:SEIRS_model/results/figure/python@v0.0.1"],  catch_exceptions = True
+        )
+        with capsys.disabled():
+            print(f'exit code: {_res.exit_code}')
+            print(f'exc info: {_res.exc_info}')
+            print(f'exception: {_res.exception}')
+        assert _res.exit_code == 0
+
+        _res = _cli_runner.invoke(
+            cli, ["find", "--debug", "--local", "testing:SEIRS_model/results/figure/python@v0.0.1"],  catch_exceptions = True
+        )
+        with capsys.disabled():
+            print(f'exit code: {_res.exit_code}')
+            print(f'exc info: {_res.exc_info}')
+            print(f'exception: {_res.exception}')
+        assert _res.exit_code == 0
+
+@pytest.mark.faircli_sync
+@pytest.mark.dependency(name="identify", depends=["push"])
+def test_identify(
+    global_config: str,
+    local_registry: RegistryTest,
+    remote_registry: RegistryTest,
+    pyDataPipeline: str,
+    fair_bucket: MotoTestServer,
+    mocker: pytest_mock.MockerFixture,
+    capsys,
+):
+    try:
+        import data_pipeline_api  # noqa
+    except ModuleNotFoundError:
+        pytest.skip("Python API implementation not installed")
+    
+    _cli_runner = click.testing.CliRunner()
+    with remote_registry, local_registry, fair_bucket:
+        mocker.patch(
+            "fair.configuration.get_current_user_github",
+            lambda *args, **kwargs: "admin",
+        )
+
+        _seirs_parameters_file = os.path.join(
+        pyDataPipeline, "simpleModel", "ext", "static_params_SEIRS.csv"
+        )
+
+        _res = _cli_runner.invoke(
+            cli, ["identify", "--debug", _seirs_parameters_file],  catch_exceptions = True
+        )
+        with capsys.disabled():
+            print(f'exit code: {_res.exit_code}')
+            print(f'exc info: {_res.exc_info}')
+            print(f'exception: {_res.exception}')
+        assert _res.exit_code == 0
+
+        _res = _cli_runner.invoke(
+            cli, ["identify", "--debug", "--local", _seirs_parameters_file],  catch_exceptions = True
+        )
+        with capsys.disabled():
+            print(f'exit code: {_res.exit_code}')
+            print(f'exc info: {_res.exc_info}')
+            print(f'exception: {_res.exception}')
+        assert _res.exit_code == 0
+

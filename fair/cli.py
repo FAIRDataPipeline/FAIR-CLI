@@ -90,6 +90,64 @@ def cli(ctx):
     """Welcome to FAIR-CLI, the FAIR data pipeline command-line interface."""
     pass
 
+@cli.command()
+@click.argument("file_path")
+@click.option("--remote", help="Show Remote Code Runs", default= "origin")
+@click.option("--debug/--no-debug", help="Run in debug mode", default=False)
+@click.option(
+    "--local/--no-local",
+    help="init without a remote registry - useful for closed systems",
+    default=False,
+)
+def identify(file_path: str, remote:str, debug, local:bool) -> None:
+    """
+    list details of a file
+    
+    Usage: fair identify /path/to/file [remote]
+    """
+    try:
+        with fdp_session.FAIR(
+            os.getcwd(), debug=debug, server_mode=fdp_svr.SwitchMode.CLI, local=local
+        ) as fair_session:
+            fair_session.get_details(file_path, remote = "")
+            if not local:
+                fair_session.get_details(file_path, remote = remote)
+    except fdp_exc.FAIRCLIException as e:
+        e.err_print()
+        if e.level.lower() == "error":
+            sys.exit(e.exit_code)
+
+@cli.command()
+@click.argument("data_product")
+@click.option("--remote", help="Show Remote Code Runs", default= "origin")
+@click.option("--debug/--no-debug", help="Run in debug mode", default=False)
+@click.option(
+    "--local/--no-local",
+    help="init without a remote registry - useful for closed systems",
+    default=False,
+)
+def find(data_product: str, remote: str, debug:bool, local:bool) -> None:
+    """
+    Shows where a data product is located
+    
+    Data Products should be formatted: 
+    <namespace>:<data product name>@v<version>
+    eg:
+    PSU:SEIRS_model/parameters@v1.0.0
+
+    Usage: fair find data_product [remote]
+    """
+    try:
+        with fdp_session.FAIR(
+            os.getcwd(), debug=debug, server_mode=fdp_svr.SwitchMode.CLI, local=local
+        ) as fair_session:
+            fair_session.find_data_product(data_product, "")
+            if not local:
+                fair_session.find_data_product(data_product, remote)
+    except fdp_exc.FAIRCLIException as e:
+        e.err_print()
+        if e.level.lower() == "error":
+            sys.exit(e.exit_code)
 
 @cli.command()
 @click.option("--verbose/--not-verbose", help="Display URLs", default=False)

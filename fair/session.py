@@ -62,6 +62,7 @@ import fair.templates as fdp_tpl
 import fair.testing as fdp_test
 import fair.user_config as fdp_user
 import fair.logging as fdp_logging
+import fair.registry.storage as fdp_store
 
 
 class FAIR:
@@ -924,6 +925,24 @@ class FAIR:
             pass
         return "Unknown"
 
+    def get_code_run_date(self, uuid: str)-> str:
+        _local_uri = fdp_conf.get_local_uri()
+        _local_code_run = fdp_req.get(_local_uri, "code_run", fdp_req.local_token(), params={"uuid": uuid})
+        if _local_code_run:
+            return _local_code_run[0]["run_date"]
+        try:
+            for label in self._local_config["registries"]:
+                _remote_code_run = fdp_req.get(
+                    fdp_conf.get_remote_uri(self._session_loc, label),
+                    "code_run",
+                    fdp_conf.get_remote_token(self._session_loc, label, local=self._local),
+                    params={"uuid": uuid})
+                if _remote_code_run:
+                    return _remote_code_run[0]["run_date"]
+        except Exception:
+            pass
+        return "Unknown"
+
     def show_code_runs(
         self, code_runs: typing.List[str], title: str, style="green"
     ) -> None:
@@ -934,11 +953,12 @@ class FAIR:
             title_justify="left",
             box=rich.box.SIMPLE,
         )
-        table.add_column("Code Run UUID", style=style, no_wrap=True)
+        table.add_column("Code Run UUID", style=style, no_wrap=False)
         table.add_column("Code Run Description", style=style, no_wrap=True)
+        table.add_column("Code Run Date", style=style, no_wrap=True)
         for i, code_run in enumerate(code_runs):
 
-            table.add_row(code_run, self.get_code_run_description(code_run))
+            table.add_row(code_run, self.get_code_run_description(code_run), self.get_code_run_date(code_run))
             if i == 9 and i != len(code_runs) - 1:
                 table.add_row(
                     f"+ {len(code_runs) - i - 1} more...",
@@ -1343,6 +1363,104 @@ class FAIR:
 
         with open(fdp_com.local_fdpconfig(self._session_loc), encoding='utf-8', mode= "w") as f:
             yaml.dump(_loc_cfg, f)
+
+    def get_details(self, file_path: str, remote = "origin"):
+        if self._local:
+            remote = None
+        _api_url = fdp_conf.get_local_uri() if not remote else fdp_conf.get_remote_uri(self._session_loc, remote)
+        _token = fdp_req.local_token() if not remote else fdp_conf.get_remote_token(self._session_loc, remote)
+        _registry = f"Local Registry {_api_url}" if not remote else f"Remote Registry {remote} {_api_url}"
+        if not os.path.exists(file_path):
+            raise fdp_exc.FileNotFoundError(f"File: {file_path} does not exist")
+        click.echo(f"Information about file: {file_path}")
+        _hash = fdp_store.calculate_file_hash(file_path)
+        _storage_location = fdp_req.get(_api_url,
+                                         "storage_location",
+                                         _token,
+                                         params= {'hash': _hash})
+        if _storage_location:
+            _storage_location = _storage_location[0]
+        else:
+            click.echo(f"File: {file_path} could not be found on the {_registry}")
+            return
+        _objects = fdp_req.get(_api_url,
+                               "object",
+                               _token,
+                               params= {"storage_location": fdp_req.get_obj_id_from_url(_storage_location["url"])}
+                               )
+        for _object in _objects:
+            if _object["data_products"]:
+                for _data_product_url in _object["data_products"]:
+                    _data_product = fdp_req.url_get(_data_product_url, _token)
+                    if _data_product:
+                        click.echo(f"Is linked to 'data_product': {_data_product['name']} with url: {_data_product_url}")
+            if _object["components"]:
+                for _component_url in _object["components"]:
+                    _component = fdp_req.url_get(_component_url, _token)
+                    if _component:
+                        if _component["inputs_of"]:
+                            for _input_url in _component["inputs_of"]:
+                                _input = fdp_req.url_get(_input_url, _token)
+                                if _input:
+                                    _input_description = _input["description"]
+                                    _input_uuid = _input["uuid"]
+                                    click.echo(f"is an input of coderun: {_input_uuid} {_input_description} {_input_url}")
+                        if _component["outputs_of"]:
+                            for _output_url in _component["outputs_of"]:
+                                _output = fdp_req.url_get(_output_url, _token)
+                                if _output:
+                                    _output_description = _output["description"]
+                                    _output_uuid = _output["uuid"]
+                                    click.echo(f"Is an output of coderun: {_output_uuid} {_output_description} {_output_url}")
+
+
+    def find_data_product(self, data_product: str, remote = "origin"):
+        if self._local:
+            remote = None
+        _api_url = fdp_conf.get_local_uri() if not remote else fdp_conf.get_remote_uri(self._session_loc, remote)
+        _token = fdp_req.local_token() if not remote else fdp_conf.get_remote_token(self._session_loc, remote)
+        _registry = f"Local Registry {_api_url}" if not remote else f"Remote Registry {remote} {_api_url}"
+        if "@" not in data_product:
+            namespace, name = re.split("[:]", data_product)
+            version = None
+        else:
+            namespace, name, version = re.split("[:@]", data_product)
+            version = version.replace("v", "")
+        _namespace = fdp_req.get(_api_url,
+                                    "namespace",
+                                    _token,
+                                    params= {'name': namespace})
+        if _namespace:
+            _namespace_url = _namespace[0]["url"]
+            _data_product = fdp_req.get(_api_url,
+                                        "data_product",
+                                        _token,
+                                        params= {
+                                            'name': name,
+                                            'namespace': fdp_req.get_obj_id_from_url(_namespace_url),
+                                            'version': version
+                                        })
+            if _data_product:
+                _object_url = _data_product[0]["object"]
+                _object = fdp_req.url_get(_object_url, _token)
+                if _object:
+                    _storage_location_url = _object["storage_location"]
+                    if _storage_location_url:
+                        _storage_location = fdp_req.url_get(_storage_location_url, _token)
+                        if _storage_location:
+                            _storage_root_url = _storage_location["storage_root"]
+                            _storage_location_path = _storage_location["path"]
+                            _storage_root = fdp_req.url_get(_storage_root_url, _token)
+                            if _storage_root:
+                                _root = _storage_root["root"]
+                                if "file://" in _root:
+                                    click.echo(f"Data Product: {data_product} is located {_root}{os.pathsep}{_storage_location_path}")
+                                else:
+                                    click.echo(f"Data Product: {data_product} is located {_root}/{_storage_location_path}")
+            else:
+                click.echo(f"Data Product {data_product} could not be found on {_registry}")
+        else:
+            click.echo(f"Namespace {namespace} not found on {_registry}")
 
     def _set_logger_info(self):
         handler = logging.StreamHandler()
