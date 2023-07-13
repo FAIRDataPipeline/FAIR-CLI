@@ -1453,10 +1453,7 @@ class FAIR:
                             _storage_root = fdp_req.url_get(_storage_root_url, _token)
                             if _storage_root:
                                 _root = _storage_root["root"]
-                                if "file://" in _root:
-                                    click.echo(f"Data Product: {data_product} is located {_root}{os.path.sep}{_storage_location_path}")
-                                else:
-                                    click.echo(f"Data Product: {data_product} is located {_root}/{_storage_location_path}")
+                                click.echo(f"Data Product: {data_product} is located {_root}{_storage_location_path}")
             else:
                 click.echo(f"Data Product {data_product} could not be found on {_registry}")
         else:
