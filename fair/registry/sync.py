@@ -337,21 +337,16 @@ def _get_new_url(
         _tmp_obj = fdp_req.url_get(object_url, origin_token)
         if "authors" in _tmp_obj:
             for _author_url in _tmp_obj["authors"]:
-                _new_author_urls.append(sync_dependency_chain(
-                    _author_url,
-                    dest_uri,
+                _new_author_urls.append(get_new_author_url(
                     origin_uri,
-                    dest_token,
                     origin_token,
-                    local_data_store,
-                    public,
-                    remote_author_url
+                    dest_uri,
+                    dest_token,
+                    _author_url
                 ))
-        for _new_author_dict in _new_author_urls:
-            for _new_author_url in _new_author_dict.values():
-                if "author" in _new_author_url:
-                    _new_obj_data["authors"].append(_new_author_url)
-                    _filters["authors"].append(fdp_req.get_obj_id_from_url(_new_author_url))
+        for _new_author_url in _new_author_urls:
+            _new_obj_data["authors"].append(_new_author_url)
+            _filters["authors"].append(fdp_req.get_obj_id_from_url(_new_author_url))
 
     if _obj_type == "author":
         if "identifier" in _new_obj_data:
@@ -419,6 +414,32 @@ def sync_user_author(
         raise fdp_exc.RegistryError(f"No user matching {github}, on remote registry", "Does your GitHub username match the remote registry GitHub user?")
     current_user_url = current_user[0]['url']
     fdp_store.store_user_author(dest_uri, dest_token, current_user_url, author_url)
+
+def get_new_author_url(
+    origin_uri: str,
+    origin_token: str,
+    dest_uri: str,
+    dest_token: str,
+    author_url: str
+) -> None:
+    _author_data = fdp_req.url_get(author_url, token=origin_token)
+    _writable_fields = fdp_req.get_writable_fields(
+                origin_uri, "author", origin_token
+            )
+    _writable_data = {
+            k: v
+            for k, v in _author_data.items()
+            if k in _writable_fields
+        }
+    return _get_new_url(
+        origin_uri,
+        origin_token,
+        dest_uri,
+        dest_token,
+        author_url,
+        {},
+        _writable_data
+    )
 
 def sync_data_products(
     origin_uri: str,
