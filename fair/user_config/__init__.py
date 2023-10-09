@@ -1499,3 +1499,12 @@ class JobConfiguration(MutableMapping):
         self._logger.debug(f"Configuration written to '{output_file}'")
 
         return output_file
+
+    def dryrun(self) -> None:
+        """Output Job Information without Running"""
+        self._logger.info(f"FDP_CONFIG_DIR: {self._job_dir}")
+        self._logger.info(f"FDP_CONFIG_NAME: {fdp_com.USER_CONFIG_FILE}")
+        self._logger.info(f"FDP_CONFIG_PATH: {self._job_dir}{os.path.sep}{fdp_com.USER_CONFIG_FILE}")
+        self._logger.info(f"FDP_DATA_STORE: {self.default_data_store}")
+        self._logger.info(f"FDP_SCRIPT: {self.script}")
+        self._logger.info(f"FDP_LOCAL_TOKEN: {fdp_req.local_token()}")

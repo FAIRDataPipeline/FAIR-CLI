@@ -531,6 +531,7 @@ class FAIR:
         passive: bool = False,
         allow_dirty: bool = False,
         local: bool = False,
+        dryrun: bool = True
     ) -> str:
         """Execute a run using the given user configuration file"""
         self._pre_job_setup()
@@ -558,7 +559,10 @@ class FAIR:
 
         self._session_config.write()
 
-        self._session_config.execute()
+        if(dryrun):
+            self._session_config.dryrun()
+        else:
+            self._session_config.execute()
 
         self._post_job_breakdown(add_run=True)
 
@@ -1460,16 +1464,7 @@ class FAIR:
             click.echo(f"Namespace {namespace} not found on {_registry}")
 
     def _set_logger_info(self):
-        handler = logging.StreamHandler()
-        handler.setFormatter(
-            fdp_logging.LevelFormatter(
-                {
-                    logging.INFO: '%(message)s'
-                }
-            )
-        )
         logging.getLogger().setLevel(logging.INFO)
-        logging.getLogger().addHandler(handler)
 
     def __exit__(self, *args) -> None:
         self.close_session()

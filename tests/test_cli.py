@@ -440,6 +440,7 @@ def test_registry_cli(
         tempd  = Path(f"{tempd}")
     assert not glob.glob(os.path.join(tempd, "registry", "*"))
 
+@pytest.mark.faircli_cli
 def test_cli_run(
     local_config: typing.Tuple[str, str],
     local_registry: conf.RegistryTest,
@@ -465,6 +466,7 @@ def test_cli_run(
 
         assert _result.exit_code == 0
 
+@pytest.mark.faircli_cli
 def test_cli_run_local(
     local_config: typing.Tuple[str, str],
     local_registry: conf.RegistryTest,
@@ -486,6 +488,39 @@ def test_cli_run_local(
             cli,
             ["run", "--local", "--script", 'echo "Hello World!"'],
         )
+        assert _result.output
+
+        assert _result.exit_code == 0
+
+@pytest.mark.faircli_cli
+def test_cli_run_dryrun(
+    local_config: typing.Tuple[str, str],
+    local_registry: conf.RegistryTest,
+    click_test: click.testing.CliRunner,
+    mocker: pytest_mock.MockerFixture,
+    capsys,
+):
+    with local_registry:
+        mocker.patch(
+            "fair.common.registry_home", lambda: local_registry._install
+        )
+        mocker.patch(
+            "fair.registry.requests.local_token", lambda: local_registry._token
+        )
+        with open(
+            os.path.join(local_config[1], fdp_com.FAIR_FOLDER, "staging"), "w"
+        ) as staged:
+            yaml.dump({"job": {}}, staged)
+        _result = click_test.invoke(
+            cli,
+            ["run", "--local", "--dryrun", "--script", 'echo "Hello World!"'],
+        )
+
+        with capsys.disabled():
+            print(f'exit code: {_result.exit_code}')
+            print(f'exc info: {_result.exc_info}')
+            print(f'exception: {_result.exception}')
+
         assert _result.output
 
         assert _result.exit_code == 0

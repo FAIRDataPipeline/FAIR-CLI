@@ -566,6 +566,7 @@ def rm(
     default="",
 )
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
+@click.option("--dryrun/--no-dryrun", help="Run in debug mode", default=False)
 @click.option(
     "--ci/--no-ci",
     help="Calls run passively without executing any commands for a CI system",
@@ -582,7 +583,7 @@ def rm(
     default=False,
 )
 def run(
-    config: str, script: str, debug: bool, ci: bool, dirty: bool, local: bool
+    config: str, script: str, debug: bool, dryrun: bool, ci: bool, dirty: bool, local: bool
 ):
     """Initialises a job with the option to specify a bash command"""
     # Allow no config to be specified, if that is the case use default local
@@ -598,7 +599,7 @@ def run(
             local=local,
         ) as fair_session:
             _hash = fair_session.run(
-                script, passive=ci, allow_dirty=dirty, local=local
+                script, passive=ci, allow_dirty=dirty, local=local, dryrun = dryrun
             )
             if ci:
                 click.echo(fdp_run.get_job_dir(_hash))
