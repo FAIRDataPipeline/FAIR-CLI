@@ -121,6 +121,11 @@ class RunMetadata(pydantic.BaseModel):
         title="public",
         description="whether items are/should be publically accessible",
     )
+    dryrun: typing.Optional[bool] = pydantic.Field(
+        True,
+        title="dryrun",
+        description="whether the config is the result of a dryrun",
+    )
 
     class Config:
         extra = "forbid"

@@ -88,6 +88,7 @@ class FAIR:
         allow_dirty: bool = False,
         testing: bool = False,
         local: bool = False,
+        dryrun: bool = False,
     ) -> None:
         """Initialise instance of FAIR sync tool
 
@@ -124,6 +125,7 @@ class FAIR:
         self._logger.debug("Starting new session.")
         self._testing = testing
         self._local = local
+        self._dryrun = dryrun
         self._session_loc = repo_loc
         self._allow_dirty = allow_dirty
         self._logger.debug(f"Session location: {self._session_loc}")
@@ -531,7 +533,7 @@ class FAIR:
         passive: bool = False,
         allow_dirty: bool = False,
         local: bool = False,
-        dryrun: bool = True
+        dryrun: bool = False,
     ) -> str:
         """Execute a run using the given user configuration file"""
         self._pre_job_setup()
@@ -540,6 +542,7 @@ class FAIR:
             fdp_com.CMD_MODE.PASS if passive else fdp_com.CMD_MODE.RUN,
             allow_dirty=self._allow_dirty,
             local=local,
+            dryrun=dryrun,
         )
 
         self._logger.debug("Setting up command execution")

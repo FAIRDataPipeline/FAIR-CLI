@@ -745,6 +745,7 @@ class JobConfiguration(MutableMapping):
         remote_uri: str = None,
         remote_token: str = None,
         local: bool = False,
+        dryrun: bool = False
     ) -> str:
         """Initiate a job execution"""
 
@@ -820,6 +821,9 @@ class JobConfiguration(MutableMapping):
         self["run_metadata.latest_commit"] = self._fetch_latest_commit(
             allow_dirty
         )
+
+        if dryrun:
+            self["run_metadata.dryrun"] = True
 
         # Perform config validation
         self._logger.debug("Running configuration validation")
@@ -1502,9 +1506,9 @@ class JobConfiguration(MutableMapping):
 
     def dryrun(self) -> None:
         """Output Job Information without Running"""
-        self._logger.info(f"FDP_CONFIG_DIR: {self._job_dir}")
-        self._logger.info(f"FDP_CONFIG_NAME: {fdp_com.USER_CONFIG_FILE}")
-        self._logger.info(f"FDP_CONFIG_PATH: {self._job_dir}{os.path.sep}{fdp_com.USER_CONFIG_FILE}")
-        self._logger.info(f"FDP_DATA_STORE: {self.default_data_store}")
-        self._logger.info(f"FDP_SCRIPT: {self.script}")
-        self._logger.info(f"FDP_LOCAL_TOKEN: {fdp_req.local_token()}")
+        click.echo(f"FDP_CONFIG_DIR: {self._job_dir}")
+        click.echo(f"FDP_CONFIG_NAME: {fdp_com.USER_CONFIG_FILE}")
+        click.echo(f"FDP_CONFIG_PATH: {self._job_dir}{os.path.sep}{fdp_com.USER_CONFIG_FILE}")
+        click.echo(f"FDP_DATA_STORE: {self.default_data_store}")
+        click.echo(f"FDP_SCRIPT: {self.script}")
+        click.echo(f"FDP_LOCAL_TOKEN: {fdp_req.local_token()}")

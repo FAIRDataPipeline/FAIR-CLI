@@ -587,7 +587,8 @@ def run(
 ):
     """Initialises a job with the option to specify a bash command"""
     # Allow no config to be specified, if that is the case use default local
-    click.echo("Running run please wait")
+    if not dryrun:
+        click.echo("Running run please wait")
     config = config[0] if config else fdp_com.local_user_config(os.getcwd())
     try:
         with fdp_session.FAIR(
@@ -597,6 +598,7 @@ def run(
             server_mode=fdp_svr.SwitchMode.CLI,
             allow_dirty=dirty,
             local=local,
+            dryrun=dryrun,
         ) as fair_session:
             _hash = fair_session.run(
                 script, passive=ci, allow_dirty=dirty, local=local, dryrun = dryrun
