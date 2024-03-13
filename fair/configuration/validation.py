@@ -108,8 +108,8 @@ class User(pydantic.BaseModel):
     name: typing.Optional[str] = pydantic.Field(
         None, title="Full Name", description="Full name for the user"
     )
-    github: typing.Optional[str] = pydantic.Field(
-        None, title="GitHub Username", description="GitHub Username for the user"
+    remote_user: typing.Optional[str] = pydantic.Field(
+        None, title="Remote Username", description="Remote Username for the user"
     )
 
     class Config:

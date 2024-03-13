@@ -400,7 +400,7 @@ class FAIR:
             ),
             origin_token=fdp_req.local_token(),
             author_url = remote_author_url,
-            github = fdp_conf.get_current_user_github(self._session_loc)
+            remote_user = fdp_conf.get_current_user_remote_user(self._session_loc)
         )
 
         fdp_sync.sync_code_runs(
@@ -1329,7 +1329,7 @@ class FAIR:
                     "Expected key 'directory' for local registry in CLI configuration"
                 )
 
-        _user_keys = ["email", "family_name", "given_names", "uuid", "github"]
+        _user_keys = ["email", "family_name", "given_names", "uuid", "remote_user"]
 
         for key in _user_keys:
             if key not in cli_config["user"]:
@@ -1338,7 +1338,7 @@ class FAIR:
                     f"Expected key 'user:{key}' in CLI configuration file"
                 )
 
-        if not cli_config["user"]["github"] and not cli_config["user"]["uuid"]:
+        if not cli_config["user"]["remote_user"] and not cli_config["user"]["uuid"]:
             raise fdp_exc.CLIConfigurationError(
                 "At least one of 'user:github' and 'user:uuid' must be provided "
                 " in CLI configuration"

@@ -82,7 +82,7 @@ def check_orcid(orcid: str) -> typing.Dict:
     return _result_dict
 
 def check_github(github: str) -> typing.Dict:
-    """Checks if valid ORCID using ORCID public api
+    """Checks if valid GitHub Username using GitHub Username public api
 
     Parameters
     ----------
@@ -122,6 +122,43 @@ def check_github(github: str) -> typing.Dict:
 
     return _result_dict
 
+def check_gitlab(gitlab: str, gitlab_url:str = "https://gitlab.com/") -> typing.Dict:
+    """Checks if valid GitLab Username using Gitlab profile address
+
+    Parameters
+    ----------
+    gitlab : str
+        gitlab username to be checked
+    gitlab_url: str
+        URL of the gitlab instance, defaults to "https://gitlab.com/"
+
+    Returns
+    -------
+    typing.Dict
+        metadata from the given ID
+    """
+    _url = urllib.parse.urljoin(gitlab_url, gitlab)
+    requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
+    _response = requests.get(_url, verify = False, allow_redirects = True)
+
+    _result_dict: typing.Dict[str, typing.Any] = {}
+
+    if _response.status_code == 403:
+        time.sleep(3)
+        _header = {"Accept": "application/json", 'User-Agent':str(UserAgent().chrome)}
+        _response = requests.get(_url, headers=_header, verify = False, allow_redirects = True)
+
+    if _response.status_code != 200:
+        logger.debug(f"{_url} Responded with {_response.status_code}")
+        return _result_dict
+    
+    _username = _response.url.rsplit('/', 1)[-1]
+
+    _result_dict["name"] = None   
+    _result_dict["gitlab"] = _username
+    _result_dict["uri"] = _response.url
+
+    return _result_dict
 
 def check_ror(ror: str) -> typing.Dict:
     """Checks if valid ROR using ROR public api
