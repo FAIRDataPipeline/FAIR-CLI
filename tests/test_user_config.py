@@ -90,7 +90,7 @@ def test_wildcard_unpack_local(
         os.makedirs(os.path.join(local_config[1], fdp_com.FAIR_FOLDER, "logs"))
         _manage = os.path.join(local_registry._install, "manage.py")
         local_registry._venv.run(
-            f"python {_manage} add_example_data", capture=True
+            "python", f"{_manage}", "add_example_data", capture=True
         )
         mocker.patch(
             "fair.registry.requests.local_token",
@@ -142,7 +142,7 @@ def test_wildcard_unpack_remote(
         os.makedirs(os.path.join(local_config[1], fdp_com.FAIR_FOLDER, "logs"))
         _manage = os.path.join(remote_registry._install, "manage.py")
         remote_registry._venv.run(
-            f"python {_manage} add_example_data", capture=True
+            "python", f"{_manage}", "add_example_data", capture=True
         )
         mocker.patch(
             "fair.registry.requests.local_token",
