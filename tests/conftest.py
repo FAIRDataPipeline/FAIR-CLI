@@ -9,10 +9,12 @@ import platform
 
 import git
 import pytest
-import pytest_fixture_config
 import pytest_mock
-import pytest_virtualenv
+import tempfile
+import virtualenv
 import yaml
+
+from pathlib import Path
 
 import boto3
 import os
@@ -36,6 +38,41 @@ os.makedirs(TEST_OUT_DIR, exist_ok=True)
 
 
 logging.getLogger("FAIRDataPipeline").setLevel(logging.DEBUG)
+
+class VirtualEnv:
+    def __init__(self, env = None) -> None:
+        if env is None:
+            self.env = dict(os.environ)
+        else:
+            self.env = dict(env)  # ensure we take a copy just in case there's some modification
+        
+        self.workspace = tempfile.mkdtemp()
+
+        self.name = ".env"
+        
+        self.path = Path(os.path.join(self.workspace, self.name))
+        
+        self.bin = self.path / ("Scripts" if os.name == "nt" else "bin")
+
+        self.create()
+
+    def create(self) -> None:
+        virtualenv.cli_run([os.fspath(self.path)])
+
+    def run(self, cmd: str, *args: str, env: typing.Optional[typing.Dict[str, str]] = None, capture = False) -> None:
+        exe = self.which(cmd)
+        subprocess.check_output(
+            [exe, *args],
+            env= self.env if not env else env,
+            stderr=subprocess.STDOUT if capture else None
+        )  # noqa: S603
+
+    def which(self, cmd: str) -> str:
+        assert self.bin.exists()
+        return shutil.which(cmd, path=self.bin) or cmd
+
+    def teardown(self) -> None:
+        shutil.rmtree(self.workspace)
 
 def test_can_be_run(url):
     _header = {"Accept": "application/json"}
@@ -105,12 +142,12 @@ def pySimpleModel(tmp_path):
     yield _repo_path
 
 @pytest.fixture(scope="session")
-@pytest_fixture_config.yield_requires_config(
-    pytest_virtualenv.FixtureConfig(
-        virtualenv_executable="venv",
-    ),
-    ["virtualenv_executable"],
-)
+# @pytest_fixture_config.yield_requires_config(
+#     pytest_virtualenv.FixtureConfig(
+#         virtualenv_executable="venv",
+#     ),
+#     ["virtualenv_executable"],
+# )
 def session_virtualenv():
     """Function-scoped virtualenv in a temporary workspace.
 
@@ -128,7 +165,7 @@ def session_virtualenv():
     easy_install (`path.path`)  : Path to this virtualenv's easy_install executable
     .. also inherits all attributes from the `workspace` fixture
     """
-    venv = pytest_virtualenv.VirtualEnv()
+    venv = VirtualEnv()
     yield venv
     venv.teardown()
 
@@ -223,7 +260,7 @@ class RegistryTest:
     def __init__(
         self,
         install_loc: str,
-        venv: pytest_virtualenv.VirtualEnv,
+        venv: VirtualEnv,
         port: int = 8000,
         remote: bool = False
     ):
@@ -290,7 +327,7 @@ class RegistryTest:
         self._process = None
 
 @pytest.fixture(scope="module")
-def local_registry(session_virtualenv: pytest_virtualenv.VirtualEnv, tmp_path_factory):
+def local_registry(session_virtualenv: VirtualEnv, tmp_path_factory):
     if fdp_serv.check_server_running("http://127.0.0.1:8000"):
         pytest.skip(
             "Cannot run registry tests, a server is already running on port 8000"
@@ -306,7 +343,7 @@ def local_registry(session_virtualenv: pytest_virtualenv.VirtualEnv, tmp_path_fa
     print("TearDown of Local Registry Complete")
 
 @pytest.fixture(scope="module")
-def remote_registry(session_virtualenv: pytest_virtualenv.VirtualEnv, tmp_path_factory):
+def remote_registry(session_virtualenv: VirtualEnv, tmp_path_factory):
     if fdp_serv.check_server_running("http://127.0.0.1:8001"):
         pytest.skip(
             "Cannot run registry tests, a server is already running on port 8001"
