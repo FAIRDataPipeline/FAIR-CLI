@@ -368,10 +368,10 @@ class MotoTestServer:
         port: int = 3005
     ):
         """Mocked AWS Credentials for moto."""
-        os.environ['AWS_ACCESS_KEY_ID'] = 'testing'
-        os.environ['AWS_SECRET_ACCESS_KEY'] = 'testing'
-        os.environ['AWS_SECURITY_TOKEN'] = 'testing'
-        os.environ['AWS_SESSION_TOKEN'] = 'testing'
+        os.environ['AWS_ACCESS_KEY_ID'] = 'AccessKey'
+        os.environ['AWS_SECRET_ACCESS_KEY'] = 'SecretKey'
+        os.environ['AWS_SECURITY_TOKEN'] = 'SecretKey'
+        os.environ['AWS_SESSION_TOKEN'] = 'SecretKey'
         os.environ['AWS_DEFAULT_REGION'] = 'us-east-1'
         self._port = port
         self._server = ThreadedMotoServer(port = port)

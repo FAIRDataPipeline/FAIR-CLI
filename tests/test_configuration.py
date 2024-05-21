@@ -174,7 +174,7 @@ def test_user_info(mocker: pytest_mock.MockerFixture):
         "Full Name": "Joseph Bloggs",
         "Default input namespace": _namepaces["input"],
         "Default output namespace": _namepaces["output"],
-        "User ID system (GITHUB/ORCID/ROR/GRID/None)": "None",
+        "User ID system (GITHUB/GITLAB/ORCID/ROR/GRID/None)": "None",
         "GitHub Username": _github_username
     }
 
@@ -191,9 +191,13 @@ def test_user_info(mocker: pytest_mock.MockerFixture):
         "click.prompt", lambda x, default=None: _override[x] or default
     )
     mocker.patch("uuid.uuid4", lambda: _uuid_override["uuid"])
+
+    mocker.patch("fair.registry.requests.get_auth_provider", return_value = "GitHub")
+    mocker.patch("fair.registry.requests.get_auth_url", return_value = "https://github.com")
+
     _noorc = fdp_conf._get_user_info_and_namespaces()
 
-    _override["User ID system (GITHUB/ORCID/ROR/GRID/None)"] = "ORCID"
+    _override["User ID system (GITHUB/GITLAB/ORCID/ROR/GRID/None)"] = "ORCID"
     _override["ORCID"] = "0000-0000-0000"
 
     mocker.patch(
@@ -202,8 +206,8 @@ def test_user_info(mocker: pytest_mock.MockerFixture):
     mocker.patch("fair.identifiers.check_orcid", lambda *args: _orcid_override)
     _orc = fdp_conf._get_user_info_and_namespaces()
 
-    _uuid_override["github"] = _github_username
-    _orcid_override["github"] = _github_username
+    _uuid_override["remote_user"] = _github_username
+    _orcid_override["remote_user"] = _github_username
 
     _expect_noorc = {"user": _uuid_override, "namespaces": _namepaces}
 
@@ -215,7 +219,8 @@ def test_user_info(mocker: pytest_mock.MockerFixture):
 
 @pytest.mark.faircli_configuration
 def test_global_config_query(
-    mocker: pytest_mock.MockerFixture, local_config: typing.Tuple[str, str],
+    mocker: pytest_mock.MockerFixture,
+    local_config: typing.Tuple[str, str],
     tmp_path
 ):
     _override = {
@@ -252,7 +257,7 @@ def test_global_config_query(
     mocker.patch("click.confirm", lambda *args, **kwargs: False)
     mocker.patch(
         "fair.configuration._get_user_info_and_namespaces",
-        lambda local: _default_user,
+        return_value = _default_user
     )
 
     _expected = {

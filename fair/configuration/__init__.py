@@ -696,7 +696,7 @@ def _get_user_info_and_namespaces(local: bool = False, remote_url: str = None) -
             else:
                 _user_info["remote_user"] = _user_info["gitlab"]
     else:
-        _user_info["remote_user"] = "FAIRDatePipeline"
+        _user_info["remote_user"] = "FAIRDataPipeline"
 
     # Unset unused variables
     _user_info.pop('github', None)

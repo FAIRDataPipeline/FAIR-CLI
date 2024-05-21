@@ -367,7 +367,7 @@ def test_init_local(
         assert _cli_cfg["user"]["email"] == _dummy_email
         assert _cli_cfg["user"]["family_name"] == "Bloggs"
         assert _cli_cfg["user"]["given_names"] == "Joseph"
-        assert _cli_cfg["user"]["github"] == "FAIRDataPipeline"
+        assert _cli_cfg["user"]["remote_user"] == "FAIRDataPipeline"
         assert _cli_cfg["user"]["uuid"]
 
 @pytest.mark.faircli_cli
