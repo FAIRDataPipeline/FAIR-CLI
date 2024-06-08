@@ -83,10 +83,10 @@ def rebuild_local(
     ]
 
     for sub in _sub_cmds:
-        subprocess.check_call(
+        subprocess.check_output(
             [python, _manage, *sub],
             shell=False,
-            stdout=subprocess.DEVNULL if silent else None,
+            stderr=subprocess.STDOUT,
             env=django_environ(remote=remote),
         )
 
