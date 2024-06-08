@@ -629,7 +629,25 @@ def get_obj_type_from_url(request_url: str, token: str) -> str:
     return ""
 
 
-def get_author_exists(registry_uri, token = None, name = None, identifier = None):
+def get_author_exists(registry_uri, token = None, name = None, identifier = None) -> str:
+    """Get an author given an name and or identifier
+
+    Parameters
+    ----------
+    registry_url : str
+        Url of the registry to check for the author
+    token : str (optional)
+        token for the given registry
+    name : str (optional)
+        name to be checked
+    identifier : str (optional)
+        identifier to be checker
+    
+    Returns
+    -------
+    str
+        The url of the author if they exist else None 
+    """
     if not name and not identifier:
         return {}
     if not token:
@@ -648,3 +666,49 @@ def get_author_exists(registry_uri, token = None, name = None, identifier = None
     if _author_exists:
         return _author_exists[0]["url"]
     return {}
+
+def get_auth_provider(registry_uri: str, token: str = None) -> str:
+    """Retrived the auth provider from the remote registry
+
+    Parameters
+    ----------
+    registry_url : str
+        url of the remote registry
+    token : str (optional)
+        remote registry token
+    
+    Returns
+    -------
+    str
+        The remote authentication provider
+    """
+    _url = urllib.parse.urljoin(registry_uri, "auth-provider")
+    _response = url_get(_url, token)
+    if not _response["auth_provider"]:
+        raise fdp_exc.RegistryError(f'The remote registry {registry_uri} \
+                                    did not provide an authentication provider \
+                                    is the remote registry correcly configured?')
+    return _response["auth_provider"]
+
+def get_auth_url(registry_uri: str, token: str = None) -> str:
+    """Retrived the auth url from the remote registry
+
+    Parameters
+    ----------
+    registry_url : str
+        url of the remote registry
+    token : str (optional)
+        remote registry token
+    
+    Returns
+    -------
+    str
+        The remote authentication url
+    """
+    _url = urllib.parse.urljoin(registry_uri, "auth-url")
+    _response = url_get(_url, token)
+    if not _response["auth_url"]:
+        raise fdp_exc.RegistryError(f'The remote registry {registry_uri} \
+                                    did not provide an authentication provider \
+                                    is the remote registry correcly configured?')
+    return _response["auth_url"]

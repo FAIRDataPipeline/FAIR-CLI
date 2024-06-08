@@ -332,6 +332,7 @@ def _get_new_url(
     #     _new_obj_data["authors"] = _filters["authors"] = [remote_author_url]
 
     if _obj_type == "object":
+        _new_obj_data["authors"] = []
         _new_author_urls = []
         _filters["authors"] = []
         _tmp_obj = fdp_req.url_get(object_url, origin_token)
@@ -402,16 +403,16 @@ def sync_user_author(
     dest_token: str,
     origin_token: str,
     author_url: str,
-    github: str
+    remote_user: str
 ) -> None:
     current_user = fdp_req.get(
         dest_uri,
         "users",
         dest_token,
-        params= {"username": github}
+        params= {"username": remote_user}
     )
     if not current_user:
-        raise fdp_exc.RegistryError(f"No user matching {github}, on remote registry", "Does your GitHub username match the remote registry GitHub user?")
+        raise fdp_exc.RegistryError(f"No user matching {remote_user}, on remote registry", "Does your Remote username match the remote registry user?")
     current_user_url = current_user[0]['url']
     fdp_store.store_user_author(dest_uri, dest_token, current_user_url, author_url)
 

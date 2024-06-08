@@ -154,13 +154,13 @@ def install_registry(
         stdout=subprocess.DEVNULL if silent else None,
     )
 
-    subprocess.check_call(
-        [_venv_python, "-m", "pip", "install", "whitenoise"],
-        shell=False,
-        stdout=subprocess.DEVNULL if silent else None,
-    )
+    # subprocess.check_call(
+    #     [_venv_python, "-m", "pip", "install", "whitenoise"],
+    #     shell=False,
+    #     stdout=subprocess.DEVNULL if silent else None,
+    # )
 
-    _requirements = os.path.join(install_dir, "local-requirements.txt")
+    _requirements = os.path.join(install_dir, "requirements.txt")
 
     if not os.path.exists(_requirements):
         raise FileNotFoundError(f"Expected file '{_requirements}'")

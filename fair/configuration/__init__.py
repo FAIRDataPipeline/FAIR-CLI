@@ -379,22 +379,22 @@ def get_current_user_uri(repo_loc: str) -> str:
         raise fdp_exc.CLIConfigurationError("No user URI identifier defined.")
     return _uri
 
-def get_current_user_github(repo_loc: str) -> str:
+def get_current_user_remote_user(repo_loc: str) -> str:
     """Retrieves the URI identifier for the current user
 
     Returns
     -------
     str
-        github username
+        remote username
     """
     _local_conf = read_local_fdpconfig(repo_loc)
     try:
-        _github = _local_conf["user"]["github"]
+        _remote_user = _local_conf["user"]["remote_user"]
     except KeyError:
-        _github = None
-    if not _github or _github == "None":
-        raise fdp_exc.CLIConfigurationError("No user GitHub username defined.")
-    return _github
+        _remote_user = None
+    if not _remote_user or _remote_user == "None":
+        raise fdp_exc.CLIConfigurationError("No remote user defined.")
+    return _remote_user
 
 def check_registry_exists(registry: str = None) -> typing.Optional[str]:
     """Checks if fair registry is set up on users machine
@@ -580,6 +580,18 @@ def _handle_github(user_github: str) -> typing.Tuple[typing.Dict, str]:
     click.echo(f"Found entry: {_user_info['github']} ")
     return _user_info, _def_ospace
 
+def _handle_gitlab(user_gitlab, gitlab_url = "https://gitlab.com") -> typing.Tuple[typing.Dict, str]:
+    _user_info = fdp_id.check_gitlab(user_gitlab.strip(), gitlab_url.strip())
+    while not _user_info:
+        time.sleep(3)
+        click.echo(f"Invalid GitLab Username '{user_gitlab}' given.")
+        user_gitlab = click.prompt("GitLab Username")
+        _user_info = fdp_id.check_gitlab(user_gitlab.strip())
+
+    _def_ospace = _user_info["gitlab"].lower()
+    
+    click.echo(f"Found entry: {_user_info['gitlab']} ")
+    return _user_info, _def_ospace
 
 
 def _handle_uuid() -> typing.Tuple[typing.Dict, str]:
@@ -608,18 +620,35 @@ def _handle_uuid() -> typing.Tuple[typing.Dict, str]:
     return _user_info, _def_ospace
 
 
-def _get_user_info_and_namespaces(local: bool = False) -> typing.Dict[str, typing.Dict]:
+def _get_user_info_and_namespaces(local: bool = False, remote_url: str = None) -> typing.Dict[str, typing.Dict]:
     _user_email = click.prompt("Email (optional)", default = "")
 
     _invalid_input = True
+    if not local:
+        _remote_auth_provider = fdp_req.get_auth_provider(remote_url)
+        _remote_auth_url = fdp_req.get_auth_url(remote_url)
+    else:
+        _remote_auth_url = None
 
     while _invalid_input:
         _id_type = click.prompt(
-            "User ID system (GITHUB/ORCID/ROR/GRID/None)", default="GITHUB"
+            "User ID system (GITHUB/GITLAB/ORCID/ROR/GRID/None)", default="GITHUB"
         )
         if _id_type.upper() == "GITHUB":
             _user_github = click.prompt("GitHub Username")
             _user_info, _def_ospace = _handle_github(_user_github)
+            if not _user_info["name"]:
+                _user_info["given_names"] = click.prompt("Given Names")
+                _user_info["family_name"] = click.prompt("Family Name")
+                _user_info["name"] = " ".join([_user_info["given_names"], _user_info["family_name"]])
+            _invalid_input = False
+        elif _id_type.upper() == "GITLAB":
+            if not _remote_auth_url:
+                _remote_auth_url = click.prompt(
+                "GitLab URL", default="https://gitlab.com/"
+            )
+            _user_gitlab = click.prompt("GitLab Username")
+            _user_info, _def_ospace = _handle_gitlab(_user_gitlab, _remote_auth_url)
             if not _user_info["name"]:
                 _user_info["given_names"] = click.prompt("Given Names")
                 _user_info["family_name"] = click.prompt("Family Name")
@@ -651,18 +680,34 @@ def _get_user_info_and_namespaces(local: bool = False) -> typing.Dict[str, typin
 
     _namespaces = {"input": _def_ispace, "output": _def_ospace}
 
-    if not "github" in _user_info:
-        if local:
-            _user_info["github"] = "FAIRDataPipeline"
-        else:
-            _user_github = click.prompt("GitHub Username")
-            _user_github_info = _handle_github(_user_github)[0]
-            _user_info["github"] = _user_github_info["github"]
+    if not local:
+        if _remote_auth_provider == "GitHub":
+            if not "github" in _user_info:
+                _user_github = click.prompt("GitHub Username")
+                _user_github_info = _handle_github(_user_github)[0]
+                _user_info["remote_user"] = _user_github_info["github"]
+            else:
+                _user_info["remote_user"] = _user_info["github"]
+        elif _remote_auth_provider == "GitLab":
+            if not "gitlab" in _user_info:
+                _user_gitlab = click.prompt("GitLab Username")
+                _user_gitlab_info = _handle_gitlab(_user_gitlab, _remote_auth_url)[0]
+                _user_info["remote_user"] = _user_gitlab_info["gitlab"]
+            else:
+                _user_info["remote_user"] = _user_info["gitlab"]
+    else:
+        _user_info["remote_user"] = "FAIRDataPipeline"
+
+    # Unset unused variables
+    _user_info.pop('github', None)
+    _user_info.pop('gitlab', None)
 
     if not _user_email:
-        _user_info["email"] = f'{_user_info["github"]}@users.noreply.github.com'
+        _user_info["email"] = f'{_user_info["remote_user"]}@users.noreply.github.com'
     else:
         _user_info["email"] = _user_email
+    
+    logger.debug(f'{_user_info}')
 
     return {"user": _user_info, "namespaces": _namespaces}
 
@@ -741,7 +786,7 @@ def global_config_query(
 
     if not fdp_serv.check_server_running():
         if _ := click.confirm(
-            "Local registry is offline, would you like to start it?",
+            "Local registry is offline, would you like to start it and for it to remain running?",
             default=False,
         ):
             fdp_serv.launch_server(registry_dir=registry)
@@ -768,7 +813,7 @@ def global_config_query(
     if _loc_data_store[-1] != os.path.sep:
         _loc_data_store += os.path.sep
 
-    _glob_conf_dict = _get_user_info_and_namespaces(local)
+    _glob_conf_dict = _get_user_info_and_namespaces(local, _remote_url)
     _glob_conf_dict["registries"] = {
         "local": {
             "uri": _local_uri,

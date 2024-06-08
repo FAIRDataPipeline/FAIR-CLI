@@ -210,7 +210,7 @@ def test_push(
     _cli_runner = click.testing.CliRunner()
     with remote_registry, local_registry, fair_bucket:
         mocker.patch(
-            "fair.configuration.get_current_user_github",
+            "fair.configuration.get_current_user_remote_user",
             lambda *args, **kwargs: "admin",
         )
         _res = _cli_runner.invoke(
@@ -258,7 +258,7 @@ def test_find(
     _cli_runner = click.testing.CliRunner()
     with remote_registry, local_registry, fair_bucket:
         mocker.patch(
-            "fair.configuration.get_current_user_github",
+            "fair.configuration.get_current_user_remote_user",
             lambda *args, **kwargs: "admin",
         )
         _res = _cli_runner.invoke(
@@ -298,7 +298,7 @@ def test_identify(
     _cli_runner = click.testing.CliRunner()
     with remote_registry, local_registry, fair_bucket:
         mocker.patch(
-            "fair.configuration.get_current_user_github",
+            "fair.configuration.get_current_user_remote_user",
             lambda *args, **kwargs: "admin",
         )
 
