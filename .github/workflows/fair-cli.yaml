@@ -12,7 +12,7 @@ jobs:
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         if: ${{ runner.os != 'Windows' }}
       - name: Checkout to C windows
         run: |
@@ -23,7 +23,7 @@ jobs:
           echo Github Ref: $GITHUB_REF_NAME
         if: ${{ runner.os == 'Windows' }}
         shell: bash
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python }}
           architecture: "x64"
@@ -61,7 +61,7 @@ jobs:
               fi
             done
         shell: bash
-      - uses: codecov/codecov-action@v3
+      - uses: codecov/codecov-action@v4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./coverage.xml

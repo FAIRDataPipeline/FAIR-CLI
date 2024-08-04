@@ -10,11 +10,11 @@ jobs:
     name: Deploy Latest Windows Release
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
             fetch-depth: 0
 
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.x'
           architecture: "x64"
@@ -46,11 +46,11 @@ jobs:
     name: Deploy Latest macOS Release
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
             fetch-depth: 0
 
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.x'
           architecture: "x64"
@@ -83,11 +83,11 @@ jobs:
     name: Deploy Latest Linux Release
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
             fetch-depth: 0
 
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.x'
           architecture: "x64"
@@ -110,7 +110,7 @@ jobs:
           poetry run pyinstaller -F fair/cli.py --collect-all fair
           mv dist/cli dist/fair-cli-${{ steps.previoustag.outputs.tag }}-x64-ubuntu-latest
 
-      - uses: actions/upload-artifact@v1
+      - uses: actions/upload-artifact@v4
         with:
             name: ubuntu_faircli
             path: dist/fair-cli-${{ steps.previoustag.outputs.tag }}-x64-ubuntu-latest
@@ -124,10 +124,10 @@ jobs:
       - macos-py3x
       - windows-py3x
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
             fetch-depth: 0
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.x'
           architecture: "x64"
@@ -161,22 +161,22 @@ jobs:
           poetry build
 
       - name: Retrieve Ubuntu Executable
-        uses: actions/download-artifact@v1
+        uses: actions/download-artifact@v4
         with:
           name: ubuntu_faircli
 
       - name: Retrieve Windows Executable
-        uses: actions/download-artifact@v1
+        uses: actions/download-artifact@v4
         with:
           name: windows_faircli
 
       - name: Retrieve macOS Executable
-        uses: actions/download-artifact@v1
+        uses: actions/download-artifact@v4
         with:
           name: macos_faircli
 
       - name: Create Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           token: "${{ secrets.GITHUB_TOKEN }}"
           prerelease: false
