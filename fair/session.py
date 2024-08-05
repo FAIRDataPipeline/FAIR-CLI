@@ -411,8 +411,7 @@ class FAIR:
             ),
             origin_token=fdp_req.local_token(),
             remote_label=remote,
-            code_runs=_staged_code_runs,
-            remote_author_url = remote_author_url
+            code_runs=_staged_code_runs
         )
 
         fdp_sync.sync_data_products(
@@ -423,8 +422,7 @@ class FAIR:
             ),
             origin_token=fdp_req.local_token(),
             remote_label=remote,
-            data_products=_staged_data_products,
-            remote_author_url = remote_author_url
+            data_products=_staged_data_products
         )
 
         self._session_config.write_log_lines(
@@ -495,7 +493,7 @@ class FAIR:
 
         self._logger.debug("Pulling data products locally")
 
-        # Only push data products if there are any to do so, this covers the
+        # Only pull data products if there are any to do so, this covers the
         # case whereby no remote has been setup and we just want to register
         # items on the local registry
         if _readables:
