@@ -1,6 +1,11 @@
 # Check latest release of all implementations still function with new changes
 name: FAIR CLI Implementation Testing
-on: [push, workflow_dispatch]
+on: 
+  push:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 9 * * 1" # Run Every Monday at 9AM
+  
 jobs:
   Python:
     runs-on: ubuntu-latest
