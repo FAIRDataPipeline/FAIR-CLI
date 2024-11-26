@@ -1,6 +1,7 @@
 # FAIR Data Pipeline Command Line Interface
 
-[![PyPI](https://img.shields.io/pypi/v/fair-cli)](https://pypi.org/project/fair-cli/) [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/fair-cli)](https://pypi.org/project/fair-cli/) [![DOI](https://zenodo.org/badge/377398464.svg)](https://zenodo.org/badge/latestdoi/377398464) ![PyPI - License](https://img.shields.io/pypi/l/fair-cli)  [![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/5411/badge)](https://bestpractices.coreinfrastructure.org/projects/5411)
+[![PyPI](https://img.shields.io/pypi/v/fair-cli)](https://pypi.org/project/fair-cli/) [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/fair-cli)](https://pypi.org/project/fair-cli/) [![DOI](https://zenodo.org/badge/377398464.svg)](https://zenodo.org/badge/latestdoi/377398464) ![PyPI - License](https://img.shields.io/pypi/l/fair-cli) [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2FFAIRDataPipeline%2FFAIR-CLI.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2FFAIRDataPipeline%2FFAIR-CLI?ref=badge_shield)
+ [![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/5411/badge)](https://bestpractices.coreinfrastructure.org/projects/5411)
 
 [![FAIR Data Pipeline CLI](https://github.com/FAIRDataPipeline/FAIR-CLI/actions/workflows/fair-cli.yaml/badge.svg?branch=main)](https://github.com/FAIRDataPipeline/FAIR-CLI/actions/workflows/fair-cli.yaml)  [![codecov](https://codecov.io/gh/FAIRDataPipeline/FAIR-CLI/branch/dev/graph/badge.svg?token=h93TkTiiWf)](https://codecov.io/gh/FAIRDataPipeline/FAIR-CLI) [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=FAIRDataPipeline_FAIR-CLI&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=FAIRDataPipeline_FAIR-CLI)
 
@@ -279,3 +280,7 @@ Within the `config.yaml` file, template variables can be specified by using the 
 | `GIT_BRANCH`        | Current branch of the `git` repository                                           |
 | `GIT_REMOTE`        | The URI of the git repository specified during setup                             |
 | `GIT_TAG`           | The latest tag on `git`                                                          |
+
+
+## License
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2FFAIRDataPipeline%2FFAIR-CLI.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2FFAIRDataPipeline%2FFAIR-CLI?ref=badge_large)
