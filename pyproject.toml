@@ -88,6 +88,7 @@ boto3 = "^1.24"
 moto = "^5"
 Flask = "^3"
 Flask-Cors = "^4"
+matplotlib = "*"
 
 [tool.poetry.scripts]
 fair = 'fair.cli:cli'
