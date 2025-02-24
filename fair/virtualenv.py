@@ -13,7 +13,6 @@ __date__ = "2022-01-05"
 
 import logging
 import os
-import shutil
 import sys
 from types import SimpleNamespace
 from venv import EnvBuilder

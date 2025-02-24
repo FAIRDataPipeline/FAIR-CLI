@@ -572,7 +572,7 @@ def _get_url_from_object(
 ) -> str:
     _desc = data.get("description", None)
 
-    if not "authors" in data:
+    if "authors" not in data:
         data["authors"] = [user]
 
     _object_data = {

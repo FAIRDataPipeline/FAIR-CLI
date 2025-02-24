@@ -24,11 +24,9 @@ import json
 import logging
 import traceback
 import os
-import re
 import shutil
 import tempfile
 import typing
-import platform
 import urllib.parse
 import urllib.request
 
@@ -39,9 +37,6 @@ import fair.common as fdp_com
 import fair.exceptions as fdp_exc
 import fair.utilities as fdp_util
 
-import ssl
-from requests.adapters import HTTPAdapter
-from urllib3.poolmanager import PoolManager
 from urllib3.exceptions import InsecureRequestWarning
 
 from fake_useragent import UserAgent

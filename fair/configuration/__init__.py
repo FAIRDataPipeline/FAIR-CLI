@@ -704,14 +704,14 @@ def _get_user_info_and_namespaces(
 
     if not local:
         if _remote_auth_provider == "GitHub":
-            if not "github" in _user_info:
+            if "github" not in _user_info:
                 _user_github = click.prompt("GitHub Username")
                 _user_github_info = _handle_github(_user_github)[0]
                 _user_info["remote_user"] = _user_github_info["github"]
             else:
                 _user_info["remote_user"] = _user_info["github"]
         elif _remote_auth_provider == "GitLab":
-            if not "gitlab" in _user_info:
+            if "gitlab" not in _user_info:
                 _user_gitlab = click.prompt("GitLab Username")
                 _user_gitlab_info = _handle_gitlab(_user_gitlab, _remote_auth_url)[0]
                 _user_info["remote_user"] = _user_gitlab_info["gitlab"]
@@ -787,7 +787,7 @@ def global_config_query(
         _rem_key_valid = False
         while not _rem_key_valid:
             _rem_key = click.prompt(
-                f"Remote API Token",
+                "Remote API Token",
             )
             if len(_rem_key) == 40:
                 _rem_key_valid = True

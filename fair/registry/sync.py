@@ -21,12 +21,10 @@ import logging
 import os
 import re
 import shutil
-from threading import local
 import typing
 import urllib.parse
 import traceback
 
-import click
 import requests
 
 import fair.exceptions as fdp_exc
