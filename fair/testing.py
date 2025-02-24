@@ -14,7 +14,7 @@ def create_configurations(
     local_git_dir: typing.Optional[str] = None,
     remote_reg_dir: typing.Optional[str] = None,
     testing_dir: str = tempfile.mkdtemp(),
-    tokenless: bool = False
+    tokenless: bool = False,
 ) -> typing.Dict:
     """
     Setup CLI for testing
@@ -52,7 +52,7 @@ def create_configurations(
     if tokenless:
         _token = "t35tt0k3n"
         _token_file = os.path.join(registry_dir, "token.txt")
-        with open(_token_file, encoding='utf-8', mode= "w") as out_f:
+        with open(_token_file, encoding="utf-8", mode="w") as out_f:
             out_f.write(_token)
 
     if not local_git_dir:
@@ -82,7 +82,7 @@ def create_configurations(
             "orcid": "000-0000-0000-0000",
             "uri": f'{fdp_id.ID_URIS["github"]}FAIRDataPipeline',
             "uuid": "2ddb2358-84bf-43ff-b2aa-3ac7dc3b49f1",
-            "remote_user": "FAIRDataPipeline"
+            "remote_user": "FAIRDataPipeline",
         },
         "git": {
             "local_repo": local_git_dir,

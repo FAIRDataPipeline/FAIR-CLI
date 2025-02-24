@@ -319,5 +319,5 @@ if __name__ in "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("in_file")
 
-    _data = yaml.safe_load(open(parser.parse_args().in_file, encoding='utf-8'))
+    _data = yaml.safe_load(open(parser.parse_args().in_file, encoding="utf-8"))
     UserConfigModel(**_data)

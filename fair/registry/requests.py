@@ -49,9 +49,7 @@ from fake_useragent import UserAgent
 logger = logging.getLogger("FAIRDataPipeline.Requests")
 
 
-def split_api_url(
-    request_url: str, splitter: str = "api"
-) -> typing.Tuple[str]:
+def split_api_url(request_url: str, splitter: str = "api") -> typing.Tuple[str]:
     """Split a request URL into endpoint and path
 
     Parameters
@@ -81,7 +79,7 @@ def local_token(registry_dir: str = None) -> str:
             hint="Try creating the file by manually starting the registry "
             "by running 'fair registry start'",
         )
-    _file_lines = open(_local_token_file, encoding='utf-8').readlines()
+    _file_lines = open(_local_token_file, encoding="utf-8").readlines()
 
     if not _file_lines:
         raise fdp_exc.FileNotFoundError(
@@ -101,7 +99,7 @@ def _access(
     params: typing.Dict = None,
     data: typing.Dict = None,
     files: typing.Dict = None,
-    trailing_slash = True,
+    trailing_slash=True,
 ):
     if response_codes is None:
         response_codes = [201, 200]
@@ -234,9 +232,7 @@ def post(
 
     for param, value in data.copy().items():
         if not value:
-            logger.debug(
-                f"Key in post data '{param}' has no value so will be ignored"
-            )
+            logger.debug(f"Key in post data '{param}' has no value so will be ignored")
             del data[param]
 
     return _access(
@@ -268,6 +264,7 @@ def url_get(url: str, token: str) -> typing.Dict:
         results dictionary
     """
     return _access(url, "get", token)
+
 
 def get(
     uri: str,
@@ -315,9 +312,7 @@ def get(
             )
             del params[param]
 
-    return _access(
-        uri, "get", token, obj_path=obj_path, headers=headers, params=params
-    )
+    return _access(uri, "get", token, obj_path=obj_path, headers=headers, params=params)
 
 
 def post_else_get(
@@ -351,9 +346,7 @@ def post_else_get(
         params = {}
 
     try:
-        logger.debug(
-            "Attempting to post an instance of '%s' to '%s'", obj_path, uri
-        )
+        logger.debug("Attempting to post an instance of '%s' to '%s'", obj_path, uri)
         _loc = post(uri, obj_path, data=data, token=token)
     except fdp_exc.RegistryAPICallError as e:
         if e.error_code != 409:
@@ -377,11 +370,8 @@ def post_else_get(
         _loc = _loc["url"]
     return _loc
 
-def post_upload_url(
-    remote_uri: str,
-    remote_token: str,
-    file_hash: str
-) -> str:
+
+def post_upload_url(remote_uri: str, remote_token: str, file_hash: str) -> str:
     """Function to get a tempory url to upload and object to
 
     Args:
@@ -394,7 +384,8 @@ def post_upload_url(
     """
     _url = urllib.parse.urljoin(remote_uri, "data/")
     _url = urllib.parse.urljoin(_url, file_hash)
-    return _access(_url, "post", remote_token, trailing_slash= False)
+    return _access(_url, "post", remote_token, trailing_slash=False)
+
 
 def filter_object_dependencies(
     uri: str, obj_path: str, token: str, filter: typing.Dict[str, typing.Any]
@@ -431,9 +422,7 @@ def filter_object_dependencies(
 
     for name, info in _actions.items():
         _filter_result: typing.List[bool] = [
-            info[filt] == value
-            for filt, value in filter.items()
-            if filt in info
+            info[filt] == value for filt, value in filter.items() if filt in info
         ]
 
         if all(_filter_result):
@@ -442,9 +431,7 @@ def filter_object_dependencies(
     return _fields
 
 
-def get_filter_variables(
-    uri: str, obj_path: str, token: str
-) -> typing.List[str]:
+def get_filter_variables(uri: str, obj_path: str, token: str) -> typing.List[str]:
     """Retrieves a list of variables you can filter by for a given object
 
     Parameters
@@ -469,9 +456,7 @@ def get_filter_variables(
     return [*_filters]
 
 
-def get_writable_fields(
-    uri: str, obj_path: str, token: str
-) -> typing.List[str]:
+def get_writable_fields(uri: str, obj_path: str, token: str) -> typing.List[str]:
     """Retrieve a list of writable fields for the given RestAPI object
 
     Parameters
@@ -488,9 +473,8 @@ def get_writable_fields(
     typing.List[str]
         list of object type paths
     """
-    return filter_object_dependencies(
-        uri, obj_path, token, {"read_only": False}
-    )
+    return filter_object_dependencies(uri, obj_path, token, {"read_only": False})
+
 
 def put_file(upload_url: str, file_loc: str) -> bool:
     """Upload a file to a given url using put
@@ -507,10 +491,13 @@ def put_file(upload_url: str, file_loc: str) -> bool:
         bool: Will return True if the upload succeeded.
     """
     s = requests.Session()
-    _req = s.put(upload_url, data= open(file_loc, mode='rb').read())
+    _req = s.put(upload_url, data=open(file_loc, mode="rb").read())
     if _req.status_code not in [200, 201]:
-        raise fdp_exc.RegistryError(f"File: {file_loc} could not be uploaded, Registry Returned: {_req.status_code}")
+        raise fdp_exc.RegistryError(
+            f"File: {file_loc} could not be uploaded, Registry Returned: {_req.status_code}"
+        )
     return True
+
 
 def download_file(url: str, chunk_size: int = 8192) -> str:
     """Download a file from a given URL
@@ -544,9 +531,11 @@ def download_file(url: str, chunk_size: int = 8192) -> str:
     else:
         try:
             requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
-            headers = {'User-Agent':str(UserAgent().chrome)}
-            response = requests.get(url, allow_redirects = True, verify = False, headers = headers)
-            open(_fname, mode= 'wb').write(response.content)
+            headers = {"User-Agent": str(UserAgent().chrome)}
+            response = requests.get(
+                url, allow_redirects=True, verify=False, headers=headers
+            )
+            open(_fname, mode="wb").write(response.content)
         except Exception as e:
             raise fdp_exc.FAIRCLIException(
                 f"Failed to download file '{url}'"
@@ -556,7 +545,9 @@ def download_file(url: str, chunk_size: int = 8192) -> str:
     return _fname
 
 
-def get_dependency_listing(uri: str, token: str, read_only: bool = False) -> typing.Dict:
+def get_dependency_listing(
+    uri: str, token: str, read_only: bool = False
+) -> typing.Dict:
     """Get complete listing of all objects and their registry based dependencies
 
     Parameters
@@ -576,7 +567,7 @@ def get_dependency_listing(uri: str, token: str, read_only: bool = False) -> typ
     except Exception:
         return {[]}
 
-    _rtn =  {
+    _rtn = {
         obj: filter_object_dependencies(
             uri,
             obj,
@@ -584,7 +575,7 @@ def get_dependency_listing(uri: str, token: str, read_only: bool = False) -> typ
             {"read_only": read_only, "type": "field", "local": True},
         )
         for obj in _registry_objs
-        }
+    }
     return _rtn
 
 
@@ -621,15 +612,13 @@ def get_obj_type_from_url(request_url: str, token: str) -> str:
         object type if recognised else empty string
     """
     _uri, _ = split_api_url(request_url)
-    for obj_type in sorted(
-        [*url_get(_uri, token=token)], key=len, reverse=True
-    ):
+    for obj_type in sorted([*url_get(_uri, token=token)], key=len, reverse=True):
         if obj_type in request_url:
             return obj_type
     return ""
 
 
-def get_author_exists(registry_uri, token = None, name = None, identifier = None) -> str:
+def get_author_exists(registry_uri, token=None, name=None, identifier=None) -> str:
     """Get an author given an name and or identifier
 
     Parameters
@@ -642,11 +631,11 @@ def get_author_exists(registry_uri, token = None, name = None, identifier = None
         name to be checked
     identifier : str (optional)
         identifier to be checker
-    
+
     Returns
     -------
     str
-        The url of the author if they exist else None 
+        The url of the author if they exist else None
     """
     if not name and not identifier:
         return {}
@@ -657,15 +646,11 @@ def get_author_exists(registry_uri, token = None, name = None, identifier = None
         _params["name"] = name
     if identifier:
         _params["identifier"] = identifier
-    _author_exists = get(
-        registry_uri, 
-        "author",
-        token,
-        params= _params
-    )
+    _author_exists = get(registry_uri, "author", token, params=_params)
     if _author_exists:
         return _author_exists[0]["url"]
     return {}
+
 
 def get_auth_provider(registry_uri: str, token: str = None) -> str:
     """Retrived the auth provider from the remote registry
@@ -676,7 +661,7 @@ def get_auth_provider(registry_uri: str, token: str = None) -> str:
         url of the remote registry
     token : str (optional)
         remote registry token
-    
+
     Returns
     -------
     str
@@ -685,10 +670,13 @@ def get_auth_provider(registry_uri: str, token: str = None) -> str:
     _url = urllib.parse.urljoin(registry_uri, "auth-provider")
     _response = url_get(_url, token)
     if not _response["auth_provider"]:
-        raise fdp_exc.RegistryError(f'The remote registry {registry_uri} \
+        raise fdp_exc.RegistryError(
+            f"The remote registry {registry_uri} \
                                     did not provide an authentication provider \
-                                    is the remote registry correcly configured?')
+                                    is the remote registry correcly configured?"
+        )
     return _response["auth_provider"]
+
 
 def get_auth_url(registry_uri: str, token: str = None) -> str:
     """Retrived the auth url from the remote registry
@@ -699,7 +687,7 @@ def get_auth_url(registry_uri: str, token: str = None) -> str:
         url of the remote registry
     token : str (optional)
         remote registry token
-    
+
     Returns
     -------
     str
@@ -708,7 +696,9 @@ def get_auth_url(registry_uri: str, token: str = None) -> str:
     _url = urllib.parse.urljoin(registry_uri, "auth-url")
     _response = url_get(_url, token)
     if not _response["auth_url"]:
-        raise fdp_exc.RegistryError(f'The remote registry {registry_uri} \
+        raise fdp_exc.RegistryError(
+            f"The remote registry {registry_uri} \
                                     did not provide an authentication provider \
-                                    is the remote registry correcly configured?')
+                                    is the remote registry correcly configured?"
+        )
     return _response["auth_url"]

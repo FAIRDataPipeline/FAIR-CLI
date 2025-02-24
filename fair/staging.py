@@ -53,9 +53,7 @@ class Stager:
         """
         self._root = repo_root
         self._staging_file = fdp_com.staging_cache(self._root)
-        self._logger.debug(
-            "Creating stager for FAIR repository '%s'", repo_root
-        )
+        self._logger.debug("Creating stager for FAIR repository '%s'", repo_root)
 
     def initialise(self) -> None:
         """Initialise the stager, creating a staging cache file if one does not exist"""
@@ -84,15 +82,15 @@ class Stager:
             "data_product": {},
             "code_run": {},
         }
-        yaml.dump(_staging_dict, open(self._staging_file, encoding='utf-8', mode= "w"))
+        yaml.dump(_staging_dict, open(self._staging_file, encoding="utf-8", mode="w"))
 
     def reset_staged(self) -> None:
         """Change staging state of all items to unstaged"""
-        _staging_dict = yaml.safe_load(open(self._staging_file, encoding='utf-8'))
+        _staging_dict = yaml.safe_load(open(self._staging_file, encoding="utf-8"))
         for obj_type in _staging_dict:
             for item in _staging_dict[obj_type]:
                 _staging_dict[obj_type][item] = False
-        yaml.dump(_staging_dict, open(self._staging_file, "w"))        
+        yaml.dump(_staging_dict, open(self._staging_file, "w"))
 
     def add_to_staging(self, identifier: str, item_type: str) -> None:
         """Add an item to tracking
@@ -105,12 +103,12 @@ class Stager:
             the item type
         """
         # Open the staging dictionary first
-        with open(self._staging_file, encoding='utf-8') as f:
+        with open(self._staging_file, encoding="utf-8") as f:
             _staging_dict = yaml.safe_load(f)
 
         _staging_dict[item_type][identifier] = False
 
-        with open(self._staging_file, encoding='utf-8', mode= "w") as f:
+        with open(self._staging_file, encoding="utf-8", mode="w") as f:
             yaml.dump(_staging_dict, f)
 
     def change_stage_status(
@@ -128,23 +126,23 @@ class Stager:
                 "Failed to update tracking, expected staging file"
                 f" '{self._staging_file}' but it does not exist"
             )
-      
+
         if not self.is_in_staging_dict(identifier, item_type):
             raise fdp_exc.StagingError(
                 f"Cannot stage '{item_type}' with label '{identifier}', "
                 "item does not exist."
             )
-        
+
         # Open the staging dictionary first
-        _staging_dict = yaml.safe_load(open(self._staging_file, encoding='utf-8'))
+        _staging_dict = yaml.safe_load(open(self._staging_file, encoding="utf-8"))
         _staging_dict[item_type][identifier] = stage
 
-        with open(self._staging_file, encoding='utf-8', mode= "w") as f:
+        with open(self._staging_file, encoding="utf-8", mode="w") as f:
             yaml.dump(_staging_dict, f)
 
     def is_in_staging_dict(self, identifier, item_type):
         # Open the staging dictionary first
-        _staging_dict = yaml.safe_load(open(self._staging_file, encoding='utf-8'))
+        _staging_dict = yaml.safe_load(open(self._staging_file, encoding="utf-8"))
 
         if identifier in _staging_dict[item_type]:
             return True
@@ -169,16 +167,12 @@ class Stager:
         # When a job is completed by a language implementation the CLI should
         # have already registered it into staging with a status of staged=False
         if not fdp_run.get_job_dir(job_id):
-            raise fdp_exc.StagingError(
-                f"Failed to recognise job with ID '{job_id}'"
-            )
+            raise fdp_exc.StagingError(f"Failed to recognise job with ID '{job_id}'")
 
         self.add_to_staging(job_id, "job")
         self.change_stage_status(job_id, "job", stage)
 
-    def find_registry_entry_for_file(
-        self, local_uri: str, file_path: str
-    ) -> str:
+    def find_registry_entry_for_file(self, local_uri: str, file_path: str) -> str:
         """Performs a rough search for a file in the local registry
 
         Parameters
@@ -191,9 +185,7 @@ class Stager:
         str
             URL of local registry entry
         """
-        self._logger.debug(
-            "Retrieving registry entry for file '%s'", file_path
-        )
+        self._logger.debug("Retrieving registry entry for file '%s'", file_path)
 
         # Will search storage locations for a similar path by using
         # parent_directory/file_name
@@ -205,8 +197,7 @@ class Stager:
 
         if not _results:
             raise fdp_exc.StagingError(
-                "Failed to find local registry entry for file "
-                f"'{file_path}'"
+                "Failed to find local registry entry for file " f"'{file_path}'"
             )
 
         if len(_results) > 1:
@@ -219,9 +210,7 @@ class Stager:
 
         return _results[0]
 
-    def _get_code_run_entries(
-        self, local_uri: str, job_dir: str
-    ) -> typing.List[str]:
+    def _get_code_run_entries(self, local_uri: str, job_dir: str) -> typing.List[str]:
         """Retrieve code_run URL list from a given CLI run directory
 
         Parameters
@@ -250,10 +239,12 @@ class Stager:
 
         if (
             os.path.exists(_code_run_file)
-            and open(_code_run_file, encoding='utf-8').read().strip()
+            and open(_code_run_file, encoding="utf-8").read().strip()
         ):
             self._logger.debug("Found coderuns file, extracting runs")
-            _runs = [i.strip() for i in open(_code_run_file, encoding='utf-8').readlines()]
+            _runs = [
+                i.strip() for i in open(_code_run_file, encoding="utf-8").readlines()
+            ]
 
             for run in _runs:
                 _results = fdp_req.get(
@@ -273,9 +264,7 @@ class Stager:
 
         return _code_run_urls
 
-    def _get_written_obj_entries(
-        self, local_uri: str, config_dict: typing.Dict
-    ):
+    def _get_written_obj_entries(self, local_uri: str, config_dict: typing.Dict):
         if "write" not in config_dict:
             return []
 
@@ -300,9 +289,7 @@ class Stager:
 
         return _data_product_urls
 
-    def get_job_data(
-        self, local_uri, identifier: str
-    ) -> typing.Dict[str, str]:
+    def get_job_data(self, local_uri, identifier: str) -> typing.Dict[str, str]:
         self._logger.debug("Fetching job data for job %s", identifier)
         # Firstly find the job directory
         _directory = fdp_run.get_job_dir(identifier)
@@ -338,7 +325,7 @@ class Stager:
 
         # Find this job script on the local registry, as the script
         # can have any name obtain this information from the config.yaml
-        _config_dict = yaml.safe_load(open(_config_yaml, encoding='utf-8'))
+        _config_dict = yaml.safe_load(open(_config_yaml, encoding="utf-8"))
 
         if (
             "run_metadata" not in _config_dict
@@ -347,15 +334,11 @@ class Stager:
             _script_url = None
         else:
 
-            _script_url = self._extracted_from_get_job_data_50(
-                _config_dict, local_uri
-            )
+            _script_url = self._extracted_from_get_job_data_50(_config_dict, local_uri)
         self._logger.debug("Retrieving code runs and written objects")
 
         _code_run_urls = self._get_code_run_entries(local_uri, _directory)
-        _user_written_obj_urls = self._get_written_obj_entries(
-            local_uri, _config_dict
-        )
+        _user_written_obj_urls = self._get_written_obj_entries(local_uri, _config_dict)
 
         return {
             "jobs": _code_run_urls,
@@ -373,17 +356,13 @@ class Stager:
         _rel_script_path = _script_path.split(fdp_com.JOBS_DIR)[1]
         _rel_script_path = f"{fdp_com.JOBS_DIR}{_rel_script_path}"
 
-        result = self.find_registry_entry_for_file(
-            local_uri, _rel_script_path
-        )["url"]
+        result = self.find_registry_entry_for_file(local_uri, _rel_script_path)["url"]
 
         self._logger.debug("Script URL: %s", result)
 
         return result
 
-    def remove_staging_entry(
-        self, identifier: str, stage_type: str = "job"
-    ) -> None:
+    def remove_staging_entry(self, identifier: str, stage_type: str = "job") -> None:
         """Remove an item of type 'stage_type' from staging
 
         Parameters
@@ -394,7 +373,7 @@ class Stager:
                 type of stage item either job (default) or file
         """
         # Open the staging dictionary first
-        _staging_dict = yaml.safe_load(open(self._staging_file, encoding='utf-8'))
+        _staging_dict = yaml.safe_load(open(self._staging_file, encoding="utf-8"))
 
         if stage_type not in _staging_dict:
             raise fdp_exc.StagingError(
@@ -409,7 +388,7 @@ class Stager:
 
         del _staging_dict[stage_type][identifier]
 
-        with open(self._staging_file, encoding='utf-8', mode= "w") as f:
+        with open(self._staging_file, encoding="utf-8", mode="w") as f:
             yaml.dump(_staging_dict, f)
 
     def get_item_list(
@@ -424,7 +403,7 @@ class Stager:
             stage_type : str, optional
                 type of stage item either job (default) or file
         """
-        _staging_dict = yaml.safe_load(open(self._staging_file, encoding='utf-8'))
+        _staging_dict = yaml.safe_load(open(self._staging_file, encoding="utf-8"))
 
         if stage_type not in _staging_dict:
             raise fdp_exc.StagingError(
@@ -435,7 +414,7 @@ class Stager:
 
     def update_data_product_staging(self) -> None:
         """Update DataProduct list in staging file."""
-        with open(self._staging_file, encoding='utf-8') as f:
+        with open(self._staging_file, encoding="utf-8") as f:
             _staging_dict = yaml.safe_load(f)
 
         result = fdp_req.url_get(
@@ -453,12 +432,12 @@ class Stager:
             if key not in _staging_dict["data_product"]:
                 _staging_dict["data_product"][key] = False
 
-        with open(self._staging_file, encoding='utf-8', mode= "w") as f:
+        with open(self._staging_file, encoding="utf-8", mode="w") as f:
             yaml.dump(_staging_dict, f)
 
     def update_code_run_staging(self) -> None:
         """Update code_run(s) list in staging file."""
-        with open(self._staging_file, encoding='utf-8') as f:
+        with open(self._staging_file, encoding="utf-8") as f:
             _staging_dict = yaml.safe_load(f)
 
         result = fdp_req.url_get(
@@ -471,14 +450,14 @@ class Stager:
             if key not in _staging_dict["code_run"]:
                 _staging_dict["code_run"][key] = False
 
-        with open(self._staging_file, encoding='utf-8', mode="w") as f:
+        with open(self._staging_file, encoding="utf-8", mode="w") as f:
             yaml.dump(_staging_dict, f)
 
     def _load_from_file(self, file_name: str = None) -> typing.Dict[str, bool]:
         if not file_name:
             file_name = self._staging_file
 
-        with open(file_name, encoding='utf-8', mode= "w") as f:
+        with open(file_name, encoding="utf-8", mode="w") as f:
             _staging_dict = yaml.safe_load(f)
 
         self._staging_file = file_name

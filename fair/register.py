@@ -39,9 +39,7 @@ from fair.registry import SEARCH_KEYS
 logger = logging.getLogger("FAIRDataPipeline.Register")
 
 
-def convert_key_value_to_id(
-    uri: str, obj_type: str, value: str, token: str
-) -> int:
+def convert_key_value_to_id(uri: str, obj_type: str, value: str, token: str) -> int:
     """Converts a config key value to the relevant URL on the local registry
 
     Parameters
@@ -99,13 +97,7 @@ def fetch_registrations(
         "public",
     ]
 
-    _expected_keys_data_product = [
-        "root",
-        "path",
-        "file_type",
-        "version",
-        "public"
-    ]
+    _expected_keys_data_product = ["root", "path", "file_type", "version", "public"]
 
     _stored_objects: typing.List[str] = []
 
@@ -123,9 +115,7 @@ def fetch_registrations(
                 )
 
         _identifier: str = entry["identifier"] if "identifier" in entry else ""
-        _unique_name: str = (
-            entry["unique_name"] if "unique_name" in entry else ""
-        )
+        _unique_name: str = entry["unique_name"] if "unique_name" in entry else ""
 
         _data_product = None
         _external_object = None
@@ -252,9 +242,7 @@ def fetch_registrations(
         # as multiple version files can exist
         os.makedirs(_local_dir, exist_ok=True)
 
-        _local_file = os.path.join(
-            _local_dir, f"{_user_version}.{entry['file_type']}"
-        )
+        _local_file = os.path.join(_local_dir, f"{_user_version}.{entry['file_type']}")
         # Copy the temporary file into the data store
         # then remove temporary file to save space
         logger.debug("Saving data file to '%s'", _local_file)
@@ -289,8 +277,9 @@ def fetch_registrations(
 
     return _stored_objects
 
+
 def fetch_authors(local_uri, authors):
-    _authors = []    
+    _authors = []
     if type(authors) is not list:
         authors = [authors]
     for author_url in authors:
@@ -302,13 +291,17 @@ def fetch_authors(local_uri, authors):
             if _key in _author_url:
                 _id_system = _key
         if not _id_system:
-            raise fdp_exc.CLIConfigurationError(f"{_author_url} is not a valid identifier URL")
+            raise fdp_exc.CLIConfigurationError(
+                f"{_author_url} is not a valid identifier URL"
+            )
         if not fdp_id.check_id_permitted(_author_url):
             raise fdp_exc.CLIConfigurationError(f"{_author_url} is not a valid URL")
         _author_id = fdp_id.strip_identifier(_author_url)
         logger.debug(f"checking author: {_author_id} is a valid {_id_system} URL")
         if not _author_id:
-            raise fdp_exc.CLIConfigurationError(f"{_author_url} is not a recognised identifier")
+            raise fdp_exc.CLIConfigurationError(
+                f"{_author_url} is not a recognised identifier"
+            )
         if _id_system == "orcid":
             _author = fdp_id.check_orcid(_author_id)
         elif _id_system == "ror":
@@ -318,8 +311,11 @@ def fetch_authors(local_uri, authors):
         if _author:
             _authors.append(_author)
         else:
-            raise fdp_exc.CLIConfigurationError(f"{_author_id} is not a recognised {_id_system}")
+            raise fdp_exc.CLIConfigurationError(
+                f"{_author_id} is not a recognised {_id_system}"
+            )
     return _post_authors(local_uri, _authors)
+
 
 def _post_authors(local_uri, authors):
     _author_urls = []
@@ -331,12 +327,13 @@ def _post_authors(local_uri, authors):
         if "uri" in _author:
             _data["identifier"] = _search_keys["identifier"] = _author["uri"]
             _author_url_exists = fdp_req.get_author_exists(
-                local_uri,
-                identifier = _data["identifier"]
+                local_uri, identifier=_data["identifier"]
             )
             if _author_url_exists:
                 _author_urls.append(_author_url_exists)
                 continue
-        _author_url = fdp_req.post_else_get(local_uri, "author", fdp_req.local_token(), _data, _search_keys)
+        _author_url = fdp_req.post_else_get(
+            local_uri, "author", fdp_req.local_token(), _data, _search_keys
+        )
         _author_urls.append(_author_url)
     return _author_urls

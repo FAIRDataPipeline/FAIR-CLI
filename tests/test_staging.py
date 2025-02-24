@@ -24,9 +24,7 @@ def stager(local_config: typing.Tuple[str, str]):
 
 
 @pytest.mark.faircli_staging
-def test_job_status_change(
-    stager: fdp_stage.Stager, mocker: pytest_mock.MockerFixture
-):
+def test_job_status_change(stager: fdp_stage.Stager, mocker: pytest_mock.MockerFixture):
     _id = uuid.uuid4()
 
     with pytest.raises(fdp_exc.StagingError):
@@ -69,8 +67,7 @@ def test_registry_entry_for_file(
     )
     mocker.patch("fair.registry.requests.local_token", lambda: "")
     assert (
-        stager.find_registry_entry_for_file(LOCAL_REGISTRY_URL, "/not/a/path")
-        == _url
+        stager.find_registry_entry_for_file(LOCAL_REGISTRY_URL, "/not/a/path") == _url
     )
 
 
@@ -81,12 +78,10 @@ def test_get_job_data(
     local_config: typing.Tuple[str, str],
     mocker: pytest_mock.MockerFixture,
     pyDataPipeline: str,
-    tmp_path
+    tmp_path,
 ):
     with local_registry:
-        mocker.patch(
-            "fair.common.registry_home", lambda: local_registry._install
-        )
+        mocker.patch("fair.common.registry_home", lambda: local_registry._install)
         _id = uuid.uuid4()
 
         with pytest.raises(fdp_exc.StagingError):

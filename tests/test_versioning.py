@@ -7,10 +7,7 @@ import fair.registry.versioning as fdp_ver
 @pytest.mark.faircli_versioning
 def test_incrementer_parsing():
     for key in fdp_ver.BUMP_FUNCS:
-        assert (
-            fdp_ver.parse_incrementer("${{" + key + "}}")
-            == fdp_ver.BUMP_FUNCS[key]
-        )
+        assert fdp_ver.parse_incrementer("${{" + key + "}}") == fdp_ver.BUMP_FUNCS[key]
 
 
 @pytest.mark.faircli_versioning
@@ -31,6 +28,6 @@ def test_get_latest():
 
 @pytest.mark.faircli_versioning
 def test_default_bump():
-    assert fdp_ver.default_bump(
-        semver.VersionInfo(0, 1, 0)
-    ) == semver.VersionInfo(0, 1, 1)
+    assert fdp_ver.default_bump(semver.VersionInfo(0, 1, 0)) == semver.VersionInfo(
+        0, 1, 1
+    )

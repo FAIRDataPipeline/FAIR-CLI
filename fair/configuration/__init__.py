@@ -83,7 +83,7 @@ def read_local_fdpconfig(repo_loc: str) -> typing.MutableMapping:
     # Retrieve the location of this repositories CLI config file
     _local_config_file_addr = fdp_com.local_fdpconfig(repo_loc)
     if os.path.exists(_local_config_file_addr):
-        _local_config = yaml.safe_load(open(_local_config_file_addr, encoding='utf-8'))
+        _local_config = yaml.safe_load(open(_local_config_file_addr, encoding="utf-8"))
 
     return _local_config
 
@@ -102,7 +102,7 @@ def read_global_fdpconfig() -> typing.MutableMapping:
     _global_config_addr = fdp_com.global_fdpconfig()
 
     if os.path.exists(_global_config_addr):
-        _global_config = yaml.safe_load(open(_global_config_addr, encoding='utf-8'))
+        _global_config = yaml.safe_load(open(_global_config_addr, encoding="utf-8"))
 
     return _global_config
 
@@ -121,11 +121,15 @@ def set_email(repo_loc: str, email: str, is_global: bool = False) -> None:
     """
     _loc_conf = read_local_fdpconfig(repo_loc)
     _loc_conf["user"]["email"] = email
-    yaml.dump(_loc_conf, open(fdp_com.local_fdpconfig(repo_loc), encoding='utf-8', mode= "w"))
+    yaml.dump(
+        _loc_conf, open(fdp_com.local_fdpconfig(repo_loc), encoding="utf-8", mode="w")
+    )
     if is_global:
         _glob_conf = read_global_fdpconfig()
         _glob_conf["user"]["email"] = email
-        yaml.dump(_glob_conf, open(fdp_com.global_fdpconfig(), encoding='utf-8', mode= "w"))
+        yaml.dump(
+            _glob_conf, open(fdp_com.global_fdpconfig(), encoding="utf-8", mode="w")
+        )
 
 
 def set_user(repo_loc: str, name: str, is_global: bool = False) -> None:
@@ -149,7 +153,9 @@ def set_user(repo_loc: str, name: str, is_global: bool = False) -> None:
             _glob_conf = read_global_fdpconfig()
             _glob_conf["user"]["given_names"] = _given_name.title().strip()
             _glob_conf["user"]["family_name"] = _family_name.title().strip()
-            yaml.dump(_glob_conf, open(fdp_com.global_fdpconfig(), encoding='utf-8', mode= "w"))
+            yaml.dump(
+                _glob_conf, open(fdp_com.global_fdpconfig(), encoding="utf-8", mode="w")
+            )
     else:
         _loc_conf["user"]["given_names"] = name.title().strip()
         _loc_conf["user"]["family_name"] = None
@@ -157,12 +163,18 @@ def set_user(repo_loc: str, name: str, is_global: bool = False) -> None:
             _glob_conf = read_global_fdpconfig()
             _glob_conf["user"]["given_names"] = name.title().strip()
             _glob_conf["user"]["family_name"] = None
-            yaml.dump(_glob_conf, open(fdp_com.global_fdpconfig(), encoding='utf-8', mode= "w"))
-    yaml.dump(_loc_conf, open(fdp_com.local_fdpconfig(repo_loc), encoding='utf-8', mode= "w"))
+            yaml.dump(
+                _glob_conf, open(fdp_com.global_fdpconfig(), encoding="utf-8", mode="w")
+            )
+    yaml.dump(
+        _loc_conf, open(fdp_com.local_fdpconfig(repo_loc), encoding="utf-8", mode="w")
+    )
     if is_global:
         _glob_conf = read_global_fdpconfig()
         _glob_conf["user"]["name"] = name
-        yaml.dump(_glob_conf, open(fdp_com.global_fdpconfig(), encoding='utf-8', mode= "w"))
+        yaml.dump(
+            _glob_conf, open(fdp_com.global_fdpconfig(), encoding="utf-8", mode="w")
+        )
 
 
 def get_current_user_name(repo_loc: str) -> typing.Tuple[str]:
@@ -284,7 +296,7 @@ def get_remote_token(
                 " does not exist"
             )
 
-        _token = open(_token_file, encoding='utf-8').read().strip()
+        _token = open(_token_file, encoding="utf-8").read().strip()
 
         if not _token:
             raise fdp_exc.CLIConfigurationError(
@@ -379,6 +391,7 @@ def get_current_user_uri(repo_loc: str) -> str:
         raise fdp_exc.CLIConfigurationError("No user URI identifier defined.")
     return _uri
 
+
 def get_current_user_remote_user(repo_loc: str) -> str:
     """Retrieves the URI identifier for the current user
 
@@ -395,6 +408,7 @@ def get_current_user_remote_user(repo_loc: str) -> str:
     if not _remote_user or _remote_user == "None":
         raise fdp_exc.CLIConfigurationError("No remote user defined.")
     return _remote_user
+
 
 def check_registry_exists(registry: str = None) -> typing.Optional[str]:
     """Checks if fair registry is set up on users machine
@@ -437,7 +451,7 @@ def set_local_uri(uri: str) -> str:
 
     _global_conf["registries"]["local"]["uri"] = uri
 
-    with open(fdp_com.global_fdpconfig(), encoding='utf-8', mode= "w") as out_f:
+    with open(fdp_com.global_fdpconfig(), encoding="utf-8", mode="w") as out_f:
         yaml.dump(_global_conf, out_f)
 
 
@@ -458,12 +472,12 @@ def update_local_port(registry_dir: str = None) -> str:
     _current_port = fdp_com.registry_session_port(registry_dir)
     _current_address = fdp_com.registry_session_address(registry_dir)
 
-    _new_url = f'http://{_current_address}:{_current_port}/api/'
+    _new_url = f"http://{_current_address}:{_current_port}/api/"
 
     if os.path.exists(fdp_com.global_fdpconfig()) and read_global_fdpconfig():
         _glob_conf = read_global_fdpconfig()
         _glob_conf["registries"]["local"]["uri"] = _new_url
-        with open(fdp_com.global_fdpconfig(), encoding='utf-8', mode= "w") as out_f:
+        with open(fdp_com.global_fdpconfig(), encoding="utf-8", mode="w") as out_f:
             yaml.dump(_glob_conf, out_f)
 
     return _new_url
@@ -493,9 +507,7 @@ def _handle_orcid(user_orcid: str) -> typing.Tuple[typing.Dict, str]:
 
     _user_info["orcid"] = user_orcid.strip()
 
-    click.echo(
-        f"Found entry: {_user_info['given_names']} {_user_info['family_name']}"
-    )
+    click.echo(f"Found entry: {_user_info['given_names']} {_user_info['family_name']}")
 
     _def_ospace = "".join(_user_info["given_names"]).lower()
 
@@ -565,6 +577,7 @@ def _handle_grid(user_grid: str) -> typing.Tuple[typing.Dict, str]:
 
     return _user_info, _def_ospace
 
+
 def _handle_github(user_github: str) -> typing.Tuple[typing.Dict, str]:
 
     _user_info = fdp_id.check_github(user_github.strip())
@@ -576,11 +589,14 @@ def _handle_github(user_github: str) -> typing.Tuple[typing.Dict, str]:
         _user_info = fdp_id.check_github(user_github.strip())
 
     _def_ospace = _user_info["github"].lower()
-    
+
     click.echo(f"Found entry: {_user_info['github']} ")
     return _user_info, _def_ospace
 
-def _handle_gitlab(user_gitlab, gitlab_url = "https://gitlab.com") -> typing.Tuple[typing.Dict, str]:
+
+def _handle_gitlab(
+    user_gitlab, gitlab_url="https://gitlab.com"
+) -> typing.Tuple[typing.Dict, str]:
     _user_info = fdp_id.check_gitlab(user_gitlab.strip(), gitlab_url.strip())
     while not _user_info:
         time.sleep(3)
@@ -589,7 +605,7 @@ def _handle_gitlab(user_gitlab, gitlab_url = "https://gitlab.com") -> typing.Tup
         _user_info = fdp_id.check_gitlab(user_gitlab.strip())
 
     _def_ospace = _user_info["gitlab"].lower()
-    
+
     click.echo(f"Found entry: {_user_info['gitlab']} ")
     return _user_info, _def_ospace
 
@@ -620,8 +636,10 @@ def _handle_uuid() -> typing.Tuple[typing.Dict, str]:
     return _user_info, _def_ospace
 
 
-def _get_user_info_and_namespaces(local: bool = False, remote_url: str = None) -> typing.Dict[str, typing.Dict]:
-    _user_email = click.prompt("Email (optional)", default = "")
+def _get_user_info_and_namespaces(
+    local: bool = False, remote_url: str = None
+) -> typing.Dict[str, typing.Dict]:
+    _user_email = click.prompt("Email (optional)", default="")
 
     _invalid_input = True
     if not local:
@@ -640,19 +658,23 @@ def _get_user_info_and_namespaces(local: bool = False, remote_url: str = None) -
             if not _user_info["name"]:
                 _user_info["given_names"] = click.prompt("Given Names")
                 _user_info["family_name"] = click.prompt("Family Name")
-                _user_info["name"] = " ".join([_user_info["given_names"], _user_info["family_name"]])
+                _user_info["name"] = " ".join(
+                    [_user_info["given_names"], _user_info["family_name"]]
+                )
             _invalid_input = False
         elif _id_type.upper() == "GITLAB":
             if not _remote_auth_url:
                 _remote_auth_url = click.prompt(
-                "GitLab URL", default="https://gitlab.com/"
-            )
+                    "GitLab URL", default="https://gitlab.com/"
+                )
             _user_gitlab = click.prompt("GitLab Username")
             _user_info, _def_ospace = _handle_gitlab(_user_gitlab, _remote_auth_url)
             if not _user_info["name"]:
                 _user_info["given_names"] = click.prompt("Given Names")
                 _user_info["family_name"] = click.prompt("Family Name")
-                _user_info["name"] = " ".join([_user_info["given_names"], _user_info["family_name"]])
+                _user_info["name"] = " ".join(
+                    [_user_info["given_names"], _user_info["family_name"]]
+                )
             _invalid_input = False
         elif _id_type.upper() == "ORCID":
             _user_orcid = click.prompt("ORCID")
@@ -699,15 +721,15 @@ def _get_user_info_and_namespaces(local: bool = False, remote_url: str = None) -
         _user_info["remote_user"] = "FAIRDataPipeline"
 
     # Unset unused variables
-    _user_info.pop('github', None)
-    _user_info.pop('gitlab', None)
+    _user_info.pop("github", None)
+    _user_info.pop("gitlab", None)
 
     if not _user_email:
         _user_info["email"] = f'{_user_info["remote_user"]}@users.noreply.github.com'
     else:
         _user_info["email"] = _user_email
-    
-    logger.debug(f'{_user_info}')
+
+    logger.debug(f"{_user_info}")
 
     return {"user": _user_info, "namespaces": _namespaces}
 
@@ -716,9 +738,7 @@ def global_config_query(
     registry: str = None, local: bool = False
 ) -> typing.Dict[str, typing.Any]:
     """Ask user question set for creating global FAIR config"""
-    logger.debug(
-        "Running global configuration query with registry at '%s'", registry
-    )
+    logger.debug("Running global configuration query with registry at '%s'", registry)
     click.echo("Checking for local registry")
     if not registry and "FAIR_REGISTRY_DIR" in os.environ:
         registry = os.environ["FAIR_REGISTRY_DIR"]
@@ -750,9 +770,7 @@ def global_config_query(
         fdp_serv.install_registry(install_dir=registry)
 
     _local_port: int = click.prompt("Local Registry Port", default="8000")
-    _local_uri = fdp_com.DEFAULT_LOCAL_REGISTRY_URL.replace(
-        ":8000", f":{_local_port}"
-    )
+    _local_uri = fdp_com.DEFAULT_LOCAL_REGISTRY_URL.replace(":8000", f":{_local_port}")
     if local:
         _remote_url = "http://127.0.0.1:8000/api/"
         _rem_key_file = os.path.join(registry, "token")
@@ -778,11 +796,13 @@ def global_config_query(
 
         _rem_key_file = os.path.join(fdp_com.global_config_dir(), "remotetoken.txt")
 
-        with open(_rem_key_file, encoding='utf-8', mode= 'w') as f:
+        with open(_rem_key_file, encoding="utf-8", mode="w") as f:
             f.write(_rem_key)
 
         if not os.path.exists(_rem_key_file):
-            raise fdp_exc.CLIConfigurationError(f'Token could not be written to {_rem_key_file}')
+            raise fdp_exc.CLIConfigurationError(
+                f"Token could not be written to {_rem_key_file}"
+            )
 
     if not fdp_serv.check_server_running():
         if _ := click.confirm(
@@ -870,10 +890,7 @@ def local_config_query(
 
     # Allow the user to continue without an input namespace as some
     # functionality does not require this.
-    if (
-        "input" not in global_config["namespaces"]
-        or not global_config["namespaces"]
-    ):
+    if "input" not in global_config["namespaces"] or not global_config["namespaces"]:
         click.echo(f"Will use '{_def_ospace}' as default input namespace")
         _def_ispace = _def_ospace
     else:
@@ -930,22 +947,18 @@ def local_config_query(
 
     _git_remote_repo = _repo.remotes[_git_remote].url
 
-    click.echo(
-        f"Using git repository remote '{_git_remote}': {_git_remote_repo}"
-    )
+    click.echo(f"Using git repository remote '{_git_remote}': {_git_remote_repo}")
 
     # If this is not the first setup it means globals are available so these
     # can be suggested as defaults during local setup
     if not first_time_setup or not local:
         _def_remote = click.prompt("Remote API URL", default=_def_remote)
-        _def_rem_key = click.prompt(
-            "Remote API Token File", default=_def_rem_key
-        )
+        _def_rem_key = click.prompt("Remote API Token File", default=_def_rem_key)
         _def_rem_key = os.path.expandvars(_def_rem_key)
 
         while (
             not os.path.exists(_def_rem_key)
-            or not open(_def_rem_key, encoding='utf-8').read().strip()
+            or not open(_def_rem_key, encoding="utf-8").read().strip()
         ):
             click.echo(
                 f"Token file '{_def_rem_key}' does not exist or is empty, "
@@ -953,12 +966,8 @@ def local_config_query(
             )
             _def_rem_key = click.prompt("Remote API Token File")
             _def_rem_key = os.path.expandvars(_def_rem_key)
-        _def_ospace = click.prompt(
-            "Default output namespace", default=_def_ospace
-        )
-        _def_ispace = click.prompt(
-            "Default input namespace", default=_def_ispace
-        )
+        _def_ospace = click.prompt("Default output namespace", default=_def_ospace)
+        _def_ispace = click.prompt("Default input namespace", default=_def_ispace)
 
     _local_config: typing.Dict[str, typing.Any] = {
         "namespaces": {"output": _def_ospace, "input": _def_ispace},

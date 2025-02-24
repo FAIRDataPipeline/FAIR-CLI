@@ -25,9 +25,7 @@ def test_store_user(
 ):
     mocker.patch("fair.common.registry_home", lambda: local_registry._install)
     with local_registry:
-        assert fdp_store.store_user(
-            local_config[1], LOCAL_URL, local_registry._token
-        )
+        assert fdp_store.store_user(local_config[1], LOCAL_URL, local_registry._token)
 
 
 @pytest.mark.faircli_storage
@@ -48,14 +46,18 @@ def test_store_working_config(
     local_config: typing.Tuple[str, str],
     local_registry: conf.RegistryTest,
     mocker: pytest_mock.MockerFixture,
-    tmp_path
+    tmp_path,
 ):
     mocker.patch("fair.common.registry_home", lambda: local_registry._install)
     with local_registry:
-        temp_file_name = os.path.join(tmp_path, f'{hashlib.sha1(tmp_path.__str__().encode("utf-8")).hexdigest()}.yaml')
+        temp_file_name = os.path.join(
+            tmp_path,
+            f'{hashlib.sha1(tmp_path.__str__().encode("utf-8")).hexdigest()}.yaml',
+        )
         with open(temp_file_name, "w") as tempf:
             yaml.dump(
-                {"run_metadata": {"write_data_store": os.path.dirname(temp_file_name)}}, tempf
+                {"run_metadata": {"write_data_store": os.path.dirname(temp_file_name)}},
+                tempf,
             )
 
         assert fdp_store.store_working_config(
@@ -68,17 +70,24 @@ def test_store_working_script(
     local_config: typing.Tuple[str, str],
     local_registry: conf.RegistryTest,
     mocker: pytest_mock.MockerFixture,
-    tmp_path
+    tmp_path,
 ):
     mocker.patch("fair.common.registry_home", lambda: local_registry._install)
     with local_registry:
-        temp_file_name = os.path.join(tmp_path, f'{hashlib.sha1(tmp_path.__str__().encode("utf-8")).hexdigest()}.yaml')
+        temp_file_name = os.path.join(
+            tmp_path,
+            f'{hashlib.sha1(tmp_path.__str__().encode("utf-8")).hexdigest()}.yaml',
+        )
         with open(temp_file_name, "w") as tempf:
             yaml.dump(
-                {"run_metadata": {"write_data_store": os.path.dirname(temp_file_name)}}, tempf
+                {"run_metadata": {"write_data_store": os.path.dirname(temp_file_name)}},
+                tempf,
             )
 
-        temp_script_name = os.path.join(tmp_path, f'{hashlib.sha1(tmp_path.__str__().encode("utf-8")).hexdigest()}.sh')
+        temp_script_name = os.path.join(
+            tmp_path,
+            f'{hashlib.sha1(tmp_path.__str__().encode("utf-8")).hexdigest()}.sh',
+        )
         with open(temp_script_name, "w") as _temp_script:
             _temp_script.write(string.ascii_letters)
 
@@ -108,13 +117,16 @@ def test_store_namespace(
 
 @pytest.mark.faircli_storage
 def test_calc_file_hash(tmp_path):
-    temp_file_name = os.path.join(tmp_path, f'{hashlib.sha1(tmp_path.__str__().encode("utf-8")).hexdigest()}.txt')
+    temp_file_name = os.path.join(
+        tmp_path, f'{hashlib.sha1(tmp_path.__str__().encode("utf-8")).hexdigest()}.txt'
+    )
     with open(temp_file_name, "w") as tempf:
         tempf.write(string.ascii_letters)
     _HASH = "db16441c4b330570a9ac83b0e0b006fcd74cc32b"
     # Based on hash calculated at 2021-10-15
     assert fdp_store.calculate_file_hash(tempf.name) == _HASH
     assert fdp_store.check_match(tempf.name, [{"hash": _HASH}])
+
 
 # @pytest.mark.faircli_storage
 # @pytest.mark.skipif("FAIR_REMOTE_TOKEN" not in os.environ, reason="Fails on GH CI")
@@ -140,4 +152,3 @@ def test_calc_file_hash(tmp_path):
 #     with remote_registry, local_registry, s3_bucket:
 
 #         assert fdp_store.get_upload_url(_HASH, "http://127.0.0.1:8000/api", remote_registry._token )["url"]
-    

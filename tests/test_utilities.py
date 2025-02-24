@@ -45,6 +45,7 @@ def test_trailing_slash(test_input, expected):
     result = fdp_util.check_trailing_slash(test_input)
     assert result == expected
 
+
 @pytest.mark.faircli_utilities
 @pytest.mark.parametrize(
     "test_input,expected", [("lallero/", "lallero"), ("lallero", "lallero")]
@@ -52,6 +53,7 @@ def test_trailing_slash(test_input, expected):
 def test_remove_trailing_slash(test_input, expected):
     result = fdp_util.remove_trailing_slash(test_input)
     assert result == expected
+
 
 @pytest.mark.faircli_utilities
 def test_api_url_check():

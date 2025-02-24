@@ -60,7 +60,7 @@ def complete_data_products(ctx, param, incomplete) -> typing.List[str]:
     _staging_file = fdp_com.staging_cache(os.getcwd())
     if not os.path.exists(_staging_file):
         return []
-    _staging_data = yaml.safe_load(open(_staging_file, encoding='utf-8'))
+    _staging_data = yaml.safe_load(open(_staging_file, encoding="utf-8"))
     _candidates = list(_staging_data["data_product"].keys())
     return [
         click.shell_completion.CompletionItem(c)
@@ -90,47 +90,49 @@ def cli(ctx):
     """Welcome to FAIR-CLI, the FAIR data pipeline command-line interface."""
     pass
 
+
 @cli.command()
 @click.argument("file_path")
-@click.option("--remote", help="Show Remote Code Runs", default= "origin")
+@click.option("--remote", help="Show Remote Code Runs", default="origin")
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
 @click.option(
     "--local/--no-local",
     help="init without a remote registry - useful for closed systems",
     default=False,
 )
-def identify(file_path: str, remote:str, debug, local:bool) -> None:
+def identify(file_path: str, remote: str, debug, local: bool) -> None:
     """
     list details of a file
-    
+
     Usage: fair identify /path/to/file [remote]
     """
     try:
         with fdp_session.FAIR(
             os.getcwd(), debug=debug, server_mode=fdp_svr.SwitchMode.CLI, local=local
         ) as fair_session:
-            fair_session.get_details(file_path, remote = "")
+            fair_session.get_details(file_path, remote="")
             if not local:
-                fair_session.get_details(file_path, remote = remote)
+                fair_session.get_details(file_path, remote=remote)
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
         if e.level.lower() == "error":
             sys.exit(e.exit_code)
 
+
 @cli.command()
 @click.argument("data_product")
-@click.option("--remote", help="Show Remote Code Runs", default= "origin")
+@click.option("--remote", help="Show Remote Code Runs", default="origin")
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
 @click.option(
     "--local/--no-local",
     help="init without a remote registry - useful for closed systems",
     default=False,
 )
-def find(data_product: str, remote: str, debug:bool, local:bool) -> None:
+def find(data_product: str, remote: str, debug: bool, local: bool) -> None:
     """
     Shows where a data product is located
-    
-    Data Products should be formatted: 
+
+    Data Products should be formatted:
     <namespace>:<data product name>@v<version>
     eg:
     PSU:SEIRS_model/parameters@v1.0.0
@@ -149,6 +151,7 @@ def find(data_product: str, remote: str, debug:bool, local:bool) -> None:
         if e.level.lower() == "error":
             sys.exit(e.exit_code)
 
+
 @cli.command()
 @click.option("--verbose/--not-verbose", help="Display URLs", default=False)
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
@@ -165,50 +168,54 @@ def status(verbose, debug) -> None:
         if e.level.lower() == "error":
             sys.exit(e.exit_code)
 
+
 @cli.group(invoke_without_command=True)
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
-@click.option("--remote", help="Show Remote Code Runs", default= "")
+@click.option("--remote", help="Show Remote Code Runs", default="")
 @click.pass_context
 def list(ctx, debug, remote) -> None:
     """Commands to list data_product(s) and code_run(s)"""
     if ctx.obj is None:
         ctx.obj = {}
-    ctx.obj['DEBUG'] = debug
-    ctx.obj['REMOTE'] = remote
+    ctx.obj["DEBUG"] = debug
+    ctx.obj["REMOTE"] = remote
     _current_args = " ".join(sys.argv)
     if not ("data-products" in _current_args or "code-runs" in _current_args):
         ctx.invoke(data_products)
         ctx.invoke(code_runs)
 
+
 @list.command()
 @click.pass_context
 def data_products(ctx) -> None:
-    debug = ctx.obj['DEBUG']
-    remote = ctx.obj['REMOTE']
+    debug = ctx.obj["DEBUG"]
+    remote = ctx.obj["REMOTE"]
     try:
         with fdp_session.FAIR(
             os.getcwd(), debug=debug, server_mode=fdp_svr.SwitchMode.CLI
         ) as fair_session:
-            fair_session.show_all_data_products(remote = remote)
+            fair_session.show_all_data_products(remote=remote)
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
         if e.level.lower() == "error":
             sys.exit(e.exit_code)
 
+
 @list.command()
 @click.pass_context
 def code_runs(ctx) -> None:
-    debug = ctx.obj['DEBUG']
-    remote = ctx.obj['REMOTE']
+    debug = ctx.obj["DEBUG"]
+    remote = ctx.obj["REMOTE"]
     try:
         with fdp_session.FAIR(
             os.getcwd(), debug=debug, server_mode=fdp_svr.SwitchMode.CLI
         ) as fair_session:
-            fair_session.show_all_code_runs(remote = remote)
+            fair_session.show_all_code_runs(remote=remote)
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
         if e.level.lower() == "error":
             sys.exit(e.exit_code)
+
 
 @cli.command()
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
@@ -216,9 +223,7 @@ def code_runs(ctx) -> None:
 def create(debug, output: str) -> None:
     """Generate a new FAIR repository user YAML config file"""
     output = (
-        output[0]
-        if output
-        else os.path.join(os.getcwd(), fdp_com.USER_CONFIG_FILE)
+        output[0] if output else os.path.join(os.getcwd(), fdp_com.USER_CONFIG_FILE)
     )
     click.echo(f"Generating new user configuration file '{output}'")
     with fdp_session.FAIR(os.getcwd(), debug=debug) as fair_session:
@@ -264,9 +269,7 @@ def reset(debug: bool) -> None:
     default=False,
 )
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
-@click.option(
-    "--export", help="Export the CLI configuration to a file", default=""
-)
+@click.option("--export", help="Export the CLI configuration to a file", default="")
 @click.option(
     "--local/--no-local",
     help="init without a remote registry - useful for closed systems",
@@ -293,7 +296,7 @@ def init(
                         f"Cannot load CLI configuration from file '{using}', "
                         "file does not exist."
                     )
-                _use_dict = yaml.safe_load(open(using, encoding='utf-8'))
+                _use_dict = yaml.safe_load(open(using, encoding="utf-8"))
 
             fair_session.initialise(
                 using=_use_dict,
@@ -307,6 +310,7 @@ def init(
         e.err_print()
         if e.level.lower() == "error":
             sys.exit(e.exit_code)
+
 
 @cli.command()
 @click.option(
@@ -343,8 +347,7 @@ def purge(glob: bool, debug: bool, yes: bool, data: bool, all: bool) -> None:
         )
     else:
         _purge = click.confirm(
-            "Are you sure you want to reset FAIR tracking, "
-            "this is not reversible?"
+            "Are you sure you want to reset FAIR tracking, " "this is not reversible?"
         )
         if data:
             data = click.confirm(
@@ -425,7 +428,7 @@ def start(debug: bool, port: int, address: str) -> None:
             server_mode=fdp_svr.SwitchMode.USER_START,
             debug=debug,
             server_port=port,
-            server_address=address
+            server_address=address,
         )
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
@@ -438,11 +441,7 @@ def start(debug: bool, port: int, address: str) -> None:
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
 def stop(force: bool, debug: bool) -> None:
     """Stop the local registry server"""
-    _mode = (
-        fdp_svr.SwitchMode.FORCE_STOP
-        if force
-        else fdp_svr.SwitchMode.USER_STOP
-    )
+    _mode = fdp_svr.SwitchMode.FORCE_STOP if force else fdp_svr.SwitchMode.USER_STOP
     try:
         fdp_session.FAIR(os.getcwd(), server_mode=_mode, debug=debug)
     except fdp_exc.FAIRCLIException as e:
@@ -519,7 +518,7 @@ def add(identifier: str, debug: bool) -> None:
     """
     Add a data product or coderun to staging
 
-    Data Products should be formatted: 
+    Data Products should be formatted:
     <namespace>:<data product name>@v<version>
     eg:
     PSU:SEIRS_model/parameters@v1.0.0
@@ -527,16 +526,14 @@ def add(identifier: str, debug: bool) -> None:
     Code Runs should be specified by code run uuid
 
     Use `fair list` to view Data Products and Code Runs
-    
+
     """
     try:
         with fdp_session.FAIR(
             os.getcwd(),
             debug=debug,
         ) as fair_session:
-            fair_session.add_to_staging(
-                identifier
-            )
+            fair_session.add_to_staging(identifier)
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
         if e.level.lower() == "error":
@@ -551,9 +548,7 @@ def add(identifier: str, debug: bool) -> None:
     default=False,
     help="remove from tracking but do not delete from file system",
 )
-def rm(
-    job_ids: typing.List[str], cached: bool = False, debug: bool = False
-) -> None:
+def rm(job_ids: typing.List[str], cached: bool = False, debug: bool = False) -> None:
     """Removes jobs from system or just tracking"""
     pass
 
@@ -581,9 +576,7 @@ def rm(
     help="init without a remote registry - useful for closed systems",
     default=False,
 )
-def run(
-    config: str, script: str, debug: bool, ci: bool, dirty: bool, local: bool
-):
+def run(config: str, script: str, debug: bool, ci: bool, dirty: bool, local: bool):
     """Initialises a job with the option to specify a bash command"""
     # Allow no config to be specified, if that is the case use default local
     click.echo("Running run please wait")
@@ -597,9 +590,7 @@ def run(
             allow_dirty=dirty,
             local=local,
         ) as fair_session:
-            _hash = fair_session.run(
-                script, passive=ci, allow_dirty=dirty, local=local
-            )
+            _hash = fair_session.run(script, passive=ci, allow_dirty=dirty, local=local)
             if ci:
                 click.echo(fdp_run.get_job_dir(_hash))
     except fdp_exc.FAIRCLIException as e:

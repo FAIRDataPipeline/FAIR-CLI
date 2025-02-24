@@ -95,7 +95,10 @@ def check_server_running(local_uri: str = None) -> bool:
 
 
 def launch_server(
-    port: int = 8000, registry_dir: str = None, verbose: bool = False, address: str = "127.0.0.1"
+    port: int = 8000,
+    registry_dir: str = None,
+    verbose: bool = False,
+    address: str = "127.0.0.1",
 ) -> int:
     """Start the registry server.
 
@@ -109,9 +112,7 @@ def launch_server(
     if not registry_dir:
         registry_dir = fdp_com.registry_home()
 
-    _server_start_script = os.path.join(
-        registry_dir, "scripts", "start_fair_registry"
-    )
+    _server_start_script = os.path.join(registry_dir, "scripts", "start_fair_registry")
 
     if platform.system() == "Windows":
         _server_start_script += "_windows.bat"
@@ -124,7 +125,11 @@ def launch_server(
 
     _cmd = [_server_start_script, "-p", f"{port}", "-a", f"{address}"]
 
-    os.environ["FAIR_ALLOWED_HOSTS"] = address if "FAIR_ALLOWED_HOSTS" not in os.environ else os.environ["FAIR_ALLOWED_HOSTS"] + f",{address}"
+    os.environ["FAIR_ALLOWED_HOSTS"] = (
+        address
+        if "FAIR_ALLOWED_HOSTS" not in os.environ
+        else os.environ["FAIR_ALLOWED_HOSTS"] + f",{address}"
+    )
 
     logger.debug("Launching server with command '%s'", " ".join(_cmd))
 
@@ -180,9 +185,7 @@ def stop_server(
             "Could not stop registry server, processes still running."
         )
 
-    _server_stop_script = os.path.join(
-        registry_dir, "scripts", "stop_fair_registry"
-    )
+    _server_stop_script = os.path.join(registry_dir, "scripts", "stop_fair_registry")
 
     if platform.system() == "Windows":
         _server_stop_script += "_windows.bat"
@@ -230,9 +233,7 @@ def rebuild_local(python: str, install_dir: str = None, silent: bool = False):
     if not install_dir:
         install_dir = fdp_com.DEFAULT_REGISTRY_LOCATION
 
-    _migration_files = glob.glob(
-        os.path.join(install_dir, "*", "migrations", "*.py*")
-    )
+    _migration_files = glob.glob(os.path.join(install_dir, "*", "migrations", "*.py*"))
 
     logger.debug("Removing migration files: %s", _migration_files)
 
@@ -321,7 +322,7 @@ def install_registry(
         _glob_conf = fdp_util.flatten_dict(fdp_conf.read_global_fdpconfig())
         _glob_conf["registries.local.directory"] = install_dir
 
-        with open(fdp_com.global_fdpconfig(), encoding='utf-8', mode= "w") as out_conf:
+        with open(fdp_com.global_fdpconfig(), encoding="utf-8", mode="w") as out_conf:
             yaml.dump(fdp_util.expand_dict(_glob_conf), out_conf)
 
     if force:
@@ -370,9 +371,7 @@ def install_registry(
     _python_exe = "python.exe" if platform.system() == "Windows" else "python"
     _binary_loc = "Scripts" if platform.system() == "Windows" else "bin"
 
-    _venv_python = shutil.which(
-        _python_exe, path=os.path.join(venv_dir, _binary_loc)
-    )
+    _venv_python = shutil.which(_python_exe, path=os.path.join(venv_dir, _binary_loc))
 
     if not _venv_python:
         raise FileNotFoundError(
@@ -417,9 +416,7 @@ def uninstall_registry() -> None:
     if os.path.exists(fdp_com.global_fdpconfig()) and os.path.exists(
         fdp_com.registry_home()
     ):
-        logger.debug(
-            "Uninstalling registry, removing '%s'", fdp_com.registry_home()
-        )
+        logger.debug("Uninstalling registry, removing '%s'", fdp_com.registry_home())
         # On windows file permisions need to be set prior to removing the directory
         if platform.system() == "Windows":
             fdp_com.set_file_permissions(fdp_com.registry_home())
@@ -432,7 +429,9 @@ def uninstall_registry() -> None:
         # On windows file permisions need to be set prior to removing the directory
         if platform.system() == "Windows":
             fdp_com.set_file_permissions(fdp_com.DEFAULT_REGISTRY_LOCATION)
-        shutil.rmtree(fdp_com.DEFAULT_REGISTRY_LOCATION, onerror=fdp_com.remove_readonly)
+        shutil.rmtree(
+            fdp_com.DEFAULT_REGISTRY_LOCATION, onerror=fdp_com.remove_readonly
+        )
     else:
         raise fdp_exc.RegistryError(
             "Cannot uninstall registry, no local installation identified"
@@ -458,7 +457,7 @@ def update_registry_post_setup(
     _is_running = check_server_running(fdp_conf.get_local_uri())
 
     if not _is_running:
-        launch_server(registry_dir = registry_dir)
+        launch_server(registry_dir=registry_dir)
 
     if global_setup:
         logger.debug("Populating file types")

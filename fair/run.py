@@ -64,8 +64,7 @@ def get_job_hash(job_dir: str) -> str:
     """
     if not os.path.exists(job_dir):
         raise fdp_exc.FileNotFoundError(
-            "Failed to find hash for job, "
-            f"directory '{job_dir}' does not exist."
+            "Failed to find hash for job, " f"directory '{job_dir}' does not exist."
         )
     _directory = os.path.abspath(job_dir)
     return hashlib.sha1(_directory.encode("utf-8")).hexdigest()

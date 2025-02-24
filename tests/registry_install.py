@@ -18,15 +18,13 @@ from fair.virtualenv import FAIREnv
 
 FAIR_REGISTRY_REPO = "https://github.com/FAIRDataPipeline/data-registry.git"
 TEST_DRAMS_FILE = os.path.join(
-        os.path.dirname(__file__), "data", "registry-test-settings.py"
-        )
+    os.path.dirname(__file__), "data", "registry-test-settings.py"
+)
 TEST_DRAMS = "drams.registry-test-settings"
-CONFIG_INI = os.path.join(
-        os.path.dirname(__file__), "data", "config.ini"
-    )
+CONFIG_INI = os.path.join(os.path.dirname(__file__), "data", "config.ini")
 
 
-def django_environ(environ: typing.Dict = os.environ, remote:bool = False):
+def django_environ(environ: typing.Dict = os.environ, remote: bool = False):
     _environ = environ.copy()
     _environ["DJANGO_SUPERUSER_USERNAME"] = "admin"
     _environ["DJANGO_SUPERUSER_PASSWORD"] = "admin"
@@ -39,18 +37,12 @@ def django_environ(environ: typing.Dict = os.environ, remote:bool = False):
 
 
 def rebuild_local(
-    python: str,
-    install_dir: str = None,
-    silent: bool = False,
-    remote:bool = False):
+    python: str, install_dir: str = None, silent: bool = False, remote: bool = False
+):
     if not install_dir:
-        install_dir = os.path.join(
-            pathlib.Path.home(), FAIR_FOLDER, "registry"
-        )
+        install_dir = os.path.join(pathlib.Path.home(), FAIR_FOLDER, "registry")
 
-    _migration_files = glob.glob(
-        os.path.join(install_dir, "*", "migrations", "*.py*")
-    )
+    _migration_files = glob.glob(os.path.join(install_dir, "*", "migrations", "*.py*"))
 
     for mf in _migration_files:
         os.remove(mf)
@@ -79,7 +71,7 @@ def rebuild_local(
         ),
         ("collectstatic", "--noinput"),
         ("createsuperuser", "--noinput"),
-        ("set_site_info",)
+        ("set_site_info",),
     ]
 
     for sub in _sub_cmds:
@@ -115,9 +107,7 @@ def install_registry(
 ) -> None:
 
     if not install_dir:
-        install_dir = os.path.join(
-            pathlib.Path.home(), FAIR_FOLDER, "registry"
-        )
+        install_dir = os.path.join(pathlib.Path.home(), FAIR_FOLDER, "registry")
 
     if force:
         shutil.rmtree(install_dir, onerror=remove_readonly)
@@ -144,9 +134,7 @@ def install_registry(
     _venv_python = shutil.which("python", path=os.path.join(venv_dir, _venv_bin_dir))
 
     if not _venv_python:
-        raise FileNotFoundError(
-            f"Failed to find 'python' in location '{venv_dir}"
-        )
+        raise FileNotFoundError(f"Failed to find 'python' in location '{venv_dir}")
 
     subprocess.check_call(
         [_venv_python, "-m", "pip", "install", "--upgrade", "pip", "wheel"],
@@ -172,29 +160,30 @@ def install_registry(
     )
 
     if remote:
-        _TEST_DRAMS_FILE = os.path.join(install_dir, "drams", "registry-test-settings.py")
+        _TEST_DRAMS_FILE = os.path.join(
+            install_dir, "drams", "registry-test-settings.py"
+        )
         shutil.copy2(TEST_DRAMS_FILE, _TEST_DRAMS_FILE)
-        #with open(_TEST_DRAMS_FILE, "a") as _file:
+        # with open(_TEST_DRAMS_FILE, "a") as _file:
         #    _file.write("\n")
         #    _file.write(f'CONFIG_LOCATION = "{CONFIG_INI}"')
-        #print(f'Using Config: {CONFIG_INI}')
-    rebuild_local(_venv_python, install_dir, silent, remote= remote)
+        # print(f'Using Config: {CONFIG_INI}')
+    rebuild_local(_venv_python, install_dir, silent, remote=remote)
 
     print(f"[REGISTRY] Installed registry version '{reference}'")
     print(f'using: {django_environ(remote = remote)["DJANGO_SETTINGS_MODULE"]}')
 
     return reference
 
+
 def refresh(
     install_dir: str = None,
     silent: bool = False,
     venv_dir: str = None,
-    remote: bool = False
+    remote: bool = False,
 ):
     if not install_dir:
-        install_dir = os.path.join(
-            pathlib.Path.home(), FAIR_FOLDER, "registry"
-        )
+        install_dir = os.path.join(pathlib.Path.home(), FAIR_FOLDER, "registry")
 
     _venv_dir = venv_dir or os.path.join(install_dir, "venv")
 
@@ -214,12 +203,10 @@ def launch(
     port: int = 8000,
     silent: bool = False,
     venv_dir: str = None,
-    remote: bool = False
+    remote: bool = False,
 ):
     if not install_dir:
-        install_dir = os.path.join(
-            pathlib.Path.home(), FAIR_FOLDER, "registry"
-        )
+        install_dir = os.path.join(pathlib.Path.home(), FAIR_FOLDER, "registry")
 
     _venv_dir = venv_dir or os.path.join(install_dir, "venv")
 
@@ -232,7 +219,7 @@ def launch(
 
     _venv_bin_dir = "Scripts" if platform.system() == "Windows" else "bin"
 
-    _venv_python = shutil.which("python", path=os.path.join(_venv_dir,  _venv_bin_dir))
+    _venv_python = shutil.which("python", path=os.path.join(_venv_dir, _venv_bin_dir))
 
     with open(os.path.join(install_dir, "session_port.log"), "w") as out_f:
         out_f.write(str(port))
@@ -241,7 +228,7 @@ def launch(
         _process = subprocess.Popen(
             [_venv_python, _manage, "runserver", str(port)],
             stdout=out_f,
-            env=django_environ(remote= remote),
+            env=django_environ(remote=remote),
             stderr=subprocess.STDOUT,
             shell=False,
         )
@@ -272,13 +259,13 @@ def launch(
             [_venv_python, _manage, "get_token"],
             stdout=out_f,
             stderr=subprocess.STDOUT,
-            env=django_environ(remote= remote),
+            env=django_environ(remote=remote),
             shell=False,
         )
 
     if not os.path.exists(os.path.join(install_dir, "token")):
         raise FileNotFoundError("Expected token file, but none created.")
-    
+
     if open(_token_path).read().strip() == "":
         raise FileNotFoundError("Expected token. but file empty.")
 
@@ -290,9 +277,7 @@ def launch(
         if not os.path.exists(os.path.join(install_dir, "token")):
             raise AssertionError("Expected token file, but none created")
         if not open(os.path.join(install_dir, "token")).read().strip():
-            raise AssertionError(
-                "Expected token in token file, but file empty"
-            )
+            raise AssertionError("Expected token in token file, but file empty")
 
     if not shutil.which("dot") and not silent:
         click.echo(
@@ -304,16 +289,12 @@ def launch(
 
 def stop(install_dir: str = None, port: int = 8000, silent: bool = False):
     if not install_dir:
-        install_dir = os.path.join(
-            pathlib.Path.home(), FAIR_FOLDER, "registry"
-        )
+        install_dir = os.path.join(pathlib.Path.home(), FAIR_FOLDER, "registry")
 
     _manage = os.path.join(install_dir, "manage.py")
 
     if platform.system() == "Windows":
-        _call = os.path.join(
-            install_dir, "scripts", "stop_fair_registry_windows.bat"
-        )
+        _call = os.path.join(install_dir, "scripts", "stop_fair_registry_windows.bat")
     else:
         _call = ["pgrep", "-f", f'"{_manage} runserver"', "|", "xargs", "kill"]
 
@@ -384,7 +365,7 @@ def reg_install(repository, head, directory, silent, force, remote):
             f"Are you sure you want to remove directory '{directory}'?",
             default=False,
         )
-    install_registry(repository, head, directory, silent, force, remote= remote)
+    install_registry(repository, head, directory, silent, force, remote=remote)
 
 
 @fair_reg.command(name="refresh")

@@ -39,19 +39,22 @@ os.makedirs(TEST_OUT_DIR, exist_ok=True)
 
 logging.getLogger("FAIRDataPipeline").setLevel(logging.DEBUG)
 
+
 class VirtualEnv:
-    def __init__(self, env = None) -> None:
+    def __init__(self, env=None) -> None:
         if env is None:
             self.env = dict(os.environ)
         else:
-            self.env = dict(env)  # ensure we take a copy just in case there's some modification
-        
+            self.env = dict(
+                env
+            )  # ensure we take a copy just in case there's some modification
+
         self.workspace = tempfile.mkdtemp()
 
         self.name = ".env"
-        
+
         self.path = Path(os.path.join(self.workspace, self.name))
-        
+
         self.bin = self.path / ("Scripts" if os.name == "nt" else "bin")
 
         self.create()
@@ -59,12 +62,18 @@ class VirtualEnv:
     def create(self) -> None:
         virtualenv.cli_run([os.fspath(self.path)])
 
-    def run(self, cmd: str, *args: str, env: typing.Optional[typing.Dict[str, str]] = None, capture = False) -> None:
+    def run(
+        self,
+        cmd: str,
+        *args: str,
+        env: typing.Optional[typing.Dict[str, str]] = None,
+        capture=False,
+    ) -> None:
         exe = self.which(cmd)
         subprocess.check_output(
             [exe, *args],
-            env= self.env if not env else env,
-            stderr=subprocess.STDOUT if capture else None
+            env=self.env if not env else env,
+            stderr=subprocess.STDOUT if capture else None,
         )  # noqa: S603
 
     def which(self, cmd: str) -> str:
@@ -74,13 +83,15 @@ class VirtualEnv:
     def teardown(self) -> None:
         shutil.rmtree(self.workspace)
 
+
 def test_can_be_run(url):
     _header = {"Accept": "application/json"}
     requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
-    _response = requests.get(url, verify = False, headers = _header, allow_redirects = True)
+    _response = requests.get(url, verify=False, headers=_header, allow_redirects=True)
     if _response.status_code == 200:
         return True
     return False
+
 
 def get_example_entries(registry_dir: str):
     """
@@ -98,7 +109,7 @@ def get_example_entries(registry_dir: str):
 
     _objects: typing.List[typing.Tuple[str, str, str]] = []
 
-    with open(_example_file, encoding='utf-8') as in_f:
+    with open(_example_file, encoding="utf-8") as in_f:
         _lines = in_f.readlines()
         for i, line in enumerate(_lines):
             if SEARCH_STR in line:
@@ -135,11 +146,13 @@ def pyDataPipeline(tmp_path_factory):
     shutil.move(simple_model, _repo_path)
     yield _repo_path
 
+
 @pytest.fixture()
 def pySimpleModel(tmp_path):
     _repo_path = tmp_path.__str__()
     _repo = git.Repo.clone_from(PYTHON_MODEL_GIT, _repo_path)
     yield _repo_path
+
 
 @pytest.fixture(scope="session")
 # @pytest_fixture_config.yield_requires_config(
@@ -169,12 +182,15 @@ def session_virtualenv():
     yield venv
     venv.teardown()
 
-@pytest.fixture(scope='module')
+
+@pytest.fixture(scope="module")
 def monkeypatch_module():
     from _pytest.monkeypatch import MonkeyPatch
+
     m = MonkeyPatch()
     yield m
     m.undo()
+
 
 @pytest.fixture
 def local_config(mocker: pytest_mock.MockerFixture, tmp_path):
@@ -182,43 +198,36 @@ def local_config(mocker: pytest_mock.MockerFixture, tmp_path):
     templ = os.path.join(tmp_path, "tempd").__str__()
     os.makedirs(os.path.join(tempg, fdp_com.FAIR_FOLDER, "registry"))
     os.makedirs(os.path.join(tempg, fdp_com.FAIR_FOLDER, "sessions"))
-    _gconfig_path = os.path.join(
-        tempg, fdp_com.FAIR_FOLDER, fdp_com.FAIR_CLI_CONFIG
-    )
+    _gconfig_path = os.path.join(tempg, fdp_com.FAIR_FOLDER, fdp_com.FAIR_CLI_CONFIG)
     _cfgg = fdp_test.create_configurations(tempg, None, None, tempg, True)
-    yaml.dump(_cfgg, open(_gconfig_path, encoding='utf-8', mode= "w"))
+    yaml.dump(_cfgg, open(_gconfig_path, encoding="utf-8", mode="w"))
     mocker.patch(
         "fair.common.global_config_dir",
         lambda: os.path.dirname(_gconfig_path),
     )
     mocker.patch("fair.common.global_fdpconfig", lambda: _gconfig_path)
-    with open(fdp_com.registry_session_port_file(), encoding='utf-8', mode= "w") as pf:
+    with open(fdp_com.registry_session_port_file(), encoding="utf-8", mode="w") as pf:
         pf.write("8001")
     os.makedirs(os.path.join(templ, fdp_com.FAIR_FOLDER))
-    _lconfig_path = os.path.join(
-        templ, fdp_com.FAIR_FOLDER, fdp_com.FAIR_CLI_CONFIG
-    )
-    _cfgl = fdp_test.create_configurations(
-        templ, None, None, templ, True
-    )
-    yaml.dump(_cfgl, open(_lconfig_path, encoding='utf-8', mode= "w"))
+    _lconfig_path = os.path.join(templ, fdp_com.FAIR_FOLDER, fdp_com.FAIR_CLI_CONFIG)
+    _cfgl = fdp_test.create_configurations(templ, None, None, templ, True)
+    yaml.dump(_cfgl, open(_lconfig_path, encoding="utf-8", mode="w"))
     with open(
-        os.path.join(templ, fdp_com.USER_CONFIG_FILE), encoding='utf-8', mode= "w"
+        os.path.join(templ, fdp_com.USER_CONFIG_FILE), encoding="utf-8", mode="w"
     ) as conf:
         yaml.dump({"run_metadata": {}}, conf)
     mocker.patch("fair.common.find_fair_root", lambda *args: templ)
     yield (tempg, templ)
 
-@pytest.fixture(scope = "module")
+
+@pytest.fixture(scope="module")
 def global_config(monkeypatch_module, tmp_path_factory):
     tempg = tmp_path_factory.mktemp("tempg").__str__()
     os.makedirs(os.path.join(tempg, fdp_com.FAIR_FOLDER, "registry"))
     os.makedirs(os.path.join(tempg, fdp_com.FAIR_FOLDER, "sessions"))
-    _gconfig_path = os.path.join(
-        tempg, fdp_com.FAIR_FOLDER, fdp_com.FAIR_CLI_CONFIG
-    )
+    _gconfig_path = os.path.join(tempg, fdp_com.FAIR_FOLDER, fdp_com.FAIR_CLI_CONFIG)
     _cfgg = fdp_test.create_configurations(tempg, None, None, tempg, True)
-    yaml.dump(_cfgg, open(_gconfig_path, encoding='utf-8', mode= "w"))
+    yaml.dump(_cfgg, open(_gconfig_path, encoding="utf-8", mode="w"))
     monkeypatch_module.setattr(
         "fair.common.global_config_dir",
         lambda: os.path.dirname(_gconfig_path),
@@ -226,7 +235,8 @@ def global_config(monkeypatch_module, tmp_path_factory):
     monkeypatch_module.setattr("fair.common.global_fdpconfig", lambda: _gconfig_path)
     yield (tempg)
 
-@pytest.fixture(scope = "module")
+
+@pytest.fixture(scope="module")
 def job_directory(monkeypatch_module, tmp_path_factory) -> str:
     tempd = tmp_path_factory.mktemp("tempd").__str__()
     # Set default to point to temporary
@@ -235,14 +245,17 @@ def job_directory(monkeypatch_module, tmp_path_factory) -> str:
     os.makedirs(os.path.join(tempd, TEST_JOB_FILE_TIMESTAMP))
     yield os.path.join(tempd, TEST_JOB_FILE_TIMESTAMP)
 
-@pytest.fixture(scope = "module")
+
+@pytest.fixture(scope="module")
 def job_log(monkeypatch_module, tmp_path_factory) -> str:
     tempd = tmp_path_factory.mktemp("tempd").__str__()
     # Set the log directory
     monkeypatch_module.setattr("fair.history.history_directory", lambda *args: tempd)
     # Create mock job log
     with open(
-        os.path.join(tempd, f"job_{TEST_JOB_FILE_TIMESTAMP}.log"), encoding='utf-8', mode= "w"
+        os.path.join(tempd, f"job_{TEST_JOB_FILE_TIMESTAMP}.log"),
+        encoding="utf-8",
+        mode="w",
     ) as out_f:
         out_f.write(
             """--------------------------------
@@ -251,18 +264,14 @@ def job_log(monkeypatch_module, tmp_path_factory) -> str:
  Command   = fair pull
 --------------------------------
 ------- time taken 0:00:00.791088 -------"""
-            )
+        )
 
     yield tempd
 
 
 class RegistryTest:
     def __init__(
-        self,
-        install_loc: str,
-        venv: VirtualEnv,
-        port: int = 8000,
-        remote: bool = False
+        self, install_loc: str, venv: VirtualEnv, port: int = 8000, remote: bool = False
     ):
         self._install = install_loc
         self._venv = venv
@@ -273,7 +282,10 @@ class RegistryTest:
         self._remote = remote
         if not os.path.exists(os.path.join(install_loc, "manage.py")):
             test_reg.install_registry(
-                install_dir=install_loc, silent=True, venv_dir=self._venv_dir, remote=self._remote
+                install_dir=install_loc,
+                silent=True,
+                venv_dir=self._venv_dir,
+                remote=self._remote,
             )
         # Start then stop to generate key
         _process = test_reg.launch(
@@ -281,29 +293,33 @@ class RegistryTest:
             silent=True,
             venv_dir=self._venv_dir,
             port=self._port,
-            remote= remote
+            remote=remote,
         )
         while not os.path.exists(os.path.join(self._install, "token")):
             time.sleep(3)
-        self._token = open(os.path.join(self._install, "token"), encoding='utf-8').read().strip()
+        self._token = (
+            open(os.path.join(self._install, "token"), encoding="utf-8").read().strip()
+        )
         assert self._token
         pid_kill(_process.pid)
 
     def rebuild(self):
         _venv_bin_dir = "Scripts" if platform.system() == "Windows" else "bin"
         test_reg.rebuild_local(
-            os.path.join(self._venv_dir, _venv_bin_dir, "python"), self._install, remote=self._remote
+            os.path.join(self._venv_dir, _venv_bin_dir, "python"),
+            self._install,
+            remote=self._remote,
         )
-    
+
     def launch(self):
         self._process = test_reg.launch(
             self._install,
             silent=True,
             venv_dir=self._venv_dir,
             port=self._port,
-            remote=self._remote
+            remote=self._remote,
         )
-            
+
     def kill(self):
         if self._process:
             pid_kill(self._process.pid)
@@ -315,8 +331,8 @@ class RegistryTest:
                 silent=True,
                 venv_dir=self._venv_dir,
                 port=self._port,
-                remote=self._remote
-            )                
+                remote=self._remote,
+            )
 
         except KeyboardInterrupt as e:
             pid_kill(self._process.pid)
@@ -326,15 +342,14 @@ class RegistryTest:
         pid_kill(self._process.pid)
         self._process = None
 
+
 @pytest.fixture(scope="module")
 def local_registry(session_virtualenv: VirtualEnv, tmp_path_factory):
     if fdp_serv.check_server_running("http://127.0.0.1:8000"):
         pytest.skip(
             "Cannot run registry tests, a server is already running on port 8000"
         )
-    session_virtualenv.env = test_reg.django_environ(
-        session_virtualenv.env
-    )
+    session_virtualenv.env = test_reg.django_environ(session_virtualenv.env)
     tempd = tmp_path_factory.mktemp("tempd").__str__()
     rtest = RegistryTest(tempd, session_virtualenv, port=8000)
     yield rtest
@@ -342,54 +357,57 @@ def local_registry(session_virtualenv: VirtualEnv, tmp_path_factory):
         pid_kill(rtest._process.pid)
     print("TearDown of Local Registry Complete")
 
+
 @pytest.fixture(scope="module")
 def remote_registry(session_virtualenv: VirtualEnv, tmp_path_factory):
     if fdp_serv.check_server_running("http://127.0.0.1:8001"):
         pytest.skip(
             "Cannot run registry tests, a server is already running on port 8001"
         )
-    session_virtualenv.env = test_reg.django_environ(
-        session_virtualenv.env, True
-    )
+    session_virtualenv.env = test_reg.django_environ(session_virtualenv.env, True)
     tempd = tmp_path_factory.mktemp("tempd").__str__()
-    rtest = RegistryTest(tempd, session_virtualenv, port=8001, remote= True)
+    rtest = RegistryTest(tempd, session_virtualenv, port=8001, remote=True)
     yield rtest
     if rtest._process:
         pid_kill(rtest._process.pid)
     print("TearDown of Remote Registry Complete")
 
+
 @pytest.fixture(scope="module")
 def fair_bucket(port: int = 3005):
     yield MotoTestServer(port)
 
+
 class MotoTestServer:
-    def __init__(
-        self,
-        port: int = 3005
-    ):
+    def __init__(self, port: int = 3005):
         """Mocked AWS Credentials for moto."""
-        os.environ['AWS_ACCESS_KEY_ID'] = 'AccessKey'
-        os.environ['AWS_SECRET_ACCESS_KEY'] = 'SecretKey'
-        os.environ['AWS_SECURITY_TOKEN'] = 'SecretKey'
-        os.environ['AWS_SESSION_TOKEN'] = 'SecretKey'
-        os.environ['AWS_DEFAULT_REGION'] = 'us-east-1'
+        os.environ["AWS_ACCESS_KEY_ID"] = "AccessKey"
+        os.environ["AWS_SECRET_ACCESS_KEY"] = "SecretKey"
+        os.environ["AWS_SECURITY_TOKEN"] = "SecretKey"
+        os.environ["AWS_SESSION_TOKEN"] = "SecretKey"
+        os.environ["AWS_DEFAULT_REGION"] = "us-east-1"
         self._port = port
-        self._server = ThreadedMotoServer(port = port)
+        self._server = ThreadedMotoServer(port=port)
+
     def __enter__(self):
         try:
-            print("Starting Moto Server")       
+            print("Starting Moto Server")
             self._server.start()
             print("creating Bucket")
-            server_client = boto3.client("s3", endpoint_url=f"http://127.0.0.1:{self._port}")
-            server_client.create_bucket(Bucket="fair")         
+            server_client = boto3.client(
+                "s3", endpoint_url=f"http://127.0.0.1:{self._port}"
+            )
+            server_client.create_bucket(Bucket="fair")
         except KeyboardInterrupt as e:
             self._server.stop()
             raise e
+
     def __exit__(self, type, value, tb):
         self._server.stop()
 
+
 def pid_kill(pid):
     if platform.system() == "Windows":
-        subprocess.call(['taskkill', '/F', '/T', '/PID',  str(pid)])
+        subprocess.call(["taskkill", "/F", "/T", "/PID", str(pid)])
     else:
         os.kill(pid, signal.SIGTERM)

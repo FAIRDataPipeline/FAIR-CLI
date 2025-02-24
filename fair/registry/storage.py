@@ -136,9 +136,13 @@ def store_user(repo_dir: str, uri: str, token: str) -> str:
 
     return store_author(uri, token, name, _id, _uuid)
 
-def store_user_author(uri:str, token:str, user_uri:str, author_uri:str)-> str:
+
+def store_user_author(uri: str, token: str, user_uri: str, author_uri: str) -> str:
     _data = {"user": user_uri, "author": author_uri}
-    _params = {"user": fdp_req.get_obj_id_from_url(user_uri), "author": fdp_req.get_obj_id_from_url(author_uri)}
+    _params = {
+        "user": fdp_req.get_obj_id_from_url(user_uri),
+        "author": fdp_req.get_obj_id_from_url(author_uri),
+    }
 
     return fdp_req.post_else_get(uri, "user_author", token, _data, _params)
 
@@ -196,9 +200,7 @@ def create_file_type(uri: str, extension: str, token: str) -> str:
     )
 
 
-def store_working_config(
-    repo_dir: str, uri: str, work_cfg_yml: str, token: str
-) -> str:
+def store_working_config(repo_dir: str, uri: str, work_cfg_yml: str, token: str) -> str:
     """Construct a storage location and object for the working config
 
     Parameters
@@ -226,7 +228,7 @@ def store_working_config(
 
     _root_store = get_write_storage(uri, work_cfg_yml, token)
 
-    _work_cfg = yaml.safe_load(open(work_cfg_yml, encoding='utf-8'))
+    _work_cfg = yaml.safe_load(open(work_cfg_yml, encoding="utf-8"))
     _work_cfg_data_store = _work_cfg["run_metadata"]["write_data_store"]
     _rel_path = os.path.relpath(work_cfg_yml, _work_cfg_data_store)
     _time_stamp_dir = os.path.basename(os.path.dirname(work_cfg_yml))
@@ -234,7 +236,7 @@ def store_working_config(
     # Construct hash from config contents and time stamp
     # NOTE: You can have the same file stored N times for N job runs
     # hence the use of a timestamp in the hashing
-    _hashable = open(work_cfg_yml, encoding='utf-8').read() + _time_stamp_dir
+    _hashable = open(work_cfg_yml, encoding="utf-8").read() + _time_stamp_dir
 
     _hash = hashlib.sha1(_hashable.encode("utf-8")).hexdigest()
 
@@ -305,7 +307,7 @@ def store_working_script(
     """
     logger.debug("Storing working script on registry")
 
-    _work_cfg = yaml.safe_load(open(working_config, encoding='utf-8'))
+    _work_cfg = yaml.safe_load(open(working_config, encoding="utf-8"))
     _root_store = get_write_storage(uri, working_config, token)
     _data_store = _work_cfg["run_metadata"]["write_data_store"]
 
@@ -316,7 +318,7 @@ def store_working_script(
     # Construct hash from config contents and time
     # NOTE: You can have the same file stored N times for N job runs
     # hence the use of a timestamp in the hashing
-    _hashable = open(script_path, encoding='utf-8').read() + _time_stamp_dir
+    _hashable = open(script_path, encoding="utf-8").read() + _time_stamp_dir
 
     _hash = hashlib.sha1(_hashable.encode("utf-8")).hexdigest()
 
@@ -516,15 +518,13 @@ def _get_url_from_namespace(
 ) -> str:
     # Namespace is read from the source information
     if "namespace_name" not in data:
-        raise fdp_exc.UserConfigError(
-            f"Expected 'namespace_name' for item '{label}'"
-        )
+        raise fdp_exc.UserConfigError(f"Expected 'namespace_name' for item '{label}'")
 
     _namespace_args = {
         "name": data["namespace_name"],
-        "full_name": data["namespace_full_name"]
-        if "namespace_full_name" in data
-        else None,
+        "full_name": (
+            data["namespace_full_name"] if "namespace_full_name" in data else None
+        ),
         "website": data.get("namespace_website", None),
     }
 
@@ -583,9 +583,9 @@ def _get_url_from_object(
     }
 
     try:
-        return fdp_req.post(
-            registry_uri, "object", registry_token, data=_object_data
-        )["url"]
+        return fdp_req.post(registry_uri, "object", registry_token, data=_object_data)[
+            "url"
+        ]
     except fdp_exc.RegistryAPICallError as e:
         if e.error_code != 409:
             raise e
@@ -618,8 +618,7 @@ def _get_url_from_data_product(
         _name = data["data_product"]
     else:
         raise fdp_exc.UserConfigError(
-            f"Failed to determine type while storing item '{label}'"
-            "into registry"
+            f"Failed to determine type while storing item '{label}'" "into registry"
         )
 
     if "data_product" in data["use"]:
@@ -652,18 +651,14 @@ def _get_url_from_data_product(
         ) from e
 
 
-def _get_identifier_from_data(
-    data: typing.Dict, label: str
-) -> typing.Dict[str, str]:
+def _get_identifier_from_data(data: typing.Dict, label: str) -> typing.Dict[str, str]:
     """Retrieve the identifier metadata from the data entry"""
     _identifier: typing.Dict[str, str] = {}
 
     if data.get("identifier", None):
         if not fdp_id.check_id_permitted(data["identifier"]):
             raise fdp_exc.UserConfigError(
-                "Identifier '"
-                + data["identifier"]
-                + "' is not a valid identifier"
+                "Identifier '" + data["identifier"] + "' is not a valid identifier"
             )
         _identifier["identifier"] = data["identifier"]
     else:
@@ -671,8 +666,7 @@ def _get_identifier_from_data(
             _identifier["alternate_identifier"] = data["unique_name"]
         except KeyError as e:
             raise fdp_exc.UserConfigError(
-                "No identifier/alternate_identifier given for "
-                f"item '{label}'",
+                "No identifier/alternate_identifier given for " f"item '{label}'",
                 hint="You must provide either a URL 'identifier', or "
                 "'unique_name' and 'source_name' keys",
             ) from e
@@ -700,7 +694,7 @@ def calculate_file_hash(file_name: str, buffer_size: int = 64 * 1024) -> str:
     # If the file is large we do not want to hash it in one go
     _input_hasher = hashlib.sha1()
 
-    with open(file_name, mode= "rb") as in_f:
+    with open(file_name, mode="rb") as in_f:
         _buffer = in_f.read(buffer_size)
         while len(_buffer) > 0:
             _input_hasher.update(_buffer)
@@ -798,9 +792,7 @@ def check_if_object_exists(
             del search_data["version"]
 
     # Obtain list of storage_locations for the given data_product
-    _results = fdp_req.get(
-        local_uri, obj_type, params=search_data, token=token
-    )
+    _results = fdp_req.get(local_uri, obj_type, params=search_data, token=token)
 
     try:
         fdp_ver.get_correct_version(
@@ -829,6 +821,7 @@ def check_if_object_exists(
 
     return "hash_match" if check_match(file_loc, _storage_objs) else _results
 
+
 def get_upload_url(
     file_loc: str,
     remote_uri: str = None,
@@ -845,16 +838,17 @@ def get_upload_url(
         str: Ad upload url for object storage
     """
     file_hash = calculate_file_hash(file_loc)
-    if not remote_uri: 
+    if not remote_uri:
         remote_uri = fdp_conf.get_remote_uri(fdp_conf._session_loc)
     if not remote_token:
         remote_token = fdp_conf.get_remote_token(fdp_conf._session_loc)
-    return fdp_req.post_upload_url(remote_uri, remote_token, file_hash)['url']
+    return fdp_req.post_upload_url(remote_uri, remote_token, file_hash)["url"]
+
 
 def upload_remote_file(
     file_loc: str,
-    remote_uri = None,
-    remote_token = None,
+    remote_uri=None,
+    remote_token=None,
 ):
     """Wrapper to upload a file to a remote registry
 
@@ -867,7 +861,7 @@ def upload_remote_file(
         fdp_exc.FileNotFoundError: If the file does not exist a FileNotFound error will be raised.
     """
     if not os.path.exists(file_loc):
-        raise fdp_exc.FileNotFoundError(f'File: {file_loc} does not exist')
+        raise fdp_exc.FileNotFoundError(f"File: {file_loc} does not exist")
     _upload_url = get_upload_url(file_loc, remote_uri, remote_token)
     logger.debug(f"Uploading {file_loc} to URL: {_upload_url}")
     fdp_req.put_file(_upload_url, file_loc)

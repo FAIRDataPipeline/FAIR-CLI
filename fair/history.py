@@ -43,9 +43,7 @@ def history_directory(repo_loc: str) -> str:
     str
         location of the job logs directory
     """
-    return os.path.join(
-        fdp_com.find_fair_root(repo_loc), fdp_com.FAIR_FOLDER, "logs"
-    )
+    return os.path.join(fdp_com.find_fair_root(repo_loc), fdp_com.FAIR_FOLDER, "logs")
 
 
 def show_job_log(repo_loc: str, job_id: str) -> str:
@@ -63,16 +61,12 @@ def show_job_log(repo_loc: str, job_id: str) -> str:
     str
         log file location for the given job
     """
-    _job_dir  = Path(f"{fdp_com.default_jobs_dir()}")
+    _job_dir = Path(f"{fdp_com.default_jobs_dir()}")
 
-    _sorted_time_dirs = sorted(
-        glob.glob(os.path.join(_job_dir, "*")), reverse=True
-    )
+    _sorted_time_dirs = sorted(glob.glob(os.path.join(_job_dir, "*")), reverse=True)
 
     _log_files = [
-        os.path.join(
-            history_directory(repo_loc), f"job_{os.path.basename(i)}.log"
-        )
+        os.path.join(history_directory(repo_loc), f"job_{os.path.basename(i)}.log")
         for i in _sorted_time_dirs
     ]
 
@@ -81,7 +75,7 @@ def show_job_log(repo_loc: str, job_id: str) -> str:
         _job_id = fdp_run.get_job_hash(job_dir)
 
         if _job_id[: len(job_id)] == job_id:
-            with open(_log_file, encoding='utf-8') as f:
+            with open(_log_file, encoding="utf-8") as f:
                 click.echo(f.read())
             _jobs_list = os.path.join(job_dir, "coderuns.txt")
 
@@ -90,14 +84,13 @@ def show_job_log(repo_loc: str, job_id: str) -> str:
             if os.path.exists(_jobs_list):
                 click.echo("Related Code Runs: ")
                 click.echo(
-                    "\t- " + "\n\t- ".join(open(_jobs_list, encoding='utf-8').readlines())
+                    "\t- "
+                    + "\n\t- ".join(open(_jobs_list, encoding="utf-8").readlines())
                 )
 
             return _log_file
 
-    raise fdp_exc.FileNotFoundError(
-        f"Could not find job matching id '{job_id}'"
-    )
+    raise fdp_exc.FileNotFoundError(f"Could not find job matching id '{job_id}'")
 
 
 def show_history(repo_loc: str, length: int = 10) -> None:
@@ -111,29 +104,21 @@ def show_history(repo_loc: str, length: int = 10) -> None:
         max number of entries to display, by default 10
     """
 
-    _job_dir  = Path(f"{fdp_com.default_jobs_dir()}")
+    _job_dir = Path(f"{fdp_com.default_jobs_dir()}")
 
-    _sorted_time_dirs = sorted(
-        glob.glob(os.path.join(_job_dir, "*")), reverse=True
-    )
+    _sorted_time_dirs = sorted(glob.glob(os.path.join(_job_dir, "*")), reverse=True)
 
     _log_files = [
-        os.path.join(
-            history_directory(repo_loc), f"job_{os.path.basename(i)}.log"
-        )
+        os.path.join(history_directory(repo_loc), f"job_{os.path.basename(i)}.log")
         for i in _sorted_time_dirs
     ]
 
     # Iterate through the logs printing out the job author
-    for i, (job_dir, _log_file) in enumerate(
-        zip(_sorted_time_dirs, _log_files)
-    ):
+    for i, (job_dir, _log_file) in enumerate(zip(_sorted_time_dirs, _log_files)):
         _job_id = fdp_run.get_job_hash(job_dir)
         if not os.path.exists(_log_file):
-            raise fdp_exc.FileNotFoundError(
-                f"Cannot open log for job '{_job_id}'"
-            )
-        with open(_log_file, encoding='utf-8') as f:
+            raise fdp_exc.FileNotFoundError(f"Cannot open log for job '{_job_id}'")
+        with open(_log_file, encoding="utf-8") as f:
             _log_lines = f.readlines()
             _metadata = []
             for line in _log_lines:
@@ -147,14 +132,12 @@ def show_history(repo_loc: str, length: int = 10) -> None:
         _user_lines = [i for i in _metadata if "Author" in i]
         if not _user_lines:
             raise fdp_exc.InternalError(
-                "Failed to retrieve author information from log "
-                f"for job '{_job_id}'"
+                "Failed to retrieve author information from log " f"for job '{_job_id}'"
             )
         _date_lines = [i for i in _metadata if "Commenced" in i]
         if not _date_lines:
             raise fdp_exc.InternalError(
-                "Failed to retrieve date information from log "
-                f"for job '{_job_id}'"
+                "Failed to retrieve date information from log " f"for job '{_job_id}'"
             )
         _date = _date_lines[0].split("=")[1].strip()
         _user = _user_lines[0].split("=")[1].strip()

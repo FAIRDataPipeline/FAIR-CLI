@@ -33,13 +33,13 @@ logger = logging.getLogger("FAIRDataPipeline.Identifiers")
 ID_URIS = {
     "orcid": "https://orcid.org/",
     "ror": "https://ror.org/",
-    "github" : "https://github.com/"
+    "github": "https://github.com/",
 }
 
 QUERY_URLS = {
     "orcid": "https://pub.orcid.org/v3.0/",
     "ror": "https://api.ror.org/organizations?query=",
-    "github": "https://api.github.com/users/"
+    "github": "https://api.github.com/users/",
 }
 
 
@@ -60,7 +60,7 @@ def check_orcid(orcid: str) -> typing.Dict:
     _header = {"Accept": "application/json"}
     _url = urllib.parse.urljoin(QUERY_URLS["orcid"], orcid)
     requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
-    _response = requests.get(_url, headers=_header, verify = False, allow_redirects = True)
+    _response = requests.get(_url, headers=_header, verify=False, allow_redirects=True)
 
     _result_dict: typing.Dict[str, typing.Any] = {}
 
@@ -81,6 +81,7 @@ def check_orcid(orcid: str) -> typing.Dict:
 
     return _result_dict
 
+
 def check_github(github: str) -> typing.Dict:
     """Checks if valid GitHub Username using GitHub Username public api
 
@@ -97,14 +98,16 @@ def check_github(github: str) -> typing.Dict:
     _header = {"Accept": "application/json"}
     _url = urllib.parse.urljoin(QUERY_URLS["github"], github)
     requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
-    _response = requests.get(_url, headers=_header, verify = False, allow_redirects = True)
+    _response = requests.get(_url, headers=_header, verify=False, allow_redirects=True)
 
     _result_dict: typing.Dict[str, typing.Any] = {}
 
     if _response.status_code == 403:
         time.sleep(3)
-        _header = {"Accept": "application/json", 'User-Agent':str(UserAgent().chrome)}
-        _response = requests.get(_url, headers=_header, verify = False, allow_redirects = True)
+        _header = {"Accept": "application/json", "User-Agent": str(UserAgent().chrome)}
+        _response = requests.get(
+            _url, headers=_header, verify=False, allow_redirects=True
+        )
 
     if _response.status_code != 200:
         logger.debug(f"{_url} Responded with {_response.status_code}")
@@ -115,14 +118,15 @@ def check_github(github: str) -> typing.Dict:
     if _name:
         _result_dict["family_name"] = _name.split()[-1]
         _result_dict["given_names"] = " ".join(_name.split()[:-1])
-        
-    _result_dict["name"] = _name    
+
+    _result_dict["name"] = _name
     _result_dict["github"] = _login
     _result_dict["uri"] = f'{ID_URIS["github"]}{_login}'
 
     return _result_dict
 
-def check_gitlab(gitlab: str, gitlab_url:str = "https://gitlab.com/") -> typing.Dict:
+
+def check_gitlab(gitlab: str, gitlab_url: str = "https://gitlab.com/") -> typing.Dict:
     """Checks if valid GitLab Username using Gitlab profile address
 
     Parameters
@@ -139,26 +143,29 @@ def check_gitlab(gitlab: str, gitlab_url:str = "https://gitlab.com/") -> typing.
     """
     _url = urllib.parse.urljoin(gitlab_url, gitlab)
     requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
-    _response = requests.get(_url, verify = False, allow_redirects = True)
+    _response = requests.get(_url, verify=False, allow_redirects=True)
 
     _result_dict: typing.Dict[str, typing.Any] = {}
 
     if _response.status_code == 403:
         time.sleep(3)
-        _header = {"Accept": "application/json", 'User-Agent':str(UserAgent().chrome)}
-        _response = requests.get(_url, headers=_header, verify = False, allow_redirects = True)
+        _header = {"Accept": "application/json", "User-Agent": str(UserAgent().chrome)}
+        _response = requests.get(
+            _url, headers=_header, verify=False, allow_redirects=True
+        )
 
     if _response.status_code != 200:
         logger.debug(f"{_url} Responded with {_response.status_code}")
         return _result_dict
-    
-    _username = _response.url.rsplit('/', 1)[-1]
 
-    _result_dict["name"] = None   
+    _username = _response.url.rsplit("/", 1)[-1]
+
+    _result_dict["name"] = None
     _result_dict["gitlab"] = _username
     _result_dict["uri"] = _response.url
 
     return _result_dict
+
 
 def check_ror(ror: str) -> typing.Dict:
     """Checks if valid ROR using ROR public api
@@ -196,6 +203,7 @@ def check_grid(grid_id: str) -> typing.Dict:
         _result_dict["grid"] = grid_id
 
     return _result_dict
+
 
 def _check_generic_ror(id: str) -> typing.Dict:
     """Checks if valid ROR using ROR public api
@@ -257,8 +265,10 @@ def check_id_permitted(identifier: str, retries: int = 5) -> bool:
             requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
             headers = {}
             if fake_agent:
-                headers = {'User-Agent':str(UserAgent().chrome)} 
-            requests.get(identifier, verify = False, allow_redirects = True, headers = headers).raise_for_status()
+                headers = {"User-Agent": str(UserAgent().chrome)}
+            requests.get(
+                identifier, verify=False, allow_redirects=True, headers=headers
+            ).raise_for_status()
             return True
         except (
             requests.exceptions.MissingSchema,
@@ -273,10 +283,11 @@ def check_id_permitted(identifier: str, retries: int = 5) -> bool:
 
     return False
 
+
 def strip_identifier(identifier):
     _url_parse = urllib.parse.urlparse(identifier.strip())
     if _url_parse:
-        _url_split = _url_parse[2].rpartition('/')
+        _url_split = _url_parse[2].rpartition("/")
         if _url_split:
             return _url_split[2]
     return ""

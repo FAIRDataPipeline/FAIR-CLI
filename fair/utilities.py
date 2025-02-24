@@ -65,13 +65,9 @@ def flatten_dict(
         _out_dict = {}
 
     for label, value in in_dict.items():
-        new_label = (
-            f"{_parent_key}{separator}{label}" if _parent_key else label
-        )
+        new_label = f"{_parent_key}{separator}{label}" if _parent_key else label
         if isinstance(value, dict):
-            flatten_dict(
-                in_dict=value, _out_dict=_out_dict, _parent_key=new_label
-            )
+            flatten_dict(in_dict=value, _out_dict=_out_dict, _parent_key=new_label)
             continue
 
         _out_dict[new_label] = value
@@ -178,10 +174,12 @@ def check_trailing_slash(string: str):
         string += "/"
     return string
 
+
 def remove_trailing_slash(string: str):
     if string[-1] == "/":
         string = string.rstrip(string[-1])
     return string
+
 
 def is_api_url(uri: str, string: str) -> bool:
     """Checks if given string is a valid API URL

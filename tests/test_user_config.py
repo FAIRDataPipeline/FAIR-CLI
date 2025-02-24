@@ -17,9 +17,7 @@ TEST_CONFIG_WC = os.path.join(
 
 @pytest.fixture
 def make_config(local_config: typing.Tuple[str, str], pyDataPipeline: str):
-    _cfg_path = os.path.join(
-        pyDataPipeline, "simpleModel", "ext", "SEIRSconfig.yaml"
-    )
+    _cfg_path = os.path.join(pyDataPipeline, "simpleModel", "ext", "SEIRSconfig.yaml")
     _config = fdp_user.JobConfiguration(_cfg_path)
     _config.update_from_fair(os.path.join(local_config[1], "project"))
     return _config
@@ -39,10 +37,7 @@ def test_get_value(
 @pytest.mark.faircli_user_config
 def test_set_value(make_config: fdp_user.JobConfiguration):
     make_config["run_metadata.description"] = "a new description"
-    assert (
-        make_config._config["run_metadata"]["description"]
-        == "a new description"
-    )
+    assert make_config._config["run_metadata"]["description"] == "a new description"
 
 
 @pytest.mark.faircli_user_config
@@ -99,9 +94,7 @@ def test_wildcard_unpack_local(
         _data = os.path.join(local_registry._install, "data")
         _example_entries = conf.get_example_entries(local_registry._install)
 
-        _out_dir = os.path.join(
-            conf.TEST_OUT_DIR, "test_wildcard_unpack_local"
-        )
+        _out_dir = os.path.join(conf.TEST_OUT_DIR, "test_wildcard_unpack_local")
         os.makedirs(_out_dir, exist_ok=True)
 
         _namespace, _path, _ = _example_entries[0]
@@ -155,9 +148,7 @@ def test_wildcard_unpack_remote(
         _data = os.path.join(local_registry._install, "data")
         _example_entries = conf.get_example_entries(remote_registry._install)
 
-        _out_dir = os.path.join(
-            conf.TEST_OUT_DIR, "test_wildcard_unpack_remote"
-        )
+        _out_dir = os.path.join(conf.TEST_OUT_DIR, "test_wildcard_unpack_remote")
         os.makedirs(_out_dir, exist_ok=True)
 
         _namespace, _path, _ = _example_entries[0]

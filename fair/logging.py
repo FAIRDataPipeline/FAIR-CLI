@@ -47,7 +47,7 @@ class JobLogger:
         # print output and write it to the log file
         _timestamp = self._now.strftime("%Y-%m-%d_%H_%M_%S_%f")
         _out_file = os.path.join(self._directory, f"job_{_timestamp}.log")
-        self._file_stream = open(_out_file, encoding= 'utf-8', mode= "w")
+        self._file_stream = open(_out_file, encoding="utf-8", mode="w")
         _out_str = self._now.strftime("%a %b %d %H:%M:%S %Y %Z")
         _user = fdp_conf.get_current_user_name(self._project)
         _email = fdp_conf.get_current_user_email(self._project)
@@ -82,14 +82,15 @@ class JobLogger:
         self.write()
         self._file_stream.close()
 
+
 class LevelFormatter(logging.Formatter):
     def __init__(self, formats: typing.Dict[int, str], **kwargs):
         super().__init__()
 
-        if 'fmt' in kwargs:
+        if "fmt" in kwargs:
             raise ValueError(
-                'Format string must be passed to level-surrogate formatters, '
-                'not this one'
+                "Format string must be passed to level-surrogate formatters, "
+                "not this one"
             )
 
         self.formats = sorted(
@@ -97,6 +98,6 @@ class LevelFormatter(logging.Formatter):
         )
 
     def format(self, record: logging.LogRecord) -> str:
-        idx = bisect(self.formats, (record.levelno,), hi=len(self.formats)-1)
+        idx = bisect(self.formats, (record.levelno,), hi=len(self.formats) - 1)
         level, formatter = self.formats[idx]
         return formatter.format(record)

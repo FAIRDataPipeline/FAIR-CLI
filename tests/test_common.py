@@ -37,9 +37,7 @@ def test_staging_cache(tmp_path):
     tempd = tmp_path.__str__()
     _fair_dir = os.path.join(tempd, fdp_com.FAIR_FOLDER)
     os.makedirs(_fair_dir)
-    assert fdp_com.staging_cache(tempd) == os.path.join(
-        _fair_dir, "staging"
-    )
+    assert fdp_com.staging_cache(tempd) == os.path.join(_fair_dir, "staging")
 
 
 @pytest.mark.faircli_common
@@ -53,9 +51,7 @@ def test_default_data(mocker: pytest_mock.MockerFixture, tmp_path):
         yaml.dump({"registries": {"local": {}}}, out_f)
     _fair_dir = os.path.join(tempd, fdp_com.FAIR_FOLDER)
     mocker.patch("fair.common.USER_FAIR_DIR", _fair_dir)
-    assert fdp_com.default_data_dir() == os.path.join(
-        _fair_dir, f"data{os.path.sep}"
-    )
+    assert fdp_com.default_data_dir() == os.path.join(_fair_dir, f"data{os.path.sep}")
     with open(_glob_conf, "w") as out_f:
         yaml.dump(
             {"registries": {"local": {"data_store": "data_store_1"}}},
@@ -81,7 +77,5 @@ def test_registry_home(mocker: pytest_mock.MockerFixture, tmp_path):
     with pytest.raises(fdp_exc.CLIConfigurationError):
         fdp_com.registry_home()
     with open(_glob_conf, "w") as out_f:
-        yaml.dump(
-            {"registries": {"local": {"directory": "registry"}}}, out_f
-        )
+        yaml.dump({"registries": {"local": {"directory": "registry"}}}, out_f)
     assert fdp_com.registry_home() == "registry"

@@ -164,9 +164,7 @@ def get_external_objects(
                 f"{result[SEARCH_KEYS['data_product']]}"
             )
 
-        _namespace = fdp_req.url_get(
-            _data_product["namespace"], fdp_req.local_token()
-        )
+        _namespace = fdp_req.url_get(_data_product["namespace"], fdp_req.local_token())
 
         if not _namespace:
             raise fdp_exc.InternalError(

@@ -59,9 +59,7 @@ FAIR_REGISTRY_REPO = "https://github.com/FAIRDataPipeline/data-registry.git"
 DEFAULT_REGISTRY_DOMAIN = "https://data.fairdatapipeline.org/"
 REGISTRY_INSTALL_URL = "https://data.fairdatapipeline.org/static/localregistry.sh"
 
-DEFAULT_REGISTRY_LOCATION = os.path.join(
-    pathlib.Path().home(), FAIR_FOLDER, "registry"
-)
+DEFAULT_REGISTRY_LOCATION = os.path.join(pathlib.Path().home(), FAIR_FOLDER, "registry")
 
 DEFAULT_LOCAL_REGISTRY_URL = "http://127.0.0.1:8000/api/"
 
@@ -79,7 +77,7 @@ def registry_home() -> str:
             return os.environ["FAIR_REGISTRY_DIR"]
         else:
             return DEFAULT_REGISTRY_LOCATION
-    _glob_conf = yaml.safe_load(open(global_fdpconfig(), encoding='utf-8'))
+    _glob_conf = yaml.safe_load(open(global_fdpconfig(), encoding="utf-8"))
     if not _glob_conf:
         return DEFAULT_REGISTRY_LOCATION
     if "registries" not in _glob_conf:
@@ -149,6 +147,7 @@ def registry_session_port_file(registry_dir: str = None) -> str:
         registry_dir = registry_home()
     return os.path.join(registry_dir, "session_port.log")
 
+
 def registry_session_address_file(registry_dir: str = None) -> str:
     """Retrieve the location of the registry session port file
 
@@ -183,7 +182,10 @@ def registry_session_port(registry_dir: str = None) -> int:
     int
         current/most recent port used to launch the registry
     """
-    return int(open(registry_session_port_file(registry_dir), encoding='utf-8').read().strip())
+    return int(
+        open(registry_session_port_file(registry_dir), encoding="utf-8").read().strip()
+    )
+
 
 def registry_session_address(registry_dir: str = None) -> str:
     """Retrieve the registry session address
@@ -202,11 +204,17 @@ def registry_session_address(registry_dir: str = None) -> str:
         current/most recent address used to launch the registry
     """
     if not os.path.exists(registry_session_address_file(registry_dir)):
-        _logger.warning("Session Address file not found, please make sure your registry is up-to-date")
+        _logger.warning(
+            "Session Address file not found, please make sure your registry is up-to-date"
+        )
         _logger.info("Using 127.0.0.1")
         return "127.0.0.1"
 
-    _address = open(registry_session_address_file(registry_dir), encoding='utf-8').read().strip()
+    _address = (
+        open(registry_session_address_file(registry_dir), encoding="utf-8")
+        .read()
+        .strip()
+    )
     if _address != "0.0.0.0":
         return _address
     else:
@@ -226,15 +234,13 @@ def default_data_dir(location: str = "local") -> str:
         raise fdp_exc.InternalError(
             f"Failed to read CLI global config file '{global_fdpconfig()}'"
         )
-    _glob_conf = yaml.safe_load(open(global_fdpconfig(), encoding='utf-8'))
+    _glob_conf = yaml.safe_load(open(global_fdpconfig(), encoding="utf-8"))
     if "data_store" in _glob_conf["registries"][location]:
         return _glob_conf["registries"][location]["data_store"]
     if location == "local":
         return os.path.join(USER_FAIR_DIR, f"data{os.path.sep}")
     else:
-        raise fdp_exc.UserConfigError(
-            "Cannot guess remote data store location"
-        )
+        raise fdp_exc.UserConfigError("Cannot guess remote data store location")
 
 
 def local_fdpconfig(user_loc: str = os.getcwd()) -> str:
@@ -291,12 +297,14 @@ def find_git_root(start_directory: str = os.getcwd()) -> str:
 
     return _repository.git.rev_parse("--show-toplevel").strip()
 
+
 def set_file_permissions(path: str):
     for root, dirs, files in os.walk(path, topdown=False):
-        for dir in [os.path.join(root,d) for d in dirs]:
+        for dir in [os.path.join(root, d) for d in dirs]:
             os.chmod(dir, stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)
         for file in [os.path.join(root, f) for f in files]:
             os.chmod(file, stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)
+
 
 def remove_readonly(fn, path, excinfo):
     try:

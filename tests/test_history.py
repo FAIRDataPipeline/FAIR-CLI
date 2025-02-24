@@ -10,16 +10,12 @@ from fair.common import FAIR_FOLDER
 @pytest.mark.faircli_history
 def test_history_directory(job_directory: str):
     os.makedirs(os.path.join(os.path.dirname(job_directory), FAIR_FOLDER))
-    _expected = os.path.join(
-        os.path.dirname(job_directory), FAIR_FOLDER, "logs"
-    )
+    _expected = os.path.join(os.path.dirname(job_directory), FAIR_FOLDER, "logs")
     assert fdp_hist.history_directory(job_directory) == _expected
 
 
 @pytest.mark.faircli_history
-def test_show_history(
-    capsys: pytest.CaptureFixture, job_directory: str, job_log: str
-):
+def test_show_history(capsys: pytest.CaptureFixture, job_directory: str, job_log: str):
     fdp_hist.show_history(os.getcwd())
     _captured = capsys.readouterr()
     _job = _captured.out.split("\n")[0].split()[-1]
@@ -35,9 +31,7 @@ def test_show_history(
 
 
 @pytest.mark.faircli_history
-def test_job_log_show(
-    capsys: pytest.CaptureFixture, job_directory: str, job_log: str
-):
+def test_job_log_show(capsys: pytest.CaptureFixture, job_directory: str, job_log: str):
     fdp_hist.show_job_log(
         os.getcwd(), hashlib.sha1(job_directory.encode("utf-8")).hexdigest()
     )
