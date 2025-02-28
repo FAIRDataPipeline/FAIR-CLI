@@ -17,7 +17,6 @@ import yaml
 from pathlib import Path
 
 import boto3
-import os
 from moto.server import ThreadedMotoServer
 
 import requests
@@ -150,7 +149,7 @@ def pyDataPipeline(tmp_path_factory):
 @pytest.fixture()
 def pySimpleModel(tmp_path):
     _repo_path = tmp_path.__str__()
-    _repo = git.Repo.clone_from(PYTHON_MODEL_GIT, _repo_path)
+    _ = git.Repo.clone_from(PYTHON_MODEL_GIT, _repo_path)
     yield _repo_path
 
 

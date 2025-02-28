@@ -237,13 +237,8 @@ class Stager:
         _code_run_urls = []
 
         if (
-            os.path.exists
-            (
-                _code_run_file
-            ) and open(
-                _code_run_file,
-                encoding="utf-8"
-            ).read().strip()
+            os.path.exists(_code_run_file)
+            and open(_code_run_file, encoding="utf-8").read().strip()
         ):
             self._logger.debug("Found coderuns file, extracting runs")
             _runs = [
