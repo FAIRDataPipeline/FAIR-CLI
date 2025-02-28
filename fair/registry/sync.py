@@ -216,7 +216,8 @@ def sync_dependency_chain(
 
         if not fdp_util.is_api_url(dest_uri, _new_url):
             raise fdp_exc.InternalError(
-                f"Expected new URL '{_new_url}' to be compatible with destination URI '{dest_uri}'"
+                f"Expected new URL '{_new_url}' to be compatible with \
+                    destination URI '{dest_uri}'"
             )
 
         # Fill the new URLs dictionary with the result
@@ -237,7 +238,8 @@ def _get_new_url(
     local_data_store=None,
     public=False,
 ) -> typing.Tuple[typing.Dict, typing.List]:
-    """Internal Function to return a resgistry entry from the remote registry given an origin entry URL
+    """Internal Function to return a registry entry from the remote registry
+    given an origin entry URL
     If the entry does not exist it will be created
 
     Args:
@@ -246,15 +248,20 @@ def _get_new_url(
         dest_uri (str): Url of the destination registry
         dest_token (str): Token of the destination registry
         object_url (str): Url of the destination registry entry
-        new_urls (typing.Dict): If the entry contains registry URLS, a list of remote registry URLs for these
-        writable_data (typing.Dict): Dictionary of writable fields for the given entity type
+        new_urls (typing.Dict): If the entry contains registry URLS,
+            a list of remote registry URLs for these
+        writable_data (typing.Dict): Dictionary of writable fields for
+            the given entity type
 
     Raises:
-        fdp_exc.RegistryError: If the given new_urls are not valid for the entry a RegistryError will be raised
-        fdp_exc.InternalError: If the origin url and the destination URLs are the same an InternalError with be raised
+        fdp_exc.RegistryError: If the given new_urls are not valid for
+            the entry a RegistryError will be raised
+        fdp_exc.InternalError: If the origin url and the destination URLs
+            are the same an InternalError with be raised
 
     Returns:
-        typing.Tuple[typing.Dict, typing.List]: A tuple containing the destination registry entity
+        typing.Tuple[typing.Dict, typing.List]: A tuple containing the
+            destination registry entity
     """
     _new_obj_data: typing.Dict[str, typing.Any] = {}
     _url_fields: typing.List[str] = []
@@ -304,10 +311,11 @@ def _get_new_url(
     # If Public is true then any files will be uploaded to the remote registry
     # If local_data_store is set we're pulling to a local registry
     if public and not local_data_store:
-        # The remote data_store storage_root URL should always be the 1st storage_root
+        # The remote data_store storage_root URL should
+        # always be the 1st storage_root
         _remote_storage_root_url = urllib.parse.urljoin(dest_uri, "storage_root/1/")
-        # If the current objects a storage_root and the root is the first (data_store)
-        # then simply return the remote
+        # If the current objects a storage_root and the root
+        # is the first (data_store) then simply return the remote
         if _obj_type == "storage_root" and _obj_id == "1":
             return _remote_storage_root_url
         # If the current object is a storage_location
@@ -376,12 +384,12 @@ def sync_author(
     )
     if not new_urls:
         raise fdp_exc.RegistryError(
-            f"Auther {identifier}, could not be pushed to {dest_uri}"
+            f"Author {identifier}, could not be pushed to {dest_uri}"
         )
     new_author_url = new_urls[current_author_url]
     if not new_author_url:
         raise fdp_exc.RegistryError(
-            f"Auther {identifier}, was not be pushed to {dest_uri}"
+            f"Author {identifier}, was not be pushed to {dest_uri}"
         )
     return new_author_url
 

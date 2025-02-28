@@ -30,8 +30,8 @@ def test_check_generic_ror():
         pytest.skip("Cannot Reach ROR API")
     _data = fdp_id._check_generic_ror(ROR_ID)
     assert _data["name"] == "Rakon (France)" == _data["family_name"]
-    assert not "ror" in _data
-    assert not "grid" in _data
+    assert "ror" not in _data
+    assert "grid" not in _data
     assert not fdp_id.check_ror("notanid!")
 
 

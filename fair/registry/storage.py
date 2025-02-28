@@ -59,7 +59,8 @@ def get_write_storage(uri: str, write_data_store: str, token: str) -> str:
     Raises
     ------
     fdp_exc.UserConfigError
-        If 'write_data_store' not present in the working config or global config
+        If 'write_data_store' not present
+            in the working config or global config
     """
     logger.debug("Constructing a storage root for '%s'", write_data_store)
 
@@ -256,7 +257,8 @@ def store_working_config(repo_dir: str, uri: str, work_cfg_yml: str, token: str)
             raise e
         else:
             raise fdp_exc.RegistryAPICallError(
-                f"Cannot post storage_location '{_rel_path}' with hash '{_hash}', object already exists",
+                f"Cannot post storage_location '{_rel_path}' \
+                    with hash '{_hash}', object already exists",
                 error_code=409,
             ) from e
 
@@ -618,7 +620,8 @@ def _get_url_from_data_product(
         _name = data["data_product"]
     else:
         raise fdp_exc.UserConfigError(
-            f"Failed to determine type while storing item '{label}'" "into registry"
+            f"Failed to determine type while storing item '{label}' \
+                into registry"
         )
 
     if "data_product" in data["use"]:
@@ -640,7 +643,8 @@ def _get_url_from_data_product(
             raise e
         else:
             raise fdp_exc.RegistryAPICallError(
-                f"Cannot post data_product '{_name}', duplicate already exists",
+                f"Cannot post data_product '{_name}', \
+                    duplicate already exists",
                 error_code=409,
             ) from e
 
@@ -666,7 +670,7 @@ def _get_identifier_from_data(data: typing.Dict, label: str) -> typing.Dict[str,
             _identifier["alternate_identifier"] = data["unique_name"]
         except KeyError as e:
             raise fdp_exc.UserConfigError(
-                "No identifier/alternate_identifier given for " f"item '{label}'",
+                f"No identifier/alternate_identifier given for item '{label}'",
                 hint="You must provide either a URL 'identifier', or "
                 "'unique_name' and 'source_name' keys",
             ) from e
@@ -855,10 +859,12 @@ def upload_remote_file(
     Args:
         file_loc (str): Location of the file
         remote_uri (_type_, optional): Remote Registry URL. Defaults to None.
-        remote_token (_type_, optional): Remote Registry Token. Defaults to None.
+        remote_token (_type_, optional):
+            Remote Registry Token. Defaults to None.
 
     Raises:
-        fdp_exc.FileNotFoundError: If the file does not exist a FileNotFound error will be raised.
+        fdp_exc.FileNotFoundError:
+            If the file does not exist a FileNotFound error will be raised.
     """
     if not os.path.exists(file_loc):
         raise fdp_exc.FileNotFoundError(f"File: {file_loc} does not exist")

@@ -89,24 +89,13 @@ def _access(
     method: str = None,
     token: str = None,
     obj_path: str = None,
-    response_codes: typing.List[int] = None,
-    headers: typing.Dict[str, typing.Any] = None,
-    params: typing.Dict = None,
-    data: typing.Dict = None,
+    response_codes: typing.List[int] = [201, 200],
+    headers: typing.Dict[str, typing.Any] = {},
+    params: typing.Dict = {},
+    data: typing.Dict = {},
     files: typing.Dict = None,
     trailing_slash=True,
 ):
-    if response_codes is None:
-        response_codes = [201, 200]
-    if not headers:
-        headers: typing.Dict[str, str] = {}
-
-    if not params:
-        params: typing.Dict[str, str] = {}
-
-    if not data:
-        data: typing.Dict[str, str] = {}
-
     # Make sure we have the right number of '/' in the components
     _uri = uri
     _uri = fdp_util.check_trailing_slash(_uri)
@@ -159,7 +148,8 @@ def _access(
 
     if _request.status_code == 403:
         raise fdp_exc.RegistryAPICallError(
-            f"Failed to run method '{method}' for url {_url}, request forbidden",
+            f"Failed to run method '{method}' for url {_url}, \
+                request forbidden",
             error_code=403,
         )
     elif _request.status_code == 409:
@@ -227,7 +217,10 @@ def post(
 
     for param, value in data.copy().items():
         if not value:
-            logger.debug(f"Key in post data '{param}' has no value so will be ignored")
+            logger.debug(
+                f"Key in post data '{param}' \
+                         has no value so will be ignored"
+            )
             del data[param]
 
     return _access(
@@ -289,7 +282,9 @@ def get(
         returned data for the given request
     """
     logger.debug(
-        "Retrieving object of type '%s' from registry at '%s' with parameters: %s",
+        "Retrieving object of type '%s' \
+            from registry at '%s' \
+            with parameters: %s",
         obj_path,
         uri,
         params,
@@ -303,7 +298,8 @@ def get(
     for param, value in params.copy().items():
         if not value:
             logger.warning(
-                f"Key in get parameters '{param}' has no value so will be ignored"
+                f"Key in get parameters '{param}' \
+                    has no value so will be ignored"
             )
             del params[param]
 
@@ -367,7 +363,7 @@ def post_else_get(
 
 
 def post_upload_url(remote_uri: str, remote_token: str, file_hash: str) -> str:
-    """Function to get a tempory url to upload and object to
+    """Function to get a temporary url to upload and object to
 
     Args:
         remote_uri (str): Remote registry URL
@@ -375,7 +371,7 @@ def post_upload_url(remote_uri: str, remote_token: str, file_hash: str) -> str:
         file_hash (str): Hash of the file to be uploaded
 
     Returns:
-        str: A tempory url to upload the object to
+        str: A temporary url to upload the object to
     """
     _url = urllib.parse.urljoin(remote_uri, "data/")
     _url = urllib.parse.urljoin(_url, file_hash)
@@ -480,7 +476,8 @@ def put_file(upload_url: str, file_loc: str) -> bool:
         file_loc (str): Location of the file to be uploaded
 
     Raises:
-        fdp_exc.RegistryError: If the upload fails a RegistryError will be raised
+        fdp_exc.RegistryError:
+            If the upload fails a RegistryError will be raised
 
     Returns:
         bool: Will return True if the upload succeeded.
@@ -489,7 +486,8 @@ def put_file(upload_url: str, file_loc: str) -> bool:
     _req = s.put(upload_url, data=open(file_loc, mode="rb").read())
     if _req.status_code not in [200, 201]:
         raise fdp_exc.RegistryError(
-            f"File: {file_loc} could not be uploaded, Registry Returned: {_req.status_code}"
+            f"File: {file_loc} could not be uploaded,\
+            Registry Returned: {_req.status_code}"
         )
     return True
 
@@ -543,7 +541,8 @@ def download_file(url: str, chunk_size: int = 8192) -> str:
 def get_dependency_listing(
     uri: str, token: str, read_only: bool = False
 ) -> typing.Dict:
-    """Get complete listing of all objects and their registry based dependencies
+    """Get complete listing of all objects and
+    their registry based dependencies
 
     Parameters
     ----------
@@ -648,7 +647,7 @@ def get_author_exists(registry_uri, token=None, name=None, identifier=None) -> s
 
 
 def get_auth_provider(registry_uri: str, token: str = None) -> str:
-    """Retrived the auth provider from the remote registry
+    """Retrieve the auth provider from the remote registry
 
     Parameters
     ----------
@@ -667,14 +666,14 @@ def get_auth_provider(registry_uri: str, token: str = None) -> str:
     if not _response["auth_provider"]:
         raise fdp_exc.RegistryError(
             f"The remote registry {registry_uri} \
-                                    did not provide an authentication provider \
-                                    is the remote registry correcly configured?"
+            did not provide an authentication provider \
+            is the remote registry correctly configured?"
         )
     return _response["auth_provider"]
 
 
 def get_auth_url(registry_uri: str, token: str = None) -> str:
-    """Retrived the auth url from the remote registry
+    """Retrieve the auth url from the remote registry
 
     Parameters
     ----------
@@ -693,7 +692,7 @@ def get_auth_url(registry_uri: str, token: str = None) -> str:
     if not _response["auth_url"]:
         raise fdp_exc.RegistryError(
             f"The remote registry {registry_uri} \
-                                    did not provide an authentication provider \
-                                    is the remote registry correcly configured?"
+            did not provide an authentication provider \
+            is the remote registry correctly configured?"
         )
     return _response["auth_url"]

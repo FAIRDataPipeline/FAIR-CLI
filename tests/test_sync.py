@@ -1,6 +1,5 @@
 import os
 import pathlib
-import typing
 
 import click.testing
 import pytest
@@ -8,13 +7,10 @@ import pytest_mock
 import yaml
 
 import fair.registry.sync as fdp_sync
-import fair.registry.server as fdp_serv
 from fair.cli import cli
-from fair.common import FAIR_FOLDER
-from fair.registry.requests import get, url_get
+from fair.registry.requests import get
 from tests.conftest import RegistryTest
 from tests.conftest import MotoTestServer
-import fair.session as fdp_session
 import fair.common as fdp_com
 import fair.testing as fdp_test
 
@@ -123,7 +119,7 @@ def test_init(
     yaml.dump(_config, open(config_path, "w"))
     with capsys.disabled():
         print(_config)
-        print(f"\tRUNNING: fair init --debug")
+        print("\tRUNNING: fair init --debug")
     with local_registry, remote_registry:
         _res = _cli_runner.invoke(
             cli, ["init", "--debug", "--using", config_path], catch_exceptions=True
