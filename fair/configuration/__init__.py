@@ -637,16 +637,16 @@ def _handle_uuid() -> typing.Tuple[typing.Dict, str]:
 
 
 def _get_user_info_and_namespaces(
-    local: bool = False, remote_url: str = None
+    local: bool = False, remote_url: str = None, remote_token: str = None
 ) -> typing.Dict[str, typing.Dict]:
     _user_email = click.prompt("Email (optional)", default="")
 
     _invalid_input = True
-    if not local:
-        _remote_auth_provider = fdp_req.get_auth_provider(remote_url)
-        _remote_auth_url = fdp_req.get_auth_url(remote_url)
-    else:
-        _remote_auth_url = None
+    # if not local:
+    # _remote_auth_provider = fdp_req.get_auth_provider(remote_url)
+    # _remote_auth_url = fdp_req.get_auth_url(remote_url)
+    # else:
+    # _remote_auth_url = None
 
     while _invalid_input:
         _id_type = click.prompt(
@@ -663,10 +663,8 @@ def _get_user_info_and_namespaces(
                 )
             _invalid_input = False
         elif _id_type.upper() == "GITLAB":
-            if not _remote_auth_url:
-                _remote_auth_url = click.prompt(
-                    "GitLab URL", default="https://gitlab.com/"
-                )
+            # if not _remote_auth_url:
+            _remote_auth_url = click.prompt("GitLab URL", default="https://gitlab.com/")
             _user_gitlab = click.prompt("GitLab Username")
             _user_info, _def_ospace = _handle_gitlab(_user_gitlab, _remote_auth_url)
             if not _user_info["name"]:
@@ -702,23 +700,26 @@ def _get_user_info_and_namespaces(
 
     _namespaces = {"input": _def_ispace, "output": _def_ospace}
 
+    # if not local:
+    #     if _remote_auth_provider == "GitHub":
+    #         if "github" not in _user_info:
+    #             _user_github = click.prompt("GitHub Username")
+    #             _user_github_info = _handle_github(_user_github)[0]
+    #             _user_info["remote_user"] = _user_github_info["github"]
+    #         else:
+    #             _user_info["remote_user"] = _user_info["github"]
+    #     elif _remote_auth_provider == "GitLab":
+    #         if "gitlab" not in _user_info:
+    #             _user_gitlab = click.prompt("GitLab Username")
+    #             _user_gitlab_info = _handle_gitlab(_user_gitlab, _remote_auth_url)[0]
+    #             _user_info["remote_user"] = _user_gitlab_info["gitlab"]
+    #         else:
+    #             _user_info["remote_user"] = _user_info["gitlab"]
+    # else:
+    _user_info["remote_user"] = "FAIRDataPipeline"
     if not local:
-        if _remote_auth_provider == "GitHub":
-            if "github" not in _user_info:
-                _user_github = click.prompt("GitHub Username")
-                _user_github_info = _handle_github(_user_github)[0]
-                _user_info["remote_user"] = _user_github_info["github"]
-            else:
-                _user_info["remote_user"] = _user_info["github"]
-        elif _remote_auth_provider == "GitLab":
-            if "gitlab" not in _user_info:
-                _user_gitlab = click.prompt("GitLab Username")
-                _user_gitlab_info = _handle_gitlab(_user_gitlab, _remote_auth_url)[0]
-                _user_info["remote_user"] = _user_gitlab_info["gitlab"]
-            else:
-                _user_info["remote_user"] = _user_info["gitlab"]
-    else:
-        _user_info["remote_user"] = "FAIRDataPipeline"
+        _remote_user = fdp_req.get_remote_user(remote_url, remote_token)
+        _user_info["remote_user"] = _remote_user
 
     # Unset unused variables
     _user_info.pop("github", None)
@@ -833,7 +834,9 @@ def global_config_query(
     if _loc_data_store[-1] != os.path.sep:
         _loc_data_store += os.path.sep
 
-    _glob_conf_dict = _get_user_info_and_namespaces(local, _remote_url)
+    _remote_token = open(_rem_key_file, encoding="utf-8").read().strip()
+
+    _glob_conf_dict = _get_user_info_and_namespaces(local, _remote_url, _remote_token)
     _glob_conf_dict["registries"] = {
         "local": {
             "uri": _local_uri,

@@ -696,3 +696,29 @@ def get_auth_url(registry_uri: str, token: str = None) -> str:
             is the remote registry correctly configured?"
         )
     return _response["auth_url"]
+
+
+def get_remote_user(registry_uri: str, token: str = None) -> str:
+    """Retrieve the remote user from the remote registry
+
+    Parameters
+    ----------
+    registry_url : str
+        url of the remote registry
+    token : str (optional)
+        remote registry token
+
+    Returns
+    -------
+    str
+        The remote user
+    """
+    _url = urllib.parse.urljoin(registry_uri, "username")
+    _response = url_get(_url, token)
+    if not _response["username"]:
+        raise fdp_exc.RegistryError(
+            f"The remote registry {registry_uri} \
+            did not provide an remote username \
+            is the remote registry correctly configured?"
+        )
+    return _response["username"]
