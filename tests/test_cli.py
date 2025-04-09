@@ -216,23 +216,26 @@ def test_init_full(
     pySimpleModel,
 ):
     mocker.patch("fair.registry.server.update_registry_post_setup", lambda *args: None)
+    mocker.patch(
+        "fair.registry.requests.get_remote_user",
+        lambda *args, **kwargs: "FAIRDataPipeline",
+    )
     with local_registry:
         mocker.patch("fair.common.USER_FAIR_DIR", pySimpleModel)
         _dummy_name = "Joseph Bloggs"
         _dummy_email = "jbloggs@nowhere.com"
         _args = [
-            "8007",
-            "",
-            "",
-            "0123456789012345678901234567890123456789",
-            "",
-            _dummy_email,
-            "NONE",
-            _dummy_name,
-            "",
-            "",
-            "FAIRDataPipeline",
-            pySimpleModel,
+            "8007",  # port
+            "",  # remote api url
+            "",  # remote data url
+            "0123456789012345678901234567890123456789",  # remote token
+            "",  # default data store
+            _dummy_email,  # email
+            "NONE",  # id system
+            _dummy_name,  # Full name
+            "",  # Output namespace
+            "",  # Input namespace
+            pySimpleModel,  # Repo
             "",
         ]
         monkeypatch.chdir(pySimpleModel)

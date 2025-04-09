@@ -172,9 +172,14 @@ def test_user_info(mocker: pytest_mock.MockerFixture):
     mocker.patch("click.prompt", lambda x, default=None: _override[x] or default)
     mocker.patch("uuid.uuid4", lambda: _uuid_override["uuid"])
 
-    mocker.patch("fair.registry.requests.get_auth_provider", return_value="GitHub")
+    # mocker.patch("fair.registry.requests.get_auth_provider", return_value="GitHub")
+    # mocker.patch(
+    #     "fair.registry.requests.get_auth_url", return_value="https://github.com"
+    # )
+
     mocker.patch(
-        "fair.registry.requests.get_auth_url", return_value="https://github.com"
+        "fair.registry.requests.get_remote_user",
+        lambda *args, **kwargs: "FAIRDataPipeline",
     )
 
     _noorc = fdp_conf._get_user_info_and_namespaces()
@@ -184,6 +189,7 @@ def test_user_info(mocker: pytest_mock.MockerFixture):
 
     mocker.patch("click.prompt", lambda x, default=None: _override[x] or default)
     mocker.patch("fair.identifiers.check_orcid", lambda *args: _orcid_override)
+
     _orc = fdp_conf._get_user_info_and_namespaces()
 
     _uuid_override["remote_user"] = _github_username
