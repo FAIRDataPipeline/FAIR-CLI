@@ -308,7 +308,11 @@ def set_file_permissions(path: str):
 
 def remove_readonly(fn, path, excinfo):
     try:
+        _ = excinfo  # Required to avoid unused variable warning
+        # Remove readonly bit
         os.chmod(path, stat.S_IWRITE)
+        # Call the provided function again
         fn(path)
     except Exception as exc:
+        # Log the error
         print("Skipped:", path, "because:\n", exc)

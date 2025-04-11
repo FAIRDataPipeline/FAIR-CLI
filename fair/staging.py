@@ -171,7 +171,7 @@ class Stager:
         self.add_to_staging(job_id, "job")
         self.change_stage_status(job_id, "job", stage)
 
-    def find_registry_entry_for_file(self, local_uri: str, file_path: str) -> str:
+    def find_registry_entry_for_file(self, local_uri: str, file_path: str) -> dict:
         """Performs a rough search for a file in the local registry
 
         Parameters
@@ -312,7 +312,7 @@ class Stager:
 
         _config_url = self.find_registry_entry_for_file(
             fdp_conf.get_local_uri(), _config_rel_path
-        )["url"]
+        ).get("url")
 
         # Check for job script file
         _config_yaml = os.path.join(_directory, fdp_com.USER_CONFIG_FILE)
@@ -355,7 +355,9 @@ class Stager:
         _rel_script_path = _script_path.split(fdp_com.JOBS_DIR)[1]
         _rel_script_path = f"{fdp_com.JOBS_DIR}{_rel_script_path}"
 
-        result = self.find_registry_entry_for_file(local_uri, _rel_script_path)["url"]
+        result = self.find_registry_entry_for_file(local_uri, _rel_script_path).get(
+            "url"
+        )
 
         self._logger.debug("Script URL: %s", result)
 

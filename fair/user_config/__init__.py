@@ -318,7 +318,7 @@ class JobConfiguration(MutableMapping):
         for register_entry in register_block:
             _new_entry = register_entry.copy()
             if "namespace_name" not in register_entry:
-                if not "use" in register_entry:
+                if "use" not in register_entry:
                     _new_entry["use"] = {}
                 else:
                     if "namespace" in register_entry["use"]:
@@ -569,8 +569,8 @@ class JobConfiguration(MutableMapping):
 
         if not _cmd or not _out_file:
             raise fdp_exc.UserConfigError(
-                "Configuration file must contain either a valid "
-                "'script' or 'script_path' entry under 'run_metadata'"
+                "Configuration file must contain either a valid \
+                'script' or 'script_path' entry under 'run_metadata'"
             )
 
         self.set_script(_out_file)

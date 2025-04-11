@@ -24,7 +24,7 @@ classifiers = [
 ]
 description = "Synchronization interface for the SCRC FAIR Data Pipeline registry"
 name = "fair-cli"
-version = "0.9.7"
+version = "0.9.8"
 
 homepage = "https://www.fairdatapipeline.org/"
 
