@@ -64,6 +64,13 @@ import fair.user_config as fdp_user
 import fair.logging as fdp_logging
 import fair.registry.storage as fdp_store
 
+GLOBAL_CONFIG_MESSAGE = (
+    "Setup will now ask you questions regarding the global configuration"
+)
+REPO_CONFIG_MESSAGE = (
+    "Setup will now ask you questions regarding this repo configuration"
+)
+
 
 class FAIR:
     """
@@ -1170,17 +1177,13 @@ class FAIR:
         if not os.path.exists(fdp_com.global_fdpconfig()):
             try:
                 if not self._testing:
-                    click.echo(
-                        "Setup will now ask you questions regarding the global configuration"
-                    )
+                    click.echo(GLOBAL_CONFIG_MESSAGE)
                 self._global_config = fdp_conf.global_config_query(registry, local)
             except (fdp_exc.CLIConfigurationError, click.Abort) as e:
                 self._clean_reset(_fair_dir, e)
             try:
                 if not self._testing:
-                    click.echo(
-                        "Setup will now ask you questions regarding this repo configuration"
-                    )
+                    click.echo(REPO_CONFIG_MESSAGE)
                 self._local_config = fdp_conf.local_config_query(
                     self._global_config,
                     first_time_setup=_first_time,
@@ -1191,9 +1194,7 @@ class FAIR:
         elif not using:
             try:
                 if not self._testing:
-                    click.echo(
-                        "Setup will now ask you questions regarding this repo configuration"
-                    )
+                    click.echo(REPO_CONFIG_MESSAGE)
                 self._local_config = fdp_conf.local_config_query(
                     self._global_config, local=local
                 )
@@ -1208,14 +1209,10 @@ class FAIR:
                 yaml.dump(self._global_config, f)
         else:
             if not self._testing:
-                click.echo(
-                    "Setup will now ask you questions regarding the global configuration"
-                )
+                click.echo(GLOBAL_CONFIG_MESSAGE)
             self._global_config = fdp_conf.read_global_fdpconfig()
             if not self._testing:
-                click.echo(
-                    "Setup will now ask you questions regarding this repo configuration"
-                )
+                click.echo(REPO_CONFIG_MESSAGE)
             self._local_config = fdp_conf.read_local_fdpconfig(self._session_loc)
 
         if export_as:

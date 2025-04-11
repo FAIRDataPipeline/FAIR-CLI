@@ -30,6 +30,9 @@ from fake_useragent import UserAgent
 
 logger = logging.getLogger("FAIRDataPipeline.Identifiers")
 
+JSON_MIME_TYPE = "application/json"
+JSON_HEADERS = {"Accept": JSON_MIME_TYPE}
+
 ID_URIS = {
     "orcid": "https://orcid.org/",
     "ror": "https://ror.org/",
@@ -57,7 +60,7 @@ def check_orcid(orcid: str) -> typing.Dict:
         metadata from the given ID
     """
     orcid = orcid.replace(ID_URIS["orcid"], "")
-    _header = {"Accept": "application/json"}
+    _header = JSON_HEADERS
     _url = urllib.parse.urljoin(QUERY_URLS["orcid"], orcid)
     requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
     _response = requests.get(_url, headers=_header, verify=False, allow_redirects=True)
@@ -95,7 +98,7 @@ def check_github(github: str) -> typing.Dict:
     typing.Dict
         metadata from the given ID
     """
-    _header = {"Accept": "application/json"}
+    _header = JSON_HEADERS
     _url = urllib.parse.urljoin(QUERY_URLS["github"], github)
     requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
     _response = requests.get(_url, headers=_header, verify=False, allow_redirects=True)
@@ -104,7 +107,7 @@ def check_github(github: str) -> typing.Dict:
 
     if _response.status_code == 403:
         time.sleep(3)
-        _header = {"Accept": "application/json", "User-Agent": str(UserAgent().chrome)}
+        _header = {"Accept": JSON_MIME_TYPE, "User-Agent": str(UserAgent().chrome)}
         _response = requests.get(
             _url, headers=_header, verify=False, allow_redirects=True
         )
@@ -149,7 +152,7 @@ def check_gitlab(gitlab: str, gitlab_url: str = "https://gitlab.com/") -> typing
 
     if _response.status_code == 403:
         time.sleep(3)
-        _header = {"Accept": "application/json", "User-Agent": str(UserAgent().chrome)}
+        _header = {"Accept": JSON_MIME_TYPE, "User-Agent": str(UserAgent().chrome)}
         _response = requests.get(
             _url, headers=_header, verify=False, allow_redirects=True
         )

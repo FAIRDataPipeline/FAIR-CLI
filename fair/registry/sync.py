@@ -350,13 +350,12 @@ def _get_new_url(
             _new_obj_data["authors"].append(_new_author_url)
             _filters["authors"].append(fdp_req.get_obj_id_from_url(_new_author_url))
 
-    if _obj_type == "author":
-        if "identifier" in _new_obj_data:
-            _author = fdp_req.get_author_exists(
-                dest_uri, token=dest_token, identifier=_new_obj_data["identifier"]
-            )
-            if _author:
-                return _author
+    if _obj_type == "author" and "identifier" in _new_obj_data:
+        _author = fdp_req.get_author_exists(
+            dest_uri, token=dest_token, identifier=_new_obj_data["identifier"]
+        )
+        if _author:
+            return _author
 
     return fdp_req.post_else_get(
         dest_uri,
@@ -402,6 +401,8 @@ def sync_user_author(
     author_url: str,
     remote_user: str,
 ) -> None:
+    _ = origin_uri  # prevent unused variable warning
+    _ = origin_token  # prevent unused variable warning
     current_user = fdp_req.get(
         dest_uri, "users", dest_token, params={"username": remote_user}
     )

@@ -632,7 +632,7 @@ def get_author_exists(registry_uri, token=None, name=None, identifier=None) -> s
         The url of the author if they exist else None
     """
     if not name and not identifier:
-        return {}
+        return ""
     if not token:
         token = local_token()
     _params = {}
@@ -643,7 +643,7 @@ def get_author_exists(registry_uri, token=None, name=None, identifier=None) -> s
     _author_exists = get(registry_uri, "author", token, params=_params)
     if _author_exists:
         return _author_exists[0]["url"]
-    return {}
+    return ""
 
 
 def get_auth_provider(registry_uri: str, token: str = None) -> str:

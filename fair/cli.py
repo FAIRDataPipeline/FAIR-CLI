@@ -347,7 +347,7 @@ def purge(glob: bool, debug: bool, yes: bool, data: bool, all: bool) -> None:
         )
     else:
         _purge = click.confirm(
-            "Are you sure you want to reset FAIR tracking, " "this is not reversible?"
+            "Are you sure you want to reset FAIR tracking, this is not reversible?"
         )
         if data:
             data = click.confirm(
