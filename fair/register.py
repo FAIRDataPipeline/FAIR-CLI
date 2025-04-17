@@ -337,3 +337,28 @@ def _post_authors(local_uri, authors):
         )
         _author_urls.append(_author_url)
     return _author_urls
+
+def _handle_folders(user_config_register: typing.Dict):
+    """Handle the folders in the user config
+
+    Parameters
+    ----------
+    user_config_register : typing.Dict
+        The user config register
+
+    Returns
+    -------
+    typing.Dict
+        The updated user config register
+    """
+    _file_register_items = {}
+    for key, entry in user_config_register.items():
+        if entry.get("file_type", "") == "folder":
+            entry_path = os.path.join(
+                entry["root"], entry["path"]
+            )
+        if not os.path.exists(entry_path):
+            raise fdp_exc.UserConfigError(
+                f"Path '{entry_path}' for data product {entry["data_product"]} does not exist"
+            )
+        
