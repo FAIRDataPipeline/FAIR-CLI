@@ -25,6 +25,7 @@ import os
 import platform
 import shutil
 import typing
+from pathlib import Path
 
 import urllib.parse
 
@@ -338,7 +339,7 @@ def _post_authors(local_uri, authors):
         _author_urls.append(_author_url)
     return _author_urls
 
-def _handle_folders(user_config_register: typing.Dict):
+def _handle_folders(register_block: typing.Dict):
     """Handle the folders in the user config
 
     Parameters
@@ -351,14 +352,19 @@ def _handle_folders(user_config_register: typing.Dict):
     typing.Dict
         The updated user config register
     """
+    _register_block = copy.deepcopy(register_block)
     _file_register_items = {}
-    for key, entry in user_config_register.items():
-        if entry.get("file_type", "") == "folder":
-            entry_path = os.path.join(
-                entry["root"], entry["path"]
-            )
-        if not os.path.exists(entry_path):
-            raise fdp_exc.UserConfigError(
-                f"Path '{entry_path}' for data product {entry["data_product"]} does not exist"
-            )
+    for key, entry in _register_block.items():
+        if entry.get("data_product", "") and entry.get("path", "") == "*":
+            if not os.path.exists(entry.get("root", "")):
+                raise fdp_exc.UserConfigError(
+                    f"Path '{entry.get('root', '')}' for data product {entry['data_product']} does not exist"
+                )
+
+            for file in Path(entry.get("root", "")).rglob("*"):
+                if file.is_file():
+                    _entry = copy.deepcopy(entry)
+                    _entry["path"] = str(file)
+                    _entry["file_type"] = file.suffix[1:]
+                    _register_block
         

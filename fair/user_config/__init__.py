@@ -555,7 +555,7 @@ class JobConfiguration(MutableMapping):
             if not os.path.exists(_path):
                 raise fdp_exc.CommandExecutionError(
                     f"Failed to execute run, script '{_path}' was not found, or"
-                    " failed to be created.",
+                    " failed to be created.",test1.csv
                     exit_code=1,
                 )
             _cmd = open(_path, encoding="utf-8").read()
@@ -725,6 +725,8 @@ class JobConfiguration(MutableMapping):
         os.makedirs(self._job_dir)
         self._create_log()
         self._subst_cli_vars(self._now)
+
+        # Handle folders in register block
 
         self._fill_all_block_types()
 
