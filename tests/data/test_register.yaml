@@ -47,3 +47,8 @@ register:
   version: "1.0.0"
   use:
     namespace: UnregisteredNamespace
+
+- data_product: Namespace/test/wildcard
+  root: <TEST_DATA_DIR_FOLDER>
+  path: '*'
+  symlink: true

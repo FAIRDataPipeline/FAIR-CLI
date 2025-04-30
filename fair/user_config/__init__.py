@@ -27,6 +27,7 @@ Classes
 
 
 import itertools
+from pathlib import Path
 
 __date__ = "2021-09-10"
 
@@ -555,7 +556,7 @@ class JobConfiguration(MutableMapping):
             if not os.path.exists(_path):
                 raise fdp_exc.CommandExecutionError(
                     f"Failed to execute run, script '{_path}' was not found, or"
-                    " failed to be created.",test1.csv
+                    " failed to be created.",
                     exit_code=1,
                 )
             _cmd = open(_path, encoding="utf-8").read()
@@ -727,6 +728,8 @@ class JobConfiguration(MutableMapping):
         self._subst_cli_vars(self._now)
 
         # Handle folders in register block
+        if "register" in self:
+            self["register"] = self._handle_folders(self["register"])
 
         self._fill_all_block_types()
 
@@ -1110,6 +1113,13 @@ class JobConfiguration(MutableMapping):
                 _new_item["use"]["version"] = self.default_read_version
             else:  # 'write' or 'register'
                 _new_item["use"]["version"] = self.default_write_version
+      
+        if "symlink" not in item["use"]:
+            if "symlink" in item:
+                _new_item["use"]["symlink"] = item["symlink"]
+                _new_item.pop("symlink")
+            else:
+                _new_item["use"]["symlink"] = False
 
         if "data_product" not in item["use"] and "*" not in item["data_product"]:
             _new_item["use"]["data_product"] = item["data_product"]
@@ -1167,6 +1177,41 @@ class JobConfiguration(MutableMapping):
                 enumerate(self[block]), self._status_tags
             ):
                 self[block][i].pop(key, None)
+
+    def _handle_folders(self, register_block: typing.List):
+        """Handle the folders in the user config
+
+        Parameters
+        ----------
+       register_block : typing.list
+            The register block of the user config
+
+        Returns
+        -------
+        typing.List
+            The updated register block
+        """
+        _register_block = []
+        for i in range(len(register_block)):
+            entry = register_block[i]
+            if entry.get("data_product", "") and str(entry.get("path", "")).strip() == "*":
+                if not os.path.exists(entry.get("root", "")):
+                    raise fdp_exc.UserConfigError(
+                        f"Path '{entry.get('root', '')}' for data product {entry['data_product']} does not exist"
+                    )
+
+                for file in Path(entry["root"]).rglob("*"):
+                    if file.is_file():
+                        _rel_path = os.path.relpath(file, entry["root"])
+                        _entry = copy.deepcopy(entry)
+                        # _entry["root"] = f'file://{entry["root"]}/'
+                        _entry["data_product"] = f'{entry["data_product"]}/{str(file.stem)}'
+                        _entry["path"] = str(_rel_path)
+                        _entry["file_type"] = file.suffix[1:]
+                        _register_block.append(_entry)
+            else:
+                _register_block.append(entry)
+        return _register_block
 
     @property
     def script(self) -> str:

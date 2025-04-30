@@ -25,7 +25,6 @@ import os
 import platform
 import shutil
 import typing
-from pathlib import Path
 
 import urllib.parse
 
@@ -98,7 +97,7 @@ def fetch_registrations(
         "public",
     ]
 
-    _expected_keys_data_product = ["root", "path", "file_type", "version", "public"]
+    _expected_keys_data_product = ["root", "path", "file_type", "version", "public", "symlink"]
 
     _stored_objects: typing.List[str] = []
 
@@ -121,6 +120,7 @@ def fetch_registrations(
         _data_product = None
         _external_object = None
         _is_present = None
+        _symlink_source = None
 
         _search_data = {}
 
@@ -169,6 +169,8 @@ def fetch_registrations(
             _name = entry["use"]["data_product"]
             _obj_type = "data_product"
             _search_data = {"name": _name}
+            if entry["use"]["symlink"] == True:
+                _symlink_source = os.path.join(entry["root"], entry["path"])
 
         _search_data["version"] = entry["use"]["version"]
         _namespace = entry["use"]["namespace"]
@@ -183,13 +185,13 @@ def fetch_registrations(
                 raise fdp_exc.UserConfigError(
                     "Only one unique identifier may be provided (doi/unique_name)"
                 )
-        # Set Remove to True by default so the tempory file gets deleted
-        _remove = True
+        # Set Remove to True by default so the temporary file gets deleted
+        _remove = True if not _symlink_source else False
         if "cache" in entry:
             _temp_data_file = entry["cache"]
-            # Don't delete the tempory file if it's from a cache
+            # Don't delete the temporary file if it's from a cache
             _remove = False
-        else:
+        elif not _symlink_source:
             _local_parsed = urllib.parse.urlparse(local_uri)
             _local_url = f"{_local_parsed.scheme}://{_local_parsed.netloc}"
             _temp_data_file = fdp_sync.download_from_registry(
@@ -205,7 +207,7 @@ def fetch_registrations(
         # Check if the object is already present on the local registry
         _is_present = fdp_store.check_if_object_exists(
             local_uri=local_uri,
-            file_loc=_temp_data_file,
+            file_loc=_temp_data_file if not _symlink_source else _symlink_source,
             token=fdp_req.local_token(),
             obj_type=_obj_type,
             search_data=_search_data,
@@ -246,8 +248,13 @@ def fetch_registrations(
         _local_file = os.path.join(_local_dir, f"{_user_version}.{entry['file_type']}")
         # Copy the temporary file into the data store
         # then remove temporary file to save space
-        logger.debug("Saving data file to '%s'", _local_file)
-        shutil.copy(_temp_data_file, _local_file)
+        
+        if _symlink_source:
+            logger.debug("Creating symlink to '%s'", _symlink_source)
+            os.symlink(_symlink_source, _local_file)
+        else:
+            logger.debug("Saving data file to '%s'", _local_file)
+            shutil.copy(_temp_data_file, _local_file)
 
         if _remove:
             os.remove(_temp_data_file)
@@ -277,7 +284,6 @@ def fetch_registrations(
         _stored_objects.append(_file_url)
 
     return _stored_objects
-
 
 def fetch_authors(local_uri, authors):
     _authors = []
@@ -339,32 +345,3 @@ def _post_authors(local_uri, authors):
         _author_urls.append(_author_url)
     return _author_urls
 
-def _handle_folders(register_block: typing.Dict):
-    """Handle the folders in the user config
-
-    Parameters
-    ----------
-    user_config_register : typing.Dict
-        The user config register
-
-    Returns
-    -------
-    typing.Dict
-        The updated user config register
-    """
-    _register_block = copy.deepcopy(register_block)
-    _file_register_items = {}
-    for key, entry in _register_block.items():
-        if entry.get("data_product", "") and entry.get("path", "") == "*":
-            if not os.path.exists(entry.get("root", "")):
-                raise fdp_exc.UserConfigError(
-                    f"Path '{entry.get('root', '')}' for data product {entry['data_product']} does not exist"
-                )
-
-            for file in Path(entry.get("root", "")).rglob("*"):
-                if file.is_file():
-                    _entry = copy.deepcopy(entry)
-                    _entry["path"] = str(file)
-                    _entry["file_type"] = file.suffix[1:]
-                    _register_block
-        

@@ -212,6 +212,11 @@ class Use(pydantic.BaseModel):
     cache: typing.Optional[str] = pydantic.Field(
         None, title="cache", description="local copy of requested file to use"
     )
+    symlink: typing.Optional[bool] = pydantic.Field(
+        None,
+        title="symlink",
+        description="whether to symlink the file or copy it",
+    )
 
     class Config:
         extra = "forbid"

@@ -9,6 +9,7 @@ import fair.common as fdp_com
 import fair.testing as fdp_test
 
 TEST_DATA_DIR = f"file://{os.path.dirname(__file__)}{os.path.sep}data{os.path.sep}"
+TEST_DATA_DIR_FOLDER = os.path.join(os.path.dirname(__file__), "data", "test")
 
 TEST_REGISTER_CFG = os.path.join(
     os.path.dirname(__file__), "data", "test_register.yaml"
@@ -74,8 +75,9 @@ def test_register(
         with open(TEST_REGISTER_CFG) as cfg_file:
             _cfg_str = cfg_file.read()
 
-        print(f"Test Data Directory {TEST_DATA_DIR}")
+        print(f"Test Data Directory {TEST_DATA_DIR}, Test Data Folder {TEST_DATA_DIR_FOLDER}")
         _cfg_str = _cfg_str.replace("<TEST_DATA_DIR>", TEST_DATA_DIR)
+        _cfg_str = _cfg_str.replace("<TEST_DATA_DIR_FOLDER>", TEST_DATA_DIR_FOLDER)
 
         _cfg = yaml.safe_load(_cfg_str)
 
