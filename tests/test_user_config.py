@@ -1,4 +1,5 @@
 import datetime
+import io
 import os.path
 import typing
 
@@ -218,3 +219,27 @@ def test_run_id_left_for_api():
     _config["write"][0]["data_product"] = "out/run-${{NOT_A_VARIABLE}}"
     with pytest.raises(fdp_exc.InternalError):
         _config._check_for_unparsed()
+
+
+@pytest.mark.faircli_user_config
+def test_execute_uses_run_metadata_shell(mocker: pytest_mock.MockerFixture):
+    _config = fdp_user.JobConfiguration()
+    _config._config = {
+        "run_metadata": {
+            "local_repo": os.getcwd(),
+            "script_path": "script.py",
+            "shell": "python3",
+        }
+    }
+    _config.env = {"PATH": ""}
+    _config._log_file = io.StringIO()
+    mocker.patch(
+        "fair.configuration.get_current_user_name", lambda *args: [""]
+    )
+    mocker.patch("fair.configuration.get_current_user_email", lambda *args: "")
+    _popen = mocker.patch("subprocess.Popen")
+    _popen.return_value.stdout.readline.return_value = ""
+    _popen.return_value.returncode = 0
+
+    _config.execute()
+    assert _popen.call_args.args[0] == ["python3", "script.py"]

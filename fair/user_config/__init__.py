@@ -1186,7 +1186,7 @@ class JobConfiguration(MutableMapping):
     def shell(self) -> str:
         """Retrieve the shell choice"""
         _shell_default = "batch" if platform.system() == "Windows" else "sh"
-        return self.get("shell", _shell_default)
+        return self.get("run_metadata.shell", _shell_default)
 
     @property
     def local_repository(self) -> str:
