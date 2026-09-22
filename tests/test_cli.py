@@ -456,6 +456,27 @@ def test_session_file_removed_from_subdirectory(
 
 
 @pytest.mark.faircli_cli
+@pytest.mark.parametrize("passive", [False, True])
+def test_run_passive_does_not_execute(
+    mocker: pytest_mock.MockerFixture, passive: bool
+):
+    # Only run()'s own control flow is under test, so the session is built
+    # without __init__ and its collaborators are mocked
+    _session = object.__new__(fair.session.FAIR)
+    _session._allow_dirty = False
+    _session._session_config = mocker.MagicMock()
+    mocker.patch.object(_session, "_pre_job_setup")
+    mocker.patch.object(_session, "check_git_repo_state")
+    _breakdown = mocker.patch.object(_session, "_post_job_breakdown")
+
+    _session.run(passive=passive)
+
+    assert _session._session_config.execute.called is not passive
+    _session._session_config.write.assert_called_once()
+    _breakdown.assert_called_once_with(add_run=True)
+
+
+@pytest.mark.faircli_cli
 def test_registry_cli(
     local_config: typing.Tuple[str, str],
     click_test: click.testing.CliRunner,

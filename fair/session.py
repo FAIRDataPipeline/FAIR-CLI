@@ -542,7 +542,10 @@ class FAIR:
 
         self._session_config.write()
 
-        self._session_config.execute()
+        # A passive run only prepares the job directory, for the model to be
+        # run from it separately
+        if not passive:
+            self._session_config.execute()
 
         self._post_job_breakdown(add_run=True)
 
