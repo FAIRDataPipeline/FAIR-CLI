@@ -1,6 +1,7 @@
 import datetime
 import io
 import os.path
+import sys
 import typing
 
 import pytest
@@ -243,3 +244,33 @@ def test_execute_uses_run_metadata_shell(mocker: pytest_mock.MockerFixture):
 
     _config.execute()
     assert _popen.call_args.args[0] == ["python3", "script.py"]
+
+
+@pytest.mark.faircli_user_config
+def test_execute_output_unencodable(
+    mocker: pytest_mock.MockerFixture, monkeypatch: pytest.MonkeyPatch
+):
+    _config = fdp_user.JobConfiguration()
+    _config._config = {
+        "run_metadata": {"local_repo": os.getcwd(), "script_path": "script.sh"}
+    }
+    _config.env = {"PATH": ""}
+    _config._log_file = io.StringIO()
+    mocker.patch(
+        "fair.configuration.get_current_user_name", lambda *args: [""]
+    )
+    mocker.patch("fair.configuration.get_current_user_email", lambda *args: "")
+    _popen = mocker.patch("subprocess.Popen")
+    _popen.return_value.stdout.readline.side_effect = [
+        "Progress \u2305 done\n",
+        "",
+    ]
+    _popen.return_value.returncode = 0
+    # A Windows console redirected to a pipe or file, as on a CI runner
+    _stdout = io.TextIOWrapper(io.BytesIO(), encoding="cp1252")
+    monkeypatch.setattr(sys, "stdout", _stdout)
+
+    _config.execute()
+    _stdout.flush()
+    assert _stdout.buffer.getvalue() == b"Progress ? done\n"
+    assert "\u2305" in _config._log_file.getvalue()

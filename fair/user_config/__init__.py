@@ -1318,11 +1318,18 @@ class JobConfiguration(MutableMapping):
             encoding="utf-8",
         )
 
+        # The job log is UTF-8, but the console may not be (cp1252 on a
+        # Windows runner), and one unencodable character must not stop the run
+        _encoding = sys.stdout.encoding or "utf-8"
+
         # Write any stdout to the job log
         for line in iter(_process.stdout.readline, ""):
             self._log_file.writelines([line])
             _log_tail.append(line)
-            click.echo(line, nl=False)
+            click.echo(
+                line.encode(_encoding, errors="replace").decode(_encoding),
+                nl=False,
+            )
             sys.stdout.flush()
 
         _process.wait()
