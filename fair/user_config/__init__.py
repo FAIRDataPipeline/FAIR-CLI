@@ -828,11 +828,14 @@ class JobConfiguration(MutableMapping):
 
         def _tag_check():
             _repo = git.Repo(fdp_conf.local_git_repo(self.local_repository))
-            if len(_repo.tags) < 1:
-                fdp_exc.UserConfigError(
-                    "Cannot use GIT_TAG variable, no git tags found."
-                )
-            return _repo.tags[-1].name
+            # The nearest tag in the history of HEAD, not the last by name
+            try:
+                return _repo.git.describe("--tags", "--abbrev=0")
+            except git.GitCommandError as e:
+                raise fdp_exc.UserConfigError(
+                    "Cannot use GIT_TAG variable, no git tags found "
+                    "in the history of the current commit."
+                ) from e
 
         _substitutes: typing.Dict[str, typing.Callable] = {
             "DATE": lambda: job_time.strftime("%Y%m%d"),

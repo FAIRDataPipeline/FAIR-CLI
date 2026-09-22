@@ -4,6 +4,7 @@ import os.path
 import sys
 import typing
 
+import git
 import pytest
 import pytest_mock
 import yaml
@@ -274,3 +275,41 @@ def test_execute_output_unencodable(
     _stdout.flush()
     assert _stdout.buffer.getvalue() == b"Progress ? done\n"
     assert "\u2305" in _config._log_file.getvalue()
+
+
+@pytest.mark.faircli_user_config
+def test_subst_git_tag(mocker: pytest_mock.MockerFixture, tmp_path):
+    _repo = git.Repo.init(tmp_path)
+    mocker.patch(
+        "fair.configuration.local_git_repo", lambda *args: str(tmp_path)
+    )
+
+    def _git_tag() -> str:
+        _config = fdp_user.JobConfiguration()
+        _config._config = {
+            "run_metadata": {"local_repo": str(tmp_path)},
+            "write": [{"data_product": "${{GIT_TAG}}"}],
+        }
+        _config._subst_cli_vars(datetime.datetime(2026, 9, 22))
+        return _config["write"][0]["data_product"]
+
+    def _commit(message: str) -> git.Commit:
+        _actor = git.Actor("Test", "test@noreply.com")
+        return _repo.index.commit(message, author=_actor, committer=_actor)
+
+    with pytest.raises(fdp_exc.UserConfigError, match="no git tags found"):
+        _git_tag()
+    _first = _commit("first")
+    with pytest.raises(fdp_exc.UserConfigError, match="no git tags found"):
+        _git_tag()
+
+    # Tags sort by name as v0.10.0 < v0.9.9, so this checks history is used
+    _repo.create_tag("v0.9.9")
+    _commit("second")
+    _repo.create_tag("v0.10.0")
+    assert _git_tag() == "v0.10.0"
+    _commit("third")
+    assert _git_tag() == "v0.10.0"
+
+    _repo.head.reference = _first
+    assert _git_tag() == "v0.9.9"
