@@ -64,7 +64,7 @@ toml = "^0.10.2"
 validators = "^0.18.2"
 fake-useragent = "^1"
 
-[tool.poetry.dev-dependencies]
+[tool.poetry.group.dev.dependencies]
 bandit = "*"
 black = "*"
 coverage = "*"
