@@ -1259,7 +1259,7 @@ class FAIR:
 
     def close_session(self) -> None:
         """Upon exiting, dump all configurations to file"""
-        if not os.path.exists(os.path.join(self._session_loc, fdp_com.FAIR_FOLDER)):
+        if not fdp_com.find_fair_root(self._session_loc):
             return
 
         if self._session_id:
@@ -1272,7 +1272,9 @@ class FAIR:
         if os.path.exists(fdp_com.global_config_dir()):
             with open(fdp_com.global_fdpconfig(), encoding="utf-8", mode="w") as f:
                 yaml.dump(self._global_config, f)
-        if os.path.exists(os.path.dirname(fdp_com.local_fdpconfig())):
+        if os.path.exists(
+            os.path.dirname(fdp_com.local_fdpconfig(self._session_loc))
+        ):
             with open(
                 fdp_com.local_fdpconfig(self._session_loc), encoding="utf-8", mode="w"
             ) as f:

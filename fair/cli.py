@@ -616,9 +616,16 @@ def remote(ctx, verbose: bool = False, debug: bool = False):
 
 
 @remote.command()
-@click.argument("options", nargs=-1)
+@click.argument("options", nargs=-1, required=True)
+@click.option(
+    "--token",
+    "token_file",
+    help="File containing the API token for the remote registry",
+    prompt="Remote API Token File",
+    type=click.Path(exists=True, dir_okay=False, resolve_path=True),
+)
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
-def add(options: typing.List[str], debug: bool) -> None:
+def add(options: typing.List[str], token_file: str, debug: bool) -> None:
     """Add a remote registry URL with option to give it a label if multiple
     remotes may be used.
 
@@ -628,13 +635,15 @@ def add(options: typing.List[str], debug: bool) -> None:
         size 1 or 2 list containing either:
             - label, url
             - url
+    token_file : str
+        file containing the API token for the remote registry
     """
     _url = options[1] if len(options) > 1 else options[0]
     _label = options[0] if len(options) > 1 else "origin"
 
     try:
         with fdp_session.FAIR(os.getcwd(), debug=debug) as fair_session:
-            fair_session.add_remote(_url, _label)
+            fair_session.add_remote(_url, token_file, _label)
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
         if e.level.lower() == "error":

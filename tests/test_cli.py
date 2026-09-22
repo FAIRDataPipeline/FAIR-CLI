@@ -25,11 +25,17 @@ import requests
 import yaml
 
 import fair.common as fdp_com
+import fair.registry.server
+import fair.session
 import fair.staging
 from fair.cli import cli
 from tests import conftest as conf
 
 LOCAL_REGISTRY_URL = "http://127.0.0.1:8000/api"
+
+# The local_config fixture mocks this; tests run from a subdirectory need the
+# real search upwards for the .fair folder
+_FIND_FAIR_ROOT = fdp_com.find_fair_root
 
 
 @pytest.fixture
@@ -372,18 +378,48 @@ def test_purge(
 
 
 @pytest.mark.faircli_cli
+def test_remote_add(
+    local_config: typing.Tuple[str, str],
+    click_test: click.testing.CliRunner,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+):
+    monkeypatch.chdir(local_config[1])
+    _lconfig_path = os.path.join(
+        local_config[1], fdp_com.FAIR_FOLDER, fdp_com.FAIR_CLI_CONFIG
+    )
+    _token_file = os.path.join(tmp_path, "token")
+    with open(_token_file, "w") as token_f:
+        token_f.write("0123456789012345678901234567890123456789")
+    _url = "http://127.0.0.1:8002/api/"
+
+    _result = click_test.invoke(
+        cli, ["remote", "add", "other", _url, "--token", _token_file]
+    )
+    assert _result.exit_code == 0
+    _registries = yaml.safe_load(open(_lconfig_path))["registries"]
+    assert _registries["other"] == {"uri": _url, "token": _token_file}
+    assert "origin" in _registries
+
+    _result = click_test.invoke(
+        cli, ["remote", "add", "another", _url, "--token", "no-such-file"]
+    )
+    assert _result.exit_code != 0
+    assert "another" not in yaml.safe_load(open(_lconfig_path))["registries"]
+
+
+@pytest.mark.faircli_cli
 def test_remote_remove(
     local_config: typing.Tuple[str, str],
     click_test: click.testing.CliRunner,
     mocker: pytest_mock.MockerFixture,
     monkeypatch: pytest.MonkeyPatch,
 ):
-    mocker.patch(
-        "fair.common.global_config_dir", lambda *args: local_config[0]
-    )
-    mocker.patch("fair.common.find_fair_root", lambda *args: local_config[1])
-    # The session saves its configuration only when run from the project root
-    monkeypatch.chdir(local_config[1])
+    mocker.patch("fair.common.find_fair_root", _FIND_FAIR_ROOT)
+    # From a subdirectory, the configuration must still be found and saved
+    _subdir = os.path.join(local_config[1], "subdir")
+    os.makedirs(_subdir)
+    monkeypatch.chdir(_subdir)
     _lconfig_path = os.path.join(
         local_config[1], fdp_com.FAIR_FOLDER, fdp_com.FAIR_CLI_CONFIG
     )
@@ -396,6 +432,27 @@ def test_remote_remove(
 
     _result = click_test.invoke(cli, ["remote", "remove", "origin", "--debug"])
     assert _result.exit_code != 0
+
+
+@pytest.mark.faircli_cli
+def test_session_file_removed_from_subdirectory(
+    local_config: typing.Tuple[str, str],
+    mocker: pytest_mock.MockerFixture,
+):
+    mocker.patch("fair.common.registry_home", lambda: local_config[0])
+    mocker.patch("fair.registry.server.launch_server", lambda **kwargs: None)
+    mocker.patch("fair.common.find_fair_root", _FIND_FAIR_ROOT)
+    _subdir = os.path.join(local_config[1], "subdir")
+    os.makedirs(_subdir)
+    _sessions = os.path.join(fdp_com.session_cache_dir(), "*.run")
+
+    with fair.session.FAIR(
+        _subdir, server_mode=fair.registry.server.SwitchMode.CLI
+    ):
+        assert len(glob.glob(_sessions)) == 1
+    # A stale session file would make the next command skip starting the
+    # registry, and 'fair registry stop' refuse without --force
+    assert not glob.glob(_sessions)
 
 
 @pytest.mark.faircli_cli
