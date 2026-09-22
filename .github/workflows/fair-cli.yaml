@@ -57,6 +57,7 @@ jobs:
               cd C:/FAIR-CLI
               pwd
             fi
+            failed_markers=""
             for marker in $(poetry run pytest --markers | grep -oE "faircli_[a-zA-Z|_|0-9]+")
             do
               echo "Running tests for marker '$marker'"
@@ -64,8 +65,15 @@ jobs:
               exit_code=$?
               if [ "$exit_code" != "0" ]; then
                 echo "ERROR: Tests for marker '$marker' failed"
+                failed_markers="$failed_markers $marker"
               fi
             done
+            # Collected rather than failing at the first marker, so that one
+            # run reports every failure, but the job must not pass with any
+            if [ -n "$failed_markers" ]; then
+              echo "ERROR: failing markers:$failed_markers"
+              exit 1
+            fi
         shell: bash
       - uses: codecov/codecov-action@v7
         with:

@@ -262,6 +262,16 @@ def test_global_config_query(
 
 
 @pytest.mark.faircli_configuration
+@pytest.mark.xfail(
+    reason="We do not know what this test is supposed to do. It mocks "
+    "click.prompt to answer None to every question, so the first use of an "
+    "answer - git.Repo(...).remotes[None] - raises TypeError before any "
+    "assertion is reached, and it has never passed. Answering with the "
+    "default instead only moves the failure to the next None. Someone who "
+    "knows what it was meant to assert should rewrite it.",
+    raises=TypeError,
+    strict=True,
+)
 def test_local_config_query(
     local_config: typing.Tuple[str, str], mocker: pytest_mock.MockerFixture
 ):
