@@ -234,7 +234,12 @@ def _check_generic_ror(id: str) -> typing.Dict:
         return _result_dict
 
     _id = _response.json()["items"][0]["id"]
-    _name = _response.json()["items"][0]["name"]
+    # The ROR API lists every name of an organisation, marking the one to show as "ror_display"
+    _names = _response.json()["items"][0]["names"]
+    _name = next(
+        (n["value"] for n in _names if "ror_display" in n["types"]),
+        _names[0]["value"],
+    )
     _result_dict["name"] = _name
     _result_dict["family_name"] = _name
     _result_dict["given_names"] = None

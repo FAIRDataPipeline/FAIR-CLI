@@ -24,7 +24,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.9"
+          python-version: "3.12"
           architecture: "x64"
 
       - name: Install memcached
@@ -107,7 +107,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
-        python-version: "3.9"
+        python-version: "3.12"
         architecture: "x64"
     - name: Install memcached
       run: sudo apt install -y libmemcached-dev
@@ -185,7 +185,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
-        python-version: "3.9"
+        python-version: "3.12"
         architecture: "x64"
 
     - uses: r-lib/actions/setup-r@v2
@@ -275,7 +275,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
-        python-version: "3.9"
+        python-version: "3.12"
         architecture: "x64"
 
     - name: Setup fair
@@ -331,7 +331,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
-        python-version: "3.9"
+        python-version: "3.12"
         architecture: "x64"
 
     - name: Install requirements

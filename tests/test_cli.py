@@ -236,14 +236,18 @@ def test_init_full(
             "",  # Output namespace
             "",  # Input namespace
             pySimpleModel,  # Repo
-            "",
+            "",  # git remote name
+            "",  # remote api url (this repo)
+            "",  # remote api token file
+            "",  # Output namespace (this repo)
+            "",  # Input namespace (this repo)
         ]
         monkeypatch.chdir(pySimpleModel)
         print(os.getcwd())
         click_test.invoke(
             cli,
             ["init", "--debug", "--registry", local_registry._install],
-            input="\n".join(_args),
+            input="\n".join(_args) + "\n",
         )
         assert os.path.exists(fair.common.global_config_dir())
         assert os.path.exists(os.path.join(pySimpleModel, fair.common.FAIR_FOLDER))
@@ -309,7 +313,7 @@ def test_init_local(
         click_test.invoke(
             cli,
             ["init", "--debug", "--local", "--registry", local_registry._install],
-            input="\n".join(_args),
+            input="\n".join(_args) + "\n",
         )
         assert os.path.exists(fair.common.global_config_dir())
         assert os.path.exists(os.path.join(pySimpleModel, fair.common.FAIR_FOLDER))

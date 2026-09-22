@@ -808,7 +808,13 @@ class JobConfiguration(MutableMapping):
         # Additional parser for formatted datetime
         _regex_fmt = re.compile(r"\$\{\{\s*([^}${\s]+)\s*\}\}")
 
-        if _unparsed := _regex_fmt.findall(_conf_str):
+        # RUN_ID is the code run's UUID, which does not exist until the API
+        # creates the code run, so the API substitutes it at finalise
+        _unparsed = [
+            var for var in _regex_fmt.findall(_conf_str) if var != "RUN_ID"
+        ]
+
+        if _unparsed:
             raise fdp_exc.InternalError(f"Failed to parse variables '{_unparsed}'")
 
     def _subst_cli_vars(self, job_time: datetime.datetime) -> str:
