@@ -83,10 +83,56 @@ def test_fetch_data_product(mocker: pytest_mock.MockerFixture, tmp_path):
         "version": _dummy_data_product_version,
         "namespace": "namespace",
         "name": _dummy_data_product_name,
-        "data_product": _dummy_data_product_name,
         "object": "object",
     }
     fdp_sync.fetch_data_product("", tempd, _example_data_product)
+
+
+@pytest.mark.faircli_sync
+def test_sync_data_products_fetches_the_data_product(
+    mocker: pytest_mock.MockerFixture,
+):
+    """Pulling passes the data product itself, not the external object"""
+    _data_product = {
+        "url": "data_product_url",
+        "name": "test",
+        "version": "1.0.0",
+        "namespace": "namespace",
+        "object": "object",
+        "external_object": "external_object_url",
+    }
+
+    def mock_get(uri, obj, *args, **kwargs):
+        if obj == "namespace":
+            return [{"url": "http://example/api/namespace/1/"}]
+        elif obj == "data_product":
+            # Nothing on the destination, one match on the origin
+            return [] if uri == "dest" else [_data_product]
+
+    def mock_url_get(url, *args, **kwargs):
+        if url == "object":
+            return {"storage_location": "storage_location", "components": []}
+        elif url == "storage_location":
+            return {"public": True}
+        # The external object, which replaces the data product in `result`
+        return {"url": "external_object_url"}
+
+    mocker.patch("fair.registry.requests.get", mock_get)
+    mocker.patch("fair.registry.requests.url_get", mock_url_get)
+    mocker.patch("fair.registry.sync.sync_dependency_chain", lambda **kwargs: None)
+    _fetch = mocker.patch("fair.registry.sync.fetch_data_product")
+
+    fdp_sync.sync_data_products(
+        origin_uri="origin",
+        dest_uri="dest",
+        dest_token="",
+        origin_token="",
+        remote_label="origin",
+        data_products=["testing:test@v1.0.0"],
+        local_data_store="/data/store",
+    )
+
+    _fetch.assert_called_once_with("", "/data/store", _data_product)
 
 
 @pytest.mark.faircli_sync

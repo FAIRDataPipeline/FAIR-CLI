@@ -522,6 +522,11 @@ def sync_data_products(
             )
         result = result[0]
 
+        # Held separately because `result` becomes the external object below,
+        # and the file is fetched by the data product's own namespace, name
+        # and version
+        _data_product = result
+
         result_object = fdp_req.url_get(result["object"], token=origin_token)
         result_storage_location = fdp_req.url_get(
             result_object["storage_location"], token=origin_token
@@ -544,7 +549,7 @@ def sync_data_products(
         # If local_data_store assume we're syncing from remote to local
         if local_data_store:
             logger.debug("Retrieving files from remote registry data storage")
-            fetch_data_product(origin_token, local_data_store, result[0])
+            fetch_data_product(origin_token, local_data_store, _data_product)
         # Else going from local to remote
         else:
             # If the storage location is public upload the files to object storage
@@ -1142,7 +1147,7 @@ def fetch_data_product(
         _file_type = ""
 
     _local_dir = os.path.join(
-        local_data_store, _namespace["name"], data_product["data_product"]
+        local_data_store, _namespace["name"], data_product["name"]
     )
 
     os.makedirs(_local_dir, exist_ok=True)
