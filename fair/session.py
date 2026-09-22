@@ -754,11 +754,14 @@ class FAIR:
     def remove_remote(self, label: str) -> None:
         """Remove a remote URL from the list of remotes by label"""
         self.check_is_repo()
-        if "registries" not in self._local_config or label not in self._local_config:
+        if (
+            "registries" not in self._local_config
+            or label not in self._local_config["registries"]
+        ):
             raise fdp_exc.CLIConfigurationError(
                 f"No such entry '{label}' in available remotes"
             )
-        del self._local_config[label]
+        del self._local_config["registries"][label]
 
     def modify_remote(self, label: str, url: str) -> None:
         """Update a remote URL for a given remote"""

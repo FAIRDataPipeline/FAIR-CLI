@@ -1,3 +1,4 @@
+import datetime
 import os.path
 import typing
 
@@ -6,6 +7,7 @@ import pytest_mock
 import yaml
 
 import fair.common as fdp_com
+import fair.exceptions as fdp_exc
 import fair.user_config as fdp_user
 
 from . import conftest as conf
@@ -181,3 +183,38 @@ def test_wildcard_unpack_remote(
         assert len(_config["read"]) > 1
 
         _config.write(os.path.join(_out_dir, "out.yaml"))
+
+
+@pytest.mark.faircli_user_config
+def test_subst_formatted_datetime():
+    _config = fdp_user.JobConfiguration()
+    _config._config = {
+        "run_metadata": {},
+        "write": [
+            {
+                "data_product": "out/${{DATETIME-%Y%m%d}}",
+                "description": "at ${{ DATETIME-%H%M }}",
+            }
+        ],
+    }
+    _config._subst_cli_vars(datetime.datetime(2026, 9, 22, 14, 5))
+    assert _config["write"][0]["data_product"] == "out/20260922"
+    assert _config["write"][0]["description"] == "at 1405"
+
+
+@pytest.mark.faircli_user_config
+def test_run_id_left_for_api():
+    _config = fdp_user.JobConfiguration()
+    _config._config = {
+        "run_metadata": {},
+        "write": [{"data_product": "out/run-${{RUN_ID}}"}],
+    }
+    # RUN_ID is filled in by the language API at finalise, so it must reach
+    # the working config unsubstituted
+    _config._subst_cli_vars(datetime.datetime(2026, 9, 22))
+    _config._check_for_unparsed()
+    assert _config["write"][0]["data_product"] == "out/run-${{RUN_ID}}"
+
+    _config["write"][0]["data_product"] = "out/run-${{NOT_A_VARIABLE}}"
+    with pytest.raises(fdp_exc.InternalError):
+        _config._check_for_unparsed()

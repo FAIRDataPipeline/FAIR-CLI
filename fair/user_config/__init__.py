@@ -849,7 +849,7 @@ class JobConfiguration(MutableMapping):
         }
 
         # Additional parser for formatted datetime
-        _regex_dt_fmt = re.compile(r"\$\{\{\s*DATETIME\-[^}${\s]]+\s*\}\}")
+        _regex_dt_fmt = re.compile(r"\$\{\{\s*DATETIME\-[^}${\s]+\s*\}\}")
         _regex_fmt = re.compile(r"\$\{\{\s*DATETIME\-([^}${\s]+)\s*\}\}")
 
         _config_str: str = yaml.dump(self._config)

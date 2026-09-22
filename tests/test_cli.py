@@ -372,6 +372,33 @@ def test_purge(
 
 
 @pytest.mark.faircli_cli
+def test_remote_remove(
+    local_config: typing.Tuple[str, str],
+    click_test: click.testing.CliRunner,
+    mocker: pytest_mock.MockerFixture,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    mocker.patch(
+        "fair.common.global_config_dir", lambda *args: local_config[0]
+    )
+    mocker.patch("fair.common.find_fair_root", lambda *args: local_config[1])
+    # The session saves its configuration only when run from the project root
+    monkeypatch.chdir(local_config[1])
+    _lconfig_path = os.path.join(
+        local_config[1], fdp_com.FAIR_FOLDER, fdp_com.FAIR_CLI_CONFIG
+    )
+
+    _result = click_test.invoke(cli, ["remote", "remove", "origin", "--debug"])
+    assert _result.exit_code == 0
+    _registries = yaml.safe_load(open(_lconfig_path))["registries"]
+    assert "origin" not in _registries
+    assert "local" in _registries
+
+    _result = click_test.invoke(cli, ["remote", "remove", "origin", "--debug"])
+    assert _result.exit_code != 0
+
+
+@pytest.mark.faircli_cli
 def test_registry_cli(
     local_config: typing.Tuple[str, str],
     click_test: click.testing.CliRunner,

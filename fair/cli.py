@@ -654,7 +654,7 @@ def remove(label: str, debug: bool) -> None:
     """
     try:
         with fdp_session.FAIR(os.getcwd(), debug=debug) as fair_session:
-            fair_session.remove_remove(label)
+            fair_session.remove_remote(label)
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
         if e.level.lower() == "error":
