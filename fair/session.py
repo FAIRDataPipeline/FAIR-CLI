@@ -1095,7 +1095,8 @@ class FAIR:
             raise fdp_exc.CLIConfigurationError(
                 "Cannot generate user 'config.yaml'",
                 hint="You need to set the remote URL"
-                " by running: \n\n\tfair remote add <url>\n",
+                " by running: \n\n\tfair remote add <url>"
+                " --token <token-file>\n",
             )
 
         with open(output_file_name, encoding="utf-8", mode="w") as f:
