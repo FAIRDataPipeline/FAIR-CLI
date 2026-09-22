@@ -637,7 +637,16 @@ class JobConfiguration(MutableMapping):
                     "not a valid git repository."
                 ) from e
 
-            _url = _git_repo.remotes[_remote].url
+            try:
+                _url = _git_repo.remotes[_remote].url
+            except IndexError as e:
+                raise fdp_exc.FDPRepositoryError(
+                    f"Failed to update job configuration from location '{fair_repo_dir}', "
+                    f"git repository '{_local_repo}' has no remote '{_remote}'.",
+                    hint="Add the remote to the repository, or give "
+                    "'run_metadata: remote_repo:' in the configuration.",
+                ) from e
+
             self["run_metadata.remote_repo"] = _url
 
     def pop(self, key: str, default: typing.Optional[typing.Any] = None) -> typing.Any:

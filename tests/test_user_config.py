@@ -313,3 +313,28 @@ def test_subst_git_tag(mocker: pytest_mock.MockerFixture, tmp_path):
 
     _repo.head.reference = _first
     assert _git_tag() == "v0.9.9"
+
+
+@pytest.mark.faircli_user_config
+def test_update_from_fair_without_git_remote(
+    local_config: typing.Tuple[str, str],
+):
+    """A missing git remote is reported, not raised as a bare IndexError"""
+    _project = os.path.join(local_config[1], "project")
+    _repo = git.Repo(_project)
+    _repo.delete_remote(_repo.remotes["origin"])
+
+    _cfg_path = os.path.join(local_config[1], "no_remote.yaml")
+    yaml.dump({"run_metadata": {"description": "no remote"}}, open(_cfg_path, "w"))
+
+    with pytest.raises(fdp_exc.FDPRepositoryError, match="has no remote 'origin'"):
+        fdp_user.JobConfiguration(_cfg_path).update_from_fair(_project)
+
+    # Given explicitly, the git remote is never consulted
+    yaml.dump(
+        {"run_metadata": {"description": "n", "remote_repo": "https://x/y.git"}},
+        open(_cfg_path, "w"),
+    )
+    _config = fdp_user.JobConfiguration(_cfg_path)
+    _config.update_from_fair(_project)
+    assert _config["run_metadata.remote_repo"] == "https://x/y.git"
