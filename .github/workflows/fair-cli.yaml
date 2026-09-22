@@ -1,6 +1,8 @@
 name: FAIR Data Pipeline CLI
 on: 
   push:
+    branches:
+      '**'
   workflow_dispatch:
   schedule:
     - cron: "0 9 * * 1" # Run Every Monday at 9AM
@@ -16,7 +18,7 @@ jobs:
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         if: ${{ runner.os != 'Windows' }}
       - name: Checkout to C windows
         run: |
@@ -27,7 +29,7 @@ jobs:
           echo Github Ref: $GITHUB_REF_NAME
         if: ${{ runner.os == 'Windows' }}
         shell: bash
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python }}
           architecture: "x64"
@@ -65,7 +67,7 @@ jobs:
               fi
             done
         shell: bash
-      - uses: codecov/codecov-action@v4
+      - uses: codecov/codecov-action@v7
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./coverage.xml

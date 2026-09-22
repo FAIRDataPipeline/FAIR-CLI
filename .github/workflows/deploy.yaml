@@ -10,11 +10,11 @@ jobs:
     name: Deploy Latest Windows Release
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
             fetch-depth: 0
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.x'
           architecture: "x64"
@@ -46,11 +46,11 @@ jobs:
     name: Deploy Latest macOS Release
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
             fetch-depth: 0
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.x'
           architecture: "x64"
@@ -63,7 +63,7 @@ jobs:
 
       - name: Get Previous tag
         id: previoustag
-        uses: "WyriHaximus/github-action-get-previous-tag@v1"
+        uses: "WyriHaximus/github-action-get-previous-tag@v2"
 
       - name: Install PyInstaller
         run: poetry run pip install pyinstaller
@@ -83,11 +83,11 @@ jobs:
     name: Deploy Latest Linux Release
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
             fetch-depth: 0
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.x'
           architecture: "x64"
@@ -124,10 +124,10 @@ jobs:
       - macos-py3x
       - windows-py3x
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
             fetch-depth: 0
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.x'
           architecture: "x64"
@@ -140,7 +140,7 @@ jobs:
 
       - name: Get Previous tag
         id: previoustag
-        uses: "WyriHaximus/github-action-get-previous-tag@v1"
+        uses: "WyriHaximus/github-action-get-previous-tag@v2"
 
       - name: Verify version alignment
         run: |
@@ -176,7 +176,7 @@ jobs:
           name: macos_faircli
 
       - name: Create Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           token: "${{ secrets.GITHUB_TOKEN }}"
           prerelease: false

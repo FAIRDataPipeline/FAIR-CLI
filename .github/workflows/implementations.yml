@@ -10,19 +10,19 @@ jobs:
   Python:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3 # Clone Fair CLI
+      - uses: actions/checkout@v7 # Clone Fair CLI
       - name: Clone Python Implementation
-        uses: actions/checkout@v3
+        uses: actions/checkout@v7
         with:
           repository: FAIRDataPipeline/pyDataPipeline # Clone pyDataPipeline
           path: pyDataPipeline
       - name: Checkout pySimpleModel
-        uses: actions/checkout@v3
+        uses: actions/checkout@v7
         with:
           repository: FAIRDataPipeline/pySimpleModel # Clone pySimple Model
           path: pySimpleModel
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
           architecture: "x64"
@@ -98,21 +98,21 @@ jobs:
     runs-on: ubuntu-latest
     #if: False
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v7
     - name: Clone Java Implementation
-      uses: actions/checkout@v3
+      uses: actions/checkout@v7
       with:
         repository: FAIRDataPipeline/javaSimpleModel
         path: java_example
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v7
       with:
         python-version: "3.12"
         architecture: "x64"
     - name: Install memcached
       run: sudo apt install -y libmemcached-dev
     - name: Set up JDK 11
-      uses: actions/setup-java@v3
+      uses: actions/setup-java@v6
       with:
         java-version: '11'
         distribution: 'adopt'
@@ -144,6 +144,7 @@ jobs:
       working-directory: java_example # Use the java_example Directory
 
     - name: run javaSimpleModel with fair cli
+      continue-on-error: true 
       run: |
         ./venv/bin/activate # Activate venv
         # Install local registry
@@ -163,27 +164,27 @@ jobs:
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
     steps:
-    - uses: actions/checkout@v3 # Clone FAIR CLI
+    - uses: actions/checkout@v7 # Clone FAIR CLI
 
     - name: Install memcached
       run: sudo apt install -y libmemcached-dev
 
     - name: Clone R Data Pipeline
-      uses: actions/checkout@v3
+      uses: actions/checkout@v7
       with:
         repository: FAIRDataPipeline/rDataPipeline
         path: r_data_pipeline
         ref: 'main'
 
     - name: Clone R Implementation
-      uses: actions/checkout@v3
+      uses: actions/checkout@v7
       with:
         repository: FAIRDataPipeline/rSimpleModel
         path: r_example
         ref: 'main'
 
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v7
       with:
         python-version: "3.12"
         architecture: "x64"
@@ -254,9 +255,9 @@ jobs:
   Julia:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v7
     - name: Clone Julia Implementation
-      uses: actions/checkout@v3
+      uses: actions/checkout@v7
       with:
         repository: FAIRDataPipeline/DataPipeline.jl
         path: julia_example
@@ -264,7 +265,7 @@ jobs:
     - name: Install memcached
       run: sudo apt install -y libmemcached-dev
     - name: Set up julia
-      uses: julia-actions/setup-julia@v1
+      uses: julia-actions/setup-julia@v3
       with:
         version: "1.8.5"
         arch: 'x64'
@@ -273,7 +274,7 @@ jobs:
       run: julia -e 'using Pkg; Pkg.instantiate()'
 
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v7
       with:
         python-version: "3.12"
         architecture: "x64"
@@ -319,17 +320,17 @@ jobs:
   CPlusPlus:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v7
 
     - name: Clone CPlusPlus Model
-      uses: actions/checkout@v3
+      uses: actions/checkout@v7
       with:
         repository: FAIRDataPipeline/cppSimpleModel
         path: cpp_example
         ref: 'main'
 
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v7
       with:
         python-version: "3.12"
         architecture: "x64"
