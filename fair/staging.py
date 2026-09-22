@@ -418,9 +418,8 @@ class Stager:
         with open(self._staging_file, encoding="utf-8") as f:
             _staging_dict = yaml.safe_load(f)
 
-        result = fdp_req.url_get(
-            f"{fdp_com.DEFAULT_LOCAL_REGISTRY_URL}data_product",
-            fdp_req.local_token(),
+        result = fdp_req.get(
+            fdp_conf.get_local_uri(), "data_product", fdp_req.local_token()
         )
 
         for data_product in result:
@@ -441,9 +440,8 @@ class Stager:
         with open(self._staging_file, encoding="utf-8") as f:
             _staging_dict = yaml.safe_load(f)
 
-        result = fdp_req.url_get(
-            f"{fdp_com.DEFAULT_LOCAL_REGISTRY_URL}code_run",
-            fdp_req.local_token(),
+        result = fdp_req.get(
+            fdp_conf.get_local_uri(), "code_run", fdp_req.local_token()
         )
 
         for code_run in result:
