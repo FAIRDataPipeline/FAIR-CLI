@@ -1201,7 +1201,8 @@ def download_from_registry(registry_url: str, root: str, path: str) -> str:
         logger.debug("Downloaded file from '%s' to temporary file", _download_url)
     except requests.HTTPError as r_in:
         raise fdp_exc.UserConfigError(
-            f"Failed to fetch item '{_download_url}' with exit code {r_in.response}"
+            f"Failed to fetch item '{_download_url}' with status code "
+            f"{r_in.response.status_code}"
         ) from r_in
 
     return _temp_data_file

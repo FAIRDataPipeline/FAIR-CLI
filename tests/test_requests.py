@@ -1,10 +1,15 @@
+import functools
+import http.server
 import os
+import threading
 
 import pytest
 import pytest_mock
+import requests
 
 import fair.exceptions as fdp_exc
 import fair.registry.requests as fdp_req
+import fair.registry.sync as fdp_sync
 
 from . import conftest as conf
 
@@ -226,6 +231,32 @@ def test_download(local_registry: conf.RegistryTest, mocker: pytest_mock.MockerF
         _example_file = "https://data.fairdatapipeline.org/static/localregistry.sh"
         _out_file = fdp_req.download_file(_example_file)
         assert os.path.exists(_out_file)
+
+
+@pytest.fixture
+def file_server(tmp_path):
+    with open(os.path.join(tmp_path, "data.csv"), "w") as data_f:
+        data_f.write("a,b\n1,2\n")
+    _handler = functools.partial(
+        http.server.SimpleHTTPRequestHandler, directory=str(tmp_path)
+    )
+    _server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), _handler)
+    threading.Thread(target=_server.serve_forever, daemon=True).start()
+    yield f"http://127.0.0.1:{_server.server_address[1]}/"
+    _server.shutdown()
+    _server.server_close()
+
+
+@pytest.mark.faircli_requests
+def test_download_http_error(file_server: str):
+    _out_file = fdp_req.download_file(f"{file_server}data.csv")
+    with open(_out_file) as out_f:
+        assert out_f.read() == "a,b\n1,2\n"
+
+    with pytest.raises(requests.HTTPError):
+        fdp_req.download_file(f"{file_server}missing.csv")
+    with pytest.raises(fdp_exc.UserConfigError, match="status code 404"):
+        fdp_sync.download_from_registry("", file_server, "missing.csv")
 
 
 @pytest.mark.faircli_requests
