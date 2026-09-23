@@ -1273,7 +1273,7 @@ class FAIR:
             )
             os.remove(_cache_addr)
 
-        if os.path.exists(fdp_com.global_config_dir()):
+        if os.path.exists(os.path.dirname(fdp_com.global_fdpconfig())):
             with open(fdp_com.global_fdpconfig(), encoding="utf-8", mode="w") as f:
                 yaml.dump(self._global_config, f)
         if os.path.exists(

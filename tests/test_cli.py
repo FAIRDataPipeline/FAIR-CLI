@@ -11,6 +11,7 @@ import glob
 import os
 import shutil
 import sys
+import traceback
 import typing
 import uuid
 import platform
@@ -413,7 +414,9 @@ def test_purge(
     assert not os.path.exists(os.path.join(local_config[1], fdp_com.FAIR_FOLDER))
 
     _result = click_test.invoke(cli, ["purge", "--debug", "--global"], input="Y")
-    assert _result.exit_code == 0
+    assert _result.exit_code == 0, _result.output + "".join(
+        traceback.format_exception(*_result.exc_info)
+    )
     assert not os.path.exists(os.path.join(local_config[0], fdp_com.FAIR_FOLDER))
 
 
