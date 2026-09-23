@@ -1,6 +1,7 @@
 import datetime
 import io
 import os.path
+import re
 import sys
 import typing
 
@@ -12,6 +13,7 @@ import yaml
 import fair.common as fdp_com
 import fair.exceptions as fdp_exc
 import fair.user_config as fdp_user
+import fair.user_config.globbing as fdp_glob
 
 from . import conftest as conf
 
@@ -106,7 +108,9 @@ def test_wildcard_unpack_local(
 
         _split_key = _path.split("/")[-1]
 
-        _wildcard_path = _path.split(_split_key)[0] + "*"
+        # Each '*' matches one segment of a name; the example data products
+        # have several names two segments below this one
+        _wildcard_path = _path.split(_split_key)[0] + "*/*"
 
         with open(TEST_CONFIG_WC) as cfg_file:
             _cfg_str = cfg_file.read()
@@ -125,6 +129,10 @@ def test_wildcard_unpack_local(
         _config.update_from_fair(os.path.join(local_config[1], "project"))
         _config.prepare(fdp_com.CMD_MODE.RUN, True)
         assert len(_config["read"]) > 1
+        assert all(
+            fdp_glob.matches_wildcard(_wildcard_path, entry["data_product"])
+            for entry in _config["read"]
+        )
 
         _config.write(os.path.join(_out_dir, "out.yaml"))
 
@@ -160,7 +168,9 @@ def test_wildcard_unpack_remote(
 
         _split_key = _path.split("/")[-1]
 
-        _wildcard_path = _path.split(_split_key)[0] + "*"
+        # Each '*' matches one segment of a name; the example data products
+        # have several names two segments below this one
+        _wildcard_path = _path.split(_split_key)[0] + "*/*"
 
         with open(TEST_CONFIG_WC) as cfg_file:
             _cfg_str = cfg_file.read()
@@ -184,6 +194,10 @@ def test_wildcard_unpack_remote(
             remote_registry._token,
         )
         assert len(_config["read"]) > 1
+        assert all(
+            fdp_glob.matches_wildcard(_wildcard_path, entry["data_product"])
+            for entry in _config["read"]
+        )
 
         _config.write(os.path.join(_out_dir, "out.yaml"))
 
@@ -339,3 +353,74 @@ def test_update_from_fair_without_git_remote(
     _config = fdp_user.JobConfiguration(_cfg_path)
     _config.update_from_fair(_project)
     assert _config["run_metadata.remote_repo"] == "https://x/y.git"
+
+
+@pytest.mark.faircli_user_config
+@pytest.mark.parametrize(
+    "pattern,name,matches",
+    [
+        ("era5/t2m/*", "era5/t2m/1940-1949", True),
+        ("era5/t2m/*", "era5/t2m/1940/x", False),
+        ("era5/t2m/*", "other/era5/t2m/x", False),
+        ("era5/t2m/*", "era5/t2m/", False),
+        ("a/*/c", "a/b/c", True),
+        ("a/*/c", "a/b/d/c", False),
+        ("a.b/*", "aXb/1", False),
+    ],
+)
+def test_matches_wildcard(pattern: str, name: str, matches: bool):
+    assert fdp_glob.matches_wildcard(pattern, name) is matches
+
+
+@pytest.mark.faircli_user_config
+def test_wildcard_write(mocker: pytest_mock.MockerFixture):
+    # Registered: a/1 at 0.0.1, and a/thing/1 at 2.0.0, which the registry's
+    # own filter matches to 'a/*' but a wildcard (one segment) does not
+    _products = [
+        {"name": "a/1", "version": "0.0.1", "namespace": "ns_url"},
+        {"name": "a/thing/1", "version": "2.0.0", "namespace": "ns_url"},
+    ]
+
+    def dummy_get(uri, obj_path, token, params=None, **kwargs):
+        _pattern = params["name"].replace("*", ".*")
+        return [p for p in _products if re.fullmatch(_pattern, p["name"])]
+
+    mocker.patch("fair.registry.requests.get", dummy_get)
+    mocker.patch(
+        "fair.registry.requests.url_get", lambda *args: {"name": "testing"}
+    )
+    mocker.patch("fair.registry.requests.local_token", lambda: "")
+    mocker.patch(
+        "fair.register.convert_key_value_to_id", lambda *args, **kwargs: 1
+    )
+
+    _config = fdp_user.JobConfiguration()
+    _config._config = {
+        "run_metadata": {
+            "local_data_registry_url": "http://127.0.0.1:8000/api/",
+            "default_input_namespace": "testing",
+            "default_output_namespace": "testing",
+            "default_write_version": "${{PATCH}}",
+        },
+        "write": [
+            {
+                "data_product": "a/*",
+                "description": "A csv file",
+                "file_type": "csv",
+                "use": {"version": "${{MAJOR}}"},
+            }
+        ],
+    }
+    # As prepare() does
+    _config._update_namespaces()
+    _config._fill_all_block_types()
+    _config._expand_wildcards("http://127.0.0.1:8000/api/", "")
+    _config["write"] = _config._fill_versions("write")
+
+    _written = {
+        entry["use"]["data_product"]: entry["use"]["version"]
+        for entry in _config["write"]
+    }
+    # The existing match, and the pattern itself for new names, each a
+    # major bump from what matches it
+    assert _written == {"a/1": "1.0.0", "a/*": "1.0.0"}

@@ -14,6 +14,7 @@ Constants
     - DISPOSABLES: tuple of keys to be removed before adding to config.yaml
 
 """
+import re
 import typing
 
 import fair.exceptions as fdp_exc
@@ -36,6 +37,29 @@ DISPOSABLES = (
     "internal_format",
     "url",
 )
+
+
+def matches_wildcard(pattern: str, name: str) -> bool:
+    """Return whether a name matches a wildcard pattern
+
+    Each '*' matches one segment of the name: one or more characters other
+    than '/'. The pattern is anchored at both ends, and every other character
+    matches itself.
+
+    Parameters
+    ----------
+    pattern : str
+        name containing one or more '*' wildcards
+    name : str
+        name to test against the pattern
+
+    Returns
+    -------
+    bool
+        whether the name matches
+    """
+    _regex = "[^/]+".join(re.escape(part) for part in pattern.split("*"))
+    return re.fullmatch(_regex, name) is not None
 
 
 def get_single_layer_objects(
