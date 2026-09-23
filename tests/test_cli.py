@@ -355,6 +355,46 @@ def test_init_local(
 
 
 @pytest.mark.faircli_cli
+def test_init_ci_keeps_existing_repository(
+    local_config: typing.Tuple[str, str],
+    click_test: click.testing.CliRunner,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.chdir(local_config[1])
+    _data_file = os.path.join(
+        local_config[1], fdp_com.FAIR_FOLDER, "data_store", "pulled.csv"
+    )
+    os.makedirs(os.path.dirname(_data_file))
+    with open(_data_file, "w") as data_f:
+        data_f.write("a,b\n1,2\n")
+
+    _result = click_test.invoke(cli, ["init", "--ci"])
+    assert _result.exit_code == 0
+    assert "already initialised" in _result.output
+    with open(_data_file) as data_f:
+        assert data_f.read() == "a,b\n1,2\n"
+
+
+@pytest.mark.faircli_cli
+def test_init_in_subdirectory_names_existing_repository(
+    local_config: typing.Tuple[str, str],
+    click_test: click.testing.CliRunner,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    _subdir = os.path.join(local_config[1], "subdir")
+    os.makedirs(_subdir)
+    monkeypatch.chdir(_subdir)
+
+    _result = click_test.invoke(cli, ["init"], input="n\n")
+    assert _result.exit_code == 0
+    assert f"initialised for this location at '{local_config[1]}'" in (
+        _result.output
+    )
+    assert "Aborted" in _result.output
+    assert not os.path.exists(os.path.join(_subdir, fdp_com.FAIR_FOLDER))
+
+
+@pytest.mark.faircli_cli
 def test_purge(
     local_config: typing.Tuple[str, str],
     click_test: click.testing.CliRunner,

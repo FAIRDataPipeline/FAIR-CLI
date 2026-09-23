@@ -1139,19 +1139,9 @@ class FAIR:
 
         _first_time = not os.path.exists(fdp_com.global_fdpconfig())
 
-        if self._testing:
-            if os.path.exists(_fair_dir):
-                if platform.system() == "Windows":
-                    fdp_com.set_file_permissions(_fair_dir)
-                shutil.rmtree(_fair_dir, onerror=fdp_com.remove_readonly)
-            using = fdp_test.create_configurations(
-                registry,
-                fdp_com.find_git_root(os.getcwd()),
-                os.getcwd(),
-                os.path.join(os.getcwd(), ".fair"),
-            )
-
-        if os.path.exists(_fair_dir) and not self._testing:
+        # Also with --ci: the data store lives in .fair/, and the registry
+        # still holds records pointing into it. 'fair purge' starts afresh.
+        if os.path.exists(_fair_dir):
             if export_as:
                 self._export_cli_configuration(export_as)
                 return
@@ -1159,7 +1149,17 @@ class FAIR:
                 click.echo("FAIR repository is already initialised.")
                 return
 
-        if _existing := fdp_com.find_fair_root(self._session_loc) and not self._testing:
+        if self._testing:
+            using = fdp_test.create_configurations(
+                registry,
+                fdp_com.find_git_root(os.getcwd()),
+                os.getcwd(),
+                os.path.join(os.getcwd(), ".fair"),
+            )
+
+        if (
+            _existing := fdp_com.find_fair_root(self._session_loc)
+        ) and not self._testing:
             click.echo(
                 "A FAIR repository was initialised for this location at"
                 f" '{_existing}'"
