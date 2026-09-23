@@ -226,6 +226,11 @@ def sync_dependency_chain(
     return _new_urls
 
 
+# Whether a storage_root record is on the pushing machine's file system
+def _is_local_root(storage_root: typing.Dict) -> bool:
+    return storage_root.get("root", "").startswith("file://")
+
+
 def _get_new_url(
     origin_uri: str,
     origin_token: str,
@@ -293,7 +298,6 @@ def _get_new_url(
     # (as remote URL will never match local)
 
     _obj_type = fdp_req.get_obj_type_from_url(object_url, token=origin_token)
-    _obj_id = fdp_req.get_obj_id_from_url(object_url)
 
     _filters = {
         k: v
@@ -314,16 +318,17 @@ def _get_new_url(
         # The remote data_store storage_root URL should
         # always be the 1st storage_root
         _remote_storage_root_url = urllib.parse.urljoin(dest_uri, "storage_root/1/")
-        # If the current objects a storage_root and the root
-        # is the first (data_store) then simply return the remote
-        if _obj_type == "storage_root" and _obj_id == "1":
+        # A local data store is any root on the pusher's own file system,
+        # however many projects share the local registry; it is replaced by
+        # the remote data store. Other roots (e.g. https://github.com/) are
+        # pushed as they are.
+        if _obj_type == "storage_root" and _is_local_root(object_data):
             return _remote_storage_root_url
         # If the current object is a storage_location
         elif _obj_type == "storage_location":
-            # Again if the storage_root is the data_store (storage_root 1)
-            if (
-                fdp_req.get_obj_id_from_url(object_data.get("storage_root", "/2"))
-                == "1"
+            # Again if the storage_root is a local data store
+            if _is_local_root(
+                fdp_req.url_get(object_data["storage_root"], origin_token)
             ):
                 # Update the new object path and filter path
                 _new_obj_data["path"] = _filters["path"] = _new_obj_data["hash"]

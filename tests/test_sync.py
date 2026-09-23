@@ -378,3 +378,92 @@ def test_identify(
             print(f"exc info: {_res.exc_info}")
             print(f"exception: {_res.exception}")
         assert _res.exit_code == 0
+
+
+_ORIGIN = "http://127.0.0.1:8000/api/"
+_DEST = "http://127.0.0.1:8001/api/"
+# Two projects' data stores in one local registry (1 and 3) and a web root
+_ROOTS = {
+    f"{_ORIGIN}storage_root/1/": "file:///projects/a/.fair/data_store/",
+    f"{_ORIGIN}storage_root/2/": "https://github.com/",
+    f"{_ORIGIN}storage_root/3/": "file:///projects/b/.fair/data_store/",
+}
+
+
+@pytest.fixture
+def push_mocks(mocker: pytest_mock.MockerFixture):
+    mocker.patch(
+        "fair.registry.requests.get_obj_type_from_url",
+        lambda url, token=None: url.split("/")[-3],
+    )
+    mocker.patch(
+        "fair.registry.requests.get_filter_variables",
+        lambda *args: ["root", "path", "hash", "public", "storage_root"],
+    )
+    mocker.patch(
+        "fair.registry.requests.url_get",
+        lambda url, token=None: {"url": url, "root": _ROOTS[url]},
+    )
+    return mocker.patch(
+        "fair.registry.requests.post_else_get",
+        lambda uri, obj_type, data, token, params: {"data": data},
+    )
+
+
+@pytest.mark.faircli_sync
+@pytest.mark.parametrize(
+    "root_url,remapped",
+    [(url, root.startswith("file://")) for url, root in _ROOTS.items()],
+)
+def test_push_storage_root(push_mocks, root_url: str, remapped: bool):
+    _new_url = fdp_sync._get_new_url(
+        origin_uri=_ORIGIN,
+        origin_token="",
+        dest_uri=_DEST,
+        dest_token="",
+        object_url=root_url,
+        new_urls={},
+        writable_data={"root": _ROOTS[root_url]},
+        object_data={"url": root_url, "root": _ROOTS[root_url]},
+        public=True,
+    )
+    if remapped:
+        assert _new_url == f"{_DEST}storage_root/1/"
+    else:
+        assert _new_url == {"data": {"root": _ROOTS[root_url]}}
+
+
+@pytest.mark.faircli_sync
+@pytest.mark.parametrize(
+    "root_url,remapped",
+    [
+        (f"{_ORIGIN}storage_root/3/", True),
+        (f"{_ORIGIN}storage_root/2/", False),
+    ],
+)
+def test_push_storage_location(push_mocks, root_url: str, remapped: bool):
+    _location = {
+        "path": "testing/output/abc123.csv",
+        "hash": "abc123",
+        "public": True,
+        "storage_root": root_url,
+    }
+    _dest_root = f"{_DEST}storage_root/7/"
+    _posted = fdp_sync._get_new_url(
+        origin_uri=_ORIGIN,
+        origin_token="",
+        dest_uri=_DEST,
+        dest_token="",
+        object_url=f"{_ORIGIN}storage_location/9/",
+        new_urls={root_url: _dest_root},
+        writable_data=_location,
+        object_data=_location,
+        public=True,
+    )["data"]
+    if remapped:
+        # Stored on the remote by hash, in the remote data store
+        assert _posted["path"] == "abc123"
+        assert _posted["storage_root"] == f"{_DEST}storage_root/1/"
+    else:
+        assert _posted["path"] == "testing/output/abc123.csv"
+        assert _posted["storage_root"] == _dest_root
