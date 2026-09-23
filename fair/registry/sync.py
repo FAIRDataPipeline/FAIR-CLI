@@ -231,6 +231,24 @@ def _is_local_root(storage_root: typing.Dict) -> bool:
     return storage_root.get("root", "").startswith("file://")
 
 
+# URL of a registry's own data store: the storage_root whose root is the
+# registry's data/ path, beside its api/, from which it serves stored files
+def _remote_data_store_url(registry_uri: str, token: str) -> str:
+    _root = urllib.parse.urljoin(
+        fdp_util.check_trailing_slash(registry_uri), "../data/"
+    )
+    _data_store = fdp_req.get(
+        registry_uri, "storage_root", token, params={"root": _root}
+    )
+    if not _data_store:
+        raise fdp_exc.RegistryError(
+            f"Registry '{registry_uri}' has no data store storage root "
+            f"'{_root}', so files cannot be pushed to it",
+            hint="Is it set up as a remote registry (set_site_info)?",
+        )
+    return _data_store[0]["url"]
+
+
 def _get_new_url(
     origin_uri: str,
     origin_token: str,
@@ -315,21 +333,21 @@ def _get_new_url(
     # If Public is true then any files will be uploaded to the remote registry
     # If local_data_store is set we're pulling to a local registry
     if public and not local_data_store:
-        # The remote data_store storage_root URL should
-        # always be the 1st storage_root
-        _remote_storage_root_url = urllib.parse.urljoin(dest_uri, "storage_root/1/")
         # A local data store is any root on the pusher's own file system,
         # however many projects share the local registry; it is replaced by
         # the remote data store. Other roots (e.g. https://github.com/) are
         # pushed as they are.
         if _obj_type == "storage_root" and _is_local_root(object_data):
-            return _remote_storage_root_url
+            return _remote_data_store_url(dest_uri, dest_token)
         # If the current object is a storage_location
         elif _obj_type == "storage_location":
             # Again if the storage_root is a local data store
             if _is_local_root(
                 fdp_req.url_get(object_data["storage_root"], origin_token)
             ):
+                _remote_storage_root_url = _remote_data_store_url(
+                    dest_uri, dest_token
+                )
                 # Update the new object path and filter path
                 _new_obj_data["path"] = _filters["path"] = _new_obj_data["hash"]
                 # Update the new object storage_root

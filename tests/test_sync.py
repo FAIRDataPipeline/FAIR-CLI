@@ -6,6 +6,7 @@ import pytest
 import pytest_mock
 import yaml
 
+import fair.exceptions as fdp_exc
 import fair.registry.sync as fdp_sync
 from fair.cli import cli
 from fair.registry.requests import get
@@ -382,6 +383,8 @@ def test_identify(
 
 _ORIGIN = "http://127.0.0.1:8000/api/"
 _DEST = "http://127.0.0.1:8001/api/"
+# The remote's own data store, deliberately not storage_root 1
+_DEST_DATA_STORE = f"{_DEST}storage_root/5/"
 # Two projects' data stores in one local registry (1 and 3) and a web root
 _ROOTS = {
     f"{_ORIGIN}storage_root/1/": "file:///projects/a/.fair/data_store/",
@@ -404,6 +407,15 @@ def push_mocks(mocker: pytest_mock.MockerFixture):
         "fair.registry.requests.url_get",
         lambda url, token=None: {"url": url, "root": _ROOTS[url]},
     )
+
+    def dummy_get(uri, obj_path, token, params=None, **kwargs):
+        if obj_path == "storage_root" and params == {
+            "root": "http://127.0.0.1:8001/data/"
+        }:
+            return [{"url": _DEST_DATA_STORE}]
+        return []
+
+    mocker.patch("fair.registry.requests.get", dummy_get)
     return mocker.patch(
         "fair.registry.requests.post_else_get",
         lambda uri, obj_type, data, token, params: {"data": data},
@@ -428,7 +440,7 @@ def test_push_storage_root(push_mocks, root_url: str, remapped: bool):
         public=True,
     )
     if remapped:
-        assert _new_url == f"{_DEST}storage_root/1/"
+        assert _new_url == _DEST_DATA_STORE
     else:
         assert _new_url == {"data": {"root": _ROOTS[root_url]}}
 
@@ -463,7 +475,27 @@ def test_push_storage_location(push_mocks, root_url: str, remapped: bool):
     if remapped:
         # Stored on the remote by hash, in the remote data store
         assert _posted["path"] == "abc123"
-        assert _posted["storage_root"] == f"{_DEST}storage_root/1/"
+        assert _posted["storage_root"] == _DEST_DATA_STORE
     else:
         assert _posted["path"] == "testing/output/abc123.csv"
         assert _posted["storage_root"] == _dest_root
+
+
+@pytest.mark.faircli_sync
+def test_push_to_registry_without_data_store(
+    push_mocks, mocker: pytest_mock.MockerFixture
+):
+    mocker.patch("fair.registry.requests.get", lambda *args, **kwargs: [])
+    _root_url = f"{_ORIGIN}storage_root/3/"
+    with pytest.raises(fdp_exc.RegistryError, match="no data store"):
+        fdp_sync._get_new_url(
+            origin_uri=_ORIGIN,
+            origin_token="",
+            dest_uri=_DEST,
+            dest_token="",
+            object_url=_root_url,
+            new_urls={},
+            writable_data={"root": _ROOTS[_root_url]},
+            object_data={"url": _root_url, "root": _ROOTS[_root_url]},
+            public=True,
+        )
