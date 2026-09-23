@@ -268,7 +268,8 @@ def test_execute_output_unencodable(
     ]
     _popen.return_value.returncode = 0
     # A Windows console redirected to a pipe or file, as on a CI runner
-    _stdout = io.TextIOWrapper(io.BytesIO(), encoding="cp1252")
+    # newline="\n" so the bytes are the same on every platform
+    _stdout = io.TextIOWrapper(io.BytesIO(), encoding="cp1252", newline="\n")
     monkeypatch.setattr(sys, "stdout", _stdout)
 
     _config.execute()

@@ -19,20 +19,20 @@ PULL_TEST_CFG = os.path.join(os.path.dirname(__file__), "data", "test_pull_confi
 
 
 @pytest.mark.faircli_sync
-def test_pull_download():
+def test_pull_download(file_server: str):
+    _file = fdp_sync.download_from_registry(
+        "http://127.0.0.1:8000", file_server, "data.csv"
+    )
 
-    _root = "https://github.com/"
-    _path = "FAIRDataPipeline/FAIR-CLI/blob/main/README.md"
-
-    _file = fdp_sync.download_from_registry("http://127.0.0.1:8000", _root, _path)
-
-    assert open(_file).read()
+    assert open(_file).read() == "a,b\n1,2\n"
 
 
 @pytest.mark.faircli_sync
-def test_fetch_data_product(mocker: pytest_mock.MockerFixture, tmp_path):
+def test_fetch_data_product(
+    mocker: pytest_mock.MockerFixture, tmp_path, file_server: str
+):
 
-    tempd = tmp_path.__str__()
+    tempd = os.path.join(tmp_path, "store")
     _dummy_data_product_name = "test"
     _dummy_data_product_version = "2.3.0"
     _dummy_data_product_namespace = "testing"
@@ -61,11 +61,11 @@ def test_fetch_data_product(mocker: pytest_mock.MockerFixture, tmp_path):
     def mock_url_get(url, *args, **kwargs):
         if "storage_location" in url:
             return {
-                "path": "FAIRDataPipeline/FAIR-CLI/archive/refs/heads/main.zip",
+                "path": "data.csv",
                 "storage_root": "storage_root",
             }
         elif "storage_root" in url:
-            return {"root": "https://github.com/"}
+            return {"root": file_server}
         elif "namespace" in url:
             return {
                 "name": _dummy_data_product_namespace,
@@ -86,6 +86,10 @@ def test_fetch_data_product(mocker: pytest_mock.MockerFixture, tmp_path):
         "object": "object",
     }
     fdp_sync.fetch_data_product("", tempd, _example_data_product)
+    _out_file = os.path.join(
+        tempd, _dummy_data_product_namespace, _dummy_data_product_name, "2.3.0"
+    )
+    assert open(_out_file).read() == "a,b\n1,2\n"
 
 
 @pytest.mark.faircli_sync

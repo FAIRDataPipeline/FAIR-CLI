@@ -87,6 +87,13 @@ moto = "^5"
 Flask = "^3"
 Flask-Cors = "^4"
 matplotlib = "*"
+# Brought in by matplotlib. Without a split, one numpy must serve the whole
+# Python range, and numpy >= 2.3 needs Python >= 3.11, so every version got
+# 2.2.6, which has no wheels for 3.14. Delete when the floor reaches 3.11.
+numpy = [
+    { version = ">=2.3", python = ">=3.11" },
+    { version = "*", python = "<3.11" },
+]
 
 [tool.poetry.scripts]
 fair = 'fair.cli:cli'
