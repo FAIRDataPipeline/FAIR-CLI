@@ -408,6 +408,15 @@ class JobConfiguration(MutableMapping):
                 f" wildcard '{block_entry[_obj_type]}'"
             ) from e
 
+        # The registry's own filter lets '*' match across '/'
+        _results_local = [
+            result
+            for result in _results_local
+            if fdp_glob.matches_wildcard(
+                block_entry[_obj_type], result[_search_key]
+            )
+        ]
+
         if _obj_type in ("namespace", "author"):
             # If the object is a namespace or an author then there is no
             # additional info in the registry so we can just add the entries
@@ -425,7 +434,9 @@ class JobConfiguration(MutableMapping):
             )
 
         elif _obj_type == "data_product":
-            _version = block_entry.get("version", None)
+            _version = block_entry.get("use", {}).get(
+                "version", block_entry.get("version", None)
+            )
 
             _new_entries = fdp_glob.get_data_product_objects(
                 registry_token, _results_local, block_type, _version
@@ -637,7 +648,16 @@ class JobConfiguration(MutableMapping):
                     "not a valid git repository."
                 ) from e
 
-            _url = _git_repo.remotes[_remote].url
+            try:
+                _url = _git_repo.remotes[_remote].url
+            except IndexError as e:
+                raise fdp_exc.FDPRepositoryError(
+                    f"Failed to update job configuration from location '{fair_repo_dir}', "
+                    f"git repository '{_local_repo}' has no remote '{_remote}'.",
+                    hint="Add the remote to the repository, or give "
+                    "'run_metadata: remote_repo:' in the configuration.",
+                ) from e
+
             self["run_metadata.remote_repo"] = _url
 
     def pop(self, key: str, default: typing.Optional[typing.Any] = None) -> typing.Any:
@@ -828,11 +848,14 @@ class JobConfiguration(MutableMapping):
 
         def _tag_check():
             _repo = git.Repo(fdp_conf.local_git_repo(self.local_repository))
-            if len(_repo.tags) < 1:
-                fdp_exc.UserConfigError(
-                    "Cannot use GIT_TAG variable, no git tags found."
-                )
-            return _repo.tags[-1].name
+            # The nearest tag in the history of HEAD, not the last by name
+            try:
+                return _repo.git.describe("--tags", "--abbrev=0")
+            except git.GitCommandError as e:
+                raise fdp_exc.UserConfigError(
+                    "Cannot use GIT_TAG variable, no git tags found "
+                    "in the history of the current commit."
+                ) from e
 
         _substitutes: typing.Dict[str, typing.Callable] = {
             "DATE": lambda: job_time.strftime("%Y%m%d"),
@@ -849,7 +872,7 @@ class JobConfiguration(MutableMapping):
         }
 
         # Additional parser for formatted datetime
-        _regex_dt_fmt = re.compile(r"\$\{\{\s*DATETIME\-[^}${\s]]+\s*\}\}")
+        _regex_dt_fmt = re.compile(r"\$\{\{\s*DATETIME\-[^}${\s]+\s*\}\}")
         _regex_fmt = re.compile(r"\$\{\{\s*DATETIME\-([^}${\s]+)\s*\}\}")
 
         _config_str: str = yaml.dump(self._config)
@@ -1016,16 +1039,18 @@ class JobConfiguration(MutableMapping):
 
             _version = item["use"]["version"]
 
-            if "data_product" not in item["use"]:
-                if "external_object" in item and "*" in item["external_object"]:
-                    _name = item["external_object"]
-                elif "data_product" in item and "*" in item["data_product"]:
-                    _name = item["data_product"]
-                else:
-                    self._logger.warning(f"Missing use:data_product in {item}")
+            if "data_product" in item["use"]:
+                _name = item["use"]["data_product"]
+            elif "external_object" in item and "*" in item["external_object"]:
+                _name = item["external_object"]
+            elif "data_product" in item and "*" in item["data_product"]:
+                _name = item["data_product"]
+            else:
+                self._logger.warning(f"Missing use:data_product in {item}")
                 continue
-
-            _name = item["use"]["data_product"]
+            # Only a wildcard entry lacks this: kept in the write block as the
+            # template for names the model writes that match it
+            _new_item["use"]["data_product"] = _name
             _namespace = item["use"]["namespace"]
 
             # If no ID exists for the namespace then this object has not yet
@@ -1060,6 +1085,13 @@ class JobConfiguration(MutableMapping):
                     )
             except fdp_exc.RegistryError:
                 _results = []
+
+            if "*" in _name:
+                _results = [
+                    result
+                    for result in _results
+                    if fdp_glob.matches_wildcard(_name, result["name"])
+                ]
 
             try:
                 _version = fdp_ver.get_correct_version(
@@ -1186,7 +1218,7 @@ class JobConfiguration(MutableMapping):
     def shell(self) -> str:
         """Retrieve the shell choice"""
         _shell_default = "batch" if platform.system() == "Windows" else "sh"
-        return self.get("shell", _shell_default)
+        return self.get("run_metadata.shell", _shell_default)
 
     @property
     def local_repository(self) -> str:
@@ -1318,11 +1350,18 @@ class JobConfiguration(MutableMapping):
             encoding="utf-8",
         )
 
+        # The job log is UTF-8, but the console may not be (cp1252 on a
+        # Windows runner), and one unencodable character must not stop the run
+        _encoding = sys.stdout.encoding or "utf-8"
+
         # Write any stdout to the job log
         for line in iter(_process.stdout.readline, ""):
             self._log_file.writelines([line])
             _log_tail.append(line)
-            click.echo(line, nl=False)
+            click.echo(
+                line.encode(_encoding, errors="replace").decode(_encoding),
+                nl=False,
+            )
             sys.stdout.flush()
 
         _process.wait()

@@ -64,3 +64,15 @@ def test_api_url_check():
     assert fdp_util.is_api_url(_test_endpoint, _test_url)
     assert not fdp_util.is_api_url(_test_endpoint, _not_url)
     assert not fdp_util.is_api_url(_test_endpoint, _wrong_endpoint)
+
+
+@pytest.mark.faircli_utilities
+@pytest.mark.parametrize("endpoint", ["/api/", "/api"])
+def test_api_url_check_outside_api_path(endpoint):
+    """A URL on the registry's host but outside its API is not an API URL"""
+    _domain = "https://data.fairdatapipeline.org"
+    _endpoint = f"{_domain}{endpoint}"
+    assert fdp_util.is_api_url(_endpoint, f"{_domain}/api/object/1/")
+    # A remote registry serves its own data store from the same host, so
+    # a StorageRoot's root must not be taken for a reference to an object
+    assert not fdp_util.is_api_url(_endpoint, f"{_domain}/data/")

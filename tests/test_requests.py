@@ -2,9 +2,11 @@ import os
 
 import pytest
 import pytest_mock
+import requests
 
 import fair.exceptions as fdp_exc
 import fair.registry.requests as fdp_req
+import fair.registry.sync as fdp_sync
 
 from . import conftest as conf
 
@@ -226,6 +228,18 @@ def test_download(local_registry: conf.RegistryTest, mocker: pytest_mock.MockerF
         _example_file = "https://data.fairdatapipeline.org/static/localregistry.sh"
         _out_file = fdp_req.download_file(_example_file)
         assert os.path.exists(_out_file)
+
+
+@pytest.mark.faircli_requests
+def test_download_http_error(file_server: str):
+    _out_file = fdp_req.download_file(f"{file_server}data.csv")
+    with open(_out_file) as out_f:
+        assert out_f.read() == "a,b\n1,2\n"
+
+    with pytest.raises(requests.HTTPError):
+        fdp_req.download_file(f"{file_server}missing.csv")
+    with pytest.raises(fdp_exc.UserConfigError, match="status code 404"):
+        fdp_sync.download_from_registry("", file_server, "missing.csv")
 
 
 @pytest.mark.faircli_requests

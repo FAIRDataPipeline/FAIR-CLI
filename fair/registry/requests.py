@@ -506,6 +506,11 @@ def download_file(url: str, chunk_size: int = 8192) -> str:
     -------
     str
         path of downloaded temporary file
+
+    Raises
+    ------
+    requests.HTTPError
+        if the server answers with an error status
     """
     # Save the data to a temporary file so we can calculate the hash
     _file = tempfile.NamedTemporaryFile(delete=False)
@@ -528,12 +533,15 @@ def download_file(url: str, chunk_size: int = 8192) -> str:
             response = requests.get(
                 url, allow_redirects=True, verify=False, headers=headers
             )
-            open(_fname, mode="wb").write(response.content)
         except Exception as e:
             raise fdp_exc.FAIRCLIException(
                 f"Failed to download file '{url}'"
                 f" due to connection error: {traceback.format_exc()}"
             ) from e
+        # Outside the try, so that callers can tell an HTTP error from a
+        # failure to connect, and an error page is never saved as the data
+        response.raise_for_status()
+        open(_fname, mode="wb").write(response.content)
 
     return _fname
 

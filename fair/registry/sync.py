@@ -226,6 +226,29 @@ def sync_dependency_chain(
     return _new_urls
 
 
+# Whether a storage_root record is on the pushing machine's file system
+def _is_local_root(storage_root: typing.Dict) -> bool:
+    return storage_root.get("root", "").startswith("file://")
+
+
+# URL of a registry's own data store: the storage_root whose root is the
+# registry's data/ path, beside its api/, from which it serves stored files
+def _remote_data_store_url(registry_uri: str, token: str) -> str:
+    _root = urllib.parse.urljoin(
+        fdp_util.check_trailing_slash(registry_uri), "../data/"
+    )
+    _data_store = fdp_req.get(
+        registry_uri, "storage_root", token, params={"root": _root}
+    )
+    if not _data_store:
+        raise fdp_exc.RegistryError(
+            f"Registry '{registry_uri}' has no data store storage root "
+            f"'{_root}', so files cannot be pushed to it",
+            hint="Is it set up as a remote registry (set_site_info)?",
+        )
+    return _data_store[0]["url"]
+
+
 def _get_new_url(
     origin_uri: str,
     origin_token: str,
@@ -293,7 +316,6 @@ def _get_new_url(
     # (as remote URL will never match local)
 
     _obj_type = fdp_req.get_obj_type_from_url(object_url, token=origin_token)
-    _obj_id = fdp_req.get_obj_id_from_url(object_url)
 
     _filters = {
         k: v
@@ -311,20 +333,21 @@ def _get_new_url(
     # If Public is true then any files will be uploaded to the remote registry
     # If local_data_store is set we're pulling to a local registry
     if public and not local_data_store:
-        # The remote data_store storage_root URL should
-        # always be the 1st storage_root
-        _remote_storage_root_url = urllib.parse.urljoin(dest_uri, "storage_root/1/")
-        # If the current objects a storage_root and the root
-        # is the first (data_store) then simply return the remote
-        if _obj_type == "storage_root" and _obj_id == "1":
-            return _remote_storage_root_url
+        # A local data store is any root on the pusher's own file system,
+        # however many projects share the local registry; it is replaced by
+        # the remote data store. Other roots (e.g. https://github.com/) are
+        # pushed as they are.
+        if _obj_type == "storage_root" and _is_local_root(object_data):
+            return _remote_data_store_url(dest_uri, dest_token)
         # If the current object is a storage_location
         elif _obj_type == "storage_location":
-            # Again if the storage_root is the data_store (storage_root 1)
-            if (
-                fdp_req.get_obj_id_from_url(object_data.get("storage_root", "/2"))
-                == "1"
+            # Again if the storage_root is a local data store
+            if _is_local_root(
+                fdp_req.url_get(object_data["storage_root"], origin_token)
             ):
+                _remote_storage_root_url = _remote_data_store_url(
+                    dest_uri, dest_token
+                )
                 # Update the new object path and filter path
                 _new_obj_data["path"] = _filters["path"] = _new_obj_data["hash"]
                 # Update the new object storage_root
@@ -522,6 +545,11 @@ def sync_data_products(
             )
         result = result[0]
 
+        # Held separately because `result` becomes the external object below,
+        # and the file is fetched by the data product's own namespace, name
+        # and version
+        _data_product = result
+
         result_object = fdp_req.url_get(result["object"], token=origin_token)
         result_storage_location = fdp_req.url_get(
             result_object["storage_location"], token=origin_token
@@ -544,7 +572,7 @@ def sync_data_products(
         # If local_data_store assume we're syncing from remote to local
         if local_data_store:
             logger.debug("Retrieving files from remote registry data storage")
-            fetch_data_product(origin_token, local_data_store, result[0])
+            fetch_data_product(origin_token, local_data_store, _data_product)
         # Else going from local to remote
         else:
             # If the storage location is public upload the files to object storage
@@ -1142,7 +1170,7 @@ def fetch_data_product(
         _file_type = ""
 
     _local_dir = os.path.join(
-        local_data_store, _namespace["name"], data_product["data_product"]
+        local_data_store, _namespace["name"], data_product["name"]
     )
 
     os.makedirs(_local_dir, exist_ok=True)
@@ -1201,7 +1229,8 @@ def download_from_registry(registry_url: str, root: str, path: str) -> str:
         logger.debug("Downloaded file from '%s' to temporary file", _download_url)
     except requests.HTTPError as r_in:
         raise fdp_exc.UserConfigError(
-            f"Failed to fetch item '{_download_url}' with exit code {r_in.response}"
+            f"Failed to fetch item '{_download_url}' with status code "
+            f"{r_in.response.status_code}"
         ) from r_in
 
     return _temp_data_file

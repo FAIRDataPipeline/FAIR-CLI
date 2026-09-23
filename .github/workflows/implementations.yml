@@ -144,7 +144,6 @@ jobs:
       working-directory: java_example # Use the java_example Directory
 
     - name: run javaSimpleModel with fair cli
-      continue-on-error: true 
       run: |
         ./venv/bin/activate # Activate venv
         # Install local registry

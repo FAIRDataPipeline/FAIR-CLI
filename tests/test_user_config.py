@@ -1,12 +1,19 @@
+import datetime
+import io
 import os.path
+import re
+import sys
 import typing
 
+import git
 import pytest
 import pytest_mock
 import yaml
 
 import fair.common as fdp_com
+import fair.exceptions as fdp_exc
 import fair.user_config as fdp_user
+import fair.user_config.globbing as fdp_glob
 
 from . import conftest as conf
 
@@ -101,7 +108,9 @@ def test_wildcard_unpack_local(
 
         _split_key = _path.split("/")[-1]
 
-        _wildcard_path = _path.split(_split_key)[0] + "*"
+        # Each '*' matches one segment of a name; the example data products
+        # have several names two segments below this one
+        _wildcard_path = _path.split(_split_key)[0] + "*/*"
 
         with open(TEST_CONFIG_WC) as cfg_file:
             _cfg_str = cfg_file.read()
@@ -120,6 +129,10 @@ def test_wildcard_unpack_local(
         _config.update_from_fair(os.path.join(local_config[1], "project"))
         _config.prepare(fdp_com.CMD_MODE.RUN, True)
         assert len(_config["read"]) > 1
+        assert all(
+            fdp_glob.matches_wildcard(_wildcard_path, entry["data_product"])
+            for entry in _config["read"]
+        )
 
         _config.write(os.path.join(_out_dir, "out.yaml"))
 
@@ -155,7 +168,9 @@ def test_wildcard_unpack_remote(
 
         _split_key = _path.split("/")[-1]
 
-        _wildcard_path = _path.split(_split_key)[0] + "*"
+        # Each '*' matches one segment of a name; the example data products
+        # have several names two segments below this one
+        _wildcard_path = _path.split(_split_key)[0] + "*/*"
 
         with open(TEST_CONFIG_WC) as cfg_file:
             _cfg_str = cfg_file.read()
@@ -179,5 +194,233 @@ def test_wildcard_unpack_remote(
             remote_registry._token,
         )
         assert len(_config["read"]) > 1
+        assert all(
+            fdp_glob.matches_wildcard(_wildcard_path, entry["data_product"])
+            for entry in _config["read"]
+        )
 
         _config.write(os.path.join(_out_dir, "out.yaml"))
+
+
+@pytest.mark.faircli_user_config
+def test_subst_formatted_datetime():
+    _config = fdp_user.JobConfiguration()
+    _config._config = {
+        "run_metadata": {},
+        "write": [
+            {
+                "data_product": "out/${{DATETIME-%Y%m%d}}",
+                "description": "at ${{ DATETIME-%H%M }}",
+            }
+        ],
+    }
+    _config._subst_cli_vars(datetime.datetime(2026, 9, 22, 14, 5))
+    assert _config["write"][0]["data_product"] == "out/20260922"
+    assert _config["write"][0]["description"] == "at 1405"
+
+
+@pytest.mark.faircli_user_config
+def test_run_id_left_for_api():
+    _config = fdp_user.JobConfiguration()
+    _config._config = {
+        "run_metadata": {},
+        "write": [{"data_product": "out/run-${{RUN_ID}}"}],
+    }
+    # RUN_ID is filled in by the language API at finalise, so it must reach
+    # the working config unsubstituted
+    _config._subst_cli_vars(datetime.datetime(2026, 9, 22))
+    _config._check_for_unparsed()
+    assert _config["write"][0]["data_product"] == "out/run-${{RUN_ID}}"
+
+    _config["write"][0]["data_product"] = "out/run-${{NOT_A_VARIABLE}}"
+    with pytest.raises(fdp_exc.InternalError):
+        _config._check_for_unparsed()
+
+
+@pytest.mark.faircli_user_config
+def test_execute_uses_run_metadata_shell(mocker: pytest_mock.MockerFixture):
+    _config = fdp_user.JobConfiguration()
+    _config._config = {
+        "run_metadata": {
+            "local_repo": os.getcwd(),
+            "script_path": "script.py",
+            "shell": "python3",
+        }
+    }
+    _config.env = {"PATH": ""}
+    _config._log_file = io.StringIO()
+    mocker.patch(
+        "fair.configuration.get_current_user_name", lambda *args: [""]
+    )
+    mocker.patch("fair.configuration.get_current_user_email", lambda *args: "")
+    _popen = mocker.patch("subprocess.Popen")
+    _popen.return_value.stdout.readline.return_value = ""
+    _popen.return_value.returncode = 0
+
+    _config.execute()
+    assert _popen.call_args.args[0] == ["python3", "script.py"]
+
+
+@pytest.mark.faircli_user_config
+def test_execute_output_unencodable(
+    mocker: pytest_mock.MockerFixture, monkeypatch: pytest.MonkeyPatch
+):
+    _config = fdp_user.JobConfiguration()
+    _config._config = {
+        "run_metadata": {"local_repo": os.getcwd(), "script_path": "script.sh"}
+    }
+    _config.env = {"PATH": ""}
+    _config._log_file = io.StringIO()
+    mocker.patch(
+        "fair.configuration.get_current_user_name", lambda *args: [""]
+    )
+    mocker.patch("fair.configuration.get_current_user_email", lambda *args: "")
+    _popen = mocker.patch("subprocess.Popen")
+    _popen.return_value.stdout.readline.side_effect = [
+        "Progress \u2305 done\n",
+        "",
+    ]
+    _popen.return_value.returncode = 0
+    # A Windows console redirected to a pipe or file, as on a CI runner
+    # newline="\n" so the bytes are the same on every platform
+    _stdout = io.TextIOWrapper(io.BytesIO(), encoding="cp1252", newline="\n")
+    monkeypatch.setattr(sys, "stdout", _stdout)
+
+    _config.execute()
+    _stdout.flush()
+    assert _stdout.buffer.getvalue() == b"Progress ? done\n"
+    assert "\u2305" in _config._log_file.getvalue()
+
+
+@pytest.mark.faircli_user_config
+def test_subst_git_tag(mocker: pytest_mock.MockerFixture, tmp_path):
+    _repo = git.Repo.init(tmp_path)
+    mocker.patch(
+        "fair.configuration.local_git_repo", lambda *args: str(tmp_path)
+    )
+
+    def _git_tag() -> str:
+        _config = fdp_user.JobConfiguration()
+        _config._config = {
+            "run_metadata": {"local_repo": str(tmp_path)},
+            "write": [{"data_product": "${{GIT_TAG}}"}],
+        }
+        _config._subst_cli_vars(datetime.datetime(2026, 9, 22))
+        return _config["write"][0]["data_product"]
+
+    def _commit(message: str) -> git.Commit:
+        _actor = git.Actor("Test", "test@noreply.com")
+        return _repo.index.commit(message, author=_actor, committer=_actor)
+
+    with pytest.raises(fdp_exc.UserConfigError, match="no git tags found"):
+        _git_tag()
+    _first = _commit("first")
+    with pytest.raises(fdp_exc.UserConfigError, match="no git tags found"):
+        _git_tag()
+
+    # Tags sort by name as v0.10.0 < v0.9.9, so this checks history is used
+    _repo.create_tag("v0.9.9")
+    _commit("second")
+    _repo.create_tag("v0.10.0")
+    assert _git_tag() == "v0.10.0"
+    _commit("third")
+    assert _git_tag() == "v0.10.0"
+
+    _repo.head.reference = _first
+    assert _git_tag() == "v0.9.9"
+
+
+@pytest.mark.faircli_user_config
+def test_update_from_fair_without_git_remote(
+    local_config: typing.Tuple[str, str],
+):
+    """A missing git remote is reported, not raised as a bare IndexError"""
+    _project = os.path.join(local_config[1], "project")
+    _repo = git.Repo(_project)
+    _repo.delete_remote(_repo.remotes["origin"])
+
+    _cfg_path = os.path.join(local_config[1], "no_remote.yaml")
+    yaml.dump({"run_metadata": {"description": "no remote"}}, open(_cfg_path, "w"))
+
+    with pytest.raises(fdp_exc.FDPRepositoryError, match="has no remote 'origin'"):
+        fdp_user.JobConfiguration(_cfg_path).update_from_fair(_project)
+
+    # Given explicitly, the git remote is never consulted
+    yaml.dump(
+        {"run_metadata": {"description": "n", "remote_repo": "https://x/y.git"}},
+        open(_cfg_path, "w"),
+    )
+    _config = fdp_user.JobConfiguration(_cfg_path)
+    _config.update_from_fair(_project)
+    assert _config["run_metadata.remote_repo"] == "https://x/y.git"
+
+
+@pytest.mark.faircli_user_config
+@pytest.mark.parametrize(
+    "pattern,name,matches",
+    [
+        ("era5/t2m/*", "era5/t2m/1940-1949", True),
+        ("era5/t2m/*", "era5/t2m/1940/x", False),
+        ("era5/t2m/*", "other/era5/t2m/x", False),
+        ("era5/t2m/*", "era5/t2m/", False),
+        ("a/*/c", "a/b/c", True),
+        ("a/*/c", "a/b/d/c", False),
+        ("a.b/*", "aXb/1", False),
+    ],
+)
+def test_matches_wildcard(pattern: str, name: str, matches: bool):
+    assert fdp_glob.matches_wildcard(pattern, name) is matches
+
+
+@pytest.mark.faircli_user_config
+def test_wildcard_write(mocker: pytest_mock.MockerFixture):
+    # Registered: a/1 at 0.0.1, and a/thing/1 at 2.0.0, which the registry's
+    # own filter matches to 'a/*' but a wildcard (one segment) does not
+    _products = [
+        {"name": "a/1", "version": "0.0.1", "namespace": "ns_url"},
+        {"name": "a/thing/1", "version": "2.0.0", "namespace": "ns_url"},
+    ]
+
+    def dummy_get(uri, obj_path, token, params=None, **kwargs):
+        _pattern = params["name"].replace("*", ".*")
+        return [p for p in _products if re.fullmatch(_pattern, p["name"])]
+
+    mocker.patch("fair.registry.requests.get", dummy_get)
+    mocker.patch(
+        "fair.registry.requests.url_get", lambda *args: {"name": "testing"}
+    )
+    mocker.patch("fair.registry.requests.local_token", lambda: "")
+    mocker.patch(
+        "fair.register.convert_key_value_to_id", lambda *args, **kwargs: 1
+    )
+
+    _config = fdp_user.JobConfiguration()
+    _config._config = {
+        "run_metadata": {
+            "local_data_registry_url": "http://127.0.0.1:8000/api/",
+            "default_input_namespace": "testing",
+            "default_output_namespace": "testing",
+            "default_write_version": "${{PATCH}}",
+        },
+        "write": [
+            {
+                "data_product": "a/*",
+                "description": "A csv file",
+                "file_type": "csv",
+                "use": {"version": "${{MAJOR}}"},
+            }
+        ],
+    }
+    # As prepare() does
+    _config._update_namespaces()
+    _config._fill_all_block_types()
+    _config._expand_wildcards("http://127.0.0.1:8000/api/", "")
+    _config["write"] = _config._fill_versions("write")
+
+    _written = {
+        entry["use"]["data_product"]: entry["use"]["version"]
+        for entry in _config["write"]
+    }
+    # The existing match, and the pattern itself for new names, each a
+    # major bump from what matches it
+    assert _written == {"a/1": "1.0.0", "a/*": "1.0.0"}
