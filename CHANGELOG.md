@@ -14,7 +14,8 @@
 
 ## Fixed
 - `write:` entries with a wildcard were dropped from the working config (#140). The pattern is now kept
-  for new names, and existing matches take the `use: version` token.
+  for new names, and existing matches are written as the pattern entry describes them (its `use: version`,
+  `file_type`, `description`).
 - `fair push` from a project whose data store was not the local registry's first storage root recorded
   its files on the remote under the pusher's `file://` path (data-registry #229).
 - `fair pull` of a `read:` entry from a remote registry failed.

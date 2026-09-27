@@ -14,6 +14,7 @@ import fair.common as fdp_com
 import fair.exceptions as fdp_exc
 import fair.user_config as fdp_user
 import fair.user_config.globbing as fdp_glob
+import fair.user_config.validation as fdp_valid
 
 from . import conftest as conf
 
@@ -380,6 +381,16 @@ def test_wildcard_write(mocker: pytest_mock.MockerFixture):
         {"name": "a/1", "version": "0.0.1", "namespace": "ns_url"},
         {"name": "a/thing/1", "version": "2.0.0", "namespace": "ns_url"},
     ]
+    # The other fields of a registry row, none of which belongs in a config
+    for _n, _product in enumerate(_products):
+        _product.update(
+            url=f"data_product/{_n}/",
+            object=f"object/{_n}/",
+            ro_crate=f"ro-crate/data-product/{_n}/",
+            prov_report=f"prov-report/{_n}/",
+            external_object=None,
+            internal_format=False,
+        )
 
     def dummy_get(uri, obj_path, token, params=None, **kwargs):
         _pattern = params["name"].replace("*", ".*")
@@ -416,6 +427,7 @@ def test_wildcard_write(mocker: pytest_mock.MockerFixture):
     _config._fill_all_block_types()
     _config._expand_wildcards("http://127.0.0.1:8000/api/", "")
     _config["write"] = _config._fill_versions("write")
+    _config._config = _config._clean()
 
     _written = {
         entry["use"]["data_product"]: entry["use"]["version"]
@@ -424,3 +436,9 @@ def test_wildcard_write(mocker: pytest_mock.MockerFixture):
     # The existing match, and the pattern itself for new names, each a
     # major bump from what matches it
     assert _written == {"a/1": "1.0.0", "a/*": "1.0.0"}
+    # Each is a valid write entry, described as the pattern entry describes it
+    for entry in _config["write"]:
+        fdp_valid.DataProductWrite(**entry)
+        assert entry["file_type"] == "csv"
+        assert entry["description"] == "A csv file"
+        assert entry["public"] is True

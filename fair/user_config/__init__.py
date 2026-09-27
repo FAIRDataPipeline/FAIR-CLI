@@ -442,6 +442,18 @@ class JobConfiguration(MutableMapping):
                 registry_token, _results_local, block_type, _version
             )
 
+            # A match is written again as the pattern entry describes it
+            # (file_type, description, public), not as its registry row
+            if block_type == "write":
+                for _new_entry in _new_entries:
+                    _new_entry.update(
+                        {
+                            k: v
+                            for k, v in block_entry.items()
+                            if k not in ("data_product", "use")
+                        }
+                    )
+
         if block_type == "write":
             _new_entries.append(block_entry)
 
