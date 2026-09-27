@@ -22,6 +22,8 @@
 - A DOI whose publisher refuses automated requests (e.g. Wiley, HTTP 403) was rejected as an invalid
   identifier. An identifier that resolves is now accepted; one that does not (404) is still refused.
 - `${{DATETIME-<format>}}` always failed with "Failed to parse formatted datetime variable".
+- Substituting a path with backslashes, such as `${{CONFIG_DIR}}` on Windows, failed `fair pull` and `fair run`
+  (#267). Variables are now substituted into the configuration's values, so any text is inserted as it is.
 - `fair remote remove` crashed.
 - Run from a subdirectory of a project, commands lost configuration changes and left a stale session
   file, so the next command did not start the registry and `fair registry stop` needed `--force`.

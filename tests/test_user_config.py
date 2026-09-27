@@ -221,6 +221,30 @@ def test_subst_formatted_datetime():
 
 
 @pytest.mark.faircli_user_config
+def test_subst_windows_config_dir():
+    _job_dir = "C:\\Users\\runner\\.fair\\data\\jobs\\2026-09-27_14_00"
+    _scripts = [
+        'gradle run --args "${{CONFIG_DIR}}"\n',  # as javaSimpleModel's
+        "java -jar model.jar ${{CONFIG_DIR}}",
+        'echo \'a\' "${{CONFIG_DIR}}"\n\tdone',  # dumped double-quoted
+    ]
+    for _script in _scripts:
+        _config = fdp_user.JobConfiguration()
+        _config._config = {"run_metadata": {"script": _script}}
+        _config._job_dir = _job_dir
+        _config._subst_cli_vars(datetime.datetime(2026, 9, 27))
+        assert _config["run_metadata.script"] == _script.replace(
+            "${{CONFIG_DIR}}", _job_dir + os.path.sep
+        )
+
+    # A value that is only a variable keeps the type it was substituted as
+    _config = fdp_user.JobConfiguration()
+    _config._config = {"run_metadata": {"description": "${{DATE}}"}}
+    _config._subst_cli_vars(datetime.datetime(2026, 9, 27))
+    assert _config["run_metadata.description"] == "20260927"
+
+
+@pytest.mark.faircli_user_config
 def test_run_id_left_for_api():
     _config = fdp_user.JobConfiguration()
     _config._config = {

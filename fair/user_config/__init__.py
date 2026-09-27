@@ -93,6 +93,28 @@ SHELLS: typing.Dict[str, str] = {
 }
 
 
+# Apply a function to every string in a configuration's nested dicts and lists,
+# keys included, returning the new structure
+def _map_strings(item: typing.Any, func: typing.Callable) -> typing.Any:
+    if isinstance(item, str):
+        return func(item)
+    if isinstance(item, dict):
+        return {
+            _map_strings(k, func): _map_strings(v, func)
+            for k, v in item.items()
+        }
+    if isinstance(item, list):
+        return [_map_strings(v, func) for v in item]
+    return item
+
+
+# Every string in a configuration's nested dicts and lists, keys included
+def _strings_in(item: typing.Any) -> typing.List[str]:
+    _strings: typing.List[str] = []
+    _map_strings(item, lambda s: _strings.append(s) or s)
+    return _strings
+
+
 class JobConfiguration(MutableMapping):
     _logger = logging.getLogger("FAIRDataPipeline.ConfigYAML")
     _block_types = ("register", "write", "read")
@@ -883,31 +905,19 @@ class JobConfiguration(MutableMapping):
             "GIT_TAG": _tag_check,
         }
 
+        # Substitutions are made in the parsed configuration, never in its
+        # YAML text, so that a value is inserted as it is: a Windows path's
+        # backslashes are neither regular-expression nor YAML escapes
+
         # Additional parser for formatted datetime
-        _regex_dt_fmt = re.compile(r"\$\{\{\s*DATETIME\-[^}${\s]+\s*\}\}")
         _regex_fmt = re.compile(r"\$\{\{\s*DATETIME\-([^}${\s]+)\s*\}\}")
 
-        _config_str: str = yaml.dump(self._config)
-
-        _dt_fmt_res: typing.Optional[typing.List[str]] = _regex_dt_fmt.findall(
-            _config_str
+        self._config = _map_strings(
+            self._config,
+            lambda s: _regex_fmt.sub(
+                lambda m: job_time.strftime(m.group(1).strip()), s
+            ),
         )
-        _fmt_res: typing.Optional[typing.List[str]] = _regex_fmt.findall(_config_str)
-
-        self._logger.debug(
-            "Found datetime substitutions: %s %s",
-            _dt_fmt_res or "",
-            _fmt_res or "",
-        )
-
-        # The two regex searches should match lengths
-        if len(_dt_fmt_res) != len(_fmt_res):
-            raise fdp_exc.UserConfigError("Failed to parse formatted datetime variable")
-
-        if _dt_fmt_res:
-            for i, _ in enumerate(_dt_fmt_res):
-                _time_str = job_time.strftime(_fmt_res[i].strip())
-                _config_str = _config_str.replace(_dt_fmt_res[i], _time_str)
 
         _regex_dict = {
             var: r"\$\{\{\s*" + f"{var}" + r"\s*\}\}" for var in _substitutes
@@ -916,16 +926,16 @@ class JobConfiguration(MutableMapping):
         # Perform string substitutions
         for var, subst in _regex_dict.items():
             # Only execute functions in var substitutions that are required
-            if re.findall(subst, _config_str):
-                _value = _substitutes[var]()
+            if any(re.search(subst, s) for s in _strings_in(self._config)):
+                _value = str(_substitutes[var]() or "")
                 if not _value:
                     raise fdp_exc.InternalError(
                         f"Expected value for substitution of '{var}' but returned None",
                     )
-                _config_str = re.sub(subst, str(_value), _config_str)
-                self._logger.debug("Substituting %s: %s", var, str(_value))
-
-        self._config = yaml.safe_load(_config_str)
+                self._config = _map_strings(
+                    self._config, lambda s: re.sub(subst, lambda _: _value, s)
+                )
+                self._logger.debug("Substituting %s: %s", var, _value)
 
     def _register_to_read(
         self, register_block: typing.List[typing.Dict]
