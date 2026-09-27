@@ -310,8 +310,9 @@ def _get_new_url(
         # Make sure that a URL for the component does exist
         if value not in new_urls:
             raise fdp_exc.RegistryError(
-                f"Expected URL from remote '{dest_uri}' for component "
-                f"'{key}' of local object '{value}' during push."
+                f"Expected a URL on '{dest_uri}' for component '{key}', "
+                f"whose value '{value}' should have been synchronised "
+                "before it."
             )
 
         # Retrieve from the new URLs the correct value and substitute
