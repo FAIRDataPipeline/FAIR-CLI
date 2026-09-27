@@ -232,21 +232,27 @@ def _is_local_root(storage_root: typing.Dict) -> bool:
 
 
 # URL of a registry's own data store: the storage_root whose root is the
-# registry's data/ path, beside its api/, from which it serves stored files
+# registry's data/ path, beside its api/, from which it serves stored files.
+# A registry whose site URL differs from its API's address records that root
+# under another name; its first storage_root is then taken, as set_site_info
+# creates the data store first.
 def _remote_data_store_url(registry_uri: str, token: str) -> str:
-    _root = urllib.parse.urljoin(
-        fdp_util.check_trailing_slash(registry_uri), "../data/"
-    )
+    _registry_uri = fdp_util.check_trailing_slash(registry_uri)
+    _root = urllib.parse.urljoin(_registry_uri, "../data/")
     _data_store = fdp_req.get(
         registry_uri, "storage_root", token, params={"root": _root}
     )
-    if not _data_store:
-        raise fdp_exc.RegistryError(
-            f"Registry '{registry_uri}' has no data store storage root "
-            f"'{_root}', so files cannot be pushed to it",
-            hint="Is it set up as a remote registry (set_site_info)?",
-        )
-    return _data_store[0]["url"]
+    if _data_store:
+        return _data_store[0]["url"]
+    _fallback = urllib.parse.urljoin(_registry_uri, "storage_root/1/")
+    logger.warning(
+        "Registry '%s' has no storage root '%s'; assuming its data store is "
+        "'%s'. Its site URL may not match its address.",
+        registry_uri,
+        _root,
+        _fallback,
+    )
+    return _fallback
 
 
 def _get_new_url(

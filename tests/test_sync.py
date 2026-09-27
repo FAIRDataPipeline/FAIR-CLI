@@ -6,7 +6,6 @@ import pytest
 import pytest_mock
 import yaml
 
-import fair.exceptions as fdp_exc
 import fair.registry.sync as fdp_sync
 from fair.cli import cli
 from fair.registry.requests import get
@@ -483,19 +482,26 @@ def test_push_storage_location(push_mocks, root_url: str, remapped: bool):
 
 @pytest.mark.faircli_sync
 def test_push_to_registry_without_data_store(
-    push_mocks, mocker: pytest_mock.MockerFixture
+    push_mocks, mocker: pytest_mock.MockerFixture, caplog
 ):
+    # As on a registry whose site URL differs from its API's address
     mocker.patch("fair.registry.requests.get", lambda *args, **kwargs: [])
     _root_url = f"{_ORIGIN}storage_root/3/"
-    with pytest.raises(fdp_exc.RegistryError, match="no data store"):
-        fdp_sync._get_new_url(
-            origin_uri=_ORIGIN,
-            origin_token="",
-            dest_uri=_DEST,
-            dest_token="",
-            object_url=_root_url,
-            new_urls={},
-            writable_data={"root": _ROOTS[_root_url]},
-            object_data={"url": _root_url, "root": _ROOTS[_root_url]},
-            public=True,
-        )
+    _new_url = fdp_sync._get_new_url(
+        origin_uri=_ORIGIN,
+        origin_token="",
+        dest_uri=_DEST,
+        dest_token="",
+        object_url=_root_url,
+        new_urls={},
+        writable_data={"root": _ROOTS[_root_url]},
+        object_data={"url": _root_url, "root": _ROOTS[_root_url]},
+        public=True,
+    )
+    assert _new_url == f"{_DEST}storage_root/1/"
+    assert any(
+        record.levelname == "WARNING"
+        and "has no storage root 'http://127.0.0.1:8001/data/'"
+        in record.getMessage()
+        for record in caplog.records
+    )
