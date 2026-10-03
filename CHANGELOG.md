@@ -1,4 +1,4 @@
-# Unreleased
+# 2026-10-03 [v0.10.0](https://github.com/FAIRDataPipeline/FAIR-CLI/releases/tag/v0.10.0)
 
 ## Changed behaviour
 - `fair remote add` takes the remote's token file with `--token FILE`, and prompts for it if omitted.
