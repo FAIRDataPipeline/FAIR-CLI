@@ -11,7 +11,7 @@ Welcome to FAIR-CLI's documentation!
    :caption: Contents:
 
    develop
-   proposal
+   PROPOSAL
    fair
 
 Indices and tables

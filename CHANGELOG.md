@@ -1,4 +1,4 @@
-# Unreleased
+# 2026-10-03 [v0.10.0](https://github.com/FAIRDataPipeline/FAIR-CLI/releases/tag/v0.10.0)
 
 ## Changed behaviour
 - `fair remote add` takes the remote's token file with `--token FILE`, and prompts for it if omitted.
@@ -25,6 +25,8 @@
 - Substituting a path with backslashes, such as `${{CONFIG_DIR}}` on Windows, failed `fair pull` and `fair run`
   (#267). Variables are now substituted into the configuration's values, so any text is inserted as it is.
 - `fair remote remove` crashed.
+- A ROR or GRID ID the ROR API could not parse (e.g. one containing `!`) crashed with `KeyError`
+  instead of being reported as not found.
 - Run from a subdirectory of a project, commands lost configuration changes and left a stale session
   file, so the next command did not start the registry and `fair registry stop` needed `--force`.
 - Staging ignored the configured local registry and always used port 8000.

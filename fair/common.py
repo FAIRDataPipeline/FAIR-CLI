@@ -19,7 +19,7 @@ Members
     FAIR_FOLDER     - name for FAIR local repository directory
 
 Functions
--------
+---------
     registry_home       - returns the location of the local data registry
     find_fair_root      - returns the closest '.fair' directory in the upper hierarchy
     find_git_root       - returns the closest '.git' directory

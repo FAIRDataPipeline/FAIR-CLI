@@ -9,10 +9,8 @@
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
-#
-# import os
-# import sys
-# sys.path.insert(0, os.path.abspath('.'))
+
+from importlib.metadata import version as _version
 
 
 # -- Project information -----------------------------------------------------
@@ -20,6 +18,10 @@
 project = "FAIR-CLI"
 copyright = "2022, FAIR-CLI Authors"
 author = "FAIR-CLI Authors"
+
+# Taken from the installed package, so the docs match the code they describe
+release = _version("fair-cli")
+version = ".".join(release.split(".")[:2])
 
 
 # -- General configuration ---------------------------------------------------
@@ -29,12 +31,10 @@ author = "FAIR-CLI Authors"
 # ones.
 extensions = [
     "sphinx.ext.autodoc",
+    "sphinx.ext.napoleon",
     "myst_parser",
     "sphinx.ext.githubpages",
 ]
-
-# Add any paths that contain templates here, relative to this directory.
-templates_path = ["_templates"]
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
@@ -49,7 +49,5 @@ exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 #
 html_theme = "sphinx_rtd_theme"
 
-# Add any paths that contain custom static files (such as style sheets) here,
-# relative to this directory. They are copied after the builtin static files,
-# so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ["_static"]
+# Let Markdown links such as [below](#run) point at headings
+myst_heading_anchors = 3
