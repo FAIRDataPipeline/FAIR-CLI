@@ -232,12 +232,16 @@ def _check_generic_ror(id: str) -> typing.Dict:
         logger.debug(f"{_url} Responded with {_response.status_code}")
         return _result_dict
 
-    if _response.json()["number_of_results"] == 0:
+    # A query ROR cannot parse (e.g. one containing "!") still returns 200, with
+    # "errors" in place of results
+    _items = _response.json().get("items")
+    if not _items:
+        logger.debug(f"{_url} returned no results: {_response.json().get('errors')}")
         return _result_dict
 
-    _id = _response.json()["items"][0]["id"]
+    _id = _items[0]["id"]
     # The ROR API lists every name of an organisation, marking the one to show as "ror_display"
-    _names = _response.json()["items"][0]["names"]
+    _names = _items[0]["names"]
     _name = next(
         (n["value"] for n in _names if "ror_display" in n["types"]),
         _names[0]["value"],
