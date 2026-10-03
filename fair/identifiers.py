@@ -251,7 +251,9 @@ def _check_generic_ror(id: str) -> typing.Dict:
 def check_id_permitted(identifier: str, retries: int = 5) -> bool:
     """Check a user provided identifier is permitted
 
-    This ID is expected to be a valid URL
+    This ID is expected to be a valid URL. Permitted means that it
+    resolves: the URL, after any redirects, is served, or it redirects to a
+    page that refuses access (401/403), as a publisher behind a DOI may.
 
     Parameters
     ----------
@@ -274,9 +276,16 @@ def check_id_permitted(identifier: str, retries: int = 5) -> bool:
             headers = {}
             if fake_agent:
                 headers = {"User-Agent": str(UserAgent().chrome)}
-            requests.get(
+            _response = requests.get(
                 identifier, verify=False, allow_redirects=True, headers=headers
-            ).raise_for_status()
+            )
+            # Some publishers answer 403 to any automated request whatever
+            # the user agent, so a refusal reached through a redirect (e.g.
+            # from doi.org) still means the identifier resolved. A 404
+            # anywhere is still rejected.
+            if _response.history and _response.status_code in (401, 403):
+                return True
+            _response.raise_for_status()
             return True
         except (
             requests.exceptions.MissingSchema,

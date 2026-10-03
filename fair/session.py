@@ -542,7 +542,10 @@ class FAIR:
 
         self._session_config.write()
 
-        self._session_config.execute()
+        # A passive run only prepares the job directory, for the model to be
+        # run from it separately
+        if not passive:
+            self._session_config.execute()
 
         self._post_job_breakdown(add_run=True)
 
@@ -754,11 +757,14 @@ class FAIR:
     def remove_remote(self, label: str) -> None:
         """Remove a remote URL from the list of remotes by label"""
         self.check_is_repo()
-        if "registries" not in self._local_config or label not in self._local_config:
+        if (
+            "registries" not in self._local_config
+            or label not in self._local_config["registries"]
+        ):
             raise fdp_exc.CLIConfigurationError(
                 f"No such entry '{label}' in available remotes"
             )
-        del self._local_config[label]
+        del self._local_config["registries"][label]
 
     def modify_remote(self, label: str, url: str) -> None:
         """Update a remote URL for a given remote"""
@@ -1089,7 +1095,8 @@ class FAIR:
             raise fdp_exc.CLIConfigurationError(
                 "Cannot generate user 'config.yaml'",
                 hint="You need to set the remote URL"
-                " by running: \n\n\tfair remote add <url>\n",
+                " by running: \n\n\tfair remote add <url>"
+                " --token <token-file>\n",
             )
 
         with open(output_file_name, encoding="utf-8", mode="w") as f:
@@ -1132,19 +1139,9 @@ class FAIR:
 
         _first_time = not os.path.exists(fdp_com.global_fdpconfig())
 
-        if self._testing:
-            if os.path.exists(_fair_dir):
-                if platform.system() == "Windows":
-                    fdp_com.set_file_permissions(_fair_dir)
-                shutil.rmtree(_fair_dir, onerror=fdp_com.remove_readonly)
-            using = fdp_test.create_configurations(
-                registry,
-                fdp_com.find_git_root(os.getcwd()),
-                os.getcwd(),
-                os.path.join(os.getcwd(), ".fair"),
-            )
-
-        if os.path.exists(_fair_dir) and not self._testing:
+        # Also with --ci: the data store lives in .fair/, and the registry
+        # still holds records pointing into it. 'fair purge' starts afresh.
+        if os.path.exists(_fair_dir):
             if export_as:
                 self._export_cli_configuration(export_as)
                 return
@@ -1152,7 +1149,17 @@ class FAIR:
                 click.echo("FAIR repository is already initialised.")
                 return
 
-        if _existing := fdp_com.find_fair_root(self._session_loc) and not self._testing:
+        if self._testing:
+            using = fdp_test.create_configurations(
+                registry,
+                fdp_com.find_git_root(os.getcwd()),
+                os.getcwd(),
+                os.path.join(os.getcwd(), ".fair"),
+            )
+
+        if (
+            _existing := fdp_com.find_fair_root(self._session_loc)
+        ) and not self._testing:
             click.echo(
                 "A FAIR repository was initialised for this location at"
                 f" '{_existing}'"
@@ -1256,7 +1263,7 @@ class FAIR:
 
     def close_session(self) -> None:
         """Upon exiting, dump all configurations to file"""
-        if not os.path.exists(os.path.join(self._session_loc, fdp_com.FAIR_FOLDER)):
+        if not fdp_com.find_fair_root(self._session_loc):
             return
 
         if self._session_id:
@@ -1266,10 +1273,12 @@ class FAIR:
             )
             os.remove(_cache_addr)
 
-        if os.path.exists(fdp_com.global_config_dir()):
+        if os.path.exists(os.path.dirname(fdp_com.global_fdpconfig())):
             with open(fdp_com.global_fdpconfig(), encoding="utf-8", mode="w") as f:
                 yaml.dump(self._global_config, f)
-        if os.path.exists(os.path.dirname(fdp_com.local_fdpconfig())):
+        if os.path.exists(
+            os.path.dirname(fdp_com.local_fdpconfig(self._session_loc))
+        ):
             with open(
                 fdp_com.local_fdpconfig(self._session_loc), encoding="utf-8", mode="w"
             ) as f:

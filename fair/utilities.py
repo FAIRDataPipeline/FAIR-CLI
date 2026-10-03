@@ -202,9 +202,19 @@ def is_api_url(uri: str, string: str) -> bool:
     _uri = urllib.parse.urlparse(uri)
 
     logger.debug(
-        "Checking if '%s' is a valid API URL against net location '%s'",
+        "Checking if '%s' is a valid API URL against endpoint '%s'",
         string,
-        _uri.netloc,
+        uri,
     )
 
-    return _url.netloc == _uri.netloc
+    if _url.netloc != _uri.netloc:
+        return False
+
+    # The API is served under a path, and a registry serves other things from
+    # the same host - a remote registry's own data store is <domain>/data/ -
+    # so the path has to match too, or a StorageRoot's root is taken for a
+    # reference to another object. An endpoint given as a bare host has no
+    # path to compare, and then the net location is all there is to go on.
+    _api_path = check_trailing_slash(_uri.path) if _uri.path else "/"
+
+    return _url.path.startswith(_api_path)

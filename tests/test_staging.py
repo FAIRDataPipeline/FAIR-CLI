@@ -72,6 +72,47 @@ def test_registry_entry_for_file(
 
 
 @pytest.mark.faircli_staging
+def test_update_staging_uses_configured_registry(
+    stager: fdp_stage.Stager, mocker: pytest_mock.MockerFixture
+):
+    _local_uri = "http://127.0.0.1:8123/api/"
+    with open(fdp_com.global_fdpconfig()) as cfg_f:
+        _global_cfg = yaml.safe_load(cfg_f)
+    _global_cfg["registries"]["local"]["uri"] = _local_uri
+    with open(fdp_com.global_fdpconfig(), "w") as cfg_f:
+        yaml.dump(_global_cfg, cfg_f)
+
+    _listings = {
+        "data_product": [
+            {"namespace": "ns_url", "name": "a/product", "version": "0.1.0"}
+        ],
+        "code_run": [{"uuid": "a-code-run"}],
+    }
+
+    def dummy_get(uri, obj_path, token, **kwargs):
+        if uri != _local_uri:
+            raise fdp_exc.RegistryError("No such registry")
+        return _listings[obj_path]
+
+    def dummy_url_get(url, token):
+        if url != "ns_url":
+            raise fdp_exc.RegistryError(f"Unexpected request for '{url}'")
+        return {"name": "testing"}
+
+    mocker.patch("fair.registry.requests.get", dummy_get)
+    mocker.patch("fair.registry.requests.url_get", dummy_url_get)
+    mocker.patch("fair.registry.requests.local_token", lambda: "")
+
+    stager.update_data_product_staging()
+    stager.update_code_run_staging()
+
+    with open(stager._staging_file) as stage_f:
+        _dict = yaml.safe_load(stage_f)
+    assert _dict["data_product"] == {"testing:a/product@v0.1.0": False}
+    assert _dict["code_run"] == {"a-code-run": False}
+
+
+@pytest.mark.faircli_staging
 def test_get_job_data(
     local_registry,
     stager: fdp_stage.Stager,

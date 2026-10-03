@@ -11,6 +11,7 @@ import glob
 import os
 import shutil
 import sys
+import traceback
 import typing
 import uuid
 import platform
@@ -25,11 +26,17 @@ import requests
 import yaml
 
 import fair.common as fdp_com
+import fair.registry.server
+import fair.session
 import fair.staging
 from fair.cli import cli
 from tests import conftest as conf
 
 LOCAL_REGISTRY_URL = "http://127.0.0.1:8000/api"
+
+# The local_config fixture mocks this; tests run from a subdirectory need the
+# real search upwards for the .fair folder
+_FIND_FAIR_ROOT = fdp_com.find_fair_root
 
 
 @pytest.fixture
@@ -349,6 +356,46 @@ def test_init_local(
 
 
 @pytest.mark.faircli_cli
+def test_init_ci_keeps_existing_repository(
+    local_config: typing.Tuple[str, str],
+    click_test: click.testing.CliRunner,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.chdir(local_config[1])
+    _data_file = os.path.join(
+        local_config[1], fdp_com.FAIR_FOLDER, "data_store", "pulled.csv"
+    )
+    os.makedirs(os.path.dirname(_data_file))
+    with open(_data_file, "w") as data_f:
+        data_f.write("a,b\n1,2\n")
+
+    _result = click_test.invoke(cli, ["init", "--ci"])
+    assert _result.exit_code == 0
+    assert "already initialised" in _result.output
+    with open(_data_file) as data_f:
+        assert data_f.read() == "a,b\n1,2\n"
+
+
+@pytest.mark.faircli_cli
+def test_init_in_subdirectory_names_existing_repository(
+    local_config: typing.Tuple[str, str],
+    click_test: click.testing.CliRunner,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    _subdir = os.path.join(local_config[1], "subdir")
+    os.makedirs(_subdir)
+    monkeypatch.chdir(_subdir)
+
+    _result = click_test.invoke(cli, ["init"], input="n\n")
+    assert _result.exit_code == 0
+    assert f"initialised for this location at '{local_config[1]}'" in (
+        _result.output
+    )
+    assert "Aborted" in _result.output
+    assert not os.path.exists(os.path.join(_subdir, fdp_com.FAIR_FOLDER))
+
+
+@pytest.mark.faircli_cli
 def test_purge(
     local_config: typing.Tuple[str, str],
     click_test: click.testing.CliRunner,
@@ -367,8 +414,109 @@ def test_purge(
     assert not os.path.exists(os.path.join(local_config[1], fdp_com.FAIR_FOLDER))
 
     _result = click_test.invoke(cli, ["purge", "--debug", "--global"], input="Y")
-    assert _result.exit_code == 0
+    assert _result.exit_code == 0, _result.output + "".join(
+        traceback.format_exception(*_result.exc_info)
+    )
     assert not os.path.exists(os.path.join(local_config[0], fdp_com.FAIR_FOLDER))
+
+
+@pytest.mark.faircli_cli
+def test_remote_add(
+    local_config: typing.Tuple[str, str],
+    click_test: click.testing.CliRunner,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+):
+    monkeypatch.chdir(local_config[1])
+    _lconfig_path = os.path.join(
+        local_config[1], fdp_com.FAIR_FOLDER, fdp_com.FAIR_CLI_CONFIG
+    )
+    _token_file = os.path.join(tmp_path, "token")
+    with open(_token_file, "w") as token_f:
+        token_f.write("0123456789012345678901234567890123456789")
+    _url = "http://127.0.0.1:8002/api/"
+
+    _result = click_test.invoke(
+        cli, ["remote", "add", "other", _url, "--token", _token_file]
+    )
+    assert _result.exit_code == 0
+    _registries = yaml.safe_load(open(_lconfig_path))["registries"]
+    assert _registries["other"] == {"uri": _url, "token": _token_file}
+    assert "origin" in _registries
+
+    _result = click_test.invoke(
+        cli, ["remote", "add", "another", _url, "--token", "no-such-file"]
+    )
+    assert _result.exit_code != 0
+    assert "another" not in yaml.safe_load(open(_lconfig_path))["registries"]
+
+
+@pytest.mark.faircli_cli
+def test_remote_remove(
+    local_config: typing.Tuple[str, str],
+    click_test: click.testing.CliRunner,
+    mocker: pytest_mock.MockerFixture,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    mocker.patch("fair.common.find_fair_root", _FIND_FAIR_ROOT)
+    # From a subdirectory, the configuration must still be found and saved
+    _subdir = os.path.join(local_config[1], "subdir")
+    os.makedirs(_subdir)
+    monkeypatch.chdir(_subdir)
+    _lconfig_path = os.path.join(
+        local_config[1], fdp_com.FAIR_FOLDER, fdp_com.FAIR_CLI_CONFIG
+    )
+
+    _result = click_test.invoke(cli, ["remote", "remove", "origin", "--debug"])
+    assert _result.exit_code == 0
+    _registries = yaml.safe_load(open(_lconfig_path))["registries"]
+    assert "origin" not in _registries
+    assert "local" in _registries
+
+    _result = click_test.invoke(cli, ["remote", "remove", "origin", "--debug"])
+    assert _result.exit_code != 0
+
+
+@pytest.mark.faircli_cli
+def test_session_file_removed_from_subdirectory(
+    local_config: typing.Tuple[str, str],
+    mocker: pytest_mock.MockerFixture,
+):
+    mocker.patch("fair.common.registry_home", lambda: local_config[0])
+    mocker.patch("fair.registry.server.launch_server", lambda **kwargs: None)
+    mocker.patch("fair.common.find_fair_root", _FIND_FAIR_ROOT)
+    _subdir = os.path.join(local_config[1], "subdir")
+    os.makedirs(_subdir)
+    _sessions = os.path.join(fdp_com.session_cache_dir(), "*.run")
+
+    with fair.session.FAIR(
+        _subdir, server_mode=fair.registry.server.SwitchMode.CLI
+    ):
+        assert len(glob.glob(_sessions)) == 1
+    # A stale session file would make the next command skip starting the
+    # registry, and 'fair registry stop' refuse without --force
+    assert not glob.glob(_sessions)
+
+
+@pytest.mark.faircli_cli
+@pytest.mark.parametrize("passive", [False, True])
+def test_run_passive_does_not_execute(
+    mocker: pytest_mock.MockerFixture, passive: bool
+):
+    # Only run()'s own control flow is under test, so the session is built
+    # without __init__ and its collaborators are mocked
+    _session = object.__new__(fair.session.FAIR)
+    _session._allow_dirty = False
+    _session._session_config = mocker.MagicMock()
+    mocker.patch.object(_session, "_pre_job_setup")
+    mocker.patch.object(_session, "check_git_repo_state")
+    _breakdown = mocker.patch.object(_session, "_post_job_breakdown")
+
+    _session.run(passive=passive)
+
+    assert _session._session_config.execute.called is not passive
+    _session._session_config.write.assert_called_once()
+    _breakdown.assert_called_once_with(add_run=True)
 
 
 @pytest.mark.faircli_cli

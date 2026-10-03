@@ -93,6 +93,28 @@ SHELLS: typing.Dict[str, str] = {
 }
 
 
+# Apply a function to every string in a configuration's nested dicts and lists,
+# keys included, returning the new structure
+def _map_strings(item: typing.Any, func: typing.Callable) -> typing.Any:
+    if isinstance(item, str):
+        return func(item)
+    if isinstance(item, dict):
+        return {
+            _map_strings(k, func): _map_strings(v, func)
+            for k, v in item.items()
+        }
+    if isinstance(item, list):
+        return [_map_strings(v, func) for v in item]
+    return item
+
+
+# Every string in a configuration's nested dicts and lists, keys included
+def _strings_in(item: typing.Any) -> typing.List[str]:
+    _strings: typing.List[str] = []
+    _map_strings(item, lambda s: _strings.append(s) or s)
+    return _strings
+
+
 class JobConfiguration(MutableMapping):
     _logger = logging.getLogger("FAIRDataPipeline.ConfigYAML")
     _block_types = ("register", "write", "read")
@@ -408,6 +430,15 @@ class JobConfiguration(MutableMapping):
                 f" wildcard '{block_entry[_obj_type]}'"
             ) from e
 
+        # The registry's own filter lets '*' match across '/'
+        _results_local = [
+            result
+            for result in _results_local
+            if fdp_glob.matches_wildcard(
+                block_entry[_obj_type], result[_search_key]
+            )
+        ]
+
         if _obj_type in ("namespace", "author"):
             # If the object is a namespace or an author then there is no
             # additional info in the registry so we can just add the entries
@@ -425,11 +456,25 @@ class JobConfiguration(MutableMapping):
             )
 
         elif _obj_type == "data_product":
-            _version = block_entry.get("version", None)
+            _version = block_entry.get("use", {}).get(
+                "version", block_entry.get("version", None)
+            )
 
             _new_entries = fdp_glob.get_data_product_objects(
                 registry_token, _results_local, block_type, _version
             )
+
+            # A match is written again as the pattern entry describes it
+            # (file_type, description, public), not as its registry row
+            if block_type == "write":
+                for _new_entry in _new_entries:
+                    _new_entry.update(
+                        {
+                            k: v
+                            for k, v in block_entry.items()
+                            if k not in ("data_product", "use")
+                        }
+                    )
 
         if block_type == "write":
             _new_entries.append(block_entry)
@@ -637,7 +682,16 @@ class JobConfiguration(MutableMapping):
                     "not a valid git repository."
                 ) from e
 
-            _url = _git_repo.remotes[_remote].url
+            try:
+                _url = _git_repo.remotes[_remote].url
+            except IndexError as e:
+                raise fdp_exc.FDPRepositoryError(
+                    f"Failed to update job configuration from location '{fair_repo_dir}', "
+                    f"git repository '{_local_repo}' has no remote '{_remote}'.",
+                    hint="Add the remote to the repository, or give "
+                    "'run_metadata: remote_repo:' in the configuration.",
+                ) from e
+
             self["run_metadata.remote_repo"] = _url
 
     def pop(self, key: str, default: typing.Optional[typing.Any] = None) -> typing.Any:
@@ -828,11 +882,14 @@ class JobConfiguration(MutableMapping):
 
         def _tag_check():
             _repo = git.Repo(fdp_conf.local_git_repo(self.local_repository))
-            if len(_repo.tags) < 1:
-                fdp_exc.UserConfigError(
-                    "Cannot use GIT_TAG variable, no git tags found."
-                )
-            return _repo.tags[-1].name
+            # The nearest tag in the history of HEAD, not the last by name
+            try:
+                return _repo.git.describe("--tags", "--abbrev=0")
+            except git.GitCommandError as e:
+                raise fdp_exc.UserConfigError(
+                    "Cannot use GIT_TAG variable, no git tags found "
+                    "in the history of the current commit."
+                ) from e
 
         _substitutes: typing.Dict[str, typing.Callable] = {
             "DATE": lambda: job_time.strftime("%Y%m%d"),
@@ -848,31 +905,19 @@ class JobConfiguration(MutableMapping):
             "GIT_TAG": _tag_check,
         }
 
+        # Substitutions are made in the parsed configuration, never in its
+        # YAML text, so that a value is inserted as it is: a Windows path's
+        # backslashes are neither regular-expression nor YAML escapes
+
         # Additional parser for formatted datetime
-        _regex_dt_fmt = re.compile(r"\$\{\{\s*DATETIME\-[^}${\s]]+\s*\}\}")
         _regex_fmt = re.compile(r"\$\{\{\s*DATETIME\-([^}${\s]+)\s*\}\}")
 
-        _config_str: str = yaml.dump(self._config)
-
-        _dt_fmt_res: typing.Optional[typing.List[str]] = _regex_dt_fmt.findall(
-            _config_str
+        self._config = _map_strings(
+            self._config,
+            lambda s: _regex_fmt.sub(
+                lambda m: job_time.strftime(m.group(1).strip()), s
+            ),
         )
-        _fmt_res: typing.Optional[typing.List[str]] = _regex_fmt.findall(_config_str)
-
-        self._logger.debug(
-            "Found datetime substitutions: %s %s",
-            _dt_fmt_res or "",
-            _fmt_res or "",
-        )
-
-        # The two regex searches should match lengths
-        if len(_dt_fmt_res) != len(_fmt_res):
-            raise fdp_exc.UserConfigError("Failed to parse formatted datetime variable")
-
-        if _dt_fmt_res:
-            for i, _ in enumerate(_dt_fmt_res):
-                _time_str = job_time.strftime(_fmt_res[i].strip())
-                _config_str = _config_str.replace(_dt_fmt_res[i], _time_str)
 
         _regex_dict = {
             var: r"\$\{\{\s*" + f"{var}" + r"\s*\}\}" for var in _substitutes
@@ -881,16 +926,16 @@ class JobConfiguration(MutableMapping):
         # Perform string substitutions
         for var, subst in _regex_dict.items():
             # Only execute functions in var substitutions that are required
-            if re.findall(subst, _config_str):
-                _value = _substitutes[var]()
+            if any(re.search(subst, s) for s in _strings_in(self._config)):
+                _value = str(_substitutes[var]() or "")
                 if not _value:
                     raise fdp_exc.InternalError(
                         f"Expected value for substitution of '{var}' but returned None",
                     )
-                _config_str = re.sub(subst, str(_value), _config_str)
-                self._logger.debug("Substituting %s: %s", var, str(_value))
-
-        self._config = yaml.safe_load(_config_str)
+                self._config = _map_strings(
+                    self._config, lambda s: re.sub(subst, lambda _: _value, s)
+                )
+                self._logger.debug("Substituting %s: %s", var, _value)
 
     def _register_to_read(
         self, register_block: typing.List[typing.Dict]
@@ -1016,16 +1061,18 @@ class JobConfiguration(MutableMapping):
 
             _version = item["use"]["version"]
 
-            if "data_product" not in item["use"]:
-                if "external_object" in item and "*" in item["external_object"]:
-                    _name = item["external_object"]
-                elif "data_product" in item and "*" in item["data_product"]:
-                    _name = item["data_product"]
-                else:
-                    self._logger.warning(f"Missing use:data_product in {item}")
+            if "data_product" in item["use"]:
+                _name = item["use"]["data_product"]
+            elif "external_object" in item and "*" in item["external_object"]:
+                _name = item["external_object"]
+            elif "data_product" in item and "*" in item["data_product"]:
+                _name = item["data_product"]
+            else:
+                self._logger.warning(f"Missing use:data_product in {item}")
                 continue
-
-            _name = item["use"]["data_product"]
+            # Only a wildcard entry lacks this: kept in the write block as the
+            # template for names the model writes that match it
+            _new_item["use"]["data_product"] = _name
             _namespace = item["use"]["namespace"]
 
             # If no ID exists for the namespace then this object has not yet
@@ -1060,6 +1107,13 @@ class JobConfiguration(MutableMapping):
                     )
             except fdp_exc.RegistryError:
                 _results = []
+
+            if "*" in _name:
+                _results = [
+                    result
+                    for result in _results
+                    if fdp_glob.matches_wildcard(_name, result["name"])
+                ]
 
             try:
                 _version = fdp_ver.get_correct_version(
@@ -1186,7 +1240,7 @@ class JobConfiguration(MutableMapping):
     def shell(self) -> str:
         """Retrieve the shell choice"""
         _shell_default = "batch" if platform.system() == "Windows" else "sh"
-        return self.get("shell", _shell_default)
+        return self.get("run_metadata.shell", _shell_default)
 
     @property
     def local_repository(self) -> str:
@@ -1318,11 +1372,18 @@ class JobConfiguration(MutableMapping):
             encoding="utf-8",
         )
 
+        # The job log is UTF-8, but the console may not be (cp1252 on a
+        # Windows runner), and one unencodable character must not stop the run
+        _encoding = sys.stdout.encoding or "utf-8"
+
         # Write any stdout to the job log
         for line in iter(_process.stdout.readline, ""):
             self._log_file.writelines([line])
             _log_tail.append(line)
-            click.echo(line, nl=False)
+            click.echo(
+                line.encode(_encoding, errors="replace").decode(_encoding),
+                nl=False,
+            )
             sys.stdout.flush()
 
         _process.wait()
