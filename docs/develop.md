@@ -228,18 +228,18 @@ namespaces:
   output: testing
 registries:
   local:
-    data_store: /path/to/local/data_store/,
+    data_store: /path/to/local/data_store/
     directory: /local/registry/install/directory
     uri: http://127.0.0.1:8000/api/
   origin:
     data_store: /remote/registry/data/store/path/
     token: /path/to/remote/token
-    uri: https://data.fairdatapipeline.org/api/'
+    uri: https://data.fairdatapipeline.org/api/
 user:
-  email: 'test@noreply',
+  email: 'test@noreply'
   family_name: 'Test'
   given_names: 'Interface'
-  orcid: None,
+  orcid: None
   uuid: '2ddb2358-84bf-43ff-b2aa-3ac7dc3b49f1'
 git:
   local_repo: /local/repo/path

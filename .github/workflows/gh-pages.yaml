@@ -4,6 +4,10 @@ on:
     branches:
     - main
   workflow_dispatch:
+# One deployment at a time; a newer push replaces a queued one
+concurrency:
+  group: pages
+  cancel-in-progress: false
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -18,3 +22,5 @@ jobs:
       uses: sphinx-notes/pages@v3
       with:
         documentation_path: docs
+        # Fail rather than publish docs with broken pages, links or API entries
+        sphinx_build_options: -W --keep-going
