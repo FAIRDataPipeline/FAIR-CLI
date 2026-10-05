@@ -37,6 +37,8 @@
   place of an `identifier`: `fair pull` stopped, reporting that the object already existed.
 - `fair identify` looked at only the newest of a file's storage locations, so it could miss the data
   products of a file the registry records in more than one place.
+- `fair run` could not start the script when the path of the data store, which holds the job
+  directory, had a space in it.
 
 # 2026-10-03 [v0.10.0](https://github.com/FAIRDataPipeline/FAIR-CLI/releases/tag/v0.10.0)
 

@@ -72,24 +72,26 @@ JOB2CLI_MAPPINGS = {
     "run_metadata.write_data_store": "registries.local.data_store",
 }
 
+# The command for each shell is a list of its arguments, so that the path of
+# the script stays one argument when it has a space in it
 SHELLS: typing.Dict[str, str] = {
-    "pwsh": {"exec": "pwsh -command \". '{0}'\"", "extension": "ps1"},
-    "batch": {"exec": "{0}", "extension": "bat"},
+    "pwsh": {"exec": ["pwsh", "-command", ". '{0}'"], "extension": "ps1"},
+    "batch": {"exec": ["{0}"], "extension": "bat"},
     "powershell": {
-        "exec": "powershell -command \". '{0}'\"",
+        "exec": ["powershell", "-command", ". '{0}'"],
         "extension": "ps1",
     },
-    "python2": {"exec": "python2 {0}", "extension": "py"},
-    "python3": {"exec": "python3 {0}", "extension": "py"},
-    "python": {"exec": "python {0}", "extension": "py"},
-    "R": {"exec": "R -f {0}", "extension": "R"},
-    "julia": {"exec": "julia {0}", "extension": "jl"},
+    "python2": {"exec": ["python2", "{0}"], "extension": "py"},
+    "python3": {"exec": ["python3", "{0}"], "extension": "py"},
+    "python": {"exec": ["python", "{0}"], "extension": "py"},
+    "R": {"exec": ["R", "-f", "{0}"], "extension": "R"},
+    "julia": {"exec": ["julia", "{0}"], "extension": "jl"},
     "bash": {
-        "exec": "bash -eo pipefail {0}",
+        "exec": ["bash", "-eo", "pipefail", "{0}"],
         "extension": "sh",
     },
-    "java": {"exec": "java {0}", "extension": "java"},
-    "sh": {"exec": "sh -e {0}", "extension": "sh"},
+    "java": {"exec": ["java", "{0}"], "extension": "java"},
+    "sh": {"exec": ["sh", "-e", "{0}"], "extension": "sh"},
 }
 
 
@@ -1400,14 +1402,16 @@ class JobConfiguration(MutableMapping):
         if not self.env:
             raise fdp_exc.InternalError("Command execution environment setup failed")
 
-        _exec = SHELLS[self.shell]["exec"].format(self.script)
+        _exec = [arg.format(self.script) for arg in SHELLS[self.shell]["exec"]]
 
-        self._logger.debug("Executing command: %s", _exec)
+        self._logger.debug(
+            "Executing command: %s", subprocess.list2cmdline(_exec)
+        )
 
         _log_tail: typing.List[str] = []
 
         _process = subprocess.Popen(
-            _exec.split(),
+            _exec,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             universal_newlines=True,
@@ -1439,7 +1443,7 @@ class JobConfiguration(MutableMapping):
             self.close_log()
             self._logger.error(
                 "Command '%s' failed with exit code %s, log tail:\n\t%s",
-                _exec,
+                subprocess.list2cmdline(_exec),
                 _process.returncode,
                 "\n\t".join(_log_tail),
             )

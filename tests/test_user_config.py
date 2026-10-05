@@ -2,7 +2,9 @@ import datetime
 import fnmatch
 import io
 import os.path
+import platform
 import re
+import shutil
 import sys
 import typing
 
@@ -337,6 +339,58 @@ def test_execute_output_unencodable(
     _stdout.flush()
     assert _stdout.buffer.getvalue() == b"Progress ? done\n"
     assert "\u2305" in _config._log_file.getvalue()
+
+
+# A script for each shell that prints one line, and the shells to try on each
+# kind of machine: what 'sh', 'bash' or 'python3' find on a Windows machine is
+# not the CLI's doing
+_SHELL_SCRIPTS = {
+    "sh": 'echo "fair-ran-it"\n',
+    "bash": 'echo "fair-ran-it"\n',
+    "python3": 'print("fair-ran-it")\n',
+    "julia": 'println("fair-ran-it")\n',
+    "pwsh": 'Write-Output "fair-ran-it"\n',
+    "powershell": 'Write-Output "fair-ran-it"\n',
+    "batch": "@echo fair-ran-it\n",
+}
+_WINDOWS_SHELLS = ("batch", "powershell", "pwsh")
+_OTHER_SHELLS = ("sh", "bash", "python3", "julia", "pwsh")
+
+
+@pytest.mark.faircli_user_config
+@pytest.mark.parametrize("shell", sorted(_SHELL_SCRIPTS))
+def test_execute_script_under_a_path_with_a_space(
+    shell: str, mocker: pytest_mock.MockerFixture, tmp_path
+):
+    _windows = platform.system() == "Windows"
+    if shell not in (_WINDOWS_SHELLS if _windows else _OTHER_SHELLS):
+        pytest.skip(f"Shell '{shell}' is not one for this platform")
+    # 'batch' has no program: the script itself is the command
+    _program = fdp_user.SHELLS[shell]["exec"][0]
+    if shell != "batch" and not shutil.which(_program):
+        pytest.skip(f"Shell '{shell}' is not installed")
+
+    _job_dir = tmp_path / "job dir"
+    _job_dir.mkdir()
+    _script = _job_dir / f"script.{fdp_user.SHELLS[shell]['extension']}"
+    _script.write_text(_SHELL_SCRIPTS[shell])
+    _config = fdp_user.JobConfiguration()
+    _config._config = {
+        "run_metadata": {
+            "local_repo": str(_job_dir),
+            "script_path": str(_script),
+            "shell": shell,
+        }
+    }
+    _config.env = dict(os.environ)
+    _config._log_file = io.StringIO()
+    mocker.patch(
+        "fair.configuration.get_current_user_name", lambda *args: [""]
+    )
+    mocker.patch("fair.configuration.get_current_user_email", lambda *args: "")
+
+    _config.execute()
+    assert "fair-ran-it" in _config._log_file.getvalue()
 
 
 @pytest.mark.faircli_user_config
