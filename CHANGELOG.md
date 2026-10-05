@@ -1,3 +1,20 @@
+# 2026-10-05 [v0.10.2](https://github.com/FAIRDataPipeline/FAIR-CLI/releases/tag/v0.10.2)
+
+## Fixed
+- `fair push` failed, with "Failed to access [] on remote registry", for a data product registered from a web
+  address once a code run had used it, when the local registry was data-registry v1.4.0. The remote records
+  such a file in two places with one hash - where it is stored and where it came from - and the wrong one
+  could be taken.
+- `fair registry install --force` refused an existing install, as it does without `--force`, instead of
+  replacing it.
+- A file that was already registered was not registered again under a second data product name, or in a
+  second namespace: `fair pull` passed over the entry without a word, and a run that read it then failed. An
+  entry is now passed over only when that data product, in that namespace and at that version, already holds
+  the file.
+
+## Development
+- The test of a data product's dependencies allows for any a registry adds; data-registry v1.4.0 adds one.
+
 # 2026-10-05 [v0.10.1](https://github.com/FAIRDataPipeline/FAIR-CLI/releases/tag/v0.10.1)
 
 ## Changed behaviour
