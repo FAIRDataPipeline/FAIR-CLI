@@ -5,6 +5,7 @@ import typing
 import pytest
 import pytest_mock
 
+import fair.exceptions as fdp_exc
 import fair.registry.server as fdp_serv
 
 from . import conftest as conf
@@ -30,6 +31,33 @@ def test_registry_install_uninstall(mocker: pytest_mock.MockerFixture, tmp_path)
     fdp_serv.install_registry(install_dir=reg_dir)
     assert os.path.exists(os.path.join(reg_dir, "db.sqlite3"))
     fdp_serv.uninstall_registry()
+
+
+@pytest.mark.faircli_server
+def test_registry_install_over_existing(
+    mocker: pytest_mock.MockerFixture, tmp_path
+):
+    # An existing install is refused, and with 'force' it is removed before
+    # the new one is cloned. The clone is stopped: nothing after it is at issue
+    class _CloneReached(Exception):
+        pass
+
+    reg_dir = os.path.join(tmp_path, "registry")
+    os.makedirs(reg_dir)
+    _old_file = os.path.join(reg_dir, "db.sqlite3")
+    open(_old_file, "w").close()
+    mocker.patch(
+        "fair.common.global_config_dir", lambda: os.path.join(tmp_path, "cli")
+    )
+    mocker.patch("git.Repo.clone_from", side_effect=_CloneReached)
+
+    with pytest.raises(fdp_exc.RegistryError, match="already installed"):
+        fdp_serv.install_registry(install_dir=reg_dir)
+    assert os.path.exists(_old_file)
+
+    with pytest.raises(_CloneReached):
+        fdp_serv.install_registry(install_dir=reg_dir, force=True)
+    assert not os.path.exists(reg_dir)
 
 
 @pytest.mark.faircli_server

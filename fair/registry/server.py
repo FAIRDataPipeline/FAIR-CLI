@@ -307,7 +307,7 @@ def install_registry(
     if not install_dir:
         install_dir = fdp_com.DEFAULT_REGISTRY_LOCATION
 
-    if os.path.exists(install_dir):
+    if os.path.exists(install_dir) and not force:
         raise fdp_exc.RegistryError(
             f"Local registry is already installed in {install_dir}"
         )
