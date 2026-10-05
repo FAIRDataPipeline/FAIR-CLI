@@ -340,3 +340,28 @@ def test_external_object_names_its_original_store(
     )
     _posted = json.loads(_access.call_args.kwargs["data"])
     assert _posted.get("original_store") == original_store_url
+
+
+@pytest.mark.faircli_storage
+def test_external_object_named_without_an_identifier(
+    mocker: pytest_mock.MockerFixture,
+):
+    # With no identifier, a registry wants a name and what kind of name it is
+    _access = mocker.patch("fair.registry.requests._access")
+    fdp_store._get_url_from_external_obj(
+        data={
+            "title": "A year of ERA5",
+            "primary": False,
+            "release_date": "2026-01-01T00:00:00",
+            "unique_name": "ERA5 monthly means, 1940",
+            "alternate_identifier_type": "extract of a dataset",
+        },
+        local_file="1.0.0.nc",
+        registry_uri=LOCAL_URL,
+        registry_token="",
+        data_product_url=f"{LOCAL_URL}/data_product/1/",
+    )
+    _posted = json.loads(_access.call_args.kwargs["data"])
+    assert _posted["alternate_identifier"] == "ERA5 monthly means, 1940"
+    assert _posted["alternate_identifier_type"] == "extract of a dataset"
+    assert "identifier" not in _posted

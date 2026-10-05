@@ -31,6 +31,8 @@
   it in the temporary directory. Files are now sent and received a block at a time, whatever their
   size, and nothing is left behind.
 - An upload of 2 GiB or more over plain http failed on macOS.
+- An external object could not be registered with a `unique_name` and `alternate_identifier_type` in
+  place of an `identifier`: `fair pull` stopped, reporting that the object already existed.
 - `fair identify` looked at only the newest of a file's storage locations, so it could miss the data
   products of a file the registry records in more than one place.
 

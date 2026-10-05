@@ -753,10 +753,10 @@ def _get_identifier_from_data(data: typing.Dict, label: str) -> typing.Dict[str,
             raise fdp_exc.UserConfigError(
                 f"No identifier/alternate_identifier given for item '{label}'",
                 hint="You must provide either a URL 'identifier', or "
-                "'unique_name' and 'source_name' keys",
+                "'unique_name' and 'alternate_identifier_type' keys",
             ) from e
 
-        _identifier["alternate_identifier"] = data.get(
+        _identifier["alternate_identifier_type"] = data.get(
             "alternate_identifier_type", "local source descriptor"
         )
 
