@@ -863,17 +863,23 @@ def get_dest_object_url(
         raise fdp_exc.RegistryError(
             f"Failed to access {_dest_object_storage_location} on remote registry"
         )
-    _dest_object_storage_location_url = _dest_object_storage_location[0]["url"]
-    _dest_object = fdp_req.get(
-        dest_uri,
-        "object",
-        dest_token,
-        params={
-            "storage_location": fdp_req.get_obj_id_from_url(
-                _dest_object_storage_location_url
-            )
-        },
-    )
+    # The same file may be recorded at more than one location: a registered
+    # file is also recorded at the place it was fetched from, where no object
+    # is stored. The registry may list them in either order
+    _dest_object = []
+    for _location in _dest_object_storage_location:
+        _dest_object = fdp_req.get(
+            dest_uri,
+            "object",
+            dest_token,
+            params={
+                "storage_location": fdp_req.get_obj_id_from_url(
+                    _location["url"]
+                )
+            },
+        )
+        if _dest_object:
+            break
     if not _dest_object:
         raise fdp_exc.RegistryError(
             f"Failed to access {_dest_object} on remote registry"

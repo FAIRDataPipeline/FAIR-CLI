@@ -265,6 +265,44 @@ def test_upload_object_failure(
 
 
 @pytest.mark.faircli_sync
+@pytest.mark.parametrize("fetched_from_first", [True, False])
+def test_dest_object_of_a_file_at_two_locations(
+    mocker: pytest_mock.MockerFixture, fetched_from_first: bool
+):
+    # A registered file has two locations with one hash on the destination:
+    # where it is stored, which an object is at, and where it was fetched
+    # from, which none is. The registry may list them in either order
+    _locations = [
+        {"url": f"{_DEST}storage_location/1/"},
+        {"url": f"{_DEST}storage_location/2/"},
+    ]
+    _stored = _locations[1 if fetched_from_first else 0]
+    mocker.patch(
+        "fair.registry.requests.url_get",
+        lambda *args, **kwargs: {
+            "storage_location": "location",
+            "hash": "abc",
+        },
+    )
+
+    def mock_get(uri, obj_type, *args, params=None, **kwargs):
+        if obj_type == "storage_location":
+            assert params == {"hash": "abc"}
+            return _locations
+        _stored_id = fdp_req.get_obj_id_from_url(_stored["url"])
+        if params["storage_location"] == _stored_id:
+            return [{"url": f"{_DEST}object/7/"}]
+        return []
+
+    mocker.patch("fair.registry.requests.get", mock_get)
+
+    assert (
+        fdp_sync.get_dest_object_url("object", _DEST, "", "")
+        == f"{_DEST}object/7/"
+    )
+
+
+@pytest.mark.faircli_sync
 @pytest.mark.dependency(name="init")
 def test_init(
     global_config,
