@@ -19,6 +19,9 @@
   the file.
 - `fair push` and `fair pull` left out a data product that shares its external object with another, as
   data-registry v1.4.0 allows, while reporting it synchronised: its file was moved and its record was not made.
+- Starting the local registry reported success when another registry already held its port, and the commands
+  that followed went to that one. The start now fails, naming the address: the server that answers there
+  must accept the installed registry's token.
 
 ## Development
 - The test of a data product's dependencies allows for any a registry adds; data-registry v1.4.0 adds one.

@@ -94,6 +94,15 @@ def check_server_running(local_uri: str = None) -> bool:
         return False
 
 
+# Whether the server at a registry endpoint is the registry a token belongs
+# to: a registry refuses a token that is not its own
+def _accepts_token(uri: str, token: str) -> bool:
+    _response = requests.get(
+        f"{uri}users/", headers={"Authorization": f"token {token}"}
+    )
+    return _response.status_code not in (401, 403)
+
+
 def launch_server(
     port: int = 8000,
     registry_dir: str = None,
@@ -151,6 +160,18 @@ def launch_server(
     if not check_server_running(local_uri):
         raise fdp_exc.RegistryError(
             "Failed to start local registry, no response from server"
+        )
+
+    # A response does not show that this registry started: another one that
+    # holds the port answers too, while this one stops for want of it, and
+    # the start script's status does not tell the two apart
+    if not _accepts_token(local_uri, fdp_req.local_token(registry_dir)):
+        raise fdp_exc.RegistryError(
+            f"Failed to start local registry: the server at '{local_uri}' "
+            f"is not the one installed in '{registry_dir}', as it refuses "
+            "that registry's token",
+            hint="Another server may hold the port: stop it, or start this "
+            "registry on another port with 'fair registry start --port'",
         )
 
 

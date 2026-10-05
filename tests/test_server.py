@@ -61,6 +61,58 @@ def test_registry_install_over_existing(
 
 
 @pytest.mark.faircli_server
+def test_registry_refuses_another_token(local_registry: conf.RegistryTest):
+    # What tells a registry from another that answers at its address
+    with local_registry:
+        assert fdp_serv._accepts_token(
+            local_registry._url, local_registry._token
+        )
+        assert not fdp_serv._accepts_token(local_registry._url, "0" * 40)
+
+
+@pytest.mark.faircli_server
+@pytest.mark.parametrize("status", (200, 403))
+def test_launch_server_with_another_on_its_port(
+    local_config: typing.Tuple[str, str],
+    mocker: pytest_mock.MockerFixture,
+    tmp_path,
+    status: int,
+):
+    # Another registry that holds the port answers in place of the one being
+    # started, and refuses its token (403); the start script succeeds either
+    # way. The script is not run here: the answers are what is at issue
+    reg_dir = os.path.join(tmp_path, "registry")
+    os.makedirs(os.path.join(reg_dir, "scripts"))
+    for _file, _text in (
+        (os.path.join("scripts", "start_fair_registry"), ""),
+        (os.path.join("scripts", "start_fair_registry_windows.bat"), ""),
+        ("session_port.log", "8000"),
+        ("session_address.log", "127.0.0.1"),
+        ("token", "this-registrys-token"),
+    ):
+        with open(os.path.join(reg_dir, _file), "w") as out_f:
+            out_f.write(_text)
+    mocker.patch.dict(os.environ)
+    mocker.patch("subprocess.Popen")
+
+    def _answer(url, headers=None):
+        # Any registry answers a request that carries no token
+        return mocker.Mock(status_code=status if headers else 200)
+
+    _get = mocker.patch("requests.get", side_effect=_answer)
+
+    if status == 200:
+        fdp_serv.launch_server(registry_dir=reg_dir)
+    else:
+        with pytest.raises(fdp_exc.RegistryError, match="refuses that"):
+            fdp_serv.launch_server(registry_dir=reg_dir)
+    assert _get.call_args == mocker.call(
+        "http://127.0.0.1:8000/api/users/",
+        headers={"Authorization": "token this-registrys-token"},
+    )
+
+
+@pytest.mark.faircli_server
 def test_launch_stop_server(
     local_config: typing.Tuple[str, str], mocker: pytest_mock.MockerFixture, tmp_path
 ):
