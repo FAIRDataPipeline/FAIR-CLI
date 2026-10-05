@@ -9,6 +9,11 @@
   to ignore a version on a `read:`. A `read:` pattern that matches nothing is not an error.
 - `fair run` refuses a `read:` of a data product, or of a version of one, that is not in the registry,
   naming the namespace and registry it looked in. Such a read used to pass unchecked, or as version 0.0.0.
+- `fair push` fails if a file cannot be uploaded. It used to warn and carry on, leaving the remote with
+  the file's records and no file. A file is now uploaded before its records are written, so a push that
+  failed can be run again.
+- `fair pull` checks each file it fetches against the hash the remote registry holds for it, and refuses
+  one that differs.
 
 ## Fixed
 - `fair push` sent no value that was false, leaving the remote to apply its default: an external object
@@ -17,6 +22,10 @@
   wrong, with no message, in a registry holding more.
 - `fair pull` looked for the version of a `read:` entry in the local registry only, so an entry at the
   default version, for something not yet local, asked the remote for version 0.0.0 and failed.
+- `fair push` held each file whole in memory, `fair pull` more than twice over, and both left a copy of
+  it in the temporary directory. Files are now sent and received a block at a time, whatever their
+  size, and nothing is left behind.
+- An upload of 2 GiB or more over plain http failed on macOS.
 
 # 2026-10-03 [v0.10.0](https://github.com/FAIRDataPipeline/FAIR-CLI/releases/tag/v0.10.0)
 

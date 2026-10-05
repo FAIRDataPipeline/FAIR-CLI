@@ -1,12 +1,15 @@
+import hashlib
 import json
 import os
 import pathlib
+import tempfile
 
 import click.testing
 import pytest
 import pytest_mock
 import yaml
 
+import fair.exceptions as fdp_exc
 import fair.registry.requests as fdp_req
 import fair.registry.sync as fdp_sync
 from fair.cli import cli
@@ -32,41 +35,34 @@ def test_pull_download(file_server: str):
     assert open(_file).read() == "a,b\n1,2\n"
 
 
+# The file the file_server fixture serves as data.csv
+_SERVED = b"a,b\n1,2\n"
+
+
 @pytest.mark.faircli_sync
+@pytest.mark.parametrize(
+    "recorded", [hashlib.sha1(_SERVED).hexdigest(), "0" * 40]
+)
 def test_fetch_data_product(
-    mocker: pytest_mock.MockerFixture, tmp_path, file_server: str
+    mocker: pytest_mock.MockerFixture,
+    tmp_path,
+    file_server: str,
+    recorded: str,
 ):
 
     tempd = os.path.join(tmp_path, "store")
     _dummy_data_product_name = "test"
     _dummy_data_product_version = "2.3.0"
     _dummy_data_product_namespace = "testing"
-
-    def mock_get(url, obj, *args, **kwargs):
-        if obj == "storage_location":
-            return [
-                {
-                    "path": "/this/is/a/dummy/path",
-                    "storage_root": "https://dummyurl/",
-                }
-            ]
-        elif obj == "storage_root":
-            return [{"root": "https://fake/root/"}]
-        elif obj == "namespace":
-            return [{"name": _dummy_data_product_namespace, "url": "namespace"}]
-        elif obj == "data_product":
-            return [
-                {
-                    "data_product": _dummy_data_product_name,
-                    "version": _dummy_data_product_version,
-                    "namespace": "namespace",
-                }
-            ]
+    _temp_dir = tmp_path / "temp"
+    _temp_dir.mkdir()
+    mocker.patch.object(tempfile, "tempdir", str(_temp_dir))
 
     def mock_url_get(url, *args, **kwargs):
         if "storage_location" in url:
             return {
                 "path": "data.csv",
+                "hash": recorded,
                 "storage_root": "storage_root",
             }
         elif "storage_root" in url:
@@ -82,7 +78,6 @@ def test_fetch_data_product(
                 "url": "object",
             }
 
-    mocker.patch("fair.registry.requests.get", mock_get)
     mocker.patch("fair.registry.requests.url_get", mock_url_get)
     _example_data_product = {
         "version": _dummy_data_product_version,
@@ -90,11 +85,21 @@ def test_fetch_data_product(
         "name": _dummy_data_product_name,
         "object": "object",
     }
-    fdp_sync.fetch_data_product("", tempd, _example_data_product)
     _out_file = os.path.join(
         tempd, _dummy_data_product_namespace, _dummy_data_product_name, "2.3.0"
     )
-    assert open(_out_file).read() == "a,b\n1,2\n"
+    if recorded == hashlib.sha1(_SERVED).hexdigest():
+        fdp_sync.fetch_data_product("", tempd, _example_data_product)
+        assert open(_out_file, "rb").read() == _SERVED
+    else:
+        # Not the file the registry describes, so not kept as it
+        with pytest.raises(
+            fdp_exc.SynchronisationError, match="was not fetched"
+        ):
+            fdp_sync.fetch_data_product("", tempd, _example_data_product)
+        assert not os.path.exists(_out_file)
+    # Moved into the data store, or removed: either way not left behind
+    assert not os.listdir(_temp_dir)
 
 
 @pytest.mark.faircli_sync
@@ -142,6 +147,122 @@ def test_sync_data_products_fetches_the_data_product(
     )
 
     _fetch.assert_called_once_with("", "/data/store", _data_product)
+
+
+@pytest.mark.faircli_sync
+@pytest.mark.parametrize("local_data_store", [None, "/data/store"])
+def test_file_moves_before_its_records(
+    mocker: pytest_mock.MockerFixture, local_data_store
+):
+    """A failure to move the file must leave no record for a retry to find"""
+    _data_product = {
+        "url": "data_product_url",
+        "name": "test",
+        "version": "1.0.0",
+        "namespace": "namespace",
+        "object": "object",
+        "external_object": None,
+    }
+    _moved = []
+
+    def mock_get(uri, obj, *args, **kwargs):
+        if obj == "namespace":
+            return [{"url": "http://example/api/namespace/1/"}]
+        elif obj == "data_product":
+            # Nothing on the destination, one match on the origin
+            return [] if uri == "dest" else [_data_product]
+
+    def mock_url_get(url, *args, **kwargs):
+        if url == "object":
+            return {
+                "url": "object",
+                "storage_location": "location",
+                "components": [],
+            }
+        return {"public": True}
+
+    mocker.patch("fair.registry.requests.get", mock_get)
+    mocker.patch("fair.registry.requests.url_get", mock_url_get)
+    mocker.patch(
+        "fair.registry.sync.sync_dependency_chain",
+        lambda **kwargs: _moved.append("records"),
+    )
+    for _mover in ("fetch_data_product", "upload_object"):
+        mocker.patch(
+            f"fair.registry.sync.{_mover}",
+            lambda *args, _mover=_mover: _moved.append(_mover),
+        )
+
+    fdp_sync.sync_data_products(
+        origin_uri="origin",
+        dest_uri="dest",
+        dest_token="",
+        origin_token="",
+        remote_label="origin",
+        data_products=["testing:test@v1.0.0"],
+        local_data_store=local_data_store,
+    )
+
+    _mover = "fetch_data_product" if local_data_store else "upload_object"
+    assert _moved == [_mover, "records"]
+
+
+# An object in the local registry whose file is under the given storage root
+def _mock_object(mocker: pytest_mock.MockerFixture, root: str):
+    def mock_url_get(url, *args, **kwargs):
+        if url == "object":
+            return {
+                "storage_location": "location",
+                "description": "A csv file",
+            }
+        elif url == "location":
+            return {"path": "testing/data/abc123.csv", "storage_root": "root"}
+        return {"root": root}
+
+    mocker.patch("fair.registry.requests.url_get", mock_url_get)
+
+
+@pytest.mark.faircli_sync
+def test_upload_object_from_where_it_is(
+    mocker: pytest_mock.MockerFixture, tmp_path
+):
+    # A file on this machine is uploaded as it stands, with no copy made
+    _mock_object(mocker, f"file://{tmp_path}{os.path.sep}")
+    mocker.patch(
+        "fair.registry.sync.download_from_registry",
+        side_effect=AssertionError("a local file was fetched"),
+    )
+    _upload = mocker.patch("fair.registry.storage.upload_remote_file")
+
+    assert fdp_sync.upload_object(_ORIGIN, _DEST, "", "", "object")
+    _upload.assert_called_once_with(
+        f"{tmp_path}{os.path.sep}testing/data/abc123.csv", _DEST, ""
+    )
+
+
+@pytest.mark.faircli_sync
+@pytest.mark.parametrize("local", [True, False])
+def test_upload_object_failure(
+    mocker: pytest_mock.MockerFixture, tmp_path, local: bool
+):
+    # A file that was not uploaded is an error, not a warning; and one that
+    # was fetched to be uploaded is not left behind
+    _fetched = tmp_path / "fetched"
+    _fetched.write_bytes(_SERVED)
+    _mock_object(
+        mocker, f"file://{tmp_path}/" if local else "https://example.org/"
+    )
+    mocker.patch(
+        "fair.registry.sync.download_from_registry", return_value=str(_fetched)
+    )
+    mocker.patch(
+        "fair.registry.storage.upload_remote_file",
+        side_effect=fdp_exc.RegistryError("Registry Returned: 403"),
+    )
+
+    with pytest.raises(fdp_exc.SynchronisationError, match="was not uploaded"):
+        fdp_sync.upload_object(_ORIGIN, _DEST, "", "", "object")
+    assert _fetched.exists() is local
 
 
 @pytest.mark.faircli_sync

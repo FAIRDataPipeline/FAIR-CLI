@@ -1,5 +1,6 @@
 import json
 import os
+import tempfile
 
 import pytest
 import pytest_mock
@@ -326,6 +327,71 @@ def test_download_http_error(file_server: str):
         fdp_req.download_file(f"{file_server}missing.csv")
     with pytest.raises(fdp_exc.UserConfigError, match="status code 404"):
         fdp_sync.download_from_registry("", file_server, "missing.csv")
+
+
+@pytest.mark.faircli_requests
+def test_download_is_streamed(mocker: pytest_mock.MockerFixture):
+    # A file is written as it arrives; the whole of it is never held
+    _response = mocker.Mock(status_code=200)
+    _response.iter_content.return_value = iter([b"a,b\n", b"1,2\n"])
+    type(_response).content = mocker.PropertyMock(
+        side_effect=AssertionError("the whole body was asked for")
+    )
+    _get = mocker.patch("requests.get", return_value=_response)
+
+    _out_file = fdp_req.download_file("http://example.org/data.csv")
+
+    with open(_out_file, "rb") as out_f:
+        assert out_f.read() == b"a,b\n1,2\n"
+    assert _get.call_args.kwargs["stream"] is True
+    os.remove(_out_file)
+
+
+@pytest.mark.faircli_requests
+def test_failed_download_leaves_no_file(
+    file_server: str, mocker: pytest_mock.MockerFixture, tmp_path
+):
+    _temp_dir = tmp_path / "temp"
+    _temp_dir.mkdir()
+    mocker.patch.object(tempfile, "tempdir", str(_temp_dir))
+
+    with pytest.raises(requests.HTTPError):
+        fdp_req.download_file(f"{file_server}missing.csv")
+    assert not os.listdir(_temp_dir)
+
+    # A file that stops arriving part of the way through
+    _response = mocker.Mock(status_code=200)
+    _response.iter_content.side_effect = (
+        requests.exceptions.ChunkedEncodingError
+    )
+    mocker.patch("requests.get", return_value=_response)
+    with pytest.raises(
+        fdp_exc.FAIRCLIException, match="Failed to download all"
+    ):
+        fdp_req.download_file("http://example.org/data.csv")
+    assert not os.listdir(_temp_dir)
+
+
+@pytest.mark.faircli_requests
+@pytest.mark.parametrize("content", [b"a,b\n1,2\n", b""])
+def test_put_file_sends_the_open_file(
+    mocker: pytest_mock.MockerFixture, tmp_path, content: bytes
+):
+    # Sent from the open file, not read into memory first; an empty file is
+    # sent as no bytes, so that its length is stated
+    _file = tmp_path / "data.csv"
+    _file.write_bytes(content)
+    _sent = {}
+
+    def dummy_put(session, url, data=None, **kwargs):
+        _sent["from_file"] = hasattr(data, "read")
+        _sent["data"] = data.read() if _sent["from_file"] else data
+        return mocker.Mock(status_code=200)
+
+    mocker.patch("requests.Session.put", dummy_put)
+
+    assert fdp_req.put_file("http://example.org/upload", str(_file))
+    assert _sent == {"from_file": bool(content), "data": content}
 
 
 @pytest.mark.faircli_requests
