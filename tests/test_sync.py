@@ -1,3 +1,4 @@
+import json
 import os
 import pathlib
 
@@ -6,6 +7,7 @@ import pytest
 import pytest_mock
 import yaml
 
+import fair.registry.requests as fdp_req
 import fair.registry.sync as fdp_sync
 from fair.cli import cli
 from fair.registry.requests import get
@@ -13,6 +15,9 @@ from tests.conftest import RegistryTest
 from tests.conftest import MotoTestServer
 import fair.common as fdp_com
 import fair.testing as fdp_test
+
+# The function itself, for a test that needs it where a fixture has mocked it
+_POST_ELSE_GET = fdp_req.post_else_get
 
 REPO_ROOT = pathlib.Path(os.path.dirname(__file__)).parent
 PULL_TEST_CFG = os.path.join(os.path.dirname(__file__), "data", "test_pull_config.yaml")
@@ -478,6 +483,55 @@ def test_push_storage_location(push_mocks, root_url: str, remapped: bool):
     else:
         assert _posted["path"] == "testing/output/abc123.csv"
         assert _posted["storage_root"] == _dest_root
+
+
+@pytest.mark.faircli_sync
+@pytest.mark.parametrize(
+    "obj_type,record,key",
+    [
+        (
+            "external_object",
+            {"title": "An extract", "primary_not_supplement": False},
+            "primary_not_supplement",
+        ),
+        (
+            "storage_location",
+            {
+                "path": "testing/output/abc123.csv",
+                "hash": "abc123",
+                "public": False,
+                "storage_root": f"{_ORIGIN}storage_root/2/",
+            },
+            "public",
+        ),
+    ],
+)
+def test_push_keeps_false_values(
+    push_mocks,
+    mocker: pytest_mock.MockerFixture,
+    obj_type: str,
+    record,
+    key: str,
+):
+    # What is false in the local registry is sent as false. Left out, the
+    # remote would apply its own default, which for both of these is true
+    mocker.patch("fair.registry.requests.post_else_get", _POST_ELSE_GET)
+    _access = mocker.patch(
+        "fair.registry.requests._access",
+        return_value={"url": f"{_DEST}{obj_type}/1/"},
+    )
+    fdp_sync._get_new_url(
+        origin_uri=_ORIGIN,
+        origin_token="",
+        dest_uri=_DEST,
+        dest_token="",
+        object_url=f"{_ORIGIN}{obj_type}/9/",
+        new_urls={f"{_ORIGIN}storage_root/2/": f"{_DEST}storage_root/7/"},
+        writable_data=record,
+        object_data=record,
+        public=False,
+    )
+    assert json.loads(_access.call_args.kwargs["data"])[key] is False
 
 
 @pytest.mark.faircli_sync

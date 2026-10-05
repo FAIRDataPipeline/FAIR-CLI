@@ -1,3 +1,4 @@
+import json
 import os
 
 import pytest
@@ -43,6 +44,91 @@ def test_request_error_registy_not_running():
     with pytest.raises(Exception) as e_info:
         fdp_req._access(LOCAL_URL)
         assert e_info.match(r"^Failed to make registry API request.*")
+
+
+@pytest.mark.faircli_requests
+def test_post_keeps_false_values(mocker: pytest_mock.MockerFixture):
+    # False and 0 are values. Only what is empty is left out of a post, for
+    # the registry to fill with its default
+    _access = mocker.patch("fair.registry.requests._access")
+    fdp_req.post(
+        LOCAL_URL,
+        "storage_location",
+        "",
+        data={
+            "path": "a/b.csv",
+            "public": False,
+            "severity": 0,
+            "description": "",
+            "website": None,
+            "authors": [],
+        },
+    )
+    assert json.loads(_access.call_args.kwargs["data"]) == {
+        "path": "a/b.csv",
+        "public": False,
+        "severity": 0,
+    }
+
+
+@pytest.mark.faircli_requests
+def test_get_follows_pages(mocker: pytest_mock.MockerFixture):
+    # A registry lists a page at a time, giving with each the address of the
+    # next - here an address it could not be reached at
+    _elsewhere = "http://registry.internal/api/data_product/?name=a%2F%2A"
+    _pages = {
+        None: {"next": f"{_elsewhere}&cursor=p2", "results": [5, 4]},
+        "p2": {"next": f"{_elsewhere}&cursor=p3", "results": [3, 2]},
+        "p3": {"next": None, "results": [1]},
+    }
+    _requests = []
+
+    def dummy_get(url, headers=None, params=None):
+        _requests.append((url, dict(params)))
+        _response = mocker.Mock(status_code=200)
+        _response.json.return_value = _pages[params.get("cursor")]
+        return _response
+
+    mocker.patch("requests.get", dummy_get)
+
+    assert fdp_req.get(
+        LOCAL_URL, "data_product", "", params={"name": "a/*"}
+    ) == [
+        5,
+        4,
+        3,
+        2,
+        1,
+    ]
+    # Every page is asked of the registry where it was reached, with the
+    # search as it was and the cursor the registry gave
+    assert _requests == [
+        (f"{LOCAL_URL}/data_product/", {"name": "a/*"}),
+        (f"{LOCAL_URL}/data_product/", {"name": "a/*", "cursor": "p2"}),
+        (f"{LOCAL_URL}/data_product/", {"name": "a/*", "cursor": "p3"}),
+    ]
+
+
+@pytest.mark.faircli_requests
+def test_get_fails_on_a_broken_page(mocker: pytest_mock.MockerFixture):
+    # Part of a list must not pass for the whole of it
+    _pages = {
+        None: {"next": f"{LOCAL_URL}/data_product/?cursor=p2", "results": [2]},
+        "p2": {"detail": "Invalid cursor"},
+    }
+
+    def dummy_get(url, headers=None, params=None):
+        _response = mocker.Mock(
+            status_code=404 if params.get("cursor") else 200
+        )
+        _response.json.return_value = _pages[params.get("cursor")]
+        return _response
+
+    mocker.patch("requests.get", dummy_get)
+
+    with pytest.raises(fdp_exc.RegistryAPICallError) as _error:
+        fdp_req.get(LOCAL_URL, "data_product", "")
+    assert _error.value.error_code == 404
 
 
 @pytest.mark.faircli_requests
