@@ -1,4 +1,5 @@
 import datetime
+import fnmatch
 import io
 import os.path
 import re
@@ -12,6 +13,7 @@ import yaml
 
 import fair.common as fdp_com
 import fair.exceptions as fdp_exc
+import fair.registry.requests as fdp_req
 import fair.user_config as fdp_user
 import fair.user_config.globbing as fdp_glob
 import fair.user_config.validation as fdp_valid
@@ -83,6 +85,22 @@ def test_preparation(
         make_config.write(os.path.join(_out_dir, "out.yaml"))
 
 
+# The namespace holding the data products a pattern matches in a registry: a
+# pattern stands for names in one namespace
+def _namespace_of_matches(registry: conf.RegistryTest, pattern: str) -> str:
+    _matches = [
+        product
+        for product in fdp_req.get(
+            registry._url,
+            "data_product",
+            registry._token,
+            params={"name": pattern},
+        )
+        if fdp_glob.matches_wildcard(pattern, product["name"])
+    ]
+    return fdp_req.url_get(_matches[0]["namespace"], registry._token)["name"]
+
+
 @pytest.mark.faircli_user_config
 def test_wildcard_unpack_local(
     local_config: typing.Tuple[str, str],
@@ -105,13 +123,14 @@ def test_wildcard_unpack_local(
         _out_dir = os.path.join(conf.TEST_OUT_DIR, "test_wildcard_unpack_local")
         os.makedirs(_out_dir, exist_ok=True)
 
-        _namespace, _path, _ = _example_entries[0]
+        _, _path, _ = _example_entries[0]
 
         _split_key = _path.split("/")[-1]
 
         # Each '*' matches one segment of a name; the example data products
-        # have several names two segments below this one
+        # have several names two segments below this one, in one namespace
         _wildcard_path = _path.split(_split_key)[0] + "*/*"
+        _namespace = _namespace_of_matches(local_registry, _wildcard_path)
 
         with open(TEST_CONFIG_WC) as cfg_file:
             _cfg_str = cfg_file.read()
@@ -132,6 +151,7 @@ def test_wildcard_unpack_local(
         assert len(_config["read"]) > 1
         assert all(
             fdp_glob.matches_wildcard(_wildcard_path, entry["data_product"])
+            and entry["use"]["namespace"] == _namespace
             for entry in _config["read"]
         )
 
@@ -165,13 +185,14 @@ def test_wildcard_unpack_remote(
         _out_dir = os.path.join(conf.TEST_OUT_DIR, "test_wildcard_unpack_remote")
         os.makedirs(_out_dir, exist_ok=True)
 
-        _namespace, _path, _ = _example_entries[0]
+        _, _path, _ = _example_entries[0]
 
         _split_key = _path.split("/")[-1]
 
         # Each '*' matches one segment of a name; the example data products
-        # have several names two segments below this one
+        # have several names two segments below this one, in one namespace
         _wildcard_path = _path.split(_split_key)[0] + "*/*"
+        _namespace = _namespace_of_matches(remote_registry, _wildcard_path)
 
         with open(TEST_CONFIG_WC) as cfg_file:
             _cfg_str = cfg_file.read()
@@ -197,6 +218,7 @@ def test_wildcard_unpack_remote(
         assert len(_config["read"]) > 1
         assert all(
             fdp_glob.matches_wildcard(_wildcard_path, entry["data_product"])
+            and entry["use"]["namespace"] == _namespace
             for entry in _config["read"]
         )
 
@@ -466,3 +488,316 @@ def test_wildcard_write(mocker: pytest_mock.MockerFixture):
         assert entry["file_type"] == "csv"
         assert entry["description"] == "A csv file"
         assert entry["public"] is True
+
+
+_LOCAL = "http://127.0.0.1:8000/api/"
+_REMOTE = "http://127.0.0.1:8001/api/"
+
+
+# Stand in for registries holding only namespaces and data products, each
+# registry given as (namespace, name, version) of its data products, newest
+# last. Answers as a registry does: rows whole, newest first, a name filter
+# in which '*' also matches '/', and a namespace filter by id.
+def _mock_registries(
+    mocker: pytest_mock.MockerFixture,
+    registries: typing.Dict[str, typing.List[typing.Tuple[str, str, str]]],
+    namespaces: typing.Dict[str, typing.List[str]] = None,
+):
+    _namespaces = {
+        uri: list(
+            dict.fromkeys(
+                (namespaces or {}).get(uri, []) + [p[0] for p in products]
+            )
+        )
+        for uri, products in registries.items()
+    }
+
+    def _namespace_url(uri: str, namespace: str) -> str:
+        return f"{uri}namespace/{_namespaces[uri].index(namespace) + 1}/"
+
+    def dummy_get(uri, obj_path, token, params=None, **kwargs):
+        params = params or {}
+        if obj_path == "namespace":
+            return [
+                {"url": _namespace_url(uri, name), "name": name}
+                for name in _namespaces[uri]
+                if fnmatch.fnmatchcase(name, params.get("name", "*"))
+            ]
+        assert obj_path == "data_product"
+        return [
+            {
+                "url": f"{uri}data_product/{_n + 1}/",
+                "name": _name,
+                "version": _version,
+                "namespace": _namespace_url(uri, _namespace),
+                "object": f"{uri}object/{_n + 1}/",
+                "ro_crate": f"{uri}ro-crate/data-product/{_n + 1}/",
+                "prov_report": f"{uri}prov-report/{_n + 1}/",
+                "external_object": None,
+                "internal_format": False,
+                "last_updated": "2026-10-05T10:00:00Z",
+                "updated_by": f"{uri}users/1/",
+            }
+            for _n, (_namespace, _name, _version) in reversed(
+                list(enumerate(registries[uri]))
+            )
+            if fnmatch.fnmatchcase(_name, params.get("name", "*"))
+            and int(
+                params.get("namespace", _namespaces[uri].index(_namespace) + 1)
+            )
+            == _namespaces[uri].index(_namespace) + 1
+            and params.get("version", _version) == _version
+        ]
+
+    def dummy_url_get(url, token=None):
+        _uri, _, _id = url.rstrip("/").rpartition("namespace/")
+        return {"url": url, "name": _namespaces[_uri][int(_id) - 1]}
+
+    mocker.patch("fair.registry.requests.get", dummy_get)
+    mocker.patch("fair.registry.requests.url_get", dummy_url_get)
+    mocker.patch("fair.registry.requests.local_token", lambda: "")
+
+
+# The working config's read or write block, made as prepare() makes it
+def _prepared_block(
+    block_type: str,
+    entries: typing.List[typing.Dict],
+    remote_uri: str = None,
+) -> typing.List[typing.Dict]:
+    _config = fdp_user.JobConfiguration()
+    _config._config = {
+        "run_metadata": {
+            "local_data_registry_url": _LOCAL,
+            "default_input_namespace": "testing",
+            "default_output_namespace": "testing",
+        },
+        block_type: entries,
+    }
+    _config._update_namespaces()
+    _config._fill_all_block_types()
+    _config._expand_wildcards(remote_uri or _LOCAL, "")
+    _config[block_type] = _config._fill_versions(block_type, remote_uri, "")
+    if block_type == "read":
+        _config["read"] = _config._update_use_sections(_config["read"])
+    # A block left with nothing in it is left out
+    _block = _config._clean().get(block_type, [])
+    for entry in _block:
+        if block_type == "read":
+            fdp_valid.DataProduct(**entry)
+        else:
+            fdp_valid.DataProductWrite(**entry)
+    return _block
+
+
+def _used(block: typing.List[typing.Dict]) -> typing.List[typing.Tuple]:
+    return [
+        (
+            entry["use"]["namespace"],
+            entry["use"]["data_product"],
+            entry["use"]["version"],
+        )
+        for entry in block
+    ]
+
+
+# One family in two namespaces: in 'testing' a name at two versions, and a
+# name a segment too deep to match
+_FAMILY = [
+    ("testing", "fetched/era5/1940", "0.0.1"),
+    ("other", "fetched/era5/1940", "9.0.0"),
+    ("testing", "fetched/era5/1941", "0.0.1"),
+    ("other", "fetched/era5/1999", "1.0.0"),
+    ("testing", "fetched/era5/monthly/1940", "0.0.1"),
+    ("testing", "fetched/era5/1940", "0.0.2"),
+]
+
+
+@pytest.mark.faircli_user_config
+@pytest.mark.parametrize(
+    "use,expected",
+    [
+        # In its namespace only, and the highest version of each name
+        (
+            {},
+            [
+                ("testing", "fetched/era5/1940", "0.0.2"),
+                ("testing", "fetched/era5/1941", "0.0.1"),
+            ],
+        ),
+        (
+            {"namespace": "other"},
+            [
+                ("other", "fetched/era5/1999", "1.0.0"),
+                ("other", "fetched/era5/1940", "9.0.0"),
+            ],
+        ),
+        # A version given is the version read, of each name that has it
+        (
+            {"version": "0.0.1"},
+            [
+                ("testing", "fetched/era5/1941", "0.0.1"),
+                ("testing", "fetched/era5/1940", "0.0.1"),
+            ],
+        ),
+        ({"version": "0.0.2"}, [("testing", "fetched/era5/1940", "0.0.2")]),
+        (
+            {"version": "${{LATEST}}", "namespace": "other"},
+            [
+                ("other", "fetched/era5/1999", "1.0.0"),
+                ("other", "fetched/era5/1940", "9.0.0"),
+            ],
+        ),
+        # A pattern asks for whatever matches it, which may be nothing
+        ({"version": "3.0.0"}, []),
+        ({"namespace": "unregistered"}, []),
+    ],
+)
+def test_wildcard_read(mocker: pytest_mock.MockerFixture, use, expected):
+    _mock_registries(mocker, {_LOCAL: _FAMILY})
+    _read = _prepared_block(
+        "read", [{"data_product": "fetched/era5/*", "use": dict(use)}]
+    )
+    assert _used(_read) == expected
+    assert all(
+        entry["data_product"] == entry["use"]["data_product"]
+        for entry in _read
+    )
+
+
+@pytest.mark.faircli_user_config
+@pytest.mark.parametrize(
+    "use,expected",
+    [
+        # One entry for a name however many versions it has, and the pattern
+        # for names that are new
+        (
+            {},
+            [
+                ("testing", "fetched/era5/1940", "0.0.3"),
+                ("testing", "fetched/era5/1941", "0.0.2"),
+                ("testing", "fetched/era5/*", "0.0.3"),
+            ],
+        ),
+        # A name in another namespace is not this pattern's to write
+        (
+            {"namespace": "other"},
+            [
+                ("other", "fetched/era5/1999", "1.0.1"),
+                ("other", "fetched/era5/1940", "9.0.1"),
+                ("other", "fetched/era5/*", "9.0.1"),
+            ],
+        ),
+        # The first write to a namespace, which the registry does not have
+        ({"namespace": "ECMWF"}, [("ECMWF", "fetched/era5/*", "0.0.1")]),
+    ],
+)
+def test_wildcard_write_namespace(
+    mocker: pytest_mock.MockerFixture, use, expected
+):
+    _mock_registries(mocker, {_LOCAL: _FAMILY})
+    _write = _prepared_block(
+        "write",
+        [
+            {
+                "data_product": "fetched/era5/*",
+                "description": "A year of ERA5",
+                "file_type": "nc",
+                "use": dict(use),
+            }
+        ],
+    )
+    assert _used(_write) == expected
+
+
+@pytest.mark.faircli_user_config
+@pytest.mark.parametrize(
+    "use,expected",
+    [
+        ({}, ("testing", "fetched/era5/1940", "0.0.2")),
+        ({"version": "0.0.1"}, ("testing", "fetched/era5/1940", "0.0.1")),
+        ({"namespace": "other"}, ("other", "fetched/era5/1940", "9.0.0")),
+    ],
+)
+def test_read_of_a_name(mocker: pytest_mock.MockerFixture, use, expected):
+    _mock_registries(mocker, {_LOCAL: _FAMILY})
+    _read = _prepared_block(
+        "read", [{"data_product": "fetched/era5/1940", "use": dict(use)}]
+    )
+    assert _used(_read) == [expected]
+
+
+@pytest.mark.faircli_user_config
+@pytest.mark.parametrize(
+    "name,use,wanted",
+    [
+        # No such name in a namespace the registry has
+        ("fetched/era5/1850", {}, "any version"),
+        # The name is there, but in another namespace
+        ("fetched/era5/1999", {}, "any version"),
+        # A namespace the registry does not have
+        ("fetched/era5/1940", {"namespace": "unregistered"}, "any version"),
+        # No such version
+        ("fetched/era5/1940", {"version": "9.9.9"}, "version '9.9.9'"),
+    ],
+)
+def test_read_of_nothing(mocker: pytest_mock.MockerFixture, name, use, wanted):
+    _mock_registries(mocker, {_LOCAL: _FAMILY})
+    with pytest.raises(fdp_exc.UserConfigError) as _error:
+        _prepared_block("read", [{"data_product": name, "use": dict(use)}])
+    _namespace = use.get("namespace", "testing")
+    assert _error.value.msg == (
+        f"Cannot read data product '{name}': {wanted} of it was not found in "
+        f"namespace '{_namespace}' on registry '{_LOCAL}'"
+    )
+
+
+@pytest.mark.faircli_user_config
+@pytest.mark.parametrize(
+    "name,use,version",
+    [
+        # Only on the remote: its latest version there, not 0.0.0
+        ("shared/elevation", {"namespace": "PSU"}, "1.2.0"),
+        # On both: what the remote has is what there is to fetch
+        ("shared/landcover", {"namespace": "PSU"}, "2.0.0"),
+        (
+            "shared/landcover",
+            {"namespace": "PSU", "version": "1.0.0"},
+            "1.0.0",
+        ),
+        # Only here, as what a local run wrote is
+        ("fetched/era5/1940", {}, "0.0.2"),
+    ],
+)
+def test_pull_reads_from_remote(
+    mocker: pytest_mock.MockerFixture, name, use, version
+):
+    _mock_registries(
+        mocker,
+        {
+            _REMOTE: [
+                ("PSU", "shared/elevation", "1.0.0"),
+                ("PSU", "shared/elevation", "1.2.0"),
+                ("PSU", "shared/landcover", "1.0.0"),
+                ("PSU", "shared/landcover", "2.0.0"),
+            ],
+            _LOCAL: _FAMILY + [("PSU", "shared/landcover", "1.0.0")],
+        },
+        # 'pull' copies the remote's namespaces first
+        namespaces={_LOCAL: ["PSU"]},
+    )
+    _read = _prepared_block(
+        "read", [{"data_product": name, "use": dict(use)}], remote_uri=_REMOTE
+    )
+    assert _used(_read) == [(use.get("namespace", "testing"), name, version)]
+
+
+@pytest.mark.faircli_user_config
+def test_pull_of_nothing(mocker: pytest_mock.MockerFixture):
+    _mock_registries(mocker, {_REMOTE: [], _LOCAL: _FAMILY})
+    with pytest.raises(fdp_exc.UserConfigError) as _error:
+        _prepared_block(
+            "read", [{"data_product": "shared/elevation"}], remote_uri=_REMOTE
+        )
+    assert _error.value.msg.endswith(
+        f"in namespace 'testing' on registry '{_REMOTE}' or '{_LOCAL}'"
+    )

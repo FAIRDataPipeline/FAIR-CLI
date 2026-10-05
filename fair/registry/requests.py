@@ -84,6 +84,44 @@ def local_token(registry_dir: str = None) -> str:
     return _file_lines[0].strip()
 
 
+# The rest of a list, which a registry gives a page at a time, each page with
+# the address of the next. Only the cursor is taken from that address: the
+# rest of it is the registry's own idea of where it is, which behind a proxy
+# need not be where it is reached
+def _later_pages(
+    url: str, headers: typing.Dict, params: typing.Dict, page: typing.Dict
+) -> typing.List:
+    _results: typing.List = []
+    _status = 200
+
+    while page.get("next"):
+        try:
+            _next = urllib.parse.urlparse(page["next"])
+            _cursor = urllib.parse.parse_qs(_next.query)["cursor"][0]
+            _request = requests.get(
+                url, headers=headers, params={**params, "cursor": _cursor}
+            )
+            _status = _request.status_code
+            page = _request.json()
+            _results += page["results"]
+        except requests.exceptions.ConnectionError as e:
+            raise fdp_exc.UnexpectedRegistryServerState(
+                f"Failed to make registry API request '{url}'",
+                hint="Is this remote correct and the server running?",
+            ) from e
+        except (
+            json.JSONDecodeError,
+            simplejson.errors.JSONDecodeError,
+            KeyError,
+        ) as exc:
+            raise fdp_exc.RegistryAPICallError(
+                f"Failed to retrieve every page of results from '{url}'",
+                error_code=_status,
+            ) from exc
+
+    return _results
+
+
 def _access(
     uri: str,
     method: str = None,
@@ -180,6 +218,10 @@ def _access(
             f"Request failed with status code {_request.status_code}: {_info}",
             error_code=_request.status_code,
         )
+
+    if method == "get" and "results" in _json_req:
+        _result += _later_pages(_url, _headers, params, _json_req)
+
     return _result
 
 
@@ -215,8 +257,10 @@ def post(
 
     headers.update({"Content-Type": "application/json"})
 
+    # False and 0 are values, not gaps: left out, the registry would apply
+    # its own default, which for 'public' and 'primary_not_supplement' is true
     for param, value in data.copy().items():
-        if not value:
+        if not value and not isinstance(value, (bool, int, float)):
             logger.debug(
                 f"Key in post data '{param}' \
                          has no value so will be ignored"

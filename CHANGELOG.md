@@ -1,3 +1,23 @@
+# Unreleased
+
+## Changed behaviour
+- A wildcard entry keeps to one namespace: the one its `use:` names, else the default for its block. It
+  used to match names in every namespace, so a `write:` pattern could write a name into a namespace
+  other than its own.
+- A wildcard entry gives one entry for each name it matches: for a `read:`, the version its `use:` names,
+  else the highest; for a `write:`, the version to be written. It used to give one for every version, and
+  to ignore a version on a `read:`. A `read:` pattern that matches nothing is not an error.
+- `fair run` refuses a `read:` of a data product, or of a version of one, that is not in the registry,
+  naming the namespace and registry it looked in. Such a read used to pass unchecked, or as version 0.0.0.
+
+## Fixed
+- `fair push` sent no value that was false, leaving the remote to apply its default: an external object
+  registered with `primary: false` arrived as primary, and a location with `public: false` as public.
+- A list from a registry stopped at its first 100 rows, so wildcards, staging and version lookups went
+  wrong, with no message, in a registry holding more.
+- `fair pull` looked for the version of a `read:` entry in the local registry only, so an entry at the
+  default version, for something not yet local, asked the remote for version 0.0.0 and failed.
+
 # 2026-10-03 [v0.10.0](https://github.com/FAIRDataPipeline/FAIR-CLI/releases/tag/v0.10.0)
 
 ## Changed behaviour
