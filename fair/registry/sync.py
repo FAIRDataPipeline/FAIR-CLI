@@ -36,7 +36,9 @@ from fair.registry import SEARCH_KEYS
 logger = logging.getLogger("FAIRDataPipeline.Sync")
 
 
-def get_dependency_chain(object_url: str, token: str) -> collections.deque:
+def get_dependency_chain(
+    object_url: str, token: str, substitutes: typing.Dict = None
+) -> collections.deque:
     """Get all objects relating to an object in order of dependency
 
     For a given URL this function fetches all component URLs ordering them
@@ -49,6 +51,9 @@ def get_dependency_chain(object_url: str, token: str) -> collections.deque:
         Full URL of an object within a registry
     token: str
         registry access token
+    substitutes : optional, typing.Dict
+        values to read in place of an object's own, keyed by the object's URL
+        and then by field
 
     Returns
     -------
@@ -66,6 +71,7 @@ def get_dependency_chain(object_url: str, token: str) -> collections.deque:
             _results = fdp_req.url_get(item, token)
         except Exception:
             _results = {}
+        _results.update((substitutes or {}).get(item, {}))
         _type = fdp_req.get_obj_type_from_url(item, token)
         for req, val in _results.items():
             if req in _dependency_list[_type] and val:
@@ -137,6 +143,7 @@ def sync_dependency_chain(
     origin_token: str,
     local_data_store: str = None,
     public: bool = False,
+    substitutes: typing.Dict = None,
 ) -> typing.Dict[str, str]:
     """Push an object and all of its dependencies to the remote registry
 
@@ -159,7 +166,9 @@ def sync_dependency_chain(
         local data store path
     public : optional, bool
         is the associated storage_location public, defaults to True
-
+    substitutes : optional, typing.Dict
+        values to read in place of an object's own, keyed by the object's URL
+        and then by field
 
     Returns
     -------
@@ -172,7 +181,7 @@ def sync_dependency_chain(
         raise fdp_exc.InternalError("Expected an origin token to be provided")
 
     _dependency_chain: collections.deque = get_dependency_chain(
-        object_url, origin_token
+        object_url, origin_token, substitutes
     )
 
     _new_urls: typing.Dict[str, str] = {k: "" for k in _dependency_chain}
@@ -185,6 +194,7 @@ def sync_dependency_chain(
         logger.debug("Preparing object '%s'", object_url)
         # Retrieve the data for the object from the registry
         _obj_data = fdp_req.url_get(object_url, token=origin_token)
+        _obj_data.update((substitutes or {}).get(object_url, {}))
 
         # Deduce the object type from its URL
         _obj_type = fdp_req.get_obj_type_from_url(object_url, token=origin_token)
@@ -564,8 +574,15 @@ def sync_data_products(
         _is_public = result_storage_location["public"]
 
         # if the data_product is an external object sync that first
+        _substitutes = {}
         if result["external_object"]:
             result = fdp_req.url_get(result["external_object"], token=origin_token)
+            # An external object may be shared by several data products, and
+            # its record names only one of them: the one it is synchronised
+            # with here is this data product
+            _substitutes[result["url"]] = {
+                "data_product": _data_product["url"]
+            }
 
         # The file is moved before its records are written, so that a failure
         # leaves no record, and the next attempt does not take this data
@@ -592,6 +609,7 @@ def sync_data_products(
             origin_token=origin_token,
             local_data_store=local_data_store,
             public=_is_public,
+            substitutes=_substitutes,
         )
         # Going from local to remote
         if not local_data_store:

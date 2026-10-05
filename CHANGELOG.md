@@ -11,6 +11,8 @@
   second namespace: `fair pull` passed over the entry without a word, and a run that read it then failed. An
   entry is now passed over only when that data product, in that namespace and at that version, already holds
   the file.
+- `fair push` and `fair pull` left out a data product that shares its external object with another, as
+  data-registry v1.4.0 allows, while reporting it synchronised: its file was moved and its record was not made.
 
 ## Development
 - The test of a data product's dependencies allows for any a registry adds; data-registry v1.4.0 adds one.

@@ -303,6 +303,44 @@ def test_dest_object_of_a_file_at_two_locations(
 
 
 @pytest.mark.faircli_sync
+def test_dependency_chain_with_substitute(mocker: pytest_mock.MockerFixture):
+    # An external object shared by two data products names the first on its
+    # record. Its chain holds the one it is told it is synchronised with
+    _records = {
+        "source": {"data_product": "first", "original_store": None},
+        "first": {"object": None, "external_object": "source"},
+        "second": {"object": None, "external_object": "source"},
+    }
+    mocker.patch(
+        "fair.registry.requests.split_api_url", lambda url: (_ORIGIN, url)
+    )
+    mocker.patch(
+        "fair.registry.requests.url_get",
+        lambda url, *args, **kwargs: dict(_records[url]),
+    )
+    mocker.patch(
+        "fair.registry.requests.get_obj_type_from_url",
+        lambda url, *args: (
+            "external_object" if url == "source" else "data_product"
+        ),
+    )
+    mocker.patch(
+        "fair.registry.requests.get_dependency_listing",
+        lambda *args: {
+            "external_object": ["data_product", "original_store"],
+            "data_product": ["object", "external_object"],
+        },
+    )
+
+    _chain = fdp_sync.get_dependency_chain("source", "")
+    assert list(_chain) == ["first", "source"]
+    _chain = fdp_sync.get_dependency_chain(
+        "source", "", {"source": {"data_product": "second"}}
+    )
+    assert list(_chain) == ["second", "source"]
+
+
+@pytest.mark.faircli_sync
 @pytest.mark.dependency(name="init")
 def test_init(
     global_config,
@@ -443,6 +481,73 @@ def test_push(
                 "version": "0.0.1",
             },
         )
+
+
+@pytest.mark.faircli_sync
+@pytest.mark.dependency(name="shared", depends=["push"])
+def test_push_data_products_of_one_source(
+    global_config: str,
+    local_registry: RegistryTest,
+    remote_registry: RegistryTest,
+    pyDataPipeline: str,
+    fair_bucket: MotoTestServer,
+    mocker: pytest_mock.MockerFixture,
+    tmp_path,
+):
+    # Two files registered from one source, which a registry may record as
+    # one external object for both: each is pushed as a data product
+    _names = ["shared/source/one", "shared/source/two"]
+    _data_dir = os.path.join(os.path.dirname(__file__), "data")
+    _cfg = {
+        "run_metadata": {
+            "description": "Two files of one source",
+            "script": "echo done",
+        },
+        "register": [
+            {"namespace": "PSU", "full_name": "Pennsylvania State University"}
+        ]
+        + [
+            {
+                "external_object": _name,
+                "namespace_name": "PSU",
+                "root": f"file://{_data_dir}{os.path.sep}",
+                "path": _file,
+                "title": "Two files of one source",
+                "identifier": "https://doi.org/10.1038/s41592-020-0856-2",
+                "file_type": "csv",
+                "release_date": "2021-09-20T12:00",
+                "version": "1.0.0",
+                "primary": False,
+            }
+            for _name, _file in zip(_names, ["test1.csv", "test2.csv"])
+        ],
+    }
+    _cfg_path = os.path.join(tmp_path, "shared.yaml")
+    with open(_cfg_path, "w") as f:
+        yaml.dump(_cfg, f, sort_keys=False)
+
+    _cli_runner = click.testing.CliRunner()
+    with remote_registry, local_registry, fair_bucket:
+        mocker.patch(
+            "fair.configuration.get_current_user_remote_user",
+            lambda *args, **kwargs: "admin",
+        )
+        _res = _cli_runner.invoke(cli, ["pull", _cfg_path, "--debug"])
+        assert _res.exit_code == 0
+        for _name in _names:
+            _res = _cli_runner.invoke(cli, ["add", f"PSU:{_name}@v1.0.0"])
+            assert _res.exit_code == 0
+        _res = _cli_runner.invoke(
+            cli, ["push", "--debug"], catch_exceptions=True
+        )
+        assert _res.exit_code == 0
+        for _name in _names:
+            assert get(
+                "http://127.0.0.1:8001/api/",
+                "data_product",
+                remote_registry._token,
+                params={"name": _name, "version": "1.0.0"},
+            )
 
 
 @pytest.mark.faircli_sync
