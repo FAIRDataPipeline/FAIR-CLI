@@ -28,6 +28,8 @@ import typing
 
 import urllib.parse
 
+import semver
+
 import fair.exceptions as fdp_exc
 import fair.registry.requests as fdp_req
 import fair.registry.storage as fdp_store
@@ -113,6 +115,17 @@ def fetch_registrations(
                 raise fdp_exc.UserConfigError(
                     f"Expected key '{key}' in 'register' item"
                 )
+
+        # The version of the source itself, where an external object has one
+        if "release_version" in entry:
+            try:
+                semver.VersionInfo.parse(f"{entry['release_version']}")
+            except ValueError as e:
+                raise fdp_exc.UserConfigError(
+                    "Expected a semantic version for 'release_version' in "
+                    f"'register' item, but got '{entry['release_version']}'",
+                    hint="Write it in quotes, with three parts, e.g. '2.1.0'",
+                ) from e
 
         _identifier: str = entry["identifier"] if "identifier" in entry else ""
         _unique_name: str = entry["unique_name"] if "unique_name" in entry else ""

@@ -1,5 +1,11 @@
 # 2026-10-05 [v0.10.2](https://github.com/FAIRDataPipeline/FAIR-CLI/releases/tag/v0.10.2)
 
+## Added
+- A `register:` entry for an external object may give `release_version`, the version of the source it was taken
+  from, beside `release_date`. It is recorded as the external object's version; without it the registry's
+  default applies, which data-registry v1.4.0 makes 1.0.0. It is not the entry's `version`, which is the data
+  product's.
+
 ## Fixed
 - `fair push` failed, with "Failed to access [] on remote registry", for a data product registered from a web
   address once a code run had used it, when the local registry was data-registry v1.4.0. The remote records

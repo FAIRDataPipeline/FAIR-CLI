@@ -6,6 +6,8 @@ import yaml
 
 from fair.cli import cli
 import fair.common as fdp_com
+import fair.exceptions as fdp_exc
+import fair.register as fdp_reg
 import fair.registry.requests as fdp_req
 import fair.testing as fdp_test
 
@@ -14,6 +16,35 @@ TEST_DATA_DIR = f"file://{os.path.dirname(__file__)}{os.path.sep}data{os.path.se
 TEST_REGISTER_CFG = os.path.join(
     os.path.dirname(__file__), "data", "test_register.yaml"
 )
+
+
+@pytest.mark.faircli_register
+@pytest.mark.parametrize("release_version", [2.1, "second"])
+def test_register_release_version_not_a_version(mocker, release_version):
+    # Refused before anything is fetched or registered
+    mocker.patch(
+        "fair.registry.sync.download_from_registry",
+        side_effect=AssertionError("the file was fetched"),
+    )
+    _entry = {
+        "external_object": "era5/1940",
+        "use": {
+            "data_product": "era5/1940",
+            "namespace": "ECMWF",
+            "version": "1.0.0",
+        },
+        "root": "https://example.com/",
+        "path": "era5/1940.nc",
+        "file_type": "nc",
+        "primary": True,
+        "public": True,
+        "identifier": "https://doi.org/10.24381/cds.f17050d7",
+        "release_version": release_version,
+    }
+    with pytest.raises(fdp_exc.UserConfigError, match="release_version"):
+        fdp_reg.fetch_registrations(
+            "http://127.0.0.1:8000/api/", "", "", [_entry]
+        )
 
 
 @pytest.mark.faircli_register
@@ -105,7 +136,11 @@ def test_register(
         ] + [
             {"namespace": "SecondNamespace", "full_name": "A second one"},
             dict(_register, external_object=_again),
-            dict(_register, namespace_name="SecondNamespace"),
+            dict(
+                _register,
+                namespace_name="SecondNamespace",
+                release_version="2.1.0",
+            ),
         ]
         _again_path = os.path.join(tmp_path, "again.yaml")
         with open(_again_path, "w") as f:
@@ -132,6 +167,14 @@ def test_register(
             )
             assert _res.exit_code == 0
             assert _data_products() == _expected
+
+        # An entry's 'release_version' is the version of its external object
+        assert fdp_req.get(
+            local_registry._url,
+            "external_object",
+            _token,
+            params={"version": "2.1.0"},
+        )
 
         _working_yaml_path = os.path.join(tmp_path, "working_yaml.yaml")
         _cfg_str = {}

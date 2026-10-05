@@ -343,6 +343,33 @@ def test_external_object_names_its_original_store(
 
 
 @pytest.mark.faircli_storage
+@pytest.mark.parametrize("release_version", ["2.1.0", None])
+def test_external_object_release_version(
+    mocker: pytest_mock.MockerFixture, release_version
+):
+    # The version of the source is sent when the entry gives one; without it
+    # none is, and the registry applies its own
+    _access = mocker.patch("fair.registry.requests._access")
+    _data = {
+        "title": "A year of ERA5",
+        "primary": False,
+        "release_date": "2026-01-01T00:00:00",
+        "identifier": "https://doi.org/10.24381/cds.f17050d7",
+    }
+    if release_version:
+        _data["release_version"] = release_version
+    fdp_store._get_url_from_external_obj(
+        data=_data,
+        local_file="1.0.0.nc",
+        registry_uri=LOCAL_URL,
+        registry_token="",
+        data_product_url=f"{LOCAL_URL}/data_product/1/",
+    )
+    _posted = json.loads(_access.call_args.kwargs["data"])
+    assert _posted.get("version") == release_version
+
+
+@pytest.mark.faircli_storage
 def test_external_object_named_without_an_identifier(
     mocker: pytest_mock.MockerFixture,
 ):

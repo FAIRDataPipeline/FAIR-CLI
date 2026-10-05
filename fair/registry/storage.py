@@ -634,6 +634,7 @@ def _get_url_from_external_obj(
         "primary_not_supplement": f'{data["primary"]}',
         "release_date": data["release_date"],
         "original_store": original_store_url,
+        "version": data.get("release_version"),
     }
     _external_obj_data.update(_get_identifier_from_data(data, local_file))
 
