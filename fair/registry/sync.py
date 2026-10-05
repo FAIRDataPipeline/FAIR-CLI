@@ -567,6 +567,23 @@ def sync_data_products(
         if result["external_object"]:
             result = fdp_req.url_get(result["external_object"], token=origin_token)
 
+        # The file is moved before its records are written, so that a failure
+        # leaves no record, and the next attempt does not take this data
+        # product for one already there. If local_data_store assume we're
+        # syncing from remote to local, else a public file is uploaded to
+        # object storage
+        if local_data_store:
+            logger.debug("Retrieving files from remote registry data storage")
+            fetch_data_product(origin_token, local_data_store, _data_product)
+        elif _is_public:
+            upload_object(
+                origin_uri,
+                dest_uri,
+                dest_token,
+                origin_token,
+                result_object["url"],
+            )
+
         sync_dependency_chain(
             object_url=result["url"],
             dest_uri=dest_uri,
@@ -576,18 +593,8 @@ def sync_data_products(
             local_data_store=local_data_store,
             public=_is_public,
         )
-        # If local_data_store assume we're syncing from remote to local
-        if local_data_store:
-            logger.debug("Retrieving files from remote registry data storage")
-            fetch_data_product(origin_token, local_data_store, _data_product)
-        # Else going from local to remote
-        else:
-            # If the storage location is public upload the files to object storage
-            if _is_public:
-                upload_object(
-                    origin_uri, dest_uri, dest_token, origin_token, result_object["url"]
-                )
-
+        # Going from local to remote
+        if not local_data_store:
             for origin_component_url in result_object["components"]:
                 origin_input_code_runs = fdp_req.get(
                     origin_uri,
@@ -925,7 +932,10 @@ def sync_code_run(
             data={"inputs": list(set(inputs)), "outputs": list(set(outputs))},
         )
     else:
-        # Get and sync model config
+        # Get and sync model config, the file before its records
+        upload_object(
+            origin_uri, dest_uri, dest_token, origin_token, code_run["model_config"]
+        )
         sync_dependency_chain(
             object_url=code_run["model_config"],
             dest_uri=dest_uri,
@@ -936,9 +946,6 @@ def sync_code_run(
         )
         _dest_code_run_model_config = get_dest_object_url(
             code_run["model_config"], dest_uri, dest_token, origin_token
-        )
-        upload_object(
-            origin_uri, dest_uri, dest_token, origin_token, code_run["model_config"]
         )
         # If theres a code_repo sync it
         _dest_code_run_code_repo = None
@@ -954,7 +961,14 @@ def sync_code_run(
             _dest_code_run_code_repo = get_dest_object_url(
                 code_run["code_repo"], dest_uri, dest_token, origin_token
             )
-        # Sync Submision Script
+        # Sync Submision Script, the file before its records
+        upload_object(
+            origin_uri,
+            dest_uri,
+            dest_token,
+            origin_token,
+            code_run["submission_script"],
+        )
         sync_dependency_chain(
             object_url=code_run["submission_script"],
             dest_uri=dest_uri,
@@ -965,13 +979,6 @@ def sync_code_run(
         )
         _dest_code_run_submission_script = get_dest_object_url(
             code_run["submission_script"], dest_uri, dest_token, origin_token
-        )
-        upload_object(
-            origin_uri,
-            dest_uri,
-            dest_token,
-            origin_token,
-            code_run["submission_script"],
         )
 
         # If the code run is not in the remote registry post the coderun
@@ -1157,17 +1164,9 @@ def fetch_data_product(
             "as there is no physical storage location",
             data_product,
         )
+        return
 
     _storage_loc = fdp_req.url_get(_object["storage_location"], remote_token)
-
-    _path = _storage_loc["path"]
-    _path = urllib.parse.quote(_path)
-    _root = fdp_req.url_get(_storage_loc["storage_root"], remote_token)
-
-    _reg_parse = urllib.parse.urlparse(_endpoint)
-    _reg_url = f"{_reg_parse.scheme}://{_reg_parse.netloc}"
-
-    _downloaded_file = download_from_registry(_reg_url, _root["root"], _path)
 
     _namespace = fdp_req.url_get(data_product["namespace"], remote_token)
 
@@ -1180,15 +1179,36 @@ def fetch_data_product(
         local_data_store, _namespace["name"], data_product["name"]
     )
 
-    os.makedirs(_local_dir, exist_ok=True)
-
     _out_file = os.path.join(_local_dir, f'{data_product["version"]}{_file_type}')
 
     if os.path.exists(_out_file):
         logger.debug("File '%s' already exists skipping download", _out_file)
         return
 
-    shutil.copy(_downloaded_file, _out_file)
+    _path = _storage_loc["path"]
+    _path = urllib.parse.quote(_path)
+    _root = fdp_req.url_get(_storage_loc["storage_root"], remote_token)
+
+    _reg_parse = urllib.parse.urlparse(_endpoint)
+    _reg_url = f"{_reg_parse.scheme}://{_reg_parse.netloc}"
+
+    _downloaded_file = download_from_registry(_reg_url, _root["root"], _path)
+
+    # A file is kept only if it is the one the registry describes
+    _hash = fdp_store.calculate_file_hash(_downloaded_file)
+    if _hash != _storage_loc["hash"]:
+        os.remove(_downloaded_file)
+        raise fdp_exc.SynchronisationError(
+            f"Data product '{_namespace['name']}:{data_product['name']}"
+            f"@v{data_product['version']}' was not fetched: the file at "
+            f"'{_root['root']}{_path}' has hash '{_hash}', and the registry "
+            f"records '{_storage_loc['hash']}'",
+            error_code=1,
+        )
+
+    os.makedirs(_local_dir, exist_ok=True)
+
+    shutil.move(_downloaded_file, _out_file)
 
 
 def download_from_registry(registry_url: str, root: str, path: str) -> str:
@@ -1249,8 +1269,6 @@ def upload_object(
     """
     Upload a file from the remote registry given the object url.
 
-    This function only preduces a warning if the file cannot be uploaded, allowing the file to be uploaded manually afterwards
-
     Parameters
     ----------
     origin_url : str
@@ -1267,8 +1285,12 @@ def upload_object(
     Returns
     -------
     bool
-        was the file successfully uploaded
+        whether there was a file to upload
 
+    Raises
+    ------
+    fdp_exc.SynchronisationError
+        if the file was not uploaded
     """
     _object = fdp_req.url_get(object_url, origin_token)
     if not _object["storage_location"]:
@@ -1282,18 +1304,31 @@ def upload_object(
     _object_storage_location_root = fdp_req.url_get(
         _object_storage_location["storage_root"], origin_token
     )
-    _file_loc = download_from_registry(
-        origin_uri,
-        _object_storage_location_root["root"],
-        _object_storage_location["path"],
-    )
+    # A file on this machine is uploaded from where it is. Any other is
+    # fetched first, to a temporary file which is removed afterwards
+    _is_local = _is_local_root(_object_storage_location_root)
+    if _is_local:
+        _file_loc = (
+            _object_storage_location_root["root"]
+            + _object_storage_location["path"]
+        ).replace("file://", "")
+    else:
+        _file_loc = download_from_registry(
+            origin_uri,
+            _object_storage_location_root["root"],
+            _object_storage_location["path"],
+        )
     try:
         fdp_store.upload_remote_file(_file_loc, dest_uri, dest_token)
-        logger.debug(f"File {_file_loc} Uploaded Successfully")
-        return True
-    except Exception:
-        logger.warning(
-            f'File upload error: {_object["description"]} was not uploaded to remote registry please upload the file manually'
-        )
+    except Exception as e:
         logger.debug(f"{traceback.format_exc()}")
-        return False
+        raise fdp_exc.SynchronisationError(
+            f"File '{_file_loc}' ({_object['description']}) was not uploaded "
+            f"to registry '{dest_uri}': {e}",
+            error_code=1,
+        ) from e
+    finally:
+        if not _is_local:
+            os.remove(_file_loc)
+    logger.debug(f"File {_file_loc} Uploaded Successfully")
+    return True

@@ -84,6 +84,44 @@ def local_token(registry_dir: str = None) -> str:
     return _file_lines[0].strip()
 
 
+# The rest of a list, which a registry gives a page at a time, each page with
+# the address of the next. Only the cursor is taken from that address: the
+# rest of it is the registry's own idea of where it is, which behind a proxy
+# need not be where it is reached
+def _later_pages(
+    url: str, headers: typing.Dict, params: typing.Dict, page: typing.Dict
+) -> typing.List:
+    _results: typing.List = []
+    _status = 200
+
+    while page.get("next"):
+        try:
+            _next = urllib.parse.urlparse(page["next"])
+            _cursor = urllib.parse.parse_qs(_next.query)["cursor"][0]
+            _request = requests.get(
+                url, headers=headers, params={**params, "cursor": _cursor}
+            )
+            _status = _request.status_code
+            page = _request.json()
+            _results += page["results"]
+        except requests.exceptions.ConnectionError as e:
+            raise fdp_exc.UnexpectedRegistryServerState(
+                f"Failed to make registry API request '{url}'",
+                hint="Is this remote correct and the server running?",
+            ) from e
+        except (
+            json.JSONDecodeError,
+            simplejson.errors.JSONDecodeError,
+            KeyError,
+        ) as exc:
+            raise fdp_exc.RegistryAPICallError(
+                f"Failed to retrieve every page of results from '{url}'",
+                error_code=_status,
+            ) from exc
+
+    return _results
+
+
 def _access(
     uri: str,
     method: str = None,
@@ -180,6 +218,10 @@ def _access(
             f"Request failed with status code {_request.status_code}: {_info}",
             error_code=_request.status_code,
         )
+
+    if method == "get" and "results" in _json_req:
+        _result += _later_pages(_url, _headers, params, _json_req)
+
     return _result
 
 
@@ -215,8 +257,10 @@ def post(
 
     headers.update({"Content-Type": "application/json"})
 
+    # False and 0 are values, not gaps: left out, the registry would apply
+    # its own default, which for 'public' and 'primary_not_supplement' is true
     for param, value in data.copy().items():
-        if not value:
+        if not value and not isinstance(value, (bool, int, float)):
             logger.debug(
                 f"Key in post data '{param}' \
                          has no value so will be ignored"
@@ -483,7 +527,13 @@ def put_file(upload_url: str, file_loc: str) -> bool:
         bool: Will return True if the upload succeeded.
     """
     s = requests.Session()
-    _req = s.put(upload_url, data=open(file_loc, mode="rb").read())
+    # Sent from the open file, a block at a time, whatever its size. An empty
+    # file is sent as no bytes: given a file with nothing to read, requests
+    # would not state a length, which an object store insists on
+    with open(file_loc, mode="rb") as _file:
+        _req = s.put(
+            upload_url, data=_file if os.path.getsize(file_loc) else b""
+        )
     if _req.status_code not in [200, 201]:
         raise fdp_exc.RegistryError(
             f"File: {file_loc} could not be uploaded,\
@@ -492,7 +542,7 @@ def put_file(upload_url: str, file_loc: str) -> bool:
     return True
 
 
-def download_file(url: str, chunk_size: int = 8192) -> str:
+def download_file(url: str, chunk_size: int = 1024 * 1024) -> str:
     """Download a file from a given URL
 
     Parameters
@@ -500,7 +550,7 @@ def download_file(url: str, chunk_size: int = 8192) -> str:
     url : str
         address of remote file
     chunk_size : int, optional
-        chunk size for download, by default 8192
+        chunk size for download, by default 1 MiB
 
     Returns
     -------
@@ -511,10 +561,15 @@ def download_file(url: str, chunk_size: int = 8192) -> str:
     ------
     requests.HTTPError
         if the server answers with an error status
+    fdp_exc.FAIRCLIException
+        if the file could not be fetched, or not all of it
     """
     # Save the data to a temporary file so we can calculate the hash
     _file = tempfile.NamedTemporaryFile(delete=False)
     _fname = _file.name
+    # Only the name is wanted: the file is written, and on failure removed,
+    # by name, which Windows refuses while this handle is open
+    _file.close()
 
     # Copy File if local
     if "file://" in url:
@@ -522,6 +577,7 @@ def download_file(url: str, chunk_size: int = 8192) -> str:
         try:
             shutil.copy2(_local_fname, _fname)
         except Exception as e:
+            os.remove(_fname)
             raise fdp_exc.FAIRCLIException(
                 f"Failed to download file '{url}'"
                 f" due to connection error: {traceback.format_exc()}"
@@ -531,17 +587,37 @@ def download_file(url: str, chunk_size: int = 8192) -> str:
             requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
             headers = {"User-Agent": str(UserAgent().chrome)}
             response = requests.get(
-                url, allow_redirects=True, verify=False, headers=headers
+                url,
+                allow_redirects=True,
+                verify=False,
+                headers=headers,
+                stream=True,
             )
         except Exception as e:
+            os.remove(_fname)
             raise fdp_exc.FAIRCLIException(
                 f"Failed to download file '{url}'"
                 f" due to connection error: {traceback.format_exc()}"
             ) from e
         # Outside the try, so that callers can tell an HTTP error from a
         # failure to connect, and an error page is never saved as the data
-        response.raise_for_status()
-        open(_fname, mode="wb").write(response.content)
+        try:
+            response.raise_for_status()
+            # Written as it arrives, a block at a time, whatever its size
+            with open(_fname, mode="wb") as _out:
+                for _chunk in response.iter_content(chunk_size=chunk_size):
+                    _out.write(_chunk)
+        except requests.HTTPError:
+            os.remove(_fname)
+            raise
+        except requests.RequestException as e:
+            os.remove(_fname)
+            raise fdp_exc.FAIRCLIException(
+                f"Failed to download all of file '{url}'"
+                f" due to connection error: {traceback.format_exc()}"
+            ) from e
+        finally:
+            response.close()
 
     return _fname
 

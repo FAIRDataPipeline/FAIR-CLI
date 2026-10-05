@@ -1,3 +1,49 @@
+# 2026-10-05 [v0.10.1](https://github.com/FAIRDataPipeline/FAIR-CLI/releases/tag/v0.10.1)
+
+## Changed behaviour
+- A wildcard entry keeps to one namespace: the one its `use:` names, else the default for its block. It
+  used to match names in every namespace, so a `write:` pattern could write a name into a namespace
+  other than its own.
+- A wildcard entry gives one entry for each name it matches: for a `read:`, the version its `use:` names,
+  else the highest; for a `write:`, the version to be written. It used to give one for every version, and
+  to ignore a version on a `read:`. A `read:` pattern that matches nothing is not an error.
+- `fair run` refuses a `read:` of a data product, or of a version of one, that is not in the registry,
+  naming the namespace and registry it looked in. Such a read used to pass unchecked, or as version 0.0.0.
+- `fair push` fails if a file cannot be uploaded. It used to warn and carry on, leaving the remote with
+  the file's records and no file. A file is now uploaded before its records are written, so a push that
+  failed can be run again.
+- `fair pull` checks each file it fetches against the hash the remote registry holds for it, and refuses
+  one that differs.
+
+## Added
+- Registering an external object records where its file was fetched from: the `root` and `path` of its
+  `register:` entry, as the object's `original_store`, with the hash of the file found there. `fair push`
+  takes that record to the remote. A file registered from the machine itself has no such record.
+- `fair push` takes a refusal of an upload address with HTTP 409 to mean that the remote's store already
+  holds the file, sends nothing, and carries on. No released registry answers so yet.
+
+## Fixed
+- `fair push` sent no value that was false, leaving the remote to apply its default: an external object
+  registered with `primary: false` arrived as primary, and a location with `public: false` as public.
+- A list from a registry stopped at its first 100 rows, so wildcards, staging and version lookups went
+  wrong, with no message, in a registry holding more.
+- `fair pull` looked for the version of a `read:` entry in the local registry only, so an entry at the
+  default version, for something not yet local, asked the remote for version 0.0.0 and failed.
+- `fair push` held each file whole in memory, `fair pull` more than twice over, and both left a copy of
+  it in the temporary directory. Files are now sent and received a block at a time, whatever their
+  size, and nothing is left behind.
+- An upload of 2 GiB or more over plain http failed on macOS.
+- An external object could not be registered with a `unique_name` and `alternate_identifier_type` in
+  place of an `identifier`: `fair pull` stopped, reporting that the object already existed.
+- `fair identify` looked at only the newest of a file's storage locations, so it could miss the data
+  products of a file the registry records in more than one place.
+- `fair run` could not start the script when the path of the data store, which holds the job
+  directory, had a space in it.
+
+## Development
+- The Python job of the implementations workflow starts an object store for its remote registry, so
+  that its `fair push` uploads the files. It had none, and passed while a failed upload was a warning.
+
 # 2026-10-03 [v0.10.0](https://github.com/FAIRDataPipeline/FAIR-CLI/releases/tag/v0.10.0)
 
 ## Changed behaviour

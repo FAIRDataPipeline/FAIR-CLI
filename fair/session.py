@@ -1378,24 +1378,26 @@ class FAIR:
             raise fdp_exc.FileNotFoundError(f"File: {file_path} does not exist")
         click.echo(f"Information about file: {file_path}")
         _hash = fdp_store.calculate_file_hash(file_path)
-        _storage_location = fdp_req.get(
+        _storage_locations = fdp_req.get(
             _api_url, "storage_location", _token, params={"hash": _hash}
         )
-        if _storage_location:
-            _storage_location = _storage_location[0]
-        else:
+        if not _storage_locations:
             click.echo(f"File: {file_path} could not be found on the {_registry}")
             return
-        _objects = fdp_req.get(
-            _api_url,
-            "object",
-            _token,
-            params={
-                "storage_location": fdp_req.get_obj_id_from_url(
-                    _storage_location["url"]
-                )
-            },
-        )
+        # A file may be recorded in more than one place: where it is stored,
+        # and where an external object was fetched from
+        _objects = []
+        for _storage_location in _storage_locations:
+            _objects += fdp_req.get(
+                _api_url,
+                "object",
+                _token,
+                params={
+                    "storage_location": fdp_req.get_obj_id_from_url(
+                        _storage_location["url"]
+                    )
+                },
+            )
         for _object in _objects:
             if _object["data_products"]:
                 for _data_product_url in _object["data_products"]:

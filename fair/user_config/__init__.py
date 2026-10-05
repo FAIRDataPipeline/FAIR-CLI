@@ -72,24 +72,26 @@ JOB2CLI_MAPPINGS = {
     "run_metadata.write_data_store": "registries.local.data_store",
 }
 
+# The command for each shell is a list of its arguments, so that the path of
+# the script stays one argument when it has a space in it
 SHELLS: typing.Dict[str, str] = {
-    "pwsh": {"exec": "pwsh -command \". '{0}'\"", "extension": "ps1"},
-    "batch": {"exec": "{0}", "extension": "bat"},
+    "pwsh": {"exec": ["pwsh", "-command", ". '{0}'"], "extension": "ps1"},
+    "batch": {"exec": ["{0}"], "extension": "bat"},
     "powershell": {
-        "exec": "powershell -command \". '{0}'\"",
+        "exec": ["powershell", "-command", ". '{0}'"],
         "extension": "ps1",
     },
-    "python2": {"exec": "python2 {0}", "extension": "py"},
-    "python3": {"exec": "python3 {0}", "extension": "py"},
-    "python": {"exec": "python {0}", "extension": "py"},
-    "R": {"exec": "R -f {0}", "extension": "R"},
-    "julia": {"exec": "julia {0}", "extension": "jl"},
+    "python2": {"exec": ["python2", "{0}"], "extension": "py"},
+    "python3": {"exec": ["python3", "{0}"], "extension": "py"},
+    "python": {"exec": ["python", "{0}"], "extension": "py"},
+    "R": {"exec": ["R", "-f", "{0}"], "extension": "R"},
+    "julia": {"exec": ["julia", "{0}"], "extension": "jl"},
     "bash": {
-        "exec": "bash -eo pipefail {0}",
+        "exec": ["bash", "-eo", "pipefail", "{0}"],
         "extension": "sh",
     },
-    "java": {"exec": "java {0}", "extension": "java"},
-    "sh": {"exec": "sh -e {0}", "extension": "sh"},
+    "java": {"exec": ["java", "{0}"], "extension": "java"},
+    "sh": {"exec": ["sh", "-e", "{0}"], "extension": "sh"},
 }
 
 
@@ -416,14 +418,29 @@ class JobConfiguration(MutableMapping):
             )
 
         _search_key = SEARCH_KEYS[_obj_type]
+        _search = {_search_key: block_entry[_obj_type]}
 
         try:
+            # A data product pattern stands for names in one namespace: the
+            # one its entry names, else the default for its block
+            if _obj_type == "data_product":
+                _namespace = block_entry.get("use", {}).get("namespace") or (
+                    self.default_input_namespace
+                    if block_type == "read"
+                    else self.default_output_namespace
+                )
+                _search["namespace"] = fdp_reg.convert_key_value_to_id(
+                    registry_uri, "namespace", _namespace, registry_token
+                )
             _results_local = fdp_req.get(
                 registry_uri,
                 _obj_type,
                 registry_token,
-                params={_search_key: block_entry[_obj_type]},
+                params=_search,
             )
+        except fdp_exc.RegistryError:
+            # The registry has no such namespace, so nothing in it to match
+            _results_local = []
         except fdp_exc.RegistryAPICallError as e:
             raise fdp_exc.UserConfigError(
                 f"Failed to retrieve entries on local registry for {_obj_type}"
@@ -458,6 +475,13 @@ class JobConfiguration(MutableMapping):
         elif _obj_type == "data_product":
             _version = block_entry.get("use", {}).get(
                 "version", block_entry.get("version", None)
+            )
+
+            # One entry for each name. A read takes the version its entry
+            # names, as a read of a single name does, else the highest; a
+            # write is given its version when versions are filled
+            _results_local = fdp_glob.get_one_version_per_name(
+                _results_local, _version if block_type == "read" else None
             )
 
             _new_entries = fdp_glob.get_data_product_objects(
@@ -804,9 +828,15 @@ class JobConfiguration(MutableMapping):
         else:
             self._expand_wildcards(self.local_uri, fdp_req.local_token())
 
+        # What 'pull' fetches is on the remote registry, so that is where the
+        # version of a read is looked for first
+        _remote = (None, None)
+        if job_mode == CMD_MODE.PULL and not local:
+            _remote = (remote_uri, remote_token)
+
         for block_type in self._block_types:
             if block_type in self:
-                self[block_type] = self._fill_versions(block_type)
+                self[block_type] = self._fill_versions(block_type, *_remote)
 
         if job_mode == CMD_MODE.PULL and "register" in self:
             self._logger.debug("Fetching registrations")
@@ -1029,7 +1059,9 @@ class JobConfiguration(MutableMapping):
 
         return _new_config
 
-    def _fill_versions(self, block_type: str) -> typing.List[typing.Dict]:
+    def _fill_versions(
+        self, block_type: str, remote_uri: str = None, remote_token: str = None
+    ) -> typing.List[typing.Dict]:
         self._logger.debug("Filling version information")
         _entries: typing.List[typing.Dict] = []
 
@@ -1075,45 +1107,62 @@ class JobConfiguration(MutableMapping):
             _new_item["use"]["data_product"] = _name
             _namespace = item["use"]["namespace"]
 
-            # If no ID exists for the namespace then this object has not yet
-            # been written to the target registry and so a version number
-            # cannot be deduced this way
-            try:
-                _id_namespace = fdp_reg.convert_key_value_to_id(
-                    self.local_uri,
-                    "namespace",
-                    _namespace,
-                    fdp_req.local_token(),
-                )
-                if "${{" in _version:
-                    _results = fdp_req.get(
-                        self.local_uri,
-                        "data_product",
-                        fdp_req.local_token(),
-                        params={"name": _name, "namespace": _id_namespace},
-                    )
-                    if "LATEST" in _version:
-                        _version = fdp_ver.get_latest_version(_results)
-                else:
-                    _results = fdp_req.get(
-                        self.local_uri,
-                        "data_product",
-                        fdp_req.local_token(),
-                        params={
-                            "name": _name,
-                            "namespace": _id_namespace,
-                            "version": _version,
-                        },
-                    )
-            except fdp_exc.RegistryError:
-                _results = []
+            # A read to be fetched is looked for where it will come from,
+            # and only then in the local registry
+            _registries = [(self.local_uri, fdp_req.local_token())]
+            if block_type == "read" and remote_uri:
+                _registries.insert(0, (remote_uri, remote_token))
 
-            if "*" in _name:
-                _results = [
-                    result
-                    for result in _results
-                    if fdp_glob.matches_wildcard(_name, result["name"])
-                ]
+            for _uri, _token in _registries:
+                # If no ID exists for the namespace then this object has not
+                # yet been written to the target registry and so a version
+                # number cannot be deduced this way
+                try:
+                    _search = {
+                        "name": _name,
+                        "namespace": fdp_reg.convert_key_value_to_id(
+                            _uri, "namespace", _namespace, _token
+                        ),
+                    }
+                    if "${{" not in _version:
+                        _search["version"] = _version
+                    _results = fdp_req.get(
+                        _uri, "data_product", _token, params=_search
+                    )
+                except fdp_exc.RegistryError:
+                    _results = []
+
+                if "*" in _name:
+                    _results = [
+                        result
+                        for result in _results
+                        if fdp_glob.matches_wildcard(_name, result["name"])
+                    ]
+
+                if _results:
+                    break
+
+            # A read of one name must be of something. With nothing found,
+            # the latest version would be 0.0.0, and a version given would
+            # stand unchecked
+            if (
+                block_type == "read"
+                and "*" not in _name
+                and "cache" not in item["use"]
+                and not _results
+            ):
+                _wanted = f"version '{_version}'"
+                if "${{" in _version:
+                    _wanted = "any version"
+                raise fdp_exc.UserConfigError(
+                    f"Cannot read data product '{_name}': {_wanted} of it "
+                    f"was not found in namespace '{_namespace}' on registry "
+                    + " or ".join(f"'{_uri}'" for _uri, _ in _registries),
+                    hint="Has a run written it, or 'fair pull' fetched it?",
+                )
+
+            if "LATEST" in _version:
+                _version = fdp_ver.get_latest_version(_results)
 
             try:
                 _version = fdp_ver.get_correct_version(
@@ -1353,14 +1402,16 @@ class JobConfiguration(MutableMapping):
         if not self.env:
             raise fdp_exc.InternalError("Command execution environment setup failed")
 
-        _exec = SHELLS[self.shell]["exec"].format(self.script)
+        _exec = [arg.format(self.script) for arg in SHELLS[self.shell]["exec"]]
 
-        self._logger.debug("Executing command: %s", _exec)
+        self._logger.debug(
+            "Executing command: %s", subprocess.list2cmdline(_exec)
+        )
 
         _log_tail: typing.List[str] = []
 
         _process = subprocess.Popen(
-            _exec.split(),
+            _exec,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             universal_newlines=True,
@@ -1392,7 +1443,7 @@ class JobConfiguration(MutableMapping):
             self.close_log()
             self._logger.error(
                 "Command '%s' failed with exit code %s, log tail:\n\t%s",
-                _exec,
+                subprocess.list2cmdline(_exec),
                 _process.returncode,
                 "\n\t".join(_log_tail),
             )

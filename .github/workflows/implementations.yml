@@ -85,6 +85,21 @@ jobs:
           fair run --debug simpleModel/ext/SEIRSconfig.yaml # Run the seirs model
         working-directory: pySimpleModel # Use the pySimpleModel Directory
 
+      - name: Start an object store for the remote registry
+        run: |
+          # The remote registry's settings expect an S3 store here, holding
+          # this bucket; a push fails if its files cannot be uploaded to it.
+          # It has an environment of its own: installed beside the CLI, its
+          # dependencies replace the CLI's (pydantic), and fair stops working
+          python3 -m venv ${GITHUB_WORKSPACE}/object-store
+          ${GITHUB_WORKSPACE}/object-store/bin/pip install "moto[server]" boto3
+          nohup ${GITHUB_WORKSPACE}/object-store/bin/moto_server -H 127.0.0.1 -p 4566 > moto.log 2>&1 &
+          for i in $(seq 1 30); do curl -s -o /dev/null http://127.0.0.1:4566/ && break; sleep 1; done
+          ${GITHUB_WORKSPACE}/object-store/bin/python -c "import boto3; boto3.client('s3', endpoint_url='http://127.0.0.1:4566', region_name='us-east-1').create_bucket(Bucket='fair')"
+        env:
+          AWS_ACCESS_KEY_ID: AccessKey
+          AWS_SECRET_ACCESS_KEY: SecretKey
+
       - name: Test Push
         run: |
           # Activate venv

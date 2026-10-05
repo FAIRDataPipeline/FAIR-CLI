@@ -14,8 +14,11 @@ Constants
     - DISPOSABLES: tuple of keys to be removed before adding to config.yaml
 
 """
+import contextlib
 import re
 import typing
+
+import semver
 
 import fair.exceptions as fdp_exc
 import fair.registry.requests as fdp_req
@@ -60,6 +63,44 @@ def matches_wildcard(pattern: str, name: str) -> bool:
     """
     _regex = "[^/]+".join(re.escape(part) for part in pattern.split("*"))
     return re.fullmatch(_regex, name) is not None
+
+
+def get_one_version_per_name(
+    results_list: typing.List[typing.Dict], version: str = None
+) -> typing.List[typing.Dict]:
+    """Return one of the results of a data product search for each name
+
+    Parameters
+    ----------
+    results_list : typing.List[typing.Dict]
+        results of registry search for the wildcard
+    version : str, optional
+        version to take of each name, leaving out a name that has none such;
+        by default, or if this is not a version, the highest of each name
+
+    Returns
+    -------
+    typing.List[typing.Dict]
+        a result for each name, in the order the names first appear
+    """
+    _wanted = None
+    if version:
+        with contextlib.suppress(ValueError):
+            _wanted = semver.VersionInfo.parse(version)
+
+    _versions: typing.Dict[str, semver.VersionInfo] = {}
+    _results: typing.Dict[str, typing.Dict] = {}
+
+    for result in results_list:
+        _name = result[SEARCH_KEYS["data_product"]]
+        _version = semver.VersionInfo.parse(result["version"])
+        if _wanted is not None and _version != _wanted:
+            continue
+        if _name not in _versions or _version > _versions[_name]:
+            _versions[_name] = _version
+            _results[_name] = result
+
+    return list(_results.values())
 
 
 def get_single_layer_objects(
