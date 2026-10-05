@@ -1,4 +1,4 @@
-# Unreleased
+# 2026-10-05 [v0.10.1](https://github.com/FAIRDataPipeline/FAIR-CLI/releases/tag/v0.10.1)
 
 ## Changed behaviour
 - A wildcard entry keeps to one namespace: the one its `use:` names, else the default for its block. It
@@ -39,6 +39,10 @@
   products of a file the registry records in more than one place.
 - `fair run` could not start the script when the path of the data store, which holds the job
   directory, had a space in it.
+
+## Development
+- The Python job of the implementations workflow starts an object store for its remote registry, so
+  that its `fair push` uploads the files. It had none, and passed while a failed upload was a warning.
 
 # 2026-10-03 [v0.10.0](https://github.com/FAIRDataPipeline/FAIR-CLI/releases/tag/v0.10.0)
 
