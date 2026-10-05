@@ -473,6 +473,13 @@ def store_data_file(
         registry_uri=uri,
         registry_token=token,
         data_product_url=_data_prod_url,
+        original_store_url=_get_url_from_original_store(
+            data=data,
+            registry_uri=uri,
+            registry_token=token,
+            storage_loc_url=_post_store_loc,
+            is_public=public,
+        ),
     )
 
 
@@ -493,7 +500,12 @@ def _get_url_from_storage_loc(
         "hash": _hash,
     }
 
-    _search_data = {"hash": _hash}
+    # The same file may be recorded under another root as well, as where an
+    # external object was fetched from
+    _search_data = {
+        "hash": _hash,
+        "storage_root": fdp_req.get_obj_id_from_url(root_store_url),
+    }
 
     return fdp_req.post_else_get(
         registry_uri,
@@ -502,6 +514,73 @@ def _get_url_from_storage_loc(
         data=_storage_loc_data,
         params=_search_data,
     )
+
+
+# The storage location of the place an external object's file was fetched
+# from: the 'root' and 'path' of its 'register' entry, with the hash its
+# location in the data store was given. None if the entry names no place
+# that anyone else could fetch it from: a file on this machine, or (a root
+# that is a bare path) one beside the registry itself.
+def _get_url_from_original_store(
+    data: typing.Dict,
+    registry_uri: str,
+    registry_token: str,
+    storage_loc_url: str,
+    is_public: bool,
+) -> typing.Optional[str]:
+    _root = data.get("root")
+    _path = data.get("path")
+
+    if not _root or not _path or _root.startswith(("/", "file://")):
+        return None
+
+    _root_url = fdp_req.post_else_get(
+        registry_uri,
+        "storage_root",
+        registry_token,
+        data={"root": _root, "local": False},
+        params={"root": _root},
+    )
+    _hash = fdp_req.url_get(storage_loc_url, registry_token)["hash"]
+
+    # A registry records a file once under a root, whatever its path there
+    _recorded = [
+        location
+        for location in fdp_req.get(
+            registry_uri,
+            "storage_location",
+            registry_token,
+            params={
+                "hash": _hash,
+                "storage_root": fdp_req.get_obj_id_from_url(_root_url),
+            },
+        )
+        if str(location["public"]).lower() == str(is_public).lower()
+    ]
+
+    if _recorded:
+        if _recorded[0]["path"] != _path:
+            logger.warning(
+                "The file at '%s%s' is already recorded at '%s%s', "
+                "which is given as where it came from",
+                _root,
+                _path,
+                _root,
+                _recorded[0]["path"],
+            )
+        return _recorded[0]["url"]
+
+    return fdp_req.post(
+        registry_uri,
+        "storage_location",
+        registry_token,
+        data={
+            "path": _path,
+            "storage_root": _root_url,
+            "public": str(is_public).lower(),
+            "hash": _hash,
+        },
+    )["url"]
 
 
 def _get_url_from_file_type(
@@ -539,6 +618,7 @@ def _get_url_from_external_obj(
     registry_uri: str,
     registry_token: str,
     data_product_url: str,
+    original_store_url: str = None,
 ) -> typing.Dict:
     _expected_ext_obj_keys = ("release_date", "primary", "title")
 
@@ -553,6 +633,7 @@ def _get_url_from_external_obj(
         "title": data["title"],
         "primary_not_supplement": f'{data["primary"]}',
         "release_date": data["release_date"],
+        "original_store": original_store_url,
     }
     _external_obj_data.update(_get_identifier_from_data(data, local_file))
 

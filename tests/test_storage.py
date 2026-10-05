@@ -1,3 +1,4 @@
+import json
 import string
 import typing
 import os
@@ -7,6 +8,7 @@ import pytest
 import pytest_mock
 import yaml
 
+import fair.exceptions as fdp_exc
 import fair.registry.file_types as fdp_file
 import fair.registry.storage as fdp_store
 from tests.test_requests import LOCAL_URL
@@ -152,3 +154,189 @@ def test_calc_file_hash(tmp_path):
 #     with remote_registry, local_registry, s3_bucket:
 
 #         assert fdp_store.get_upload_url(_HASH, "http://127.0.0.1:8000/api", remote_registry._token )["url"]
+
+
+# The storage roots and locations of a registry, with its rules on what may
+# be recorded twice, in place of the calls that reach one
+class _Storage:
+    _unique = {
+        "storage_root": ("root",),
+        "storage_location": ("storage_root", "hash", "public"),
+    }
+
+    def __init__(self, mocker: pytest_mock.MockerFixture):
+        self.rows = {"storage_root": [], "storage_location": []}
+        mocker.patch("fair.registry.requests.post", self.post)
+        mocker.patch("fair.registry.requests.get", self.get)
+        mocker.patch("fair.registry.requests.url_get", self.url_get)
+
+    def post(self, uri, obj_path, token, data, headers=None):
+        if any(
+            all(
+                str(row[key]).lower() == str(data[key]).lower()
+                for key in self._unique[obj_path]
+            )
+            for row in self.rows[obj_path]
+        ):
+            raise fdp_exc.RegistryAPICallError("exists", error_code=409)
+        _row = {
+            **data,
+            "url": f"{uri}/{obj_path}/{len(self.rows[obj_path]) + 1}/",
+        }
+        if obj_path == "storage_location":
+            _row["public"] = str(data["public"]).lower() == "true"
+        # Newest first, as a registry lists them
+        self.rows[obj_path].insert(0, _row)
+        return _row
+
+    def get(self, uri, obj_path, token, params=None, **kwargs):
+        def _matches(row, key, value):
+            if key == "storage_root":
+                return row[key].endswith(f"/storage_root/{value}/")
+            return row[key] == value
+
+        return [
+            row
+            for row in self.rows[obj_path]
+            if all(_matches(row, *item) for item in (params or {}).items())
+        ]
+
+    def url_get(self, url, token=None):
+        return next(
+            row
+            for rows in self.rows.values()
+            for row in rows
+            if row["url"] == url
+        )
+
+
+@pytest.fixture
+def stored_file(mocker: pytest_mock.MockerFixture, tmp_path):
+    """A file in a data store, with the registry's records of where it is"""
+    _storage = _Storage(mocker)
+    _file = tmp_path / "1.0.0.nc"
+    _file.write_bytes(b"a year of ERA5")
+    _root_url = _storage.post(
+        LOCAL_URL,
+        "storage_root",
+        "",
+        {"root": f"file://{tmp_path}/", "local": True},
+    )["url"]
+
+    def _location_url():
+        return fdp_store._get_url_from_storage_loc(
+            local_file=str(_file),
+            registry_uri=LOCAL_URL,
+            registry_token="",
+            relative_path="1.0.0.nc",
+            root_store_url=_root_url,
+            is_public=True,
+        )
+
+    return _storage, _location_url
+
+
+_SOURCE = {"root": "https://example.org/data/", "path": "era5/1940.nc"}
+
+
+@pytest.mark.faircli_storage
+def test_original_store(stored_file, caplog):
+    _storage, _location_url = stored_file
+    _stored_url = _location_url()
+
+    _original_url = fdp_store._get_url_from_original_store(
+        dict(_SOURCE), LOCAL_URL, "", _stored_url, True
+    )
+
+    # Where the file came from is recorded beside where it is kept, as the
+    # same file under another root
+    _stored, _original = map(_storage.url_get, (_stored_url, _original_url))
+    assert _original_url != _stored_url
+    assert (_original["path"], _original["hash"]) == (
+        "era5/1940.nc",
+        _stored["hash"],
+    )
+    assert _storage.url_get(_original["storage_root"]) == {
+        "root": "https://example.org/data/",
+        "local": False,
+        "url": _original["storage_root"],
+    }
+
+    def _warnings():
+        return [
+            record.getMessage()
+            for record in caplog.records
+            if record.levelname == "WARNING"
+        ]
+
+    # A file is recorded once under a root. The same file at another path
+    # there is given the record it has, and that is said
+    assert not _warnings()
+    assert _original_url == fdp_store._get_url_from_original_store(
+        {**_SOURCE, "path": "era5/copy_of_1940.nc"},
+        LOCAL_URL,
+        "",
+        _stored_url,
+        True,
+    )
+    assert "already recorded at 'https://example.org/data/era5/1940.nc'" in (
+        _warnings()[0]
+    )
+    # A private file is another record
+    assert _original_url != fdp_store._get_url_from_original_store(
+        dict(_SOURCE), LOCAL_URL, "", _stored_url, False
+    )
+
+    # Its record in the data store is still found as that, not as the newer
+    # record of the same file elsewhere
+    assert _location_url() == _stored_url
+
+
+@pytest.mark.faircli_storage
+@pytest.mark.parametrize(
+    "source",
+    [
+        {},
+        {"root": "https://example.org/data/"},
+        # A file beside the registry itself, not one fetched from elsewhere
+        {"root": "/data/", "path": "era5/1940.nc"},
+        # A file on this machine, where nobody else could fetch it
+        {"root": "file:///home/me/downloads/", "path": "era5/1940.nc"},
+    ],
+)
+def test_no_original_store(stored_file, source):
+    _storage, _location_url = stored_file
+    _stored_url = _location_url()
+
+    assert (
+        fdp_store._get_url_from_original_store(
+            source, LOCAL_URL, "", _stored_url, True
+        )
+        is None
+    )
+    assert len(_storage.rows["storage_location"]) == 1
+
+
+@pytest.mark.faircli_storage
+@pytest.mark.parametrize(
+    "original_store_url", [f"{LOCAL_URL}/storage_location/2/", None]
+)
+def test_external_object_names_its_original_store(
+    mocker: pytest_mock.MockerFixture, original_store_url
+):
+    _access = mocker.patch("fair.registry.requests._access")
+    fdp_store._get_url_from_external_obj(
+        data={
+            "title": "A year of ERA5",
+            "primary": False,
+            "release_date": "2026-01-01T00:00:00",
+            "unique_name": "era5/1940",
+        },
+        local_file="1.0.0.nc",
+        registry_uri=LOCAL_URL,
+        registry_token="",
+        data_product_url=f"{LOCAL_URL}/data_product/1/",
+        original_store_url=original_store_url,
+    )
+    _posted = json.loads(_access.call_args.kwargs["data"])
+    assert _posted.get("original_store") == original_store_url

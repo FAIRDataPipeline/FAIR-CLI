@@ -7,6 +7,7 @@ import tempfile
 import click.testing
 import pytest
 import pytest_mock
+import requests
 import yaml
 
 import fair.exceptions as fdp_exc
@@ -35,20 +36,18 @@ def test_pull_download(file_server: str):
     assert open(_file).read() == "a,b\n1,2\n"
 
 
-# The file the file_server fixture serves as data.csv
-_SERVED = b"a,b\n1,2\n"
-
-
 @pytest.mark.faircli_sync
-@pytest.mark.parametrize(
-    "recorded", [hashlib.sha1(_SERVED).hexdigest(), "0" * 40]
-)
+@pytest.mark.parametrize("as_recorded", [True, False])
 def test_fetch_data_product(
     mocker: pytest_mock.MockerFixture,
     tmp_path,
     file_server: str,
-    recorded: str,
+    as_recorded: bool,
 ):
+    # The bytes of the file served, which is written as text and so differs
+    # with the platform, and the hash the registry holds for it
+    _served = requests.get(f"{file_server}data.csv").content
+    recorded = hashlib.sha1(_served).hexdigest() if as_recorded else "0" * 40
 
     tempd = os.path.join(tmp_path, "store")
     _dummy_data_product_name = "test"
@@ -88,9 +87,9 @@ def test_fetch_data_product(
     _out_file = os.path.join(
         tempd, _dummy_data_product_namespace, _dummy_data_product_name, "2.3.0"
     )
-    if recorded == hashlib.sha1(_SERVED).hexdigest():
+    if as_recorded:
         fdp_sync.fetch_data_product("", tempd, _example_data_product)
-        assert open(_out_file, "rb").read() == _SERVED
+        assert open(_out_file, "rb").read() == _served
     else:
         # Not the file the registry describes, so not kept as it
         with pytest.raises(
@@ -248,7 +247,7 @@ def test_upload_object_failure(
     # A file that was not uploaded is an error, not a warning; and one that
     # was fetched to be uploaded is not left behind
     _fetched = tmp_path / "fetched"
-    _fetched.write_bytes(_SERVED)
+    _fetched.write_bytes(b"a,b\n1,2\n")
     _mock_object(
         mocker, f"file://{tmp_path}/" if local else "https://example.org/"
     )
@@ -504,6 +503,38 @@ def test_identify(
             print(f"exc info: {_res.exc_info}")
             print(f"exception: {_res.exception}")
         assert _res.exit_code == 0
+
+        # The registered copy is found by its place in the data store, though
+        # the registry also records it at the address it was fetched from.
+        # (The copy in the clone may differ from it in its line endings.)
+        _token = local_registry._token
+        _data_product = fdp_req.get(
+            local_registry._url,
+            "data_product",
+            _token,
+            params={"name": "SEIRS_model/parameters"},
+        )[0]
+        _location = fdp_req.url_get(
+            fdp_req.url_get(_data_product["object"], _token)[
+                "storage_location"
+            ],
+            _token,
+        )
+        _root = fdp_req.url_get(_location["storage_root"], _token)["root"]
+        _res = _cli_runner.invoke(
+            cli,
+            [
+                "identify",
+                "--local",
+                f"{_root}{_location['path']}".replace("file://", ""),
+            ],
+            catch_exceptions=True,
+        )
+        assert _res.exit_code == 0
+        assert (
+            "Is linked to 'data_product': SEIRS_model/parameters"
+            in _res.output
+        )
 
 
 _ORIGIN = "http://127.0.0.1:8000/api/"

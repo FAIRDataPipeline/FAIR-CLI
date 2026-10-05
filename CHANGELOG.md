@@ -15,6 +15,11 @@
 - `fair pull` checks each file it fetches against the hash the remote registry holds for it, and refuses
   one that differs.
 
+## Added
+- Registering an external object records where its file was fetched from: the `root` and `path` of its
+  `register:` entry, as the object's `original_store`, with the hash of the file found there. `fair push`
+  takes that record to the remote. A file registered from the machine itself has no such record.
+
 ## Fixed
 - `fair push` sent no value that was false, leaving the remote to apply its default: an external object
   registered with `primary: false` arrived as primary, and a location with `public: false` as public.
@@ -26,6 +31,8 @@
   it in the temporary directory. Files are now sent and received a block at a time, whatever their
   size, and nothing is left behind.
 - An upload of 2 GiB or more over plain http failed on macOS.
+- `fair identify` looked at only the newest of a file's storage locations, so it could miss the data
+  products of a file the registry records in more than one place.
 
 # 2026-10-03 [v0.10.0](https://github.com/FAIRDataPipeline/FAIR-CLI/releases/tag/v0.10.0)
 

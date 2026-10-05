@@ -6,6 +6,7 @@ import yaml
 
 from fair.cli import cli
 import fair.common as fdp_com
+import fair.registry.requests as fdp_req
 import fair.testing as fdp_test
 
 TEST_DATA_DIR = f"file://{os.path.dirname(__file__)}{os.path.sep}data{os.path.sep}"
@@ -67,6 +68,30 @@ def test_register(
             print(f"exc info: {_res.exc_info}")
             print(f"exception: {_res.exception}")
         assert _res.exit_code == 0
+
+        # The external object says where its file was fetched from: the root
+        # and path of its 'register' entry, and the file that was found there
+        _register = next(
+            entry
+            for entry in yaml.safe_load(open(_cfg_path))["register"]
+            if "external_object" in entry
+        )
+        _token = local_registry._token
+
+        def _get(record, field):
+            return fdp_req.url_get(record[field], _token)
+
+        _external = fdp_req.get(
+            local_registry._url, "external_object", _token
+        )[0]
+        _original = _get(_external, "original_store")
+        _stored = _get(
+            _get(_get(_external, "data_product"), "object"), "storage_location"
+        )
+        assert _get(_original, "storage_root")["root"] == _register["root"]
+        assert _original["path"] == _register["path"]
+        assert _original["hash"] == _stored["hash"]
+        assert _original["url"] != _stored["url"]
 
         _working_yaml_path = os.path.join(tmp_path, "working_yaml.yaml")
         _cfg_str = {}
