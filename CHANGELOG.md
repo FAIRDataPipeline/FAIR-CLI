@@ -19,6 +19,8 @@
 - Registering an external object records where its file was fetched from: the `root` and `path` of its
   `register:` entry, as the object's `original_store`, with the hash of the file found there. `fair push`
   takes that record to the remote. A file registered from the machine itself has no such record.
+- `fair push` takes a refusal of an upload address with HTTP 409 to mean that the remote's store already
+  holds the file, sends nothing, and carries on. No released registry answers so yet.
 
 ## Fixed
 - `fair push` sent no value that was false, leaving the remote to apply its default: an external object

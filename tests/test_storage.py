@@ -365,3 +365,32 @@ def test_external_object_named_without_an_identifier(
     assert _posted["alternate_identifier"] == "ERA5 monthly means, 1940"
     assert _posted["alternate_identifier_type"] == "extract of a dataset"
     assert "identifier" not in _posted
+
+
+@pytest.mark.faircli_storage
+@pytest.mark.parametrize(
+    "status,sent", [(200, True), (409, False), (403, None)]
+)
+def test_upload_remote_file(
+    mocker: pytest_mock.MockerFixture, tmp_path, status: int, sent
+):
+    # A registry gives an address to upload a file to, refuses one (409) for
+    # a file its store already holds, and may refuse for other reasons
+    _file = tmp_path / "1.0.0.nc"
+    _file.write_bytes(b"a year of ERA5")
+    _response = mocker.Mock(status_code=status)
+    _response.json.return_value = {"url": "http://example.org/upload"}
+    _asked = mocker.patch("requests.post", return_value=_response)
+    _put = mocker.patch("fair.registry.requests.put_file")
+
+    if sent is None:
+        with pytest.raises(fdp_exc.RegistryAPICallError):
+            fdp_store.upload_remote_file(str(_file), f"{LOCAL_URL}/", "token")
+    else:
+        fdp_store.upload_remote_file(str(_file), f"{LOCAL_URL}/", "token")
+
+    # Asked for by the file's hash, and sent only to an address given
+    assert _asked.call_args.args[0] == (
+        f"{LOCAL_URL}/data/{fdp_store.calculate_file_hash(str(_file))}"
+    )
+    assert _put.called is bool(sent)

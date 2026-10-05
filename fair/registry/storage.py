@@ -949,6 +949,14 @@ def upload_remote_file(
     """
     if not os.path.exists(file_loc):
         raise fdp_exc.FileNotFoundError(f"File: {file_loc} does not exist")
-    _upload_url = get_upload_url(file_loc, remote_uri, remote_token)
+    try:
+        _upload_url = get_upload_url(file_loc, remote_uri, remote_token)
+    except fdp_exc.RegistryAPICallError as e:
+        # A registry refuses an address to upload a file it already holds,
+        # found by its hash: there is then nothing to send
+        if e.error_code != 409:
+            raise
+        logger.debug(f"File {file_loc} is already in the registry's store")
+        return
     logger.debug(f"Uploading {file_loc} to URL: {_upload_url}")
     fdp_req.put_file(_upload_url, file_loc)
