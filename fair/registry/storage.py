@@ -889,10 +889,6 @@ def check_if_object_exists(
     if not _results:
         return "absent"
 
-    if obj_type == "external_object":
-        _results = [res["data_product"] for res in _results]
-        _results = [fdp_req.url_get(r, token=token) for r in _results]
-
     _object_urls = [res["object"] for res in _results]
 
     _storage_urls = [

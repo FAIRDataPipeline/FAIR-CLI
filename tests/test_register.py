@@ -93,6 +93,46 @@ def test_register(
         assert _original["hash"] == _stored["hash"]
         assert _original["url"] != _stored["url"]
 
+        # The same file registered again, under a second name and in a second
+        # namespace, is a data product each time, and a further pull adds none
+        _again = f"{_register['external_object']}/again"
+        _again_cfg = yaml.safe_load(open(_cfg_path))
+        _again_cfg.pop("write", None)
+        _again_cfg["register"] = [
+            entry
+            for entry in _again_cfg["register"]
+            if "external_object" not in entry
+        ] + [
+            {"namespace": "SecondNamespace", "full_name": "A second one"},
+            dict(_register, external_object=_again),
+            dict(_register, namespace_name="SecondNamespace"),
+        ]
+        _again_path = os.path.join(tmp_path, "again.yaml")
+        with open(_again_path, "w") as f:
+            yaml.dump(_again_cfg, f, sort_keys=False)
+
+        def _data_products():
+            return sorted(
+                (_get(_product, "namespace")["name"], _product["name"])
+                for _product in fdp_req.get(
+                    local_registry._url, "data_product", _token
+                )
+            )
+
+        _expected = sorted(
+            _data_products()
+            + [
+                (_register["namespace_name"], _again),
+                ("SecondNamespace", _register["external_object"]),
+            ]
+        )
+        for _ in range(2):
+            _res = _cli_runner.invoke(
+                cli, ["pull", _again_path, "--debug"], catch_exceptions=True
+            )
+            assert _res.exit_code == 0
+            assert _data_products() == _expected
+
         _working_yaml_path = os.path.join(tmp_path, "working_yaml.yaml")
         _cfg_str = {}
 

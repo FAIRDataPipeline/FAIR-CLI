@@ -121,8 +121,6 @@ def fetch_registrations(
         _external_object = None
         _is_present = None
 
-        _search_data = {}
-
         if "data_product" in entry:
             _data_product: str = entry["use"]["data_product"]
         elif "external_object" in entry:
@@ -139,38 +137,30 @@ def fetch_registrations(
             )
         elif _external_object:
             _name = entry["use"]["data_product"]
-            _obj_type = "external_object"
-            # TODO: This doesn't work because of a mismatch with spaces in alternate_identifier, perhaps?
-            if "unique_name" in entry and "alternate_identifier_type" in entry:
-                #                _search_data['alternate_identifier'] = entry['unique_name']
-                _search_data["alternate_identifier_type"] = entry[
-                    "alternate_identifier_type"
-                ]
-            elif "identifier" in entry:
-                _search_data["identifier"] = entry["identifier"]
-            else:
+            if "identifier" not in entry and not (
+                "unique_name" in entry and "alternate_identifier_type" in entry
+            ):
                 raise fdp_exc.UserConfigError(
                     "Expected either 'identifier', or 'unique_name' and "
                     f"'alternate_identifier_type' in external object '{_name}'"
                 )
-            try:
-                _data_product_id = convert_key_value_to_id(
-                    local_uri,
-                    "data_product",
-                    entry["use"]["data_product"],
-                    fdp_req.local_token(),
-                )
-                _search_data["data_product"] = _data_product_id
-            except fdp_exc.RegistryError:
-                _is_present = "absent"
 
         else:
             _name = entry["use"]["data_product"]
-            _obj_type = "data_product"
-            _search_data = {"name": _name}
 
-        _search_data["version"] = entry["use"]["version"]
         _namespace = entry["use"]["namespace"]
+
+        # What is looked for is the data product itself, by its namespace, name
+        # and version: the same file may be registered under another name or
+        # in another namespace, and an external object may be shared by several
+        # data products. A namespace the registry does not hold has nothing in it
+        _search_data = {"name": _name, "version": entry["use"]["version"]}
+        try:
+            _search_data["namespace"] = convert_key_value_to_id(
+                local_uri, "namespace", _namespace, fdp_req.local_token()
+            )
+        except fdp_exc.RegistryError:
+            _is_present = "absent"
 
         if _external_object:
             if not _identifier and not _unique_name:
@@ -202,13 +192,14 @@ def fetch_registrations(
         _local_dir = os.path.join(write_data_store, _namespace, _name)
 
         # Check if the object is already present on the local registry
-        _is_present = fdp_store.check_if_object_exists(
-            local_uri=local_uri,
-            file_loc=_temp_data_file,
-            token=fdp_req.local_token(),
-            obj_type=_obj_type,
-            search_data=_search_data,
-        )
+        if _is_present != "absent":
+            _is_present = fdp_store.check_if_object_exists(
+                local_uri=local_uri,
+                file_loc=_temp_data_file,
+                token=fdp_req.local_token(),
+                obj_type="data_product",
+                search_data=_search_data,
+            )
 
         # Hash matched version already present
         if _is_present == "hash_match":
