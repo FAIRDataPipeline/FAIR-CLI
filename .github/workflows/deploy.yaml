@@ -21,7 +21,7 @@ jobs:
 
       - name: Get Previous tag
         id: previoustag
-        uses: "WyriHaximus/github-action-get-previous-tag@v1"
+        uses: "WyriHaximus/github-action-get-previous-tag@v2"
 
       - name: Install Poetry
         run: python -m pip install poetry
@@ -37,7 +37,7 @@ jobs:
           poetry run pyinstaller -c -F fair/cli.py --collect-all fair
           mv dist/cli.exe dist/fair-cli-${{ steps.previoustag.outputs.tag }}-x64-windows-latest.exe
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v7
         with:
             name: windows_faircli
             path: dist/fair-cli-${{ steps.previoustag.outputs.tag }}-x64-windows-latest.exe
@@ -73,7 +73,7 @@ jobs:
           poetry run pyinstaller -c -F fair/cli.py --collect-all fair
           mv dist/cli dist/fair-cli-${{ steps.previoustag.outputs.tag }}-x64-macos-latest
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v7
         with:
             name: macos_faircli
             path: dist/fair-cli-${{ steps.previoustag.outputs.tag }}-x64-macos-latest
@@ -97,7 +97,7 @@ jobs:
 
       - name: Get Previous tag
         id: previoustag
-        uses: "WyriHaximus/github-action-get-previous-tag@v1"
+        uses: "WyriHaximus/github-action-get-previous-tag@v2"
 
       - name: Install Module
         run: python -m poetry install
@@ -110,7 +110,7 @@ jobs:
           poetry run pyinstaller -F fair/cli.py --collect-all fair
           mv dist/cli dist/fair-cli-${{ steps.previoustag.outputs.tag }}-x64-ubuntu-latest
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
             name: ubuntu_faircli
             path: dist/fair-cli-${{ steps.previoustag.outputs.tag }}-x64-ubuntu-latest
@@ -161,19 +161,22 @@ jobs:
           poetry build
 
       - name: Retrieve Ubuntu Executable
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: ubuntu_faircli
+          path: ubuntu_faircli
 
       - name: Retrieve Windows Executable
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: windows_faircli
+          path: windows_faircli
 
       - name: Retrieve macOS Executable
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: macos_faircli
+          path: macos_faircli
 
       - name: Create Release
         uses: softprops/action-gh-release@v3
