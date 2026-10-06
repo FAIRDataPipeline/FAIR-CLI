@@ -328,6 +328,12 @@ def install_registry(
     if not install_dir:
         install_dir = fdp_com.DEFAULT_REGISTRY_LOCATION
 
+    # Find a Python for the registry before changing anything on disk
+    _venv_cmd = None
+    if not venv_dir:
+        venv_dir = os.path.join(install_dir, "venv")
+        _venv_cmd = fdp_env.venv_command(venv_dir)
+
     if os.path.exists(install_dir) and not force:
         raise fdp_exc.RegistryError(
             f"Local registry is already installed in {install_dir}"
@@ -382,12 +388,9 @@ def install_registry(
     else:
         _repo.git.checkout(reference)
 
-    if not venv_dir:
-        venv_dir = os.path.join(install_dir, "venv")
-
-        _venv = fdp_env.FAIREnv(with_pip=True)
-
-        _venv.create(venv_dir)
+    if _venv_cmd:
+        logger.debug("Creating virtual environment: %s", _venv_cmd)
+        subprocess.check_call(_venv_cmd)
 
     _python_exe = "python.exe" if platform.system() == "Windows" else "python"
     _binary_loc = "Scripts" if platform.system() == "Windows" else "bin"

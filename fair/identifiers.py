@@ -18,6 +18,7 @@ Functions
 
 __date__ = "2021-07-01"
 
+import os
 import time
 import typing
 import urllib.parse
@@ -27,6 +28,8 @@ import requests.exceptions
 import logging
 from urllib3.exceptions import InsecureRequestWarning
 from fake_useragent import UserAgent
+
+import fair.exceptions as fdp_exc
 
 logger = logging.getLogger("FAIRDataPipeline.Identifiers")
 
@@ -98,10 +101,28 @@ def check_github(github: str) -> typing.Dict:
     typing.Dict
         metadata from the given ID
     """
-    _header = JSON_HEADERS
     _url = urllib.parse.urljoin(QUERY_URLS["github"], github)
     requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
-    _response = requests.get(_url, headers=_header, verify=False, allow_redirects=True)
+
+    # Requests without a token share a limit of 60 an hour per IP address
+    _token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GITHUB_PAT")
+    _auth = {"Authorization": f"Bearer {_token}"} if _token else {}
+    _response = requests.get(
+        _url, headers={**JSON_HEADERS, **_auth}, verify=False, allow_redirects=True
+    )
+
+    # An expired or revoked token is refused outright, where no token is not
+    if _response.status_code == 401 and _token:
+        logger.warning(
+            "GitHub refused the token in GITHUB_TOKEN/GITHUB_PAT, "
+            "retrying without it"
+        )
+        _auth = {}
+        _response = requests.get(
+            _url, headers=JSON_HEADERS, verify=False, allow_redirects=True
+        )
+
+    _check_github_rate_limit(_response, bool(_auth))
 
     _result_dict: typing.Dict[str, typing.Any] = {}
 
@@ -109,8 +130,9 @@ def check_github(github: str) -> typing.Dict:
         time.sleep(3)
         _header = {"Accept": JSON_MIME_TYPE, "User-Agent": str(UserAgent().chrome)}
         _response = requests.get(
-            _url, headers=_header, verify=False, allow_redirects=True
+            _url, headers={**_header, **_auth}, verify=False, allow_redirects=True
         )
+        _check_github_rate_limit(_response, bool(_auth))
 
     if _response.status_code != 200:
         logger.debug(f"{_url} Responded with {_response.status_code}")
@@ -127,6 +149,34 @@ def check_github(github: str) -> typing.Dict:
     _result_dict["uri"] = f'{ID_URIS["github"]}{_login}'
 
     return _result_dict
+
+
+def _check_github_rate_limit(response: requests.Response, token: bool) -> None:
+    """Raise if the GitHub API refused a request for exceeding its rate limit
+
+    Parameters
+    ----------
+    response : requests.Response
+        response from the GitHub API
+    token : bool
+        whether the request was sent with a token GitHub accepted
+    """
+    if response.status_code not in (403, 429):
+        return
+    if response.headers.get("X-RateLimit-Remaining") != "0":
+        return
+    _reset = response.headers.get("X-RateLimit-Reset")
+    _when = (
+        f" until {time.strftime('%H:%M:%S', time.localtime(int(_reset)))}"
+        if _reset and _reset.isdigit()
+        else ""
+    )
+    raise fdp_exc.FAIRCLIException(
+        f"The GitHub API rate limit is exhausted{_when}, so GitHub usernames "
+        "cannot be checked",
+        hint="Wait for the limit to reset"
+        + ("" if token else ", or set GITHUB_TOKEN to a valid GitHub token"),
+    )
 
 
 def check_gitlab(gitlab: str, gitlab_url: str = "https://gitlab.com/") -> typing.Dict:
