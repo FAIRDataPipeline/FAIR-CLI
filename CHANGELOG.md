@@ -35,6 +35,9 @@
 - `fair push` gave a code run an input it did not read when two data products held the same file, as one
   file registered under two names does: a run that read one of them and wrote something new arrived on the
   remote as having read both. A run pushed before this keeps the extra input.
+- A file registered under a second data product name, or in a second namespace, was copied into the data store
+  again, though the registry records a file once there and nothing referred to the copy. The copy is no
+  longer kept: the data product's file is the one already in the store.
 
 ## Development
 - The test of a data product's dependencies allows for any a registry adds; data-registry v1.4.0 adds one.

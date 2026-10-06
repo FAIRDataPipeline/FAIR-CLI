@@ -431,6 +431,10 @@ def store_data_file(
         is_public=public,
     )
 
+    _remove_copy_held_elsewhere(
+        local_file, write_data_store, _post_store_loc, token
+    )
+
     _user = store_user(repo_dir, uri, token)
 
     _file_type = _get_url_from_file_type(
@@ -481,6 +485,36 @@ def store_data_file(
             is_public=public,
         ),
     )
+
+
+# A registry records a file once under a root. One that is in the data store
+# already, under another data product's name, is the file of every data
+# product registered with the same bytes, so the copy brought in for this one
+# is not kept. It is kept if the file recorded is not there
+def _remove_copy_held_elsewhere(
+    local_file: str,
+    write_data_store: str,
+    storage_loc_url: str,
+    registry_token: str,
+) -> None:
+    _held_file = os.path.join(
+        write_data_store,
+        fdp_req.url_get(storage_loc_url, registry_token)["path"],
+    )
+    if not os.path.exists(_held_file) or os.path.samefile(
+        _held_file, local_file
+    ):
+        return
+    logger.debug(
+        "Removing '%s': the data store holds the file as '%s'",
+        local_file,
+        _held_file,
+    )
+    os.remove(local_file)
+    try:
+        os.rmdir(os.path.dirname(local_file))
+    except OSError:
+        pass
 
 
 def _get_url_from_storage_loc(

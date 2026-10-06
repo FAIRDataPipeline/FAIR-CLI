@@ -352,6 +352,53 @@ def stored_file(mocker: pytest_mock.MockerFixture, tmp_path):
     return _storage, _location_url
 
 
+@pytest.mark.faircli_storage
+@pytest.mark.parametrize("first_is_there", [True, False])
+def test_copy_of_a_file_held_already_is_not_kept(
+    mocker: pytest_mock.MockerFixture, tmp_path, first_is_there: bool
+):
+    # One file registered under two names is recorded once under the data
+    # store's root, at the first name's path, which is then the file of both:
+    # the copy brought in for the second is removed, and its directory with
+    # it. Not if the first is no longer there
+    _storage = _Storage(mocker)
+    _root_url = _storage.post(
+        LOCAL_URL,
+        "storage_root",
+        "",
+        {"root": f"file://{tmp_path}/", "local": True},
+    )["url"]
+    _files = []
+    for _name in ("first", "second"):
+        _file = tmp_path / "PSU" / _name / "1.0.0.csv"
+        _file.parent.mkdir(parents=True)
+        _file.write_bytes(b"a,b\n1,2\n")
+        _files.append(_file)
+
+    def _register(file):
+        _location_url = fdp_store._get_url_from_storage_loc(
+            local_file=str(file),
+            registry_uri=LOCAL_URL,
+            registry_token="",
+            relative_path=os.path.relpath(file, tmp_path),
+            root_store_url=_root_url,
+            is_public=True,
+        )
+        fdp_store._remove_copy_held_elsewhere(
+            str(file), str(tmp_path), _location_url, ""
+        )
+
+    _register(_files[0])
+    assert _files[0].exists()
+    if not first_is_there:
+        _files[0].unlink()
+
+    _register(_files[1])
+    assert len(_storage.rows["storage_location"]) == 1
+    assert _files[1].exists() != first_is_there
+    assert _files[1].parent.exists() != first_is_there
+
+
 _SOURCE = {"root": "https://example.org/data/", "path": "era5/1940.nc"}
 
 

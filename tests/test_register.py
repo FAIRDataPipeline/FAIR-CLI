@@ -9,6 +9,7 @@ import fair.common as fdp_com
 import fair.exceptions as fdp_exc
 import fair.register as fdp_reg
 import fair.registry.requests as fdp_req
+import fair.registry.storage as fdp_store
 import fair.testing as fdp_test
 
 TEST_DATA_DIR = f"file://{os.path.dirname(__file__)}{os.path.sep}data{os.path.sep}"
@@ -211,6 +212,18 @@ def test_register(
             )
             assert _res.exit_code == 0
             assert _data_products() == _expected
+
+        # The registry records the file once, at the first name's path, and
+        # the data store holds it once
+        _store = _get(_stored, "storage_root")["root"].replace("file://", "")
+        assert os.path.exists(os.path.join(_store, _stored["path"]))
+        assert [
+            _file
+            for _dir, _, _files in os.walk(_store)
+            for _file in _files
+            if fdp_store.calculate_file_hash(os.path.join(_dir, _file))
+            == _stored["hash"]
+        ] == [os.path.basename(_stored["path"])]
 
         # An entry's 'release_version' is the version of its external object
         assert fdp_req.get(
