@@ -48,6 +48,50 @@ def test_register_release_version_not_a_version(mocker, release_version):
 
 
 @pytest.mark.faircli_register
+@pytest.mark.parametrize("cached", [False, True])
+def test_register_refused_leaves_no_download(mocker, tmp_path, cached):
+    # A file fetched for an entry that is then refused is not left behind;
+    # one the entry was given from a cache is the user's, and stays
+    _data_file = os.path.join(tmp_path, "data.csv")
+    with open(_data_file, "w") as out_f:
+        out_f.write("a,b\n1,2\n")
+    mocker.patch(
+        "fair.registry.sync.download_from_registry", return_value=_data_file
+    )
+    mocker.patch("fair.registry.requests.local_token", return_value="")
+    mocker.patch(
+        "fair.register.convert_key_value_to_id",
+        side_effect=fdp_exc.RegistryError("no such namespace"),
+    )
+    mocker.patch(
+        "fair.registry.storage.check_source_is_one_file",
+        side_effect=fdp_exc.UserConfigError("another file"),
+    )
+    _entry = {
+        "external_object": "era5/1940",
+        "use": {
+            "data_product": "era5/1940",
+            "namespace": "ECMWF",
+            "version": "1.0.0",
+        },
+        "root": "https://example.com/",
+        "path": "era5/1940.nc",
+        "file_type": "nc",
+        "primary": True,
+        "public": True,
+        "identifier": "https://doi.org/10.24381/cds.f17050d7",
+    }
+    if cached:
+        _entry["cache"] = _data_file
+    with pytest.raises(fdp_exc.UserConfigError, match="another file"):
+        fdp_reg.fetch_registrations(
+            "http://127.0.0.1:8000/api/", "", str(tmp_path), [_entry]
+        )
+    assert os.path.exists(_data_file) == cached
+    assert os.listdir(tmp_path) == (["data.csv"] if cached else [])
+
+
+@pytest.mark.faircli_register
 def test_register(
     global_config,
     local_registry,
@@ -175,6 +219,42 @@ def test_register(
             _token,
             params={"version": "2.1.0"},
         )
+
+        # A source is one file: another file under the same identifier, title
+        # and release version is refused, and registered once it has a title
+        # of its own
+        _other_cfg = yaml.safe_load(open(_cfg_path))
+        _other_cfg.pop("write", None)
+        _other = dict(
+            _register,
+            external_object="another/file",
+            root=TEST_DATA_DIR,
+            path="test1.csv",
+        )
+        _other_cfg["register"] = [
+            entry
+            for entry in _other_cfg["register"]
+            if "external_object" not in entry
+        ] + [_other]
+        _other_path = os.path.join(tmp_path, "other.yaml")
+        with open(_other_path, "w") as f:
+            yaml.dump(_other_cfg, f, sort_keys=False)
+        _res = _cli_runner.invoke(
+            cli, ["pull", _other_path, "--debug"], catch_exceptions=True
+        )
+        assert _res.exit_code == 1
+        assert "A source is one file" in _res.output
+        assert _data_products() == _expected
+
+        _other["title"] = "A title of its own"
+        with open(_other_path, "w") as f:
+            yaml.dump(_other_cfg, f, sort_keys=False)
+        _res = _cli_runner.invoke(
+            cli, ["pull", _other_path, "--debug"], catch_exceptions=True
+        )
+        assert _res.exit_code == 0
+        _expected.append((_register["namespace_name"], "another/file"))
+        assert _data_products() == sorted(_expected)
 
         _working_yaml_path = os.path.join(tmp_path, "working_yaml.yaml")
         _cfg_str = {}

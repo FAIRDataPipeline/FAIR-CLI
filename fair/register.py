@@ -242,6 +242,20 @@ def fetch_registrations(
             )
             logger.debug("No existing results found for %s", _search_data)
 
+        if _external_object:
+            try:
+                fdp_store.check_source_is_one_file(
+                    local_uri=local_uri,
+                    file_loc=_temp_data_file,
+                    token=fdp_req.local_token(),
+                    data=entry,
+                    name=_name,
+                )
+            except fdp_exc.UserConfigError:
+                if _remove:
+                    os.remove(_temp_data_file)
+                raise
+
         # Create object location directory, ignoring if already present
         # as multiple version files can exist
         os.makedirs(_local_dir, exist_ok=True)

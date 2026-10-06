@@ -907,6 +907,80 @@ def check_if_object_exists(
     return "hash_match" if check_match(file_loc, _storage_objs) else _results
 
 
+def check_source_is_one_file(
+    local_uri: str, file_loc: str, token: str, data: typing.Dict, name: str
+) -> None:
+    """Refuse a file under the identity of a source that holds another
+
+    A source is one file, which any number of data products may hold. Its
+    identity is an identifier, or a unique name and its type, with a title and
+    a release version: a second file needs a title of its own, or the release
+    it was taken from.
+
+    Parameters
+    ----------
+    local_uri : str
+        local registry endpoint
+    file_loc : str
+        path of the file to be registered
+    token : str
+        token for registry
+    data : typing.Dict
+        'register' entry of the external object
+    name : str
+        name of the entry, for the message
+
+    Raises
+    ------
+    fdp_exc.UserConfigError
+        if a data product of that source holds a different file
+    """
+    if "title" not in data:
+        return
+
+    if data.get("identifier", None):
+        _search_data = {"identifier": data["identifier"]}
+    else:
+        _search_data = {
+            "alternate_identifier": data.get("unique_name"),
+            "alternate_identifier_type": data.get(
+                "alternate_identifier_type", "local source descriptor"
+            ),
+        }
+    _search_data["title"] = data["title"]
+    # A source given no release version has the registry's default
+    _search_data["version"] = f'{data.get("release_version", "1.0.0")}'
+
+    _sources = fdp_req.get(
+        local_uri, "external_object", token, params=_search_data
+    )
+
+    _hash = None
+    for _source in _sources:
+        # A registry that keeps an external object for each data product
+        # lists none here: there a source is not shared
+        for _data_product_url in _source.get("data_products", []):
+            _data_product = fdp_req.url_get(_data_product_url, token)
+            _object = fdp_req.url_get(_data_product["object"], token)
+            # A data product with no file holds none to differ from
+            if not _object["storage_location"]:
+                continue
+            _location = fdp_req.url_get(_object["storage_location"], token)
+            _hash = _hash or calculate_file_hash(file_loc)
+            if _location["hash"] == _hash:
+                continue
+            _namespace = fdp_req.url_get(_data_product["namespace"], token)
+            raise fdp_exc.UserConfigError(
+                f"Cannot register '{name}': the source it names - by "
+                "identifier or unique name, title and release version - is "
+                "registered already from a different file, as data product "
+                f"'{_namespace['name']}:{_data_product['name']}"
+                f"@v{_data_product['version']}'",
+                hint="A source is one file: give this entry a 'title' of "
+                "its own, or the 'release_version' its file was taken from",
+            )
+
+
 def get_upload_url(
     file_loc: str,
     remote_uri: str = None,

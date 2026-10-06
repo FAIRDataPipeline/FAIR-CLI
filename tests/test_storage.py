@@ -162,6 +162,90 @@ def test_presence_of_a_data_product_without_a_file(
     )
 
 
+@pytest.mark.faircli_storage
+@pytest.mark.parametrize(
+    "held",
+    ["the same file", "another file", "no file", "older registry", None],
+)
+def test_source_is_one_file(mocker: pytest_mock.MockerFixture, tmp_path, held):
+    # A source - an identifier, a title and a release version - is one file,
+    # whatever data products hold it. A second file under its identity is
+    # refused; the same file again is not, nor is a data product with no file
+    # in the way. A registry from before sources were shared lists no data
+    # products for one, and there nothing is compared
+    _data_file = os.path.join(tmp_path, "data.csv")
+    with open(_data_file, "wb") as out_f:
+        out_f.write(b"a,b\n1,2\n")
+    _hash = fdp_store.calculate_file_hash(_data_file)
+    _entry = {
+        "identifier": "https://doi.org/10.1038/s41592-020-0856-2",
+        "title": "A source",
+    }
+    _sources = {
+        None: [],
+        "older registry": [{"data_product": "data_product"}],
+    }.get(held, [{"data_products": ["data_product"]}])
+    _records = {
+        "data_product": {
+            "object": "object",
+            "namespace": "namespace",
+            "name": "held/already",
+            "version": "1.0.0",
+        },
+        "object": {"storage_location": held != "no file" and "location"},
+        "location": {"hash": _hash if held == "the same file" else "0" * 40},
+        "namespace": {"name": "PSU"},
+    }
+    _get = mocker.patch("fair.registry.requests.get", return_value=_sources)
+    mocker.patch(
+        "fair.registry.requests.url_get",
+        lambda url, *args, **kwargs: _records[url],
+    )
+
+    def _check():
+        fdp_store.check_source_is_one_file(
+            LOCAL_URL, _data_file, "", _entry, "new/name"
+        )
+
+    if held == "another file":
+        with pytest.raises(
+            fdp_exc.UserConfigError, match="PSU:held/already@v1.0.0"
+        ):
+            _check()
+    else:
+        _check()
+    assert _get.call_args.args[1] == "external_object"
+    assert _get.call_args.kwargs["params"] == dict(_entry, version="1.0.0")
+
+
+@pytest.mark.faircli_storage
+def test_source_is_looked_up_by_its_identity(
+    mocker: pytest_mock.MockerFixture,
+):
+    # By a unique name and its type where there is no identifier, and by the
+    # release version the entry gives. An entry with no title has no identity
+    # to look up, and is refused later for want of one
+    _get = mocker.patch("fair.registry.requests.get", return_value=[])
+    _entry = {
+        "unique_name": "a source",
+        "alternate_identifier_type": "local source descriptor",
+        "release_version": "2.1.0",
+    }
+
+    fdp_store.check_source_is_one_file(LOCAL_URL, "", "", _entry, "name")
+    _get.assert_not_called()
+
+    fdp_store.check_source_is_one_file(
+        LOCAL_URL, "", "", dict(_entry, title="A source"), "name"
+    )
+    assert _get.call_args.kwargs["params"] == {
+        "alternate_identifier": "a source",
+        "alternate_identifier_type": "local source descriptor",
+        "title": "A source",
+        "version": "2.1.0",
+    }
+
+
 # @pytest.mark.faircli_storage
 # @pytest.mark.skipif("FAIR_REMOTE_TOKEN" not in os.environ, reason="Fails on GH CI")
 # def test_get_upload_url(

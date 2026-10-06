@@ -1,5 +1,12 @@
 # 2026-10-05 [v0.10.2](https://github.com/FAIRDataPipeline/FAIR-CLI/releases/tag/v0.10.2)
 
+## Changed behaviour
+- `fair pull` refuses a `register:` entry for an external object whose identifier or unique name, title and
+  release version are those of a source already registered from a different file: a source is one file. Give
+  the entry a `title` of its own, or its `release_version`; the same file under another name still registers.
+  With a local registry before data-registry v1.4.0, where each data product has its own source, nothing is
+  checked.
+
 ## Added
 - A `register:` entry for an external object may give `release_version`, the version of the source it was taken
   from, beside `release_date`. A local registry at data-registry v1.4.0 or later records it as the external

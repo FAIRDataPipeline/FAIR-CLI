@@ -640,13 +640,14 @@ def test_push_data_products_of_one_source(
     mocker: pytest_mock.MockerFixture,
     tmp_path,
 ):
-    # Two files registered from one source, which a registry may record as
-    # one external object for both: each is pushed as a data product
+    # One file registered under two names is two data products of one source,
+    # which a registry may record as one external object for both: each is
+    # pushed as a data product
     _names = ["shared/source/one", "shared/source/two"]
     _data_dir = os.path.join(os.path.dirname(__file__), "data")
     _cfg = {
         "run_metadata": {
-            "description": "Two files of one source",
+            "description": "Two data products of one source",
             "script": "echo done",
         },
         "register": [
@@ -657,15 +658,15 @@ def test_push_data_products_of_one_source(
                 "external_object": _name,
                 "namespace_name": "PSU",
                 "root": f"file://{_data_dir}{os.path.sep}",
-                "path": _file,
-                "title": "Two files of one source",
+                "path": "test1.csv",
+                "title": "Two data products of one source",
                 "identifier": "https://doi.org/10.1038/s41592-020-0856-2",
                 "file_type": "csv",
                 "release_date": "2021-09-20T12:00",
                 "version": "1.0.0",
                 "primary": False,
             }
-            for _name, _file in zip(_names, ["test1.csv", "test2.csv"])
+            for _name in _names
         ],
     }
     _cfg_path = os.path.join(tmp_path, "shared.yaml")
