@@ -17,6 +17,10 @@
   given. It is not the entry's `version`, which is the data product's.
 
 ## Fixed
+- A GitHub author or user was refused as "not a recognised github" once the GitHub API's limit for
+  anonymous requests (60 an hour per address) was spent. GitHub lookups now send the token in `GITHUB_TOKEN`
+  or `GITHUB_PAT` if set, retry without it if GitHub refuses it (expired or revoked), and say when the rate
+  limit is the problem.
 - The FAIR-CLI binaries could not install a local registry, so `fair init` and `fair registry install` failed:
   the registry's virtual environment was built from the binary in place of a Python. They now use a Python
   >= 3.10 from `FAIR_PYTHON` or the `PATH`, or have `uv` fetch one, and say so if there is none. A missing
