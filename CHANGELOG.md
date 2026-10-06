@@ -25,6 +25,9 @@
 - `fair push` and `fair pull` stopped with a Python error at a data product that has no file - one whose
   object has no storage location, as an entry for a deposit as a whole may be - and so at a code run that
   read one. Its records are now synchronised, and a `register:` entry of the same name is told it exists.
+- `fair push` gave a code run an input it did not read when two data products held the same file, as one
+  file registered under two names does: a run that read one of them and wrote something new arrived on the
+  remote as having read both. A run pushed before this keeps the extra input.
 
 ## Development
 - The test of a data product's dependencies allows for any a registry adds; data-registry v1.4.0 adds one.

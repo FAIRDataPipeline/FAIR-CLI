@@ -304,6 +304,51 @@ def test_dest_object_of_a_file_at_two_locations(
 
 
 @pytest.mark.faircli_sync
+@pytest.mark.parametrize("wanted", [0, 1, None])
+def test_dest_object_of_one_of_two_with_the_same_file(
+    mocker: pytest_mock.MockerFixture, wanted
+):
+    # Two objects on the destination hold the same file, as when one file is
+    # registered under two names. The one wanted has the origin object's data
+    # product, wherever it is listed; with no data product, the first listed
+    _objects = [{"url": f"{_DEST}object/5/"}, {"url": f"{_DEST}object/1/"}]
+    _records = {
+        "object": {
+            "storage_location": "location",
+            "data_products": [] if wanted is None else ["data_product"],
+        },
+        "location": {"hash": "abc"},
+        "data_product": {
+            "name": "same/second",
+            "version": "1.0.0",
+            "namespace": "namespace",
+        },
+        "namespace": {"name": "testing"},
+    }
+    mocker.patch(
+        "fair.registry.requests.url_get",
+        lambda url, *args, **kwargs: _records[url],
+    )
+
+    def mock_get(uri, obj_type, *args, **kwargs):
+        if obj_type == "storage_location":
+            return [{"url": f"{_DEST}storage_location/1/"}]
+        elif obj_type == "object":
+            return _objects
+        elif obj_type == "namespace":
+            return [{"url": f"{_DEST}namespace/3/"}]
+        assert obj_type == "data_product"
+        return [{"object": _objects[wanted]["url"]}]
+
+    mocker.patch("fair.registry.requests.get", mock_get)
+
+    assert (
+        fdp_sync.get_dest_object_url("object", _DEST, "", "")
+        == _objects[wanted or 0]["url"]
+    )
+
+
+@pytest.mark.faircli_sync
 @pytest.mark.parametrize("on_destination", [True, False])
 def test_dest_object_of_an_object_without_a_file(
     mocker: pytest_mock.MockerFixture, on_destination: bool
@@ -737,6 +782,159 @@ def test_push_code_run_that_read_a_data_product_without_a_file(
         assert _pushed
         _pushed_object = fdp_req.url_get(_pushed[0]["object"], _token)
         assert not _pushed_object["storage_location"]
+        _pushed_run = get(_DEST, "code_run", _token, params={"uuid": _uuid})
+        assert _pushed_run[0]["inputs"] == _pushed_object["components"]
+
+
+@pytest.mark.faircli_sync
+@pytest.mark.dependency(name="same_file", depends=["push"])
+def test_push_code_run_that_read_one_data_product_of_a_shared_file(
+    global_config: str,
+    local_registry: RegistryTest,
+    remote_registry: RegistryTest,
+    pyDataPipeline: str,
+    fair_bucket: MotoTestServer,
+    mocker: pytest_mock.MockerFixture,
+    tmp_path,
+):
+    # One file registered under two names is two data products of one file.
+    # A code run that read one of them and wrote something new has that one
+    # alone as its input when it is pushed, whichever was pushed first
+    _names = ["same/file/first", "same/file/second"]
+    with open(os.path.join(tmp_path, "same.csv"), "wb") as out_f:
+        out_f.write(b"one,file\nunder,two names\n")
+    _cfg = {
+        "run_metadata": {
+            "description": "One file under two names",
+            "script": "echo done",
+        },
+        "register": [
+            {"namespace": "PSU", "full_name": "Pennsylvania State University"}
+        ]
+        + [
+            {
+                "external_object": _name,
+                "namespace_name": "PSU",
+                "root": f"file://{tmp_path}{os.path.sep}",
+                "path": "same.csv",
+                "title": "One file under two names",
+                "identifier": "https://doi.org/10.1038/s41592-020-0856-2",
+                "file_type": "csv",
+                "release_date": "2021-09-20T12:00",
+                "version": "1.0.0",
+                "primary": False,
+            }
+            for _name in _names
+        ],
+    }
+    _cfg_path = os.path.join(tmp_path, "same.yaml")
+    with open(_cfg_path, "w") as f:
+        yaml.dump(_cfg, f, sort_keys=False)
+
+    _cli_runner = click.testing.CliRunner()
+    with remote_registry, local_registry, fair_bucket:
+        mocker.patch(
+            "fair.configuration.get_current_user_remote_user",
+            lambda *args, **kwargs: "admin",
+        )
+        _res = _cli_runner.invoke(cli, ["pull", _cfg_path, "--debug"])
+        assert _res.exit_code == 0
+        # Each is pushed by itself, so that the first is the older there
+        for _name in _names:
+            _res = _cli_runner.invoke(cli, ["add", f"PSU:{_name}@v1.0.0"])
+            assert _res.exit_code == 0
+            _res = _cli_runner.invoke(
+                cli, ["push", "--debug"], catch_exceptions=True
+            )
+            assert _res.exit_code == 0
+
+        _token = local_registry._token
+        _read = get(
+            _ORIGIN,
+            "data_product",
+            _token,
+            params={"name": _names[0], "version": "1.0.0"},
+        )
+        _read_object = fdp_req.url_get(_read[0]["object"], _token)
+        _location = fdp_req.url_get(_read_object["storage_location"], _token)
+        _root = fdp_req.url_get(_location["storage_root"], _token)
+
+        # A new output in the data store, and a run that read the first name
+        # and wrote it, with the configuration and script of the model's run
+        _written = b"written by the run that read the first\n"
+        _hash = hashlib.sha1(_written).hexdigest()
+        _path = f"testing/same/file/output/{_hash}.csv"
+        _file = f'{_root["root"]}{_path}'.replace("file://", "")
+        os.makedirs(os.path.dirname(_file), exist_ok=True)
+        with open(_file, "wb") as out_f:
+            out_f.write(_written)
+        _written_location = fdp_req.post(
+            _ORIGIN,
+            "storage_location",
+            _token,
+            {
+                "path": _path,
+                "hash": _hash,
+                "public": True,
+                "storage_root": _root["url"],
+            },
+        )
+        _written_object = fdp_req.post(
+            _ORIGIN,
+            "object",
+            _token,
+            {
+                "description": "Written by the run that read the first",
+                "storage_location": _written_location["url"],
+            },
+        )
+        fdp_req.post(
+            _ORIGIN,
+            "data_product",
+            _token,
+            {
+                "namespace": get(
+                    _ORIGIN, "namespace", _token, params={"name": "testing"}
+                )[0]["url"],
+                "name": "same/file/output",
+                "version": "1.0.0",
+                "object": _written_object["url"],
+            },
+        )
+        _model_run = get(_ORIGIN, "code_run", _token)[0]
+        _written_object = fdp_req.url_get(_written_object["url"], _token)
+        _uuid = str(uuid.uuid4())
+        fdp_req.post(
+            _ORIGIN,
+            "code_run",
+            _token,
+            {
+                "run_date": _model_run["run_date"],
+                "description": "A run that read the first name",
+                "model_config": _model_run["model_config"],
+                "submission_script": _model_run["submission_script"],
+                "code_repo": _model_run["code_repo"],
+                "inputs": _read_object["components"],
+                "outputs": _written_object["components"],
+                "uuid": _uuid,
+            },
+        )
+
+        _res = _cli_runner.invoke(cli, ["add", _uuid])
+        assert _res.exit_code == 0
+        _res = _cli_runner.invoke(
+            cli, ["push", "--debug"], catch_exceptions=True
+        )
+        assert _res.exit_code == 0
+
+        _token = remote_registry._token
+        _pushed = get(
+            _DEST,
+            "data_product",
+            _token,
+            params={"name": _names[0], "version": "1.0.0"},
+        )
+        _pushed_object = fdp_req.url_get(_pushed[0]["object"], _token)
         _pushed_run = get(_DEST, "code_run", _token, params={"uuid": _uuid})
         assert _pushed_run[0]["inputs"] == _pushed_object["components"]
 

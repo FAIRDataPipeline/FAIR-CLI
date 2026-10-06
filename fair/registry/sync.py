@@ -851,15 +851,15 @@ def sync_code_runs(
         logger.info(f"Synced Code Run: {code_run_uuid}")
 
 
-# The destination's object for an origin object that has no file. There is no
-# hash to find it by, so it is found by a data product of the object's: the
-# namespace, name and version it has in both registries
-def _get_dest_object_url_without_file(
+# The destination's object for an origin object, found by a data product of
+# the object's: the namespace, name and version it has in both registries.
+# None if the object has no data product, or none of them is there
+def _get_dest_object_url_by_data_product(
     origin_object: typing.Dict,
     dest_uri: str,
     dest_token: str,
     origin_token: str,
-) -> str:
+) -> typing.Optional[str]:
     for _data_product_url in origin_object["data_products"]:
         _data_product = fdp_req.url_get(_data_product_url, origin_token)
         _namespace = fdp_req.url_get(_data_product["namespace"], origin_token)
@@ -885,10 +885,7 @@ def _get_dest_object_url_without_file(
         )
         if _dest_data_product:
             return _dest_data_product[0]["object"]
-    raise fdp_exc.RegistryError(
-        f"Failed to find object '{origin_object['url']}' on registry "
-        f"'{dest_uri}': it has no file, and no data product of it is there"
-    )
+    return None
 
 
 # Internal function to return the (remote) object associated with a code_run field containing and object url
@@ -913,10 +910,18 @@ def get_dest_object_url(
     """
     _origin_object = fdp_req.url_get(origin_object_url, origin_token)
     _origin_object_storage_location = _origin_object["storage_location"]
+    # An object with no file has no hash to be found by
     if not _origin_object_storage_location:
-        return _get_dest_object_url_without_file(
+        _dest_object_url = _get_dest_object_url_by_data_product(
             _origin_object, dest_uri, dest_token, origin_token
         )
+        if not _dest_object_url:
+            raise fdp_exc.RegistryError(
+                f"Failed to find object '{origin_object_url}' on registry "
+                f"'{dest_uri}': it has no file, and no data product of it "
+                "is there"
+            )
+        return _dest_object_url
     _model_object_hash = fdp_req.url_get(_origin_object_storage_location, origin_token)[
         "hash"
     ]
@@ -930,9 +935,9 @@ def get_dest_object_url(
     # The same file may be recorded at more than one location: a registered
     # file is also recorded at the place it was fetched from, where no object
     # is stored. The registry may list them in either order
-    _dest_object = []
+    _dest_objects = []
     for _location in _dest_object_storage_location:
-        _dest_object = fdp_req.get(
+        _dest_objects += fdp_req.get(
             dest_uri,
             "object",
             dest_token,
@@ -942,13 +947,20 @@ def get_dest_object_url(
                 )
             },
         )
-        if _dest_object:
-            break
-    if not _dest_object:
+    if not _dest_objects:
         raise fdp_exc.RegistryError(
-            f"Failed to access {_dest_object} on remote registry"
+            f"Failed to access {_dest_objects} on remote registry"
         )
-    return _dest_object[0]["url"]
+    # Several objects may hold the same file - one registered under two
+    # names, two outputs with the same contents - and the one wanted is then
+    # the one with a data product of the origin object's
+    if len(_dest_objects) > 1:
+        _dest_object_url = _get_dest_object_url_by_data_product(
+            _origin_object, dest_uri, dest_token, origin_token
+        )
+        if _dest_object_url in [_object["url"] for _object in _dest_objects]:
+            return _dest_object_url
+    return _dest_objects[0]["url"]
 
 
 def sync_code_run(
