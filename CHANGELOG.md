@@ -17,6 +17,10 @@
   given. It is not the entry's `version`, which is the data product's.
 
 ## Fixed
+- The FAIR-CLI binaries could not install a local registry, so `fair init` and `fair registry install` failed:
+  the registry's virtual environment was built from the binary in place of a Python. They now use a Python
+  >= 3.10 from `FAIR_PYTHON` or the `PATH`, or have `uv` fetch one, and say so if there is none. A missing
+  Python is found before anything is installed.
 - `fair push` failed, with "Failed to access [] on remote registry", for a data product registered from a web
   address once a code run had used it, when the local registry was data-registry v1.4.0. The remote records
   such a file in two places with one hash - where it is stored and where it came from - and the wrong one

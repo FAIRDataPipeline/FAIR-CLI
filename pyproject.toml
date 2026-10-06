@@ -104,6 +104,3 @@ requires = ["poetry>=1.0.0"]
 
 [tool.poetry.urls]
 "Issue Tracker" = "https://github.com/FAIRDataPipeline/FAIR-CLI/issues"
-
-[tool.poetry.extras]
-all = ["moto"]

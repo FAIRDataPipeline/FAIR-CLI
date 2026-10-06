@@ -14,7 +14,7 @@ import requests
 
 from fair.common import FAIR_FOLDER
 from fair.common import remove_readonly
-from fair.virtualenv import FAIREnv
+from fair.virtualenv import create_venv
 
 FAIR_REGISTRY_REPO = "https://github.com/FAIRDataPipeline/data-registry.git"
 TEST_DRAMS_FILE = os.path.join(
@@ -126,9 +126,7 @@ def install_registry(
     if not venv_dir:
         venv_dir = os.path.join(install_dir, "venv")
 
-        _venv = FAIREnv(with_pip=True, prompt="RegistryTest")
-
-        _venv.create(venv_dir)
+        create_venv(venv_dir, prompt="RegistryTest")
 
     _venv_bin_dir = "Scripts" if platform.system() == "Windows" else "bin"
     _venv_python = shutil.which("python", path=os.path.join(venv_dir, _venv_bin_dir))
