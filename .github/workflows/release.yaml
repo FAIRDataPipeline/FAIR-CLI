@@ -1,0 +1,58 @@
+name: Publish to PyPI
+on:
+  push:
+    tags:
+      - "v*"
+jobs:
+  build:
+    name: Build Distributions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.x'
+
+      - name: Install Build Tools
+        run: python -m pip install build twine toml
+
+      - name: Verify version matches tag
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          MODULE_VERSION=$(python -c "import toml; print(toml.load('pyproject.toml')['tool']['poetry']['version'])")
+          if [ "${TAG#v}" != "${MODULE_VERSION}" ]; then
+            echo "Module version ${MODULE_VERSION} does not match tag ${TAG}"
+            exit 1
+          fi
+
+      - name: Build Module
+        run: python -m build
+
+      - name: Check Distributions
+        run: python -m twine check --strict dist/*
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: python-package-distributions
+          path: dist/
+
+  publish:
+    name: Publish to PyPI
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/fair-cli
+    permissions:
+      # OpenID Connect token for PyPI trusted publishing, in place of an API token
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: python-package-distributions
+          path: dist/
+
+      - name: Publish
+        uses: pypa/gh-action-pypi-publish@release/v1
