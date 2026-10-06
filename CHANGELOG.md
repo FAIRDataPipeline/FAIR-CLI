@@ -38,6 +38,11 @@
 - A file registered under a second data product name, or in a second namespace, was copied into the data store
   again, though the registry records a file once there and nothing referred to the copy. The copy is no
   longer kept: the data product's file is the one already in the store.
+- A data product pulled from a remote could not be read through an API. `fair pull` copied the remote's record
+  of where the file is - the remote's own store - and fetched the file to a place no record named, so a model
+  was handed an address and no file. A pulled file is now recorded at its place in the local data store, and
+  a file that two data products share is fetched once. Data products pulled with an earlier version keep
+  the old record.
 
 ## Development
 - The test of a data product's dependencies allows for any a registry adds; data-registry v1.4.0 adds one.

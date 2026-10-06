@@ -144,6 +144,7 @@ def sync_dependency_chain(
     local_data_store: str = None,
     public: bool = False,
     substitutes: typing.Dict = None,
+    placed: typing.Dict[str, str] = None,
 ) -> typing.Dict[str, str]:
     """Push an object and all of its dependencies to the remote registry
 
@@ -169,6 +170,9 @@ def sync_dependency_chain(
     substitutes : optional, typing.Dict
         values to read in place of an object's own, keyed by the object's URL
         and then by field
+    placed : optional, typing.Dict[str, str]
+        URLs on the destination of objects that are recorded there already in
+        their own way, keyed by the object's URL: these are not synchronised
 
     Returns
     -------
@@ -191,6 +195,9 @@ def sync_dependency_chain(
     # post the object then store the URL so it can be used to assemble those
     # further down the chain
     for object_url in _dependency_chain:
+        if object_url in (placed or {}):
+            _new_urls[object_url] = placed[object_url]
+            continue
         logger.debug("Preparing object '%s'", object_url)
         # Retrieve the data for the object from the registry
         _obj_data = fdp_req.url_get(object_url, token=origin_token)
@@ -592,9 +599,16 @@ def sync_data_products(
         # product for one already there. If local_data_store assume we're
         # syncing from remote to local, else a public file is uploaded to
         # object storage
+        _placed = {}
         if local_data_store:
             logger.debug("Retrieving files from remote registry data storage")
-            fetch_data_product(origin_token, local_data_store, _data_product)
+            _placed = _place_pulled_file(
+                dest_uri,
+                dest_token,
+                origin_token,
+                local_data_store,
+                _data_product,
+            )
         elif _is_public:
             upload_object(
                 origin_uri,
@@ -613,6 +627,7 @@ def sync_data_products(
             local_data_store=local_data_store,
             public=_is_public,
             substitutes=_substitutes,
+            placed=_placed,
         )
         # Going from local to remote
         if not local_data_store:
@@ -1221,20 +1236,31 @@ def get_dest_inputs(
 
 
 def fetch_data_product(
-    remote_token: str, local_data_store: str, data_product: typing.Dict
-) -> None:
+    remote_token: str,
+    local_data_store: str,
+    data_product: typing.Dict,
+    out_file: str = None,
+) -> typing.Optional[str]:
     """
     Retrieve a file using the given user configuration metadata
 
     Parameters
     ----------
 
-    remote_uri : str
-        remote registry URI
     remote_token : str
         remote registry access token
-    config_metadata : typing.Dict
-        user configuration file block describing an object
+    local_data_store : str
+        local data store path
+    data_product : typing.Dict
+        the data product, as the remote registry holds it
+    out_file : optional, str
+        where to put the file, by default under the data product's namespace
+        and name in the data store, named by its version
+
+    Returns
+    -------
+    typing.Optional[str]
+        path of the file, None for a data product that has no file
     """
     _object = fdp_req.url_get(data_product["object"], remote_token)
 
@@ -1246,7 +1272,7 @@ def fetch_data_product(
             "as there is no physical storage location",
             data_product,
         )
-        return
+        return None
 
     _storage_loc = fdp_req.url_get(_object["storage_location"], remote_token)
 
@@ -1261,11 +1287,23 @@ def fetch_data_product(
         local_data_store, _namespace["name"], data_product["name"]
     )
 
-    _out_file = os.path.join(_local_dir, f'{data_product["version"]}{_file_type}')
+    _out_file = out_file or os.path.join(
+        _local_dir, f'{data_product["version"]}{_file_type}'
+    )
 
+    # A file that is there already is the data product's only if it is the
+    # one the registry describes
     if os.path.exists(_out_file):
+        if fdp_store.calculate_file_hash(_out_file) != _storage_loc["hash"]:
+            raise fdp_exc.SynchronisationError(
+                f"Data product '{_namespace['name']}:{data_product['name']}"
+                f"@v{data_product['version']}' was not fetched: the data "
+                f"store holds another file at '{_out_file}', where it is "
+                "to go",
+                error_code=1,
+            )
         logger.debug("File '%s' already exists skipping download", _out_file)
-        return
+        return _out_file
 
     _path = _storage_loc["path"]
     _path = urllib.parse.quote(_path)
@@ -1288,9 +1326,74 @@ def fetch_data_product(
             error_code=1,
         )
 
-    os.makedirs(_local_dir, exist_ok=True)
+    os.makedirs(os.path.dirname(_out_file), exist_ok=True)
 
     shutil.move(_downloaded_file, _out_file)
+
+    return _out_file
+
+
+# Fetch a pulled data product's file into the local data store and record it
+# there, in the destination registry: the storage location of the file on
+# this machine, keyed by the origin's storage location that it stands for,
+# whose own record says where the file is on the remote. A registry records a
+# file once under a root, so a file the data store holds already - registered
+# there, or pulled under another name - is the one recorded, and it is
+# fetched to that place only if it has gone. Nothing for a data product that
+# has no file
+def _place_pulled_file(
+    dest_uri: str,
+    dest_token: str,
+    origin_token: str,
+    local_data_store: str,
+    data_product: typing.Dict,
+) -> typing.Dict[str, str]:
+    _location_url = fdp_req.url_get(data_product["object"], origin_token)[
+        "storage_location"
+    ]
+    if not _location_url:
+        return {}
+    _location = fdp_req.url_get(_location_url, origin_token)
+
+    _root_url = fdp_store.get_write_storage(
+        dest_uri, local_data_store, dest_token
+    )
+    _held = [
+        location
+        for location in fdp_req.get(
+            dest_uri,
+            "storage_location",
+            dest_token,
+            params={
+                "hash": _location["hash"],
+                "storage_root": fdp_req.get_obj_id_from_url(_root_url),
+            },
+        )
+        if location["public"] == _location["public"]
+    ]
+
+    _file = fetch_data_product(
+        origin_token,
+        local_data_store,
+        data_product,
+        os.path.join(local_data_store, _held[0]["path"]) if _held else None,
+    )
+    if _held:
+        return {_location_url: _held[0]["url"]}
+
+    return {
+        _location_url: fdp_req.post(
+            dest_uri,
+            "storage_location",
+            dest_token,
+            data={
+                "path": os.path.relpath(_file, local_data_store),
+                "storage_root": _root_url,
+                "public": _location["public"],
+                "hash": _location["hash"],
+            },
+        )["url"]
+    }
 
 
 def download_from_registry(registry_url: str, root: str, path: str) -> str:
