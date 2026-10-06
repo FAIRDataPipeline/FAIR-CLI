@@ -6,6 +6,9 @@
   the entry a `title` of its own, or its `release_version`; the same file under another name still registers.
   With a local registry before data-registry v1.4.0, where each data product has its own source, nothing is
   checked.
+- `fair init` in a repository that is already initialised registers its user in the local registry, where it
+  did nothing. A registry reinstalled since the repository was initialised has no record of the user, and a
+  run failed until the repository was purged and initialised afresh. The repository itself is left as it is.
 
 ## Added
 - A `register:` entry for an external object may give `release_version`, the version of the source it was taken

@@ -97,7 +97,12 @@ The registry is installed in `~/.fair/registry`, or in the directory given with 
 - the local registry has a new token, written to `token` in its directory when it is next started, and anything else that was kept in that directory is gone;
 - the data store, the projects and `~/.fair/cli` are not touched.
 
-A project that was initialised before the reinstall has to be initialised again, as the new registry does not know its user and `fair init` does nothing in a project that is already initialised. Run `fair purge` in the project, which removes its `.fair` folder and any data store kept inside it, then `fair init`, and `fair pull` for what the project registers or reads. What had been pushed to a remote registry can be pulled back from it. The records of anything that had not been pushed cannot be recovered, though its files are still in the data store.
+The new registry does not know the user of a project that was initialised before the reinstall, and a run in that project fails until it does. There are two ways to put that right:
+
+- run `fair init` in the project again, which leaves the project as it is - its configuration and any data store kept inside it - and registers its user in the new registry. This needs `fair-cli` 0.10.2 or later: before that, `fair init` does nothing in a project that is already initialised;
+- or start the project afresh: run `fair purge` in it, which removes its `.fair` folder and any data store kept inside it, and then `fair init`.
+
+After either, `fair pull` registers again what the project registers or reads. What had been pushed to a remote registry can be pulled back from it. The records of anything that had not been pushed cannot be recovered, though its files are still in the data store unless that was removed with the project's `.fair` folder.
 
 ## Uninstallation
 To uninstall the CLI run:
@@ -133,6 +138,8 @@ A full description of `config.yaml` files can be found [here](https://www.fairda
 ### `init`
 
 Initialises a new FAIR repository within the given directory. This should ideally be the same location as the `.git` folder for the current project, however during setup an option is given to specify an alternative. The command will ask the user a series of questions which will provide metadata for tracking run authors, and also allow for the creation of a starter `config.yaml` file. Initialisation will also configure the CLI itself.
+
+In a repository that is already initialised the command asks nothing and leaves the repository as it is. It registers the repository's user in the local registry, which a registry [reinstalled](#upgrading-and-reinstalling) since the repository was initialised no longer holds.
 
 #### Custom CLI Configuration
 After setup is complete, the current CLI configuration can also be saved using the command:

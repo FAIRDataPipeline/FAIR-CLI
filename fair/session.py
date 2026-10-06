@@ -1147,6 +1147,12 @@ class FAIR:
                 return
             else:
                 click.echo("FAIR repository is already initialised.")
+                # A local registry installed since then has no record of the
+                # repository's user, which a run needs
+                fdp_serv.update_registry_post_setup(
+                    self._session_loc, _first_time, registry
+                )
+                click.echo("Its user is registered in the local registry.")
                 return
 
         if self._testing:
