@@ -157,6 +157,7 @@ token.txt
 # GitHub config
 
 !/.github/*
+!/.github/workflows/release.yaml
 
 # data_store
 /data_store 
