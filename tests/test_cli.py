@@ -101,7 +101,8 @@ def test_status(
     with local_registry:
         mocker.patch("fair.common.registry_home", lambda: local_registry._install)
         mocker.patch(
-            "fair.registry.requests.local_token", lambda: local_registry._token
+            "fair.registry.requests.local_token",
+            lambda *args: local_registry._token,
         )
         _result = click_test.invoke(
             cli, ["status", "--debug", "--verbose"], catch_exceptions=True
@@ -356,11 +357,17 @@ def test_init_local(
 
 
 @pytest.mark.faircli_cli
-def test_init_ci_keeps_existing_repository(
+@pytest.mark.parametrize("options", (["--ci"], []))
+def test_init_keeps_existing_repository(
     local_config: typing.Tuple[str, str],
     click_test: click.testing.CliRunner,
+    mocker: pytest_mock.MockerFixture,
     monkeypatch: pytest.MonkeyPatch,
+    options: typing.List[str],
 ):
+    # The repository is left as it is, and the local registry is brought up
+    # to date with it once
+    _update = mocker.patch("fair.registry.server.update_registry_post_setup")
     monkeypatch.chdir(local_config[1])
     _data_file = os.path.join(
         local_config[1], fdp_com.FAIR_FOLDER, "data_store", "pulled.csv"
@@ -369,11 +376,45 @@ def test_init_ci_keeps_existing_repository(
     with open(_data_file, "w") as data_f:
         data_f.write("a,b\n1,2\n")
 
-    _result = click_test.invoke(cli, ["init", "--ci"])
+    _result = click_test.invoke(cli, ["init", *options])
     assert _result.exit_code == 0
     assert "already initialised" in _result.output
     with open(_data_file) as data_f:
         assert data_f.read() == "a,b\n1,2\n"
+    _update.assert_called_once()
+    assert os.path.samefile(_update.call_args.args[0], local_config[1])
+
+
+@pytest.mark.faircli_cli
+def test_init_again_registers_user(
+    local_config: typing.Tuple[str, str],
+    local_registry: conf.RegistryTest,
+    click_test: click.testing.CliRunner,
+    mocker: pytest_mock.MockerFixture,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    # Whether or not the registry held the repository's user before, it does
+    # after, and a second time changes nothing
+    def _user_authors() -> typing.List[typing.Dict]:
+        return requests.get(
+            f"{LOCAL_REGISTRY_URL}/user_author/",
+            headers={"Authorization": f"token {local_registry._token}"},
+        ).json()["results"]
+
+    mocker.patch("fair.common.registry_home", lambda: local_registry._install)
+    monkeypatch.chdir(local_config[1])
+    with local_registry:
+        _result = click_test.invoke(cli, ["init"])
+        assert _result.exit_code == 0, _result.output
+        assert "registered in the local registry" in _result.output
+        _registered = _user_authors()
+        assert len(_registered) == 1
+        _author = requests.get(_registered[0]["author"]).json()
+        assert _author["name"] == "Interface Test"
+
+        _result = click_test.invoke(cli, ["init"])
+        assert _result.exit_code == 0, _result.output
+        assert _user_authors() == _registered
 
 
 @pytest.mark.faircli_cli
@@ -566,7 +607,8 @@ def test_cli_run(
     with local_registry:
         mocker.patch("fair.common.registry_home", lambda: local_registry._install)
         mocker.patch(
-            "fair.registry.requests.local_token", lambda: local_registry._token
+            "fair.registry.requests.local_token",
+            lambda *args: local_registry._token,
         )
         with open(
             os.path.join(local_config[1], fdp_com.FAIR_FOLDER, "staging"), "w"
@@ -590,7 +632,8 @@ def test_cli_run_local(
     with local_registry:
         mocker.patch("fair.common.registry_home", lambda: local_registry._install)
         mocker.patch(
-            "fair.registry.requests.local_token", lambda: local_registry._token
+            "fair.registry.requests.local_token",
+            lambda *args: local_registry._token,
         )
         with open(
             os.path.join(local_config[1], fdp_com.FAIR_FOLDER, "staging"), "w"

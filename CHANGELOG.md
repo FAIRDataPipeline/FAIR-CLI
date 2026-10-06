@@ -1,3 +1,55 @@
+# 2026-10-05 [v0.10.2](https://github.com/FAIRDataPipeline/FAIR-CLI/releases/tag/v0.10.2)
+
+## Changed behaviour
+- `fair pull` refuses a `register:` entry for an external object whose identifier or unique name, title and
+  release version are those of a source already registered from a different file: a source is one file. Give
+  the entry a `title` of its own, or its `release_version`; the same file under another name still registers.
+  With a local registry before data-registry v1.4.0, where each data product has its own source, nothing is
+  checked.
+- `fair init` in a repository that is already initialised registers its user in the local registry, where it
+  did nothing. A registry reinstalled since the repository was initialised has no record of the user, and a
+  run failed until the repository was purged and initialised afresh. The repository itself is left as it is.
+
+## Added
+- A `register:` entry for an external object may give `release_version`, the version of the source it was taken
+  from, beside `release_date`. A local registry at data-registry v1.4.0 or later records it as the external
+  object's version, 1.0.0 without it; an earlier one records the data product's version there whatever is
+  given. It is not the entry's `version`, which is the data product's.
+
+## Fixed
+- `fair push` failed, with "Failed to access [] on remote registry", for a data product registered from a web
+  address once a code run had used it, when the local registry was data-registry v1.4.0. The remote records
+  such a file in two places with one hash - where it is stored and where it came from - and the wrong one
+  could be taken.
+- `fair registry install --force` refused an existing install, as it does without `--force`, instead of
+  replacing it.
+- A file that was already registered was not registered again under a second data product name, or in a
+  second namespace: `fair pull` passed over the entry without a word, and a run that read it then failed. An
+  entry is now passed over only when that data product, in that namespace and at that version, already holds
+  the file.
+- `fair push` and `fair pull` left out a data product that shares its external object with another, as
+  data-registry v1.4.0 allows, while reporting it synchronised: its file was moved and its record was not made.
+- Starting the local registry reported success when another registry already held its port, and the commands
+  that followed went to that one. The start now fails, naming the address: the server that answers there
+  must accept the installed registry's token.
+- `fair push` and `fair pull` stopped with a Python error at a data product that has no file - one whose
+  object has no storage location, as an entry for a deposit as a whole may be - and so at a code run that
+  read one. Its records are now synchronised, and a `register:` entry of the same name is told it exists.
+- `fair push` gave a code run an input it did not read when two data products held the same file, as one
+  file registered under two names does: a run that read one of them and wrote something new arrived on the
+  remote as having read both. A run pushed before this keeps the extra input.
+- A file registered under a second data product name, or in a second namespace, was copied into the data store
+  again, though the registry records a file once there and nothing referred to the copy. The copy is no
+  longer kept: the data product's file is the one already in the store.
+- A data product pulled from a remote could not be read through an API. `fair pull` copied the remote's record
+  of where the file is - the remote's own store - and fetched the file to a place no record named, so a model
+  was handed an address and no file. A pulled file is now recorded at its place in the local data store, and
+  a file that two data products share is fetched once. Data products pulled with an earlier version keep
+  the old record.
+
+## Development
+- The test of a data product's dependencies allows for any a registry adds; data-registry v1.4.0 adds one.
+
 # 2026-10-05 [v0.10.1](https://github.com/FAIRDataPipeline/FAIR-CLI/releases/tag/v0.10.1)
 
 ## Changed behaviour

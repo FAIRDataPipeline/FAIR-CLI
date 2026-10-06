@@ -182,6 +182,11 @@ class ExternalObject(pydantic.BaseModel):
         title="data release date",
         description="date and time of data release",
     )
+    release_version: typing.Optional[str] = pydantic.Field(
+        None,
+        title="data release version",
+        description="version of the release the object was taken from",
+    )
     version: str = pydantic.Field(
         ..., title="version", description="object version to import as"
     )

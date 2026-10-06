@@ -14,6 +14,8 @@ The package is installed using Pip:
 pip install fair-cli
 ```
 
+It needs Python 3.10 or later. A virtual environment is recommended: the local registry is installed with the same Python as the CLI, in an environment of its own.
+
 To enable tab completion you need to modify your shell:
 
 ### Bash
@@ -34,12 +36,81 @@ _FAIR_COMPLETE=bash_source fair > ~/.config/fish/.fair-complete.fish
 echo '. ~/.config/fish/.fair-complete.fish' >> ~/.bashrc
 ```
 
+## Upgrading and reinstalling
+
+The CLI and the local registry are installed separately - the CLI by `pip`, the registry by the CLI - so upgrading one does not upgrade the other.
+
+### The CLI
+
+To move to the newest release, or to a particular one:
+
+```sh
+pip install --upgrade fair-cli
+pip install fair-cli==0.10.1
+```
+
+To install a branch of this repository, give `pip` its name after an `@`. A tag or a commit works the same way:
+
+```sh
+pip install git+https://github.com/FAIRDataPipeline/FAIR-CLI@<branch>
+```
+
+or clone the repository, check the branch out and install from the clone:
+
+```sh
+git clone -b <branch> https://github.com/FAIRDataPipeline/FAIR-CLI
+pip install ./FAIR-CLI
+```
+
+A branch keeps its version number from one commit to the next, and `pip` does not replace an installed package with another of the same version. To bring an installed branch up to date, or to install one branch over another of the same version, add `--force-reinstall --no-deps`:
+
+```sh
+pip install --force-reinstall --no-deps git+https://github.com/FAIRDataPipeline/FAIR-CLI@<branch>
+```
+
+`fair --version` gives the version number alone, which a branch may share with a release. `pip freeze` says what is installed: `fair-cli==0.10.1` for a release, and `fair-cli @ git+https://github.com/FAIRDataPipeline/FAIR-CLI@<commit>` for a branch.
+
+### The local registry
+
+To replace the local registry with the newest release of it, stop it if it is running, install with `--force`, and start it again:
+
+```sh
+fair registry stop
+fair registry install --force
+fair registry start
+```
+
+`--version` installs a tag or a branch of the [registry's repository](https://github.com/FAIRDataPipeline/data-registry) in place of the newest release:
+
+```sh
+fair registry install --force --version v1.3.0
+fair registry install --force --version <branch>
+```
+
+Without `--force` an existing registry is left as it is and the command stops. `fair registry uninstall`, which asks first, followed by `fair registry install` does the same in two steps, and is the way with `fair-cli` 0.10.1 or earlier, where `--force` is refused.
+
+Check the name given to `--version` before using it with `--force`: the old registry is removed before the name is looked for, so one that does not exist leaves no working registry until the command is run again with one that does.
+
+The registry is installed in `~/.fair/registry`, or in the directory given with `--directory`, which has to be given again to replace a registry that was installed elsewhere. A reinstall replaces that directory:
+
+- every record in the local registry goes with its database: the data products, the code runs, and what `fair init` put there;
+- the local registry has a new token, written to `token` in its directory when it is next started, and anything else that was kept in that directory is gone;
+- the data store, the projects and `~/.fair/cli` are not touched.
+
+The new registry does not know the user of a project that was initialised before the reinstall, and a run in that project fails until it does. There are two ways to put that right:
+
+- run `fair init` in the project again, which leaves the project as it is - its configuration and any data store kept inside it - and registers its user in the new registry. This needs `fair-cli` 0.10.2 or later: before that, `fair init` does nothing in a project that is already initialised;
+- or start the project afresh: run `fair purge` in it, which removes its `.fair` folder and any data store kept inside it, and then `fair init`.
+
+After either, `fair pull` registers again what the project registers or reads. What had been pushed to a remote registry can be pulled back from it. The records of anything that had not been pushed cannot be recovered, though its files are still in the data store unless that was removed with the project's `.fair` folder.
+
 ## Uninstallation
 To uninstall the CLI run:
 ```
 fair purge --all
-pip uninstall fair
+pip uninstall fair-cli
 ```
+`fair purge --all` removes the `.fair` folder of the current project and the whole of `~/.fair`: the local registry, the default data store, the CLI's configuration and any token kept there. Leave it out to keep them.
 
 ## The User Configuration File
 Job runs are configured via `config.yaml` files. Upon initialisation of a project, FAIR-CLI automatically generates a starter configuration file with all requirements in place. To execute a process (e.g. perform a model run from a compiled binary/script) an additional key of either `script` or `script_path` must be provided. Alternatively the command `fair run bash` can be used to append the key and run a command directly.
@@ -67,6 +138,8 @@ A full description of `config.yaml` files can be found [here](https://www.fairda
 ### `init`
 
 Initialises a new FAIR repository within the given directory. This should ideally be the same location as the `.git` folder for the current project, however during setup an option is given to specify an alternative. The command will ask the user a series of questions which will provide metadata for tracking run authors, and also allow for the creation of a starter `config.yaml` file. Initialisation will also configure the CLI itself.
+
+In a repository that is already initialised the command asks nothing and leaves the repository as it is. It registers the repository's user in the local registry, which a registry [reinstalled](#upgrading-and-reinstalling) since the repository was initialised no longer holds.
 
 #### Custom CLI Configuration
 After setup is complete, the current CLI configuration can also be saved using the command:
@@ -226,10 +299,11 @@ The registry can be installed using the CLI as well by running:
 ```sh
 fair registry install
 ```
-with the additional options to specify the installation location, and the data registry repository tag to install from:
+with the additional options to specify the installation location, and the data registry repository tag or branch to install from:
 ```sh
-fair registry install --directory ~/.fair/my_registry --version v1.0-rc5
+fair registry install --directory ~/.fair/my_registry --version v1.4.0
 ```
+To replace a registry that is already installed, see [Upgrading and reinstalling](#upgrading-and-reinstalling).
 
 ### `log`
 

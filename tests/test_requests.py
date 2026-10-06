@@ -401,7 +401,8 @@ def test_dependency_list(
     mocker.patch("fair.common.registry_home", lambda: local_registry._install)
     with local_registry:
         _reqs = fdp_req.get_dependency_listing(LOCAL_URL, local_registry._token)
-        assert _reqs["data_product"] == ["object", "namespace"]
+        # What a data product must depend on; a registry may list more
+        assert {"object", "namespace"} <= set(_reqs["data_product"])
 
 
 @pytest.mark.faircli_requests

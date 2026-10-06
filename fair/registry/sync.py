@@ -36,7 +36,9 @@ from fair.registry import SEARCH_KEYS
 logger = logging.getLogger("FAIRDataPipeline.Sync")
 
 
-def get_dependency_chain(object_url: str, token: str) -> collections.deque:
+def get_dependency_chain(
+    object_url: str, token: str, substitutes: typing.Dict = None
+) -> collections.deque:
     """Get all objects relating to an object in order of dependency
 
     For a given URL this function fetches all component URLs ordering them
@@ -49,6 +51,9 @@ def get_dependency_chain(object_url: str, token: str) -> collections.deque:
         Full URL of an object within a registry
     token: str
         registry access token
+    substitutes : optional, typing.Dict
+        values to read in place of an object's own, keyed by the object's URL
+        and then by field
 
     Returns
     -------
@@ -66,6 +71,7 @@ def get_dependency_chain(object_url: str, token: str) -> collections.deque:
             _results = fdp_req.url_get(item, token)
         except Exception:
             _results = {}
+        _results.update((substitutes or {}).get(item, {}))
         _type = fdp_req.get_obj_type_from_url(item, token)
         for req, val in _results.items():
             if req in _dependency_list[_type] and val:
@@ -137,6 +143,8 @@ def sync_dependency_chain(
     origin_token: str,
     local_data_store: str = None,
     public: bool = False,
+    substitutes: typing.Dict = None,
+    placed: typing.Dict[str, str] = None,
 ) -> typing.Dict[str, str]:
     """Push an object and all of its dependencies to the remote registry
 
@@ -159,7 +167,12 @@ def sync_dependency_chain(
         local data store path
     public : optional, bool
         is the associated storage_location public, defaults to True
-
+    substitutes : optional, typing.Dict
+        values to read in place of an object's own, keyed by the object's URL
+        and then by field
+    placed : optional, typing.Dict[str, str]
+        URLs on the destination of objects that are recorded there already in
+        their own way, keyed by the object's URL: these are not synchronised
 
     Returns
     -------
@@ -172,7 +185,7 @@ def sync_dependency_chain(
         raise fdp_exc.InternalError("Expected an origin token to be provided")
 
     _dependency_chain: collections.deque = get_dependency_chain(
-        object_url, origin_token
+        object_url, origin_token, substitutes
     )
 
     _new_urls: typing.Dict[str, str] = {k: "" for k in _dependency_chain}
@@ -182,9 +195,13 @@ def sync_dependency_chain(
     # post the object then store the URL so it can be used to assemble those
     # further down the chain
     for object_url in _dependency_chain:
+        if object_url in (placed or {}):
+            _new_urls[object_url] = placed[object_url]
+            continue
         logger.debug("Preparing object '%s'", object_url)
         # Retrieve the data for the object from the registry
         _obj_data = fdp_req.url_get(object_url, token=origin_token)
+        _obj_data.update((substitutes or {}).get(object_url, {}))
 
         # Deduce the object type from its URL
         _obj_type = fdp_req.get_obj_type_from_url(object_url, token=origin_token)
@@ -558,23 +575,40 @@ def sync_data_products(
         _data_product = result
 
         result_object = fdp_req.url_get(result["object"], token=origin_token)
-        result_storage_location = fdp_req.url_get(
-            result_object["storage_location"], token=origin_token
-        )
-        _is_public = result_storage_location["public"]
+        # A data product may have no file, its object having no storage
+        # location: there are then only its records to synchronise
+        _is_public = False
+        if result_object["storage_location"]:
+            _is_public = fdp_req.url_get(
+                result_object["storage_location"], token=origin_token
+            )["public"]
 
         # if the data_product is an external object sync that first
+        _substitutes = {}
         if result["external_object"]:
             result = fdp_req.url_get(result["external_object"], token=origin_token)
+            # An external object may be shared by several data products, and
+            # its record names only one of them: the one it is synchronised
+            # with here is this data product
+            _substitutes[result["url"]] = {
+                "data_product": _data_product["url"]
+            }
 
         # The file is moved before its records are written, so that a failure
         # leaves no record, and the next attempt does not take this data
         # product for one already there. If local_data_store assume we're
         # syncing from remote to local, else a public file is uploaded to
         # object storage
+        _placed = {}
         if local_data_store:
             logger.debug("Retrieving files from remote registry data storage")
-            fetch_data_product(origin_token, local_data_store, _data_product)
+            _placed = _place_pulled_file(
+                dest_uri,
+                dest_token,
+                origin_token,
+                local_data_store,
+                _data_product,
+            )
         elif _is_public:
             upload_object(
                 origin_uri,
@@ -592,6 +626,8 @@ def sync_data_products(
             origin_token=origin_token,
             local_data_store=local_data_store,
             public=_is_public,
+            substitutes=_substitutes,
+            placed=_placed,
         )
         # Going from local to remote
         if not local_data_store:
@@ -830,6 +866,43 @@ def sync_code_runs(
         logger.info(f"Synced Code Run: {code_run_uuid}")
 
 
+# The destination's object for an origin object, found by a data product of
+# the object's: the namespace, name and version it has in both registries.
+# None if the object has no data product, or none of them is there
+def _get_dest_object_url_by_data_product(
+    origin_object: typing.Dict,
+    dest_uri: str,
+    dest_token: str,
+    origin_token: str,
+) -> typing.Optional[str]:
+    for _data_product_url in origin_object["data_products"]:
+        _data_product = fdp_req.url_get(_data_product_url, origin_token)
+        _namespace = fdp_req.url_get(_data_product["namespace"], origin_token)
+        _dest_namespace = fdp_req.get(
+            dest_uri,
+            "namespace",
+            dest_token,
+            params={"name": _namespace["name"]},
+        )
+        if not _dest_namespace:
+            continue
+        _dest_data_product = fdp_req.get(
+            dest_uri,
+            "data_product",
+            dest_token,
+            params={
+                "name": _data_product["name"],
+                "version": _data_product["version"],
+                "namespace": fdp_req.get_obj_id_from_url(
+                    _dest_namespace[0]["url"]
+                ),
+            },
+        )
+        if _dest_data_product:
+            return _dest_data_product[0]["object"]
+    return None
+
+
 # Internal function to return the (remote) object associated with a code_run field containing and object url
 def get_dest_object_url(
     origin_object_url: str, dest_uri: str, dest_token: str, origin_token: str
@@ -844,15 +917,26 @@ def get_dest_object_url(
         origin_token (str): Token for the Origin Registry
 
     Raises:
-        fdp_exc.RegistryError: If the object does not have a storage location an RegistryError will be raised
+        fdp_exc.RegistryError: If the object has no storage location and no data product of it is on the destination
         fdp_exc.RegistryError: If the destination object does exist an RegistryError will be raised
 
     Returns:
         str: URL of the destination object
     """
-    _origin_object_storage_location = fdp_req.url_get(origin_object_url, origin_token)[
-        "storage_location"
-    ]
+    _origin_object = fdp_req.url_get(origin_object_url, origin_token)
+    _origin_object_storage_location = _origin_object["storage_location"]
+    # An object with no file has no hash to be found by
+    if not _origin_object_storage_location:
+        _dest_object_url = _get_dest_object_url_by_data_product(
+            _origin_object, dest_uri, dest_token, origin_token
+        )
+        if not _dest_object_url:
+            raise fdp_exc.RegistryError(
+                f"Failed to find object '{origin_object_url}' on registry "
+                f"'{dest_uri}': it has no file, and no data product of it "
+                "is there"
+            )
+        return _dest_object_url
     _model_object_hash = fdp_req.url_get(_origin_object_storage_location, origin_token)[
         "hash"
     ]
@@ -863,22 +947,35 @@ def get_dest_object_url(
         raise fdp_exc.RegistryError(
             f"Failed to access {_dest_object_storage_location} on remote registry"
         )
-    _dest_object_storage_location_url = _dest_object_storage_location[0]["url"]
-    _dest_object = fdp_req.get(
-        dest_uri,
-        "object",
-        dest_token,
-        params={
-            "storage_location": fdp_req.get_obj_id_from_url(
-                _dest_object_storage_location_url
-            )
-        },
-    )
-    if not _dest_object:
-        raise fdp_exc.RegistryError(
-            f"Failed to access {_dest_object} on remote registry"
+    # The same file may be recorded at more than one location: a registered
+    # file is also recorded at the place it was fetched from, where no object
+    # is stored. The registry may list them in either order
+    _dest_objects = []
+    for _location in _dest_object_storage_location:
+        _dest_objects += fdp_req.get(
+            dest_uri,
+            "object",
+            dest_token,
+            params={
+                "storage_location": fdp_req.get_obj_id_from_url(
+                    _location["url"]
+                )
+            },
         )
-    return _dest_object[0]["url"]
+    if not _dest_objects:
+        raise fdp_exc.RegistryError(
+            f"Failed to access {_dest_objects} on remote registry"
+        )
+    # Several objects may hold the same file - one registered under two
+    # names, two outputs with the same contents - and the one wanted is then
+    # the one with a data product of the origin object's
+    if len(_dest_objects) > 1:
+        _dest_object_url = _get_dest_object_url_by_data_product(
+            _origin_object, dest_uri, dest_token, origin_token
+        )
+        if _dest_object_url in [_object["url"] for _object in _dest_objects]:
+            return _dest_object_url
+    return _dest_objects[0]["url"]
 
 
 def sync_code_run(
@@ -1139,20 +1236,31 @@ def get_dest_inputs(
 
 
 def fetch_data_product(
-    remote_token: str, local_data_store: str, data_product: typing.Dict
-) -> None:
+    remote_token: str,
+    local_data_store: str,
+    data_product: typing.Dict,
+    out_file: str = None,
+) -> typing.Optional[str]:
     """
     Retrieve a file using the given user configuration metadata
 
     Parameters
     ----------
 
-    remote_uri : str
-        remote registry URI
     remote_token : str
         remote registry access token
-    config_metadata : typing.Dict
-        user configuration file block describing an object
+    local_data_store : str
+        local data store path
+    data_product : typing.Dict
+        the data product, as the remote registry holds it
+    out_file : optional, str
+        where to put the file, by default under the data product's namespace
+        and name in the data store, named by its version
+
+    Returns
+    -------
+    typing.Optional[str]
+        path of the file, None for a data product that has no file
     """
     _object = fdp_req.url_get(data_product["object"], remote_token)
 
@@ -1164,7 +1272,7 @@ def fetch_data_product(
             "as there is no physical storage location",
             data_product,
         )
-        return
+        return None
 
     _storage_loc = fdp_req.url_get(_object["storage_location"], remote_token)
 
@@ -1179,11 +1287,23 @@ def fetch_data_product(
         local_data_store, _namespace["name"], data_product["name"]
     )
 
-    _out_file = os.path.join(_local_dir, f'{data_product["version"]}{_file_type}')
+    _out_file = out_file or os.path.join(
+        _local_dir, f'{data_product["version"]}{_file_type}'
+    )
 
+    # A file that is there already is the data product's only if it is the
+    # one the registry describes
     if os.path.exists(_out_file):
+        if fdp_store.calculate_file_hash(_out_file) != _storage_loc["hash"]:
+            raise fdp_exc.SynchronisationError(
+                f"Data product '{_namespace['name']}:{data_product['name']}"
+                f"@v{data_product['version']}' was not fetched: the data "
+                f"store holds another file at '{_out_file}', where it is "
+                "to go",
+                error_code=1,
+            )
         logger.debug("File '%s' already exists skipping download", _out_file)
-        return
+        return _out_file
 
     _path = _storage_loc["path"]
     _path = urllib.parse.quote(_path)
@@ -1206,9 +1326,74 @@ def fetch_data_product(
             error_code=1,
         )
 
-    os.makedirs(_local_dir, exist_ok=True)
+    os.makedirs(os.path.dirname(_out_file), exist_ok=True)
 
     shutil.move(_downloaded_file, _out_file)
+
+    return _out_file
+
+
+# Fetch a pulled data product's file into the local data store and record it
+# there, in the destination registry: the storage location of the file on
+# this machine, keyed by the origin's storage location that it stands for,
+# whose own record says where the file is on the remote. A registry records a
+# file once under a root, so a file the data store holds already - registered
+# there, or pulled under another name - is the one recorded, and it is
+# fetched to that place only if it has gone. Nothing for a data product that
+# has no file
+def _place_pulled_file(
+    dest_uri: str,
+    dest_token: str,
+    origin_token: str,
+    local_data_store: str,
+    data_product: typing.Dict,
+) -> typing.Dict[str, str]:
+    _location_url = fdp_req.url_get(data_product["object"], origin_token)[
+        "storage_location"
+    ]
+    if not _location_url:
+        return {}
+    _location = fdp_req.url_get(_location_url, origin_token)
+
+    _root_url = fdp_store.get_write_storage(
+        dest_uri, local_data_store, dest_token
+    )
+    _held = [
+        location
+        for location in fdp_req.get(
+            dest_uri,
+            "storage_location",
+            dest_token,
+            params={
+                "hash": _location["hash"],
+                "storage_root": fdp_req.get_obj_id_from_url(_root_url),
+            },
+        )
+        if location["public"] == _location["public"]
+    ]
+
+    _file = fetch_data_product(
+        origin_token,
+        local_data_store,
+        data_product,
+        os.path.join(local_data_store, _held[0]["path"]) if _held else None,
+    )
+    if _held:
+        return {_location_url: _held[0]["url"]}
+
+    return {
+        _location_url: fdp_req.post(
+            dest_uri,
+            "storage_location",
+            dest_token,
+            data={
+                "path": os.path.relpath(_file, local_data_store),
+                "storage_root": _root_url,
+                "public": _location["public"],
+                "hash": _location["hash"],
+            },
+        )["url"]
+    }
 
 
 def download_from_registry(registry_url: str, root: str, path: str) -> str:
