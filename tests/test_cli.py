@@ -101,7 +101,8 @@ def test_status(
     with local_registry:
         mocker.patch("fair.common.registry_home", lambda: local_registry._install)
         mocker.patch(
-            "fair.registry.requests.local_token", lambda: local_registry._token
+            "fair.registry.requests.local_token",
+            lambda *args: local_registry._token,
         )
         _result = click_test.invoke(
             cli, ["status", "--debug", "--verbose"], catch_exceptions=True
@@ -566,7 +567,8 @@ def test_cli_run(
     with local_registry:
         mocker.patch("fair.common.registry_home", lambda: local_registry._install)
         mocker.patch(
-            "fair.registry.requests.local_token", lambda: local_registry._token
+            "fair.registry.requests.local_token",
+            lambda *args: local_registry._token,
         )
         with open(
             os.path.join(local_config[1], fdp_com.FAIR_FOLDER, "staging"), "w"
@@ -590,7 +592,8 @@ def test_cli_run_local(
     with local_registry:
         mocker.patch("fair.common.registry_home", lambda: local_registry._install)
         mocker.patch(
-            "fair.registry.requests.local_token", lambda: local_registry._token
+            "fair.registry.requests.local_token",
+            lambda *args: local_registry._token,
         )
         with open(
             os.path.join(local_config[1], fdp_com.FAIR_FOLDER, "staging"), "w"

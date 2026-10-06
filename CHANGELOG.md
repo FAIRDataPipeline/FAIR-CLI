@@ -2,9 +2,9 @@
 
 ## Added
 - A `register:` entry for an external object may give `release_version`, the version of the source it was taken
-  from, beside `release_date`. It is recorded as the external object's version; without it the registry's
-  default applies, which data-registry v1.4.0 makes 1.0.0. It is not the entry's `version`, which is the data
-  product's.
+  from, beside `release_date`. A local registry at data-registry v1.4.0 or later records it as the external
+  object's version, 1.0.0 without it; an earlier one records the data product's version there whatever is
+  given. It is not the entry's `version`, which is the data product's.
 
 ## Fixed
 - `fair push` failed, with "Failed to access [] on remote registry", for a data product registered from a web
@@ -22,6 +22,9 @@
 - Starting the local registry reported success when another registry already held its port, and the commands
   that followed went to that one. The start now fails, naming the address: the server that answers there
   must accept the installed registry's token.
+- `fair push` and `fair pull` stopped with a Python error at a data product that has no file - one whose
+  object has no storage location, as an entry for a deposit as a whole may be - and so at a code run that
+  read one. Its records are now synchronised, and a `register:` entry of the same name is told it exists.
 
 ## Development
 - The test of a data product's dependencies allows for any a registry adds; data-registry v1.4.0 adds one.

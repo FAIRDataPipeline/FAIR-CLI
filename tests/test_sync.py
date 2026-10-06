@@ -3,6 +3,7 @@ import json
 import os
 import pathlib
 import tempfile
+import uuid
 
 import click.testing
 import pytest
@@ -303,6 +304,106 @@ def test_dest_object_of_a_file_at_two_locations(
 
 
 @pytest.mark.faircli_sync
+@pytest.mark.parametrize("on_destination", [True, False])
+def test_dest_object_of_an_object_without_a_file(
+    mocker: pytest_mock.MockerFixture, on_destination: bool
+):
+    # With no file there is no hash to find the destination's object by: it
+    # is the object of the same data product there
+    _records = {
+        "object": {
+            "url": "object",
+            "storage_location": None,
+            "data_products": ["data_product"],
+        },
+        "data_product": {
+            "name": "deposit/whole",
+            "version": "1.0.0",
+            "namespace": "namespace",
+        },
+        "namespace": {"name": "testing"},
+    }
+    mocker.patch(
+        "fair.registry.requests.url_get",
+        lambda url, *args, **kwargs: _records[url],
+    )
+    _namespace_url = f"{_DEST}namespace/3/"
+
+    def mock_get(uri, obj_type, *args, params=None, **kwargs):
+        if obj_type == "namespace":
+            assert params == {"name": "testing"}
+            return [{"url": _namespace_url}]
+        assert obj_type == "data_product"
+        assert params == {
+            "name": "deposit/whole",
+            "version": "1.0.0",
+            "namespace": fdp_req.get_obj_id_from_url(_namespace_url),
+        }
+        return [{"object": f"{_DEST}object/9/"}] if on_destination else []
+
+    mocker.patch("fair.registry.requests.get", mock_get)
+
+    if on_destination:
+        assert (
+            fdp_sync.get_dest_object_url("object", _DEST, "", "")
+            == f"{_DEST}object/9/"
+        )
+    else:
+        with pytest.raises(fdp_exc.RegistryError, match="has no file"):
+            fdp_sync.get_dest_object_url("object", _DEST, "", "")
+
+
+@pytest.mark.faircli_sync
+@pytest.mark.parametrize("local_data_store", [None, "/data/store"])
+def test_sync_data_product_without_a_file(
+    mocker: pytest_mock.MockerFixture, local_data_store
+):
+    # A data product may have no file, its object having no storage location:
+    # nothing is uploaded or fetched, and its records are written
+    _data_product = {
+        "url": "data_product_url",
+        "name": "test",
+        "version": "1.0.0",
+        "namespace": "namespace",
+        "object": "object",
+        "external_object": None,
+    }
+
+    def mock_get(uri, obj, *args, **kwargs):
+        if obj == "namespace":
+            return [{"url": "http://example/api/namespace/1/"}]
+        elif obj == "data_product":
+            # Nothing on the destination, one match on the origin
+            return [] if uri == "dest" else [_data_product]
+
+    def mock_url_get(url, *args, **kwargs):
+        # Only the object is asked for: it has no location to ask for
+        assert url == "object"
+        return {"url": "object", "storage_location": None, "components": []}
+
+    mocker.patch("fair.registry.requests.get", mock_get)
+    mocker.patch("fair.registry.requests.url_get", mock_url_get)
+    _records = mocker.patch("fair.registry.sync.sync_dependency_chain")
+    _upload = mocker.patch("fair.registry.sync.upload_object")
+    _download = mocker.patch("fair.registry.sync.download_from_registry")
+
+    fdp_sync.sync_data_products(
+        origin_uri="origin",
+        dest_uri="dest",
+        dest_token="",
+        origin_token="",
+        remote_label="origin",
+        data_products=["testing:test@v1.0.0"],
+        local_data_store=local_data_store,
+    )
+
+    _upload.assert_not_called()
+    _download.assert_not_called()
+    assert _records.call_args.kwargs["object_url"] == "data_product_url"
+    assert _records.call_args.kwargs["public"] is False
+
+
+@pytest.mark.faircli_sync
 def test_dependency_chain_with_substitute(mocker: pytest_mock.MockerFixture):
     # An external object shared by two data products names the first on its
     # record. Its chain holds the one it is told it is synchronised with
@@ -548,6 +649,96 @@ def test_push_data_products_of_one_source(
                 remote_registry._token,
                 params={"name": _name, "version": "1.0.0"},
             )
+
+
+@pytest.mark.faircli_sync
+@pytest.mark.dependency(name="no_file", depends=["push"])
+def test_push_code_run_that_read_a_data_product_without_a_file(
+    global_config: str,
+    local_registry: RegistryTest,
+    remote_registry: RegistryTest,
+    pyDataPipeline: str,
+    fair_bucket: MotoTestServer,
+    mocker: pytest_mock.MockerFixture,
+):
+    # A data product may stand for something that has no file of its own, as
+    # a deposit of several files does: its object has no storage location.
+    # It is pushed with a code run that read it, and is that run's input there
+    _name = "deposit/whole"
+    _cli_runner = click.testing.CliRunner()
+    with remote_registry, local_registry, fair_bucket:
+        mocker.patch(
+            "fair.configuration.get_current_user_remote_user",
+            lambda *args, **kwargs: "admin",
+        )
+        _token = local_registry._token
+        _object = fdp_req.post(
+            _ORIGIN, "object", _token, {"description": "A deposit of files"}
+        )
+        _data_product = fdp_req.post(
+            _ORIGIN,
+            "data_product",
+            _token,
+            {
+                "namespace": get(
+                    _ORIGIN, "namespace", _token, params={"name": "testing"}
+                )[0]["url"],
+                "name": _name,
+                "version": "1.0.0",
+                "object": _object["url"],
+            },
+        )
+        fdp_req.post(
+            _ORIGIN,
+            "external_object",
+            _token,
+            {
+                "data_product": _data_product["url"],
+                "identifier": "https://doi.org/10.1038/s41592-020-0856-2",
+                "title": "A deposit of files",
+                "primary_not_supplement": True,
+                "release_date": "2021-09-20T12:00:00Z",
+            },
+        )
+        # A run that read it, with the configuration and script of the one
+        # the model made
+        _model_run = get(_ORIGIN, "code_run", _token)[0]
+        _whole = fdp_req.url_get(_object["url"], _token)["components"]
+        _uuid = str(uuid.uuid4())
+        fdp_req.post(
+            _ORIGIN,
+            "code_run",
+            _token,
+            {
+                "run_date": _model_run["run_date"],
+                "description": "A run that read the deposit",
+                "model_config": _model_run["model_config"],
+                "submission_script": _model_run["submission_script"],
+                "code_repo": _model_run["code_repo"],
+                "inputs": _whole,
+                "uuid": _uuid,
+            },
+        )
+
+        _res = _cli_runner.invoke(cli, ["add", _uuid])
+        assert _res.exit_code == 0
+        _res = _cli_runner.invoke(
+            cli, ["push", "--debug"], catch_exceptions=True
+        )
+        assert _res.exit_code == 0
+
+        _token = remote_registry._token
+        _pushed = get(
+            _DEST,
+            "data_product",
+            _token,
+            params={"name": _name, "version": "1.0.0"},
+        )
+        assert _pushed
+        _pushed_object = fdp_req.url_get(_pushed[0]["object"], _token)
+        assert not _pushed_object["storage_location"]
+        _pushed_run = get(_DEST, "code_run", _token, params={"uuid": _uuid})
+        assert _pushed_run[0]["inputs"] == _pushed_object["components"]
 
 
 @pytest.mark.faircli_sync

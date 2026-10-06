@@ -897,8 +897,11 @@ def check_if_object_exists(
         for obj_url in _object_urls
     ]
 
+    # A data product with no file has no storage location, and matches none
     _storage_objs = [
-        fdp_req.url_get(store_url, token=token) for store_url in _storage_urls
+        fdp_req.url_get(store_url, token=token)
+        for store_url in _storage_urls
+        if store_url
     ]
 
     return "hash_match" if check_match(file_loc, _storage_objs) else _results

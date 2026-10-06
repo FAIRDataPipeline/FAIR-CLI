@@ -568,10 +568,13 @@ def sync_data_products(
         _data_product = result
 
         result_object = fdp_req.url_get(result["object"], token=origin_token)
-        result_storage_location = fdp_req.url_get(
-            result_object["storage_location"], token=origin_token
-        )
-        _is_public = result_storage_location["public"]
+        # A data product may have no file, its object having no storage
+        # location: there are then only its records to synchronise
+        _is_public = False
+        if result_object["storage_location"]:
+            _is_public = fdp_req.url_get(
+                result_object["storage_location"], token=origin_token
+            )["public"]
 
         # if the data_product is an external object sync that first
         _substitutes = {}
@@ -848,6 +851,46 @@ def sync_code_runs(
         logger.info(f"Synced Code Run: {code_run_uuid}")
 
 
+# The destination's object for an origin object that has no file. There is no
+# hash to find it by, so it is found by a data product of the object's: the
+# namespace, name and version it has in both registries
+def _get_dest_object_url_without_file(
+    origin_object: typing.Dict,
+    dest_uri: str,
+    dest_token: str,
+    origin_token: str,
+) -> str:
+    for _data_product_url in origin_object["data_products"]:
+        _data_product = fdp_req.url_get(_data_product_url, origin_token)
+        _namespace = fdp_req.url_get(_data_product["namespace"], origin_token)
+        _dest_namespace = fdp_req.get(
+            dest_uri,
+            "namespace",
+            dest_token,
+            params={"name": _namespace["name"]},
+        )
+        if not _dest_namespace:
+            continue
+        _dest_data_product = fdp_req.get(
+            dest_uri,
+            "data_product",
+            dest_token,
+            params={
+                "name": _data_product["name"],
+                "version": _data_product["version"],
+                "namespace": fdp_req.get_obj_id_from_url(
+                    _dest_namespace[0]["url"]
+                ),
+            },
+        )
+        if _dest_data_product:
+            return _dest_data_product[0]["object"]
+    raise fdp_exc.RegistryError(
+        f"Failed to find object '{origin_object['url']}' on registry "
+        f"'{dest_uri}': it has no file, and no data product of it is there"
+    )
+
+
 # Internal function to return the (remote) object associated with a code_run field containing and object url
 def get_dest_object_url(
     origin_object_url: str, dest_uri: str, dest_token: str, origin_token: str
@@ -862,15 +905,18 @@ def get_dest_object_url(
         origin_token (str): Token for the Origin Registry
 
     Raises:
-        fdp_exc.RegistryError: If the object does not have a storage location an RegistryError will be raised
+        fdp_exc.RegistryError: If the object has no storage location and no data product of it is on the destination
         fdp_exc.RegistryError: If the destination object does exist an RegistryError will be raised
 
     Returns:
         str: URL of the destination object
     """
-    _origin_object_storage_location = fdp_req.url_get(origin_object_url, origin_token)[
-        "storage_location"
-    ]
+    _origin_object = fdp_req.url_get(origin_object_url, origin_token)
+    _origin_object_storage_location = _origin_object["storage_location"]
+    if not _origin_object_storage_location:
+        return _get_dest_object_url_without_file(
+            _origin_object, dest_uri, dest_token, origin_token
+        )
     _model_object_hash = fdp_req.url_get(_origin_object_storage_location, origin_token)[
         "hash"
     ]

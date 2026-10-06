@@ -130,6 +130,38 @@ def test_calc_file_hash(tmp_path):
     assert fdp_store.check_match(tempf.name, [{"hash": _HASH}])
 
 
+@pytest.mark.faircli_storage
+def test_presence_of_a_data_product_without_a_file(
+    mocker: pytest_mock.MockerFixture, tmp_path
+):
+    # A data product may have no file, its object having no storage
+    # location: one of the name is present, and matches no file
+    _data_file = os.path.join(tmp_path, "data.csv")
+    with open(_data_file, "w") as out_f:
+        out_f.write("a,b\n1,2\n")
+    _data_products = [{"object": "object", "version": "1.0.0"}]
+    mocker.patch(
+        "fair.registry.requests.get", lambda *args, **kwargs: _data_products
+    )
+
+    def mock_url_get(url, *args, **kwargs):
+        assert url == "object"
+        return {"storage_location": None}
+
+    mocker.patch("fair.registry.requests.url_get", mock_url_get)
+
+    assert (
+        fdp_store.check_if_object_exists(
+            local_uri=LOCAL_URL,
+            file_loc=_data_file,
+            obj_type="data_product",
+            search_data={"name": "deposit/whole", "version": "1.0.0"},
+            token="",
+        )
+        == _data_products
+    )
+
+
 # @pytest.mark.faircli_storage
 # @pytest.mark.skipif("FAIR_REMOTE_TOKEN" not in os.environ, reason="Fails on GH CI")
 # def test_get_upload_url(
