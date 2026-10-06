@@ -41,6 +41,72 @@ os.makedirs(TEST_OUT_DIR, exist_ok=True)
 
 logging.getLogger("FAIRDataPipeline").setLevel(logging.DEBUG)
 
+# The user's own FAIR directory, as the package finds it before any test has
+# pointed it elsewhere
+USER_FAIR_DIR = fdp_com.USER_FAIR_DIR
+
+
+# Every file and directory under the user's own FAIR directory, each file with
+# its size and the time it was last written
+def _user_fair_dir_listing() -> typing.Dict[str, typing.Optional[tuple]]:
+    _listing = {}
+    for _dir, _dirs, _files in os.walk(USER_FAIR_DIR):
+        for _name in _dirs:
+            _listing[os.path.join(_dir, _name)] = None
+        for _name in _files:
+            _stat = os.lstat(os.path.join(_dir, _name))
+            _listing[os.path.join(_dir, _name)] = (
+                _stat.st_size,
+                _stat.st_mtime_ns,
+            )
+    return _listing
+
+
+@pytest.fixture(scope="session", autouse=True)
+def user_fair_dir_untouched():
+    """Fail the run if it has changed the user's own FAIR directory
+
+    That directory holds the configuration, tokens and registry of whoever
+    runs the tests, and no test may write there. Anything created, written or
+    removed under it between the first test and the last is named, whatever
+    did it: something else at work there during the run is named too.
+    """
+    _before = _user_fair_dir_listing()
+    yield
+    _after = _user_fair_dir_listing()
+    _changed = sorted(
+        _path
+        for _path in _before.keys() | _after.keys()
+        if _before.get(_path, "absent") != _after.get(_path, "absent")
+    )
+    if _changed:
+        pytest.fail(
+            f"'{USER_FAIR_DIR}' was changed while the tests ran, at: "
+            + ", ".join(_changed),
+            pytrace=False,
+        )
+
+
+@pytest.fixture(scope="session", autouse=True)
+def user_fair_dir(tmp_path_factory, user_fair_dir_untouched):
+    """Give the tests a FAIR directory of their own in place of the user's
+
+    The global configuration, the sessions, the default data store and the
+    default place of the registry are all found from two values, which are
+    pointed here at a directory that does not yet exist, as on a machine
+    where the CLI has never run. A test may point them further.
+    """
+    _home = tmp_path_factory.mktemp("home")
+    _fair_dir = os.path.join(_home, fdp_com.FAIR_FOLDER)
+    _patch = pytest.MonkeyPatch()
+    _patch.setattr("fair.common.USER_FAIR_DIR", _fair_dir)
+    _patch.setattr(
+        "fair.common.DEFAULT_REGISTRY_LOCATION",
+        os.path.join(_fair_dir, "registry"),
+    )
+    yield _fair_dir
+    _patch.undo()
+
 
 class VirtualEnv:
     def __init__(self, env=None) -> None:
