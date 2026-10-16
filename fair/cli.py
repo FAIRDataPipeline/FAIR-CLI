@@ -338,24 +338,24 @@ def init(
 def purge(glob: bool, debug: bool, yes: bool, data: bool, all: bool) -> None:
     # sourcery skip: avoid-builtin-shadow
     """Resets the repository deleting all local caches"""
-    _purge = yes
-
+    # Answering no to the first question removes nothing; --yes answers every
+    # question
     if all:
-        all = click.confirm(
+        if not yes and not click.confirm(
             "Are you sure you want to remove all FAIR components from this system?\n"
             "WARNING: This will also remove your local registry"
-        )
+        ):
+            return
     else:
-        _purge = click.confirm(
+        if not yes and not click.confirm(
             "Are you sure you want to reset FAIR tracking, this is not reversible?"
-        )
-        if data:
+        ):
+            return
+        if data and not yes:
             data = click.confirm(
                 "Are you sure you want to delete the local data directory?\n"
                 "WARNING: Do not do this if you have a populated local registry"
             )
-        if not _purge:
-            return
 
     try:
         with fdp_session.FAIR(os.getcwd()) as fair_session:

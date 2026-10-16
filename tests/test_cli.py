@@ -462,6 +462,82 @@ def test_purge(
 
 
 @pytest.mark.faircli_cli
+@pytest.mark.parametrize("options", [["--all"], ["--data"], []])
+def test_purge_answered_no_removes_nothing(
+    local_config: typing.Tuple[str, str],
+    click_test: click.testing.CliRunner,
+    mocker: pytest_mock.MockerFixture,
+    options: typing.List[str],
+):
+    mocker.patch(
+        "fair.common.global_config_dir", lambda *args: local_config[0]
+    )
+    mocker.patch("fair.common.find_fair_root", lambda *args: local_config[1])
+    _purge = mocker.spy(fair.session.FAIR, "purge")
+
+    _result = click_test.invoke(cli, ["purge", *options], input="n\n")
+    assert _result.exit_code == 0, _result.output
+    assert "Are you sure" in _result.output
+    _purge.assert_not_called()
+    assert os.path.exists(os.path.join(local_config[1], fdp_com.FAIR_FOLDER))
+
+
+@pytest.mark.faircli_cli
+def test_purge_yes_asks_nothing(
+    local_config: typing.Tuple[str, str],
+    click_test: click.testing.CliRunner,
+    mocker: pytest_mock.MockerFixture,
+):
+    mocker.patch(
+        "fair.common.global_config_dir", lambda *args: local_config[0]
+    )
+    mocker.patch("fair.common.find_fair_root", lambda *args: local_config[1])
+
+    _result = click_test.invoke(cli, ["purge", "--yes"])
+    assert _result.exit_code == 0, _result.output
+    assert "Are you sure" not in _result.output
+    assert not os.path.exists(
+        os.path.join(local_config[1], fdp_com.FAIR_FOLDER)
+    )
+    assert os.path.exists(os.path.join(local_config[0], fdp_com.FAIR_FOLDER))
+
+
+@pytest.mark.faircli_cli
+@pytest.mark.parametrize(
+    "options, removes",
+    [
+        (
+            ["--all"],
+            {"global_cfg": False, "clear_data": False, "clear_all": True},
+        ),
+        (
+            ["--data"],
+            {"global_cfg": False, "clear_data": True, "clear_all": False},
+        ),
+    ],
+)
+def test_purge_yes_answers_every_question(
+    local_config: typing.Tuple[str, str],
+    click_test: click.testing.CliRunner,
+    mocker: pytest_mock.MockerFixture,
+    options: typing.List[str],
+    removes: typing.Dict[str, bool],
+):
+    # What would be removed is checked, not removed: with --all that is the
+    # whole FAIR directory
+    mocker.patch(
+        "fair.common.global_config_dir", lambda *args: local_config[0]
+    )
+    mocker.patch("fair.common.find_fair_root", lambda *args: local_config[1])
+    _purge = mocker.patch("fair.session.FAIR.purge")
+
+    _result = click_test.invoke(cli, ["purge", "--yes", *options])
+    assert _result.exit_code == 0, _result.output
+    assert "Are you sure" not in _result.output
+    _purge.assert_called_once_with(**removes)
+
+
+@pytest.mark.faircli_cli
 def test_remote_add(
     local_config: typing.Tuple[str, str],
     click_test: click.testing.CliRunner,

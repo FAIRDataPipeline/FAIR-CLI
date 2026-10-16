@@ -1,3 +1,9 @@
+# Unreleased
+
+## Fixed
+- `fair purge --all` answered "no" removed the project's `.fair` folder, and with it a data store kept there; it now
+  removes nothing. `fair purge --yes` asked its question anyway, and now answers every question as the README says.
+
 # 2026-10-05 [v0.10.2](https://github.com/FAIRDataPipeline/FAIR-CLI/releases/tag/v0.10.2)
 
 ## Changed behaviour
