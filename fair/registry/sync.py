@@ -193,8 +193,9 @@ def sync_dependency_chain(
 
     # For every object (and the order) in the dependency chain
     # post the object then store the URL so it can be used to assemble those
-    # further down the chain
-    for object_url in _dependency_chain:
+    # further down the chain. The list grows as it is walked (see below)
+    _to_sync = list(_dependency_chain)
+    for object_url in _to_sync:
         if object_url in (placed or {}):
             _new_urls[object_url] = placed[object_url]
             continue
@@ -205,6 +206,15 @@ def sync_dependency_chain(
 
         # Deduce the object type from its URL
         _obj_type = fdp_req.get_obj_type_from_url(object_url, token=origin_token)
+
+        # A code repository's release points at its object, so nothing in the
+        # chain leads to it: it is synchronised after the object
+        _release = None
+        if _obj_type == "object":
+            _release = _obj_data.get("code_repo_release")
+        if _release and _release not in _new_urls:
+            _to_sync.append(_release)
+            _new_urls[_release] = ""
 
         if _obj_type not in _writable_fields:
             _writable_fields[_obj_type] = fdp_req.get_writable_fields(

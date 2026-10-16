@@ -387,6 +387,67 @@ def test_dependency_chain_with_a_placed_object(
     assert _synced.call_args.kwargs["new_urls"][_location] == _placed
 
 
+@pytest.mark.faircli_sync
+def test_dependency_chain_with_a_code_repo_release(
+    mocker: pytest_mock.MockerFixture,
+):
+    # A release of a code repository points at its object, and nothing in the
+    # object's chain points at it: it is synchronised after the object, named
+    # by the object's new URL
+    _local, _remote = _ORIGIN, _DEST
+    _object = f"{_local}object/5/"
+    _release = f"{_local}code_repo_release/2/"
+    _rows = {
+        _object: {
+            "description": "A repository",
+            "code_repo_release": _release,
+        },
+        _release: {"object": _object, "name": "model", "version": "1.0.0"},
+    }
+    mocker.patch(
+        "fair.registry.sync.get_dependency_chain",
+        lambda *args: collections.deque([_object]),
+    )
+    mocker.patch(
+        "fair.registry.requests.url_get",
+        lambda url, token=None: dict(_rows[url]),
+    )
+    mocker.patch(
+        "fair.registry.requests.get_obj_type_from_url",
+        lambda url, token=None: url.split("/")[-3],
+    )
+    mocker.patch(
+        "fair.registry.requests.get_writable_fields",
+        lambda *args: ["description", "object", "name", "version"],
+    )
+    _synced = mocker.patch(
+        "fair.registry.sync._get_new_url",
+        side_effect=lambda **kwargs: kwargs["object_url"].replace(
+            _local, _remote
+        ),
+    )
+
+    _new_urls = fdp_sync.sync_dependency_chain(
+        object_url=_object,
+        dest_uri=_remote,
+        origin_uri=_local,
+        dest_token="",
+        origin_token="token",
+    )
+
+    assert _new_urls == {
+        _object: f"{_remote}object/5/",
+        _release: f"{_remote}code_repo_release/2/",
+    }
+    assert [c.kwargs["object_url"] for c in _synced.call_args_list] == [
+        _object,
+        _release,
+    ]
+    _release_call = _synced.call_args_list[1].kwargs
+    assert _release_call["writable_data"]["object"] == _object
+    assert _release_call["new_urls"][_object] == f"{_remote}object/5/"
+
+
 # An object in the local registry whose file is under the given storage root
 def _mock_object(mocker: pytest_mock.MockerFixture, root: str):
     def mock_url_get(url, *args, **kwargs):
@@ -965,6 +1026,77 @@ def test_push_code_run_that_read_a_data_product_without_a_file(
         assert not _pushed_object["storage_location"]
         _pushed_run = get(_DEST, "code_run", _token, params={"uuid": _uuid})
         assert _pushed_run[0]["inputs"] == _pushed_object["components"]
+
+
+@pytest.mark.faircli_sync
+@pytest.mark.dependency(name="release", depends=["push"])
+def test_push_code_run_of_a_released_code_repo(
+    global_config: str,
+    local_registry: RegistryTest,
+    remote_registry: RegistryTest,
+    pyDataPipeline: str,
+    fair_bucket: MotoTestServer,
+    mocker: pytest_mock.MockerFixture,
+):
+    # A run whose code repository is an official release of the code is pushed
+    # with the release, on the remote's object for the repository
+    _cli_runner = click.testing.CliRunner()
+    with remote_registry, local_registry, fair_bucket:
+        mocker.patch(
+            "fair.configuration.get_current_user_remote_user",
+            lambda *args, **kwargs: "admin",
+        )
+        _token = local_registry._token
+        _model_run = get(_ORIGIN, "code_run", _token)[0]
+        fdp_req.post(
+            _ORIGIN,
+            "code_repo_release",
+            _token,
+            {
+                "object": _model_run["code_repo"],
+                "name": "pySimpleModel",
+                "version": "0.1.0",
+                "website": "https://github.com/FAIRDataPipeline/pySimpleModel",
+            },
+        )
+        # A run of its own, since a run on the remote already is not
+        # synchronised again
+        _uuid = str(uuid.uuid4())
+        fdp_req.post(
+            _ORIGIN,
+            "code_run",
+            _token,
+            {
+                "run_date": _model_run["run_date"],
+                "description": "A run of the released code",
+                "model_config": _model_run["model_config"],
+                "submission_script": _model_run["submission_script"],
+                "code_repo": _model_run["code_repo"],
+                "inputs": _model_run["inputs"],
+                "uuid": _uuid,
+            },
+        )
+
+        _res = _cli_runner.invoke(cli, ["add", _uuid])
+        assert _res.exit_code == 0
+        _res = _cli_runner.invoke(
+            cli, ["push", "--debug"], catch_exceptions=True
+        )
+        assert _res.exit_code == 0
+
+        _token = remote_registry._token
+        _pushed_run = get(_DEST, "code_run", _token, params={"uuid": _uuid})
+        _pushed_repo = fdp_req.url_get(_pushed_run[0]["code_repo"], _token)
+        assert _pushed_repo["code_repo_release"]
+        _release = fdp_req.url_get(_pushed_repo["code_repo_release"], _token)
+        assert _release["object"] == _pushed_repo["url"]
+        assert (_release["name"], _release["version"]) == (
+            "pySimpleModel",
+            "0.1.0",
+        )
+        assert _release["website"] == (
+            "https://github.com/FAIRDataPipeline/pySimpleModel"
+        )
 
 
 @pytest.mark.faircli_sync

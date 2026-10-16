@@ -6,6 +6,8 @@
 - `fair registry install --force` removed the old registry before it had the new one, so a `--version` that does not
   exist left no working registry. The old one is now kept until the new one is built, and put back if the install
   fails; a first install that fails leaves nothing behind.
+- `fair push` and `fair pull` left out a code repository's release (`CodeRepoRelease`), so the remote's record of a
+  run or a data product lost it. The release now goes with its repository's object.
 
 # 2026-10-05 [v0.10.2](https://github.com/FAIRDataPipeline/FAIR-CLI/releases/tag/v0.10.2)
 
