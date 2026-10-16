@@ -4,7 +4,9 @@ import typing
 
 import pytest
 import pytest_mock
+import yaml
 
+import fair.common as fdp_com
 import fair.exceptions as fdp_exc
 import fair.registry.server as fdp_serv
 
@@ -33,31 +35,142 @@ def test_registry_install_uninstall(mocker: pytest_mock.MockerFixture, tmp_path)
     fdp_serv.uninstall_registry()
 
 
-@pytest.mark.faircli_server
-def test_registry_install_over_existing(
-    mocker: pytest_mock.MockerFixture, tmp_path
-):
-    # An existing install is refused, and with 'force' it is removed before
-    # the new one is cloned. The clone is stopped: nothing after it is at issue
-    class _CloneReached(Exception):
-        pass
-
+# A stand-in for an installed registry, with the global configuration naming
+# another directory, so that a test can see whether the install rewrote it
+def _existing_install(tmp_path, mocker: pytest_mock.MockerFixture) -> str:
+    _cli_dir = os.path.join(tmp_path, "cli")
+    mocker.patch("fair.common.global_config_dir", lambda: _cli_dir)
+    os.makedirs(_cli_dir)
+    with open(fdp_com.global_fdpconfig(), "w") as conf_f:
+        yaml.dump(
+            {"registries": {"local": {"directory": "elsewhere"}}}, conf_f
+        )
     reg_dir = os.path.join(tmp_path, "registry")
     os.makedirs(reg_dir)
-    _old_file = os.path.join(reg_dir, "db.sqlite3")
-    open(_old_file, "w").close()
+    with open(os.path.join(reg_dir, "db.sqlite3"), "w") as db_f:
+        db_f.write("old")
+    return reg_dir
+
+
+# The registry directory the global configuration names
+def _configured_directory() -> str:
+    with open(fdp_com.global_fdpconfig()) as conf_f:
+        return yaml.safe_load(conf_f)["registries"]["local"]["directory"]
+
+
+@pytest.mark.faircli_server
+def test_registry_install_refuses_existing(
+    mocker: pytest_mock.MockerFixture, tmp_path
+):
+    reg_dir = _existing_install(tmp_path, mocker)
+    _build = mocker.patch("fair.registry.server._build_registry")
+    with pytest.raises(fdp_exc.RegistryError, match="already installed"):
+        fdp_serv.install_registry(install_dir=reg_dir)
+    _build.assert_not_called()
+    with open(os.path.join(reg_dir, "db.sqlite3")) as db_f:
+        assert db_f.read() == "old"
+
+
+@pytest.mark.faircli_server
+@pytest.mark.parametrize(
+    "failure",
+    [fdp_exc.RegistryError("No such head or tag"), KeyboardInterrupt()],
+)
+def test_registry_reinstall_that_fails_keeps_the_old(
+    mocker: pytest_mock.MockerFixture, tmp_path, failure: BaseException
+):
+    # Whatever stops the new install, the old one is put back as it was, and
+    # the configuration is not rewritten
+    reg_dir = _existing_install(tmp_path, mocker)
+
+    def _fail(repository, reference, install_dir, *args):
+        os.makedirs(install_dir)
+        open(os.path.join(install_dir, "partial"), "w").close()
+        raise failure
+
+    mocker.patch("fair.registry.server._build_registry", side_effect=_fail)
+    with pytest.raises(type(failure)):
+        fdp_serv.install_registry(install_dir=reg_dir, force=True)
+    assert os.listdir(reg_dir) == ["db.sqlite3"]
+    with open(os.path.join(reg_dir, "db.sqlite3")) as db_f:
+        assert db_f.read() == "old"
+    assert sorted(os.listdir(tmp_path)) == ["cli", "registry"]
+    assert _configured_directory() == "elsewhere"
+
+
+@pytest.mark.faircli_server
+def test_registry_reinstall_replaces_the_old(
+    mocker: pytest_mock.MockerFixture, tmp_path
+):
+    reg_dir = _existing_install(tmp_path, mocker)
+
+    def _build(repository, reference, install_dir, *args):
+        os.makedirs(install_dir)
+        with open(os.path.join(install_dir, "db.sqlite3"), "w") as db_f:
+            db_f.write("new")
+        return "v9.9.9"
+
+    mocker.patch("fair.registry.server._build_registry", side_effect=_build)
+    assert (
+        fdp_serv.install_registry(install_dir=reg_dir, force=True) == "v9.9.9"
+    )
+    with open(os.path.join(reg_dir, "db.sqlite3")) as db_f:
+        assert db_f.read() == "new"
+    assert sorted(os.listdir(tmp_path)) == ["cli", "registry"]
+    assert _configured_directory() == reg_dir
+
+
+@pytest.mark.faircli_server
+def test_registry_install_that_fails_leaves_nothing(
+    mocker: pytest_mock.MockerFixture, tmp_path
+):
+    # A first install that fails leaves no directory behind, so that the next
+    # attempt is not refused as already installed
     mocker.patch(
         "fair.common.global_config_dir", lambda: os.path.join(tmp_path, "cli")
     )
-    mocker.patch("git.Repo.clone_from", side_effect=_CloneReached)
+    reg_dir = os.path.join(tmp_path, "registry")
 
-    with pytest.raises(fdp_exc.RegistryError, match="already installed"):
+    def _fail(repository, reference, install_dir, *args):
+        os.makedirs(install_dir)
+        raise fdp_exc.RegistryError("No such head or tag")
+
+    mocker.patch("fair.registry.server._build_registry", side_effect=_fail)
+    with pytest.raises(fdp_exc.RegistryError):
         fdp_serv.install_registry(install_dir=reg_dir)
-    assert os.path.exists(_old_file)
-
-    with pytest.raises(_CloneReached):
-        fdp_serv.install_registry(install_dir=reg_dir, force=True)
     assert not os.path.exists(reg_dir)
+
+
+@pytest.mark.faircli_server
+def test_registry_reinstall_that_cannot_move_the_old(
+    mocker: pytest_mock.MockerFixture, tmp_path
+):
+    # As on Windows when the registry is running and its files are in use
+    reg_dir = _existing_install(tmp_path, mocker)
+    _build = mocker.patch("fair.registry.server._build_registry")
+    mocker.patch("os.rename", side_effect=PermissionError("in use"))
+    with pytest.raises(fdp_exc.RegistryError, match="aside"):
+        fdp_serv.install_registry(install_dir=reg_dir, force=True)
+    _build.assert_not_called()
+    assert os.listdir(reg_dir) == ["db.sqlite3"]
+    assert sorted(os.listdir(tmp_path)) == ["cli", "registry"]
+
+
+@pytest.mark.faircli_server
+def test_registry_reinstall_at_a_missing_version(
+    mocker: pytest_mock.MockerFixture, tmp_path
+):
+    # The registry repository is really cloned; the version is not in it
+    reg_dir = _existing_install(tmp_path, mocker)
+    with pytest.raises(
+        fdp_exc.RegistryError, match="registry repository. Candidates are"
+    ):
+        fdp_serv.install_registry(
+            install_dir=reg_dir, reference="no-such-branch", force=True
+        )
+    with open(os.path.join(reg_dir, "db.sqlite3")) as db_f:
+        assert db_f.read() == "old"
+    assert sorted(os.listdir(tmp_path)) == ["cli", "registry"]
 
 
 @pytest.mark.faircli_server

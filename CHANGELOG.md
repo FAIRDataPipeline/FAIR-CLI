@@ -3,6 +3,9 @@
 ## Fixed
 - `fair purge --all` answered "no" removed the project's `.fair` folder, and with it a data store kept there; it now
   removes nothing. `fair purge --yes` asked its question anyway, and now answers every question as the README says.
+- `fair registry install --force` removed the old registry before it had the new one, so a `--version` that does not
+  exist left no working registry. The old one is now kept until the new one is built, and put back if the install
+  fails; a first install that fails leaves nothing behind.
 
 # 2026-10-05 [v0.10.2](https://github.com/FAIRDataPipeline/FAIR-CLI/releases/tag/v0.10.2)
 

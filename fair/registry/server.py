@@ -19,6 +19,7 @@ Functions
 
 __date__ = "2021-06-28"
 
+import contextlib
 import enum
 import glob
 import logging
@@ -27,6 +28,7 @@ import platform
 import shutil
 import subprocess
 import sys
+import tempfile
 import typing
 
 import git
@@ -314,6 +316,65 @@ def rebuild_local(python: str, install_dir: str = None, silent: bool = False):
         )
 
 
+def _remove_directory(directory: str) -> None:
+    """Remove a directory and everything in it"""
+    if platform.system() == "Windows":
+        fdp_com.set_file_permissions(directory)
+    shutil.rmtree(directory, onerror=fdp_com.remove_readonly)
+
+
+@contextlib.contextmanager
+def _replacing_directory(directory: str) -> typing.Iterator[None]:
+    """Make a directory afresh in the block, keeping any old one until it works
+
+    The old directory is moved aside beside it, so the move is a rename. On
+    any failure, Ctrl-C included, what the block made is removed and the old
+    one put back; on success the old one is deleted.
+    """
+    logger = logging.getLogger("FAIRDataPipeline.Server")
+    directory = os.path.abspath(directory)
+    _aside = None
+    if os.path.exists(directory):
+        _aside = tempfile.mkdtemp(
+            prefix=f".{os.path.basename(directory)}-replaced-",
+            dir=os.path.dirname(directory),
+        )
+        _old = os.path.join(_aside, os.path.basename(directory))
+        try:
+            os.rename(directory, _old)
+        except OSError as e:
+            os.rmdir(_aside)
+            raise fdp_exc.RegistryError(
+                f"Cannot move the registry at '{directory}' aside to "
+                f"replace it: {e}",
+                hint="If the registry is running, stop it with "
+                "'fair registry stop' and try again",
+            ) from e
+        logger.debug("Moved the existing installation to '%s'", _old)
+    try:
+        yield
+    except BaseException:
+        if os.path.exists(directory):
+            _remove_directory(directory)
+        if _aside:
+            try:
+                os.rename(_old, directory)
+                os.rmdir(_aside)
+                logger.debug(
+                    "Restored the existing installation at '%s'", directory
+                )
+            except OSError:
+                logger.error(
+                    "The registry that was installed at '%s' could not be "
+                    "put back, and is at '%s'",
+                    directory,
+                    _old,
+                )
+        raise
+    if _aside:
+        _remove_directory(_aside)
+
+
 def install_registry(
     repository: str = fdp_com.FAIR_REGISTRY_REPO,
     reference: str = None,
@@ -344,6 +405,15 @@ def install_registry(
     # In case registry installation occurs before setup
     os.makedirs(fdp_com.global_config_dir(), exist_ok=True)
 
+    logger.debug("Creating directories for installation if they do not exist")
+
+    os.makedirs(os.path.dirname(install_dir), exist_ok=True)
+
+    with _replacing_directory(install_dir):
+        reference = _build_registry(
+            repository, reference, install_dir, silent, venv_dir, _venv_cmd
+        )
+
     logger.debug("Updating registry path in global CLI configuration")
     if os.path.exists(fdp_com.global_fdpconfig()):
         _glob_conf = fdp_util.flatten_dict(fdp_conf.read_global_fdpconfig())
@@ -352,15 +422,22 @@ def install_registry(
         with open(fdp_com.global_fdpconfig(), encoding="utf-8", mode="w") as out_conf:
             yaml.dump(fdp_util.expand_dict(_glob_conf), out_conf)
 
-    if force:
-        logger.debug("Removing existing installation at '%s'", install_dir)
-        if platform.system() == "Windows":
-            fdp_com.set_file_permissions(install_dir)
-        shutil.rmtree(install_dir, onerror=fdp_com.remove_readonly)
+    return reference
 
-    logger.debug("Creating directories for installation if they do not exist")
 
-    os.makedirs(os.path.dirname(install_dir), exist_ok=True)
+def _build_registry(
+    repository: str,
+    reference: typing.Optional[str],
+    install_dir: str,
+    silent: bool,
+    venv_dir: str,
+    venv_cmd: typing.Optional[typing.List[str]],
+) -> str:
+    """Clone the registry at a reference, build its environment and database
+
+    Returns the reference checked out: the one given, else the newest tag.
+    """
+    logger = logging.getLogger("FAIRDataPipeline.Server")
 
     _repo = git.Repo.clone_from(repository, install_dir)
 
@@ -382,15 +459,15 @@ def install_registry(
 
     if reference not in _candidates:
         raise fdp_exc.RegistryError(
-            f"No such head or tag '{reference}' in registry repository"
+            f"No such head or tag '{reference}' in registry repository. "
             f"Candidates are {_candidates}"
         )
     else:
         _repo.git.checkout(reference)
 
-    if _venv_cmd:
-        logger.debug("Creating virtual environment: %s", _venv_cmd)
-        subprocess.check_call(_venv_cmd)
+    if venv_cmd:
+        logger.debug("Creating virtual environment: %s", venv_cmd)
+        subprocess.check_call(venv_cmd)
 
     _python_exe = "python.exe" if platform.system() == "Windows" else "python"
     _binary_loc = "Scripts" if platform.system() == "Windows" else "bin"

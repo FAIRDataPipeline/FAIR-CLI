@@ -89,7 +89,7 @@ fair registry install --force --version <branch>
 
 Without `--force` an existing registry is left as it is and the command stops. `fair registry uninstall`, which asks first, followed by `fair registry install` does the same in two steps, and is the way with `fair-cli` 0.10.1 or earlier, where `--force` is refused.
 
-Check the name given to `--version` before using it with `--force`: the old registry is removed before the name is looked for, so one that does not exist leaves no working registry until the command is run again with one that does.
+With `--force` the old registry is kept until the new one is built. If the install fails - a `--version` that does not exist, no network, a build that fails - the old registry is put back as it was, and the configuration still names it. On Windows the registry has to be stopped first, or it cannot be moved aside to be replaced.
 
 The registry is installed in `~/.fair/registry`, or in the directory given with `--directory`, which has to be given again to replace a registry that was installed elsewhere. A reinstall replaces that directory:
 
