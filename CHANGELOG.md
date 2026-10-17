@@ -8,6 +8,9 @@
   fails; a first install that fails leaves nothing behind.
 - `fair push` and `fair pull` left out a code repository's release (`CodeRepoRelease`), so the remote's record of a
   run or a data product lost it. The release now goes with its repository's object.
+- A data product on a code repository's object, such as a release of the code registered with its DOI, was pushed
+  with the repository's web page as its file, and could not then be pulled. Its location is the repository at a
+  commit, and it is now pushed and pulled as that, with nothing downloaded.
 
 # 2026-10-05 [v0.10.2](https://github.com/FAIRDataPipeline/FAIR-CLI/releases/tag/v0.10.2)
 

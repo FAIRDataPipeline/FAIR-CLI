@@ -139,6 +139,7 @@ def test_sync_data_products_fetches_the_data_product(
     mocker.patch("fair.registry.requests.get", mock_get)
     mocker.patch("fair.registry.requests.url_get", mock_url_get)
     mocker.patch("fair.registry.sync.sync_dependency_chain", lambda **kwargs: None)
+    mocker.patch("fair.registry.sync._has_file", return_value=True)
     _fetch = mocker.patch("fair.registry.sync._place_pulled_file")
 
     fdp_sync.sync_data_products(
@@ -194,6 +195,7 @@ def test_file_moves_before_its_records(
         "fair.registry.sync.sync_dependency_chain",
         lambda **kwargs: _moved.append("records"),
     )
+    mocker.patch("fair.registry.sync._has_file", return_value=True)
     for _mover in ("_place_pulled_file", "upload_object"):
         mocker.patch(
             f"fair.registry.sync.{_mover}",
@@ -446,6 +448,127 @@ def test_dependency_chain_with_a_code_repo_release(
     _release_call = _synced.call_args_list[1].kwargs
     assert _release_call["writable_data"]["object"] == _object
     assert _release_call["new_urls"][_object] == f"{_remote}object/5/"
+
+
+# An object row's storage location, for the tests of what has a file to move
+_AT_LOCATION = {"storage_location": "location"}
+
+
+@pytest.mark.faircli_sync
+@pytest.mark.parametrize(
+    "row, runs, expected",
+    [
+        ({"storage_location": None}, None, False),
+        (_AT_LOCATION | {"code_repo_release": "release"}, None, False),
+        (_AT_LOCATION | {"code_repo_release": None}, ["run"], False),
+        (_AT_LOCATION | {"code_repo_release": None}, [], True),
+    ],
+)
+def test_has_file(
+    mocker: pytest_mock.MockerFixture, row, runs, expected: bool
+):
+    # An object has a file to move unless it has no storage location or is a
+    # code repository: one with a release, or one a code run names. The code
+    # runs are asked for only when nothing else has decided
+    _asked = []
+
+    def mock_get(uri, obj, token, params=None):
+        _asked.append((uri.rstrip("/"), obj, params))
+        return runs
+
+    mocker.patch("fair.registry.requests.get", mock_get)
+    _object = {"url": f"{_ORIGIN}object/5/", **row}
+    assert fdp_sync._has_file(_object, "token") is expected
+    if runs is None:
+        assert not _asked
+    else:
+        assert _asked == [
+            (_ORIGIN.rstrip("/"), "code_run", {"code_repo": "5"})
+        ]
+
+
+@pytest.mark.faircli_sync
+@pytest.mark.parametrize("local_data_store", [None, "/data/store"])
+def test_sync_data_product_on_a_code_repo(
+    mocker: pytest_mock.MockerFixture, local_data_store
+):
+    # A data product on a code repository's object has a location and no file:
+    # nothing is uploaded or fetched, and its location is not moved into the
+    # remote's data store
+    _data_product = {
+        "url": "data_product_url",
+        "name": "release",
+        "version": "1.0.0",
+        "namespace": "namespace",
+        "object": "object",
+        "external_object": None,
+    }
+
+    def mock_get(uri, obj, *args, **kwargs):
+        if obj == "namespace":
+            return [{"url": "http://example/api/namespace/1/"}]
+        elif obj == "data_product":
+            return [] if uri == "dest" else [_data_product]
+
+    def mock_url_get(url, *args, **kwargs):
+        assert url == "object"
+        return {"url": "object", "components": [], **_AT_LOCATION}
+
+    mocker.patch("fair.registry.requests.get", mock_get)
+    mocker.patch("fair.registry.requests.url_get", mock_url_get)
+    mocker.patch("fair.registry.sync._has_file", return_value=False)
+    _records = mocker.patch("fair.registry.sync.sync_dependency_chain")
+    _upload = mocker.patch("fair.registry.sync.upload_object")
+    _place = mocker.patch("fair.registry.sync._place_pulled_file")
+
+    fdp_sync.sync_data_products(
+        origin_uri="origin",
+        dest_uri="dest",
+        dest_token="",
+        origin_token="",
+        remote_label="origin",
+        data_products=["testing:release@v1.0.0"],
+        local_data_store=local_data_store,
+    )
+
+    _upload.assert_not_called()
+    _place.assert_not_called()
+    assert _records.call_args.kwargs["public"] is False
+    assert _records.call_args.kwargs["placed"] == {}
+
+
+@pytest.mark.faircli_sync
+def test_sync_code_run_pushes_its_code_repo_as_it_is(
+    mocker: pytest_mock.MockerFixture,
+):
+    # A run's code repository is pushed without moving its location into the
+    # remote's data store, as a public file's would be
+    _run = {
+        "uuid": "abc",
+        "run_date": "2026-10-17T00:00:00Z",
+        "description": "A run",
+        "model_config": "config",
+        "submission_script": "script",
+        "code_repo": "repo",
+    }
+    mocker.patch(
+        "fair.registry.requests.get",
+        lambda uri, obj, *args, **kwargs: [] if uri == "dest" else [_run],
+    )
+    mocker.patch("fair.registry.sync.upload_object")
+    mocker.patch(
+        "fair.registry.sync.get_dest_object_url", lambda url, *args: url
+    )
+    mocker.patch("fair.registry.requests.post", return_value={})
+    _records = mocker.patch("fair.registry.sync.sync_dependency_chain")
+
+    fdp_sync.sync_code_run("origin", "dest", "", "", "abc")
+
+    _public = {
+        c.kwargs["object_url"]: c.kwargs["public"]
+        for c in _records.call_args_list
+    }
+    assert _public == {"config": True, "repo": False, "script": True}
 
 
 # An object in the local registry whose file is under the given storage root
@@ -1097,6 +1220,128 @@ def test_push_code_run_of_a_released_code_repo(
         assert _release["website"] == (
             "https://github.com/FAIRDataPipeline/pySimpleModel"
         )
+
+
+@pytest.mark.faircli_sync
+@pytest.mark.dependency(name="on_code_repo", depends=["push"])
+def test_push_and_pull_a_data_product_on_a_code_repo(
+    global_config: str,
+    local_registry: RegistryTest,
+    remote_registry: RegistryTest,
+    pyDataPipeline: str,
+    fair_bucket: MotoTestServer,
+    mocker: pytest_mock.MockerFixture,
+    tmp_path,
+):
+    # A data product may be a code repository's object - a release of the
+    # code, registered with its DOI as its source - whose location is the
+    # repository at a commit. It is pushed and pulled with that location as
+    # it is, and nothing is downloaded: the repository's address is a web page
+    _cli_runner = click.testing.CliRunner()
+    _download = mocker.spy(fdp_sync, "download_from_registry")
+    with remote_registry, local_registry, fair_bucket:
+        mocker.patch(
+            "fair.configuration.get_current_user_remote_user",
+            lambda *args, **kwargs: "admin",
+        )
+        _token = local_registry._token
+        _repo = get(_ORIGIN, "code_run", _token)[0]["code_repo"]
+        _repo_location = fdp_req.url_get(
+            fdp_req.url_get(_repo, _token)["storage_location"], _token
+        )
+        _namespace = get(
+            _ORIGIN, "namespace", _token, params={"name": "testing"}
+        )
+        fdp_req.post(
+            _ORIGIN,
+            "data_product",
+            _token,
+            {
+                "namespace": _namespace[0]["url"],
+                "name": "release/pushed",
+                "version": "1.0.0",
+                "object": _repo,
+            },
+        )
+
+        _res = _cli_runner.invoke(
+            cli, ["add", "testing:release/pushed@v1.0.0"]
+        )
+        assert _res.exit_code == 0
+        _res = _cli_runner.invoke(
+            cli, ["push", "--debug"], catch_exceptions=True
+        )
+        assert _res.exit_code == 0
+
+        _token = remote_registry._token
+        _pushed = get(
+            _DEST,
+            "data_product",
+            _token,
+            params={"name": "release/pushed", "version": "1.0.0"},
+        )
+        _remote_repo = fdp_req.url_get(_pushed[0]["object"], _token)
+        _location = fdp_req.url_get(_remote_repo["storage_location"], _token)
+        assert _location["hash"] == _repo_location["hash"]
+        assert _location["path"] == _repo_location["path"]
+        _root = fdp_req.url_get(_location["storage_root"], _token)
+        assert _root["root"] == "https://github.com/"
+
+        # A data product made on the remote, on its object for the repository
+        _namespace = get(
+            _DEST, "namespace", _token, params={"name": "testing"}
+        )
+        fdp_req.post(
+            _DEST,
+            "data_product",
+            _token,
+            {
+                "namespace": _namespace[0]["url"],
+                "name": "release/pulled",
+                "version": "1.0.0",
+                "object": _remote_repo["url"],
+            },
+        )
+        _cfg_path = os.path.join(tmp_path, "release.yaml")
+        with open(_cfg_path, "w") as f:
+            yaml.dump(
+                {
+                    "run_metadata": {
+                        "description": "Reading a release",
+                        "script": "echo done",
+                    },
+                    "read": [
+                        {
+                            "data_product": "release/pulled",
+                            "use": {
+                                "namespace": "testing",
+                                "version": "1.0.0",
+                            },
+                        }
+                    ],
+                },
+                f,
+                sort_keys=False,
+            )
+        _res = _cli_runner.invoke(
+            cli, ["pull", _cfg_path, "--debug"], catch_exceptions=True
+        )
+        assert _res.exit_code == 0, _res.output
+
+        _token = local_registry._token
+        _pulled = get(
+            _ORIGIN,
+            "data_product",
+            _token,
+            params={"name": "release/pulled", "version": "1.0.0"},
+        )
+        _object = fdp_req.url_get(_pulled[0]["object"], _token)
+        _location = fdp_req.url_get(_object["storage_location"], _token)
+        assert _location["hash"] == _repo_location["hash"]
+        _root = fdp_req.url_get(_location["storage_root"], _token)
+        assert _root["root"] == "https://github.com/"
+
+    _download.assert_not_called()
 
 
 @pytest.mark.faircli_sync
