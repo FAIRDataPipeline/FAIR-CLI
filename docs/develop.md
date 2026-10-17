@@ -348,6 +348,22 @@ if run on `10/10/2021` would download the data from the given `root`/`path` URL 
 
 and register all required objects into the local registry.
 
+A source with no file of its own - such as a data store that a run queries for the files it needs, named by its DOI - is registered with `no_file: true` in place of `root`, `path` and `file_type`. It becomes a data product with no file, whose source is the external object, and a run may then name it in its `read` block. Its `version` must be given, and stays as it is: with no file, nothing else says when it changes. `cache` and `public` describe a file, and are refused with `no_file`:
+
+```yaml
+register:
+- namespace: provider
+  full_name: The data store's provider
+- external_object: provider/store
+  namespace_name: provider
+  identifier: https://doi.org/<the data store's DOI>
+  title: <the data store's title>
+  release_date: <the data store's release date>
+  primary: True
+  version: 1.0.0
+  no_file: true
+```
+
 ### `purge`
 
 Removes the local `.fair` (FAIR repository) folder by default so the user can reinitialise:

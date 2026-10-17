@@ -1227,6 +1227,10 @@ class JobConfiguration(MutableMapping):
         return _new_item
 
     def _fill_block_item(self, block_type: str, item: typing.Dict) -> typing.Dict:
+        # An entry with no file is checked as written, before any default
+        if block_type == "register":
+            fdp_reg.check_no_file_entry(item)
+
         _new_item = copy.deepcopy(item)
         _new_item["use"] = item.get("use", {})
 
@@ -1243,7 +1247,11 @@ class JobConfiguration(MutableMapping):
         if "data_product" in item:
             _new_item = self._fill_block_data_product(block_type, _new_item)
 
-        if block_type in {"write", "register"} and "public" not in item:
+        if (
+            block_type in {"write", "register"}
+            and "public" not in item
+            and not item.get("no_file")
+        ):
             _new_item["public"] = self.is_public_global
 
         return _new_item

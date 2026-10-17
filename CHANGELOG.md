@@ -1,5 +1,10 @@
 # Unreleased
 
+## Added
+- A `register:` entry for an external object may have `no_file: true` in place of `root`, `path` and `file_type`,
+  for a source with no file of its own, such as a data store a run queries: `fair pull` registers it as a data
+  product with no file, which a run may read. Its `version` must be given.
+
 ## Fixed
 - `fair purge --all` answered "no" removed the project's `.fair` folder, and with it a data store kept there; it now
   removes nothing. `fair purge --yes` asked its question anyway, and now answers every question as the README says.

@@ -40,6 +40,59 @@ from fair.registry import SEARCH_KEYS
 
 logger = logging.getLogger("FAIRDataPipeline.Register")
 
+# The keys of a 'register' entry that describe its file
+_FILE_KEYS = ("root", "path", "file_type", "cache", "public")
+
+
+def check_no_file_entry(entry: typing.Dict) -> None:
+    """Refuse a 'register' entry that has no file but is not written as one
+
+    An 'external_object' entry with 'no_file: true' registers a source that
+    has no file of its own, such as a deposit a run queries, as a data product
+    with no file. It has none of the keys that describe a file, and gives its
+    version, which nothing else could change.
+
+    Parameters
+    ----------
+    entry : typing.Dict
+        the entry, as written in the user config
+
+    Raises
+    ------
+    fdp_exc.UserConfigError
+        if the entry has 'no_file' and is not such an entry
+    """
+    if "no_file" not in entry:
+        return
+    _name = entry.get("external_object", entry.get("data_product", ""))
+    if not isinstance(entry["no_file"], bool):
+        raise fdp_exc.UserConfigError(
+            "Expected true or false for 'no_file' in 'register' item "
+            f"'{_name}'"
+        )
+    if not entry["no_file"]:
+        return
+    if "external_object" not in entry:
+        raise fdp_exc.UserConfigError(
+            "Only an 'external_object' entry may have 'no_file', not "
+            f"'{_name}'",
+            hint="A data product with no file is registered with its source",
+        )
+    for key in _FILE_KEYS:
+        if key in entry or key in entry.get("use", {}):
+            raise fdp_exc.UserConfigError(
+                f"Unexpected key '{key}' in 'register' item '{_name}', "
+                "which has 'no_file'"
+            )
+    _version = entry.get("version", entry.get("use", {}).get("version"))
+    if not _version or "${{" in f"{_version}":
+        raise fdp_exc.UserConfigError(
+            f"Expected a version in 'register' item '{_name}', which has "
+            "'no_file'",
+            hint="A data product with no file keeps the version it is given: "
+            "write one, e.g. '1.0.0'",
+        )
+
 
 def convert_key_value_to_id(uri: str, obj_type: str, value: str, token: str) -> int:
     """Converts a config key value to the relevant URL on the local registry
@@ -105,10 +158,15 @@ def fetch_registrations(
 
     for entry in user_config_register:
 
+        # An entry with no file has none of the keys that describe one
+        _no_file = entry.get("no_file") is True
+
         if "external_object" in entry:
             _expected_keys = _expected_keys_external_object
         else:
             _expected_keys = _expected_keys_data_product
+        if _no_file:
+            _expected_keys = [k for k in _expected_keys if k not in _FILE_KEYS]
 
         for key in _expected_keys:
             if key not in entry and key not in entry["use"]:
@@ -185,6 +243,40 @@ def fetch_registrations(
                 raise fdp_exc.UserConfigError(
                     "Only one unique identifier may be provided (doi/unique_name)"
                 )
+
+        if _no_file:
+            _registered = (
+                _is_present != "absent"
+                and fdp_store.check_registered_without_file(
+                    local_uri=local_uri,
+                    token=fdp_req.local_token(),
+                    data=entry,
+                    search_data=_search_data,
+                    name=_name,
+                )
+            )
+            if _registered:
+                logger.debug(
+                    "Skipping item '%s' as it is registered already, with "
+                    "no file",
+                    _name,
+                )
+                continue
+            data = copy.deepcopy(entry)
+            if "authors" in entry:
+                data["authors"] = fetch_authors(local_uri, entry["authors"])
+            data["namespace_name"] = entry["use"]["namespace"]
+            logger.info(f"Registering: {_name}")
+            _stored_objects.append(
+                fdp_store.store_registration_without_file(
+                    uri=local_uri,
+                    repo_dir=repo_dir,
+                    token=fdp_req.local_token(),
+                    data=data,
+                )
+            )
+            continue
+
         # Set Remove to True by default so the tempory file gets deleted
         _remove = True
         if "cache" in entry:

@@ -584,3 +584,63 @@ def test_upload_remote_file(
         f"{LOCAL_URL}/data/{fdp_store.calculate_file_hash(str(_file))}"
     )
     assert _put.called is bool(sent)
+
+
+# The 'register' entry of a source with no file, and the external object row a
+# registry at data-registry v1.4.0 keeps for it
+_DEPOSIT = {
+    "identifier": "https://doi.org/10.24381/cds.f17050d7",
+    "title": "A deposit of files",
+}
+_DEPOSIT_ROW = {**_DEPOSIT, "version": "1.0.0", "data_products": ["dp"]}
+
+
+@pytest.mark.faircli_storage
+@pytest.mark.parametrize(
+    "location, source, registered",
+    [
+        (None, _DEPOSIT_ROW, True),
+        # An older registry: the source takes the data product's version
+        (None, {**_DEPOSIT, "version": "2.0.0"}, True),
+        ("location", _DEPOSIT_ROW, False),
+        (None, {**_DEPOSIT_ROW, "title": "Another deposit"}, False),
+        (None, {**_DEPOSIT_ROW, "version": "2.0.0"}, False),
+        (None, None, False),
+    ],
+)
+def test_check_registered_without_file(
+    mocker: pytest_mock.MockerFixture, location, source, registered
+):
+    # The version of the data product is registered already as the entry
+    # describes it - no file, the same source - or it is refused
+    _data_product = {
+        "object": "object",
+        "external_object": "source" if source else None,
+    }
+    _rows = {"object": {"storage_location": location}, "source": source}
+    mocker.patch(
+        "fair.registry.requests.get", lambda *args, **kwargs: [_data_product]
+    )
+    mocker.patch(
+        "fair.registry.requests.url_get", lambda url, *args: _rows[url]
+    )
+    _args = dict(
+        local_uri=LOCAL_URL,
+        token="",
+        data=_DEPOSIT,
+        search_data={"name": "deposit/whole", "version": "2.0.0"},
+        name="deposit/whole",
+    )
+    if registered:
+        assert fdp_store.check_registered_without_file(**_args)
+    else:
+        with pytest.raises(fdp_exc.UserConfigError, match="registered already"):
+            fdp_store.check_registered_without_file(**_args)
+
+
+@pytest.mark.faircli_storage
+def test_check_registered_without_file_absent(mocker: pytest_mock.MockerFixture):
+    mocker.patch("fair.registry.requests.get", lambda *args, **kwargs: [])
+    assert not fdp_store.check_registered_without_file(
+        LOCAL_URL, "", _DEPOSIT, {"name": "deposit/whole"}, "deposit/whole"
+    )

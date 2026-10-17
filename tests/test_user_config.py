@@ -269,6 +269,38 @@ def test_subst_windows_config_dir():
 
 
 @pytest.mark.faircli_user_config
+def test_register_entry_with_no_file():
+    # A source with no file is given no 'public', since there is no file for
+    # it to describe, and refused one written; and nothing of 'no_file'
+    # reaches the working config, whose read of it is like any other
+    _entry = {
+        "external_object": "deposit/whole",
+        "namespace_name": "ECMWF",
+        "identifier": "https://doi.org/10.24381/cds.f17050d7",
+        "title": "A deposit of files",
+        "release_date": "2021-09-20T12:00",
+        "primary": True,
+        "version": "1.0.0",
+        "no_file": True,
+    }
+    _config = fdp_user.JobConfiguration()
+    _config._config = {"run_metadata": {}}
+    _filled = _config._fill_block_item("register", _entry)
+    assert "public" not in _filled
+    with pytest.raises(fdp_exc.UserConfigError, match="Unexpected key 'public'"):
+        _config._fill_block_item("register", dict(_entry, public=True))
+    _with_file = {
+        k: v for k, v in _entry.items() if k != "no_file"
+    } | {"root": "https://example.com/", "path": "a.nc", "file_type": "nc"}
+    assert "public" in _config._fill_block_item("register", _with_file)
+
+    _config._config["read"] = _config._register_to_read([_filled])
+    _read = _config._clean()["read"]
+    assert [_entry["data_product"] for _entry in _read] == ["deposit/whole"]
+    assert set(_read[0]) <= {"data_product", "description", "use", "registered"}
+
+
+@pytest.mark.faircli_user_config
 def test_run_id_left_for_api():
     _config = fdp_user.JobConfiguration()
     _config._config = {

@@ -10,6 +10,7 @@ import fair.exceptions as fdp_exc
 import fair.register as fdp_reg
 import fair.registry.requests as fdp_req
 import fair.registry.storage as fdp_store
+import fair.registry.sync as fdp_sync
 import fair.testing as fdp_test
 
 TEST_DATA_DIR = f"file://{os.path.dirname(__file__)}{os.path.sep}data{os.path.sep}"
@@ -92,7 +93,97 @@ def test_register_refused_leaves_no_download(mocker, tmp_path, cached):
     assert os.listdir(tmp_path) == (["data.csv"] if cached else [])
 
 
+# A 'register' entry for a source with no file of its own, as written
+_NO_FILE_ENTRY = {
+    "external_object": "deposit/whole",
+    "namespace_name": "ECMWF",
+    "identifier": "https://doi.org/10.24381/cds.f17050d7",
+    "title": "A deposit of files",
+    "release_date": "2021-09-20T12:00",
+    "primary": True,
+    "version": "1.0.0",
+    "no_file": True,
+}
+
+
 @pytest.mark.faircli_register
+@pytest.mark.parametrize(
+    "change, refused",
+    [
+        ({}, None),
+        ({"root": "https://example.com/"}, "Unexpected key 'root'"),
+        ({"path": "a.nc"}, "Unexpected key 'path'"),
+        ({"file_type": "nc"}, "Unexpected key 'file_type'"),
+        ({"cache": "a.nc"}, "Unexpected key 'cache'"),
+        ({"use": {"cache": "a.nc"}}, "Unexpected key 'cache'"),
+        ({"public": True}, "Unexpected key 'public'"),
+        ({"version": None}, "Expected a version"),
+        ({"version": "${{PATCH}}"}, "Expected a version"),
+        ({"no_file": "yes"}, "Expected true or false"),
+        ({"no_file": False}, None),
+    ],
+)
+def test_check_no_file_entry(change, refused):
+    _entry = {k: v for k, v in {**_NO_FILE_ENTRY, **change}.items() if v is not None}
+    if refused:
+        with pytest.raises(fdp_exc.UserConfigError, match=refused):
+            fdp_reg.check_no_file_entry(_entry)
+    else:
+        fdp_reg.check_no_file_entry(_entry)
+
+
+@pytest.mark.faircli_register
+def test_check_no_file_entry_of_a_data_product():
+    _entry = dict(_NO_FILE_ENTRY, data_product="deposit/whole")
+    del _entry["external_object"]
+    with pytest.raises(fdp_exc.UserConfigError, match="Only an 'external_object'"):
+        fdp_reg.check_no_file_entry(_entry)
+
+
+@pytest.mark.faircli_register
+@pytest.mark.parametrize("registered", [False, True])
+def test_register_no_file_fetches_nothing(mocker, tmp_path, registered):
+    # Nothing is fetched or copied; the entry is registered unless it is there
+    mocker.patch(
+        "fair.registry.sync.download_from_registry",
+        side_effect=AssertionError("a file was fetched"),
+    )
+    mocker.patch(
+        "fair.registry.storage.check_source_is_one_file",
+        side_effect=AssertionError("a file was compared"),
+    )
+    mocker.patch("fair.registry.requests.local_token", return_value="")
+    mocker.patch("fair.register.convert_key_value_to_id", return_value=3)
+    mocker.patch(
+        "fair.registry.storage.check_registered_without_file",
+        return_value=registered,
+    )
+    _store = mocker.patch(
+        "fair.registry.storage.store_registration_without_file",
+        return_value={"url": "external_object_url"},
+    )
+    _entry = dict(_NO_FILE_ENTRY)
+    _entry["use"] = {
+        "data_product": "deposit/whole",
+        "namespace": "ECMWF",
+        "version": _entry.pop("version"),
+    }
+
+    _stored = fdp_reg.fetch_registrations(
+        "http://127.0.0.1:8000/api/", "", str(tmp_path), [_entry]
+    )
+
+    assert os.listdir(tmp_path) == []
+    if registered:
+        _store.assert_not_called()
+        assert _stored == []
+    else:
+        assert _store.call_args.kwargs["data"]["namespace_name"] == "ECMWF"
+        assert _stored == [{"url": "external_object_url"}]
+
+
+@pytest.mark.faircli_register
+@pytest.mark.dependency(name="register")
 def test_register(
     global_config,
     local_registry,
@@ -291,3 +382,88 @@ def test_register(
             print(f"exc info: {_res.exc_info}")
             print(f"exception: {_res.exception}")
         assert _res.exit_code == 0
+
+
+@pytest.mark.faircli_register
+@pytest.mark.dependency(depends=["register"])
+def test_register_no_file(
+    local_registry,
+    remote_registry,
+    pyDataPipeline: str,
+    monkeypatch_module,
+    mocker,
+    tmp_path,
+):
+    # A source with no file of its own, such as a deposit a run queries, is
+    # registered by 'fair pull' as a data product with no file, once, and a
+    # run may then read it. The DOI is one the registration test resolves
+    monkeypatch_module.chdir(pyDataPipeline)
+    _download = mocker.spy(fdp_sync, "download_from_registry")
+    _entry = dict(
+        _NO_FILE_ENTRY, identifier="https://doi.org/10.1038/s41592-020-0856-2"
+    )
+    _cfg = {
+        "run_metadata": {
+            "description": "Registering a deposit",
+            "script": "echo done",
+        },
+        "register": [
+            {"namespace": "ECMWF", "full_name": "A namespace for a deposit"},
+            _entry,
+        ],
+    }
+    _cfg_path = os.path.join(tmp_path, "deposit.yaml")
+
+    def _write(entry):
+        _cfg["register"][1] = entry
+        with open(_cfg_path, "w") as f:
+            yaml.dump(_cfg, f, sort_keys=False)
+
+    _cli_runner = click.testing.CliRunner()
+    with local_registry, remote_registry:
+        _token = local_registry._token
+
+        def _deposits():
+            return fdp_req.get(
+                local_registry._url,
+                "data_product",
+                _token,
+                params={"name": "deposit/whole"},
+            )
+
+        _write(_entry)
+        for _ in range(2):
+            _res = _cli_runner.invoke(
+                cli, ["pull", _cfg_path, "--debug"], catch_exceptions=True
+            )
+            assert _res.exit_code == 0, _res.output
+            assert len(_deposits()) == 1
+        _deposit = _deposits()[0]
+        assert _deposit["version"] == "1.0.0"
+        assert not fdp_req.url_get(_deposit["object"], _token)[
+            "storage_location"
+        ]
+        _source = fdp_req.url_get(_deposit["external_object"], _token)
+        assert (_source["identifier"], _source["title"]) == (
+            _entry["identifier"],
+            _entry["title"],
+        )
+        _download.assert_not_called()
+
+        # Another source at that version is refused
+        _write(dict(_entry, title="Another deposit"))
+        _res = _cli_runner.invoke(
+            cli, ["pull", _cfg_path, "--debug"], catch_exceptions=True
+        )
+        assert _res.exit_code == 1
+        assert "registered already" in _res.output
+        assert len(_deposits()) == 1
+
+        # A run is given it to read
+        _write(_entry)
+        _res = _cli_runner.invoke(
+            cli,
+            ["run", _cfg_path, "--local", "--dirty", "--debug"],
+            catch_exceptions=True,
+        )
+        assert _res.exit_code == 0, _res.output
