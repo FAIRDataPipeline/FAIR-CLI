@@ -1,3 +1,4 @@
+import glob
 import os
 
 import click.testing
@@ -180,6 +181,67 @@ def test_register_no_file_fetches_nothing(mocker, tmp_path, registered):
     else:
         assert _store.call_args.kwargs["data"]["namespace_name"] == "ECMWF"
         assert _stored == [{"url": "external_object_url"}]
+
+
+@pytest.mark.faircli_register
+@pytest.mark.parametrize(
+    "version, present, outcome",
+    [
+        ("${{PATCH}}", "hash_match", "passed over"),
+        ("${{PATCH}}", "results", "0.0.3"),
+        ("${{PATCH}}", "absent", "0.0.1"),
+        ("${{ LATEST }}", "hash_match", "passed over"),
+        ("${{ LATEST }}", "results", "has changed"),
+        ("${{ LATEST }}", "absent", "no version of it"),
+        ("2.0.0", "absent", "2.0.0"),
+    ],
+)
+def test_register_version_decided_by_the_file(
+    mocker, tmp_path, version, present, outcome
+):
+    # A token keeps the highest version while the file is its file. Otherwise
+    # ${{PATCH}} makes the next version and ${{LATEST}} is refused; the
+    # version decided is the one registered
+    _data_file = os.path.join(tmp_path, "data.csv")
+    with open(_data_file, "w") as out_f:
+        out_f.write("a,b\n1,2\n")
+    mocker.patch(
+        "fair.registry.sync.download_from_registry", return_value=_data_file
+    )
+    mocker.patch("fair.registry.requests.local_token", return_value="")
+    mocker.patch("fair.register.convert_key_value_to_id", return_value=3)
+    _results = [{"version": "0.0.1"}, {"version": "0.0.2"}]
+    mocker.patch(
+        "fair.registry.storage.check_if_object_exists",
+        return_value=_results if present == "results" else present,
+    )
+    _store = mocker.patch(
+        "fair.registry.storage.store_data_file", return_value="registered"
+    )
+    _entry = {
+        "data_product": "a/b",
+        "use": {"data_product": "a/b", "namespace": "PSU", "version": version},
+        "root": "https://example.com/",
+        "path": "a/b.csv",
+        "file_type": "csv",
+        "public": True,
+    }
+    _store_dir = os.path.join(tmp_path, "store")
+    if outcome in ("has changed", "no version of it"):
+        with pytest.raises(fdp_exc.UserConfigError, match=outcome):
+            fdp_reg.fetch_registrations(
+                "http://127.0.0.1:8000/api/", "", _store_dir, [_entry]
+            )
+        _store.assert_not_called()
+        return
+    fdp_reg.fetch_registrations(
+        "http://127.0.0.1:8000/api/", "", _store_dir, [_entry]
+    )
+    if outcome == "passed over":
+        _store.assert_not_called()
+    else:
+        assert _store.call_args.kwargs["data"]["use"]["version"] == outcome
+        assert _store.call_args.kwargs["local_file"].endswith(f"{outcome}.csv")
 
 
 @pytest.mark.faircli_register
@@ -467,3 +529,94 @@ def test_register_no_file(
             catch_exceptions=True,
         )
         assert _res.exit_code == 0, _res.output
+
+
+@pytest.mark.faircli_register
+@pytest.mark.dependency(depends=["register"])
+def test_register_without_a_version(
+    local_registry,
+    remote_registry,
+    pyDataPipeline: str,
+    monkeypatch_module,
+    tmp_path,
+):
+    # An entry with no version keeps the highest version while its file is the
+    # same, and has the next when it changes; a run reads the highest. With
+    # ${{LATEST}} a changed file is refused, and a run refused anything that
+    # 'fair pull' has not registered
+    monkeypatch_module.chdir(pyDataPipeline)
+    _file = os.path.join(tmp_path, "unversioned.csv")
+    _entry = {
+        "data_product": "unversioned/data",
+        "namespace_name": "TestNameSpace",
+        "root": f"file://{tmp_path}{os.path.sep}",
+        "path": "unversioned.csv",
+        "file_type": "csv",
+    }
+    _cfg = {
+        "run_metadata": {"description": "No version", "script": "echo done"},
+        "register": [
+            {"namespace": "TestNameSpace", "full_name": "A namespace"},
+            _entry,
+        ],
+    }
+    _cfg_path = os.path.join(tmp_path, "unversioned.yaml")
+
+    def _write(content, entry=_entry):
+        with open(_file, "w") as out_f:
+            out_f.write(content)
+        _cfg["register"][1] = entry
+        with open(_cfg_path, "w") as cfg_f:
+            yaml.dump(_cfg, cfg_f, sort_keys=False)
+
+    _cli_runner = click.testing.CliRunner()
+
+    def _fair(*args):
+        return _cli_runner.invoke(
+            cli, [*args, _cfg_path, "--debug"], catch_exceptions=True
+        )
+
+    with local_registry, remote_registry:
+        _token = local_registry._token
+
+        def _versions(name="unversioned/data"):
+            return sorted(
+                product["version"]
+                for product in fdp_req.get(
+                    local_registry._url,
+                    "data_product",
+                    _token,
+                    params={"name": name},
+                )
+            )
+
+        _write("a,b\n1,2\n")
+        for _ in range(2):
+            assert _fair("pull").exit_code == 0
+            assert _versions() == ["0.0.1"]
+        _write("a,b\n3,4\n")
+        assert _fair("pull").exit_code == 0
+        assert _versions() == ["0.0.1", "0.0.2"]
+
+        _res = _fair("run", "--local", "--dirty")
+        assert _res.exit_code == 0, _res.output
+        _job = max(glob.glob(os.path.join(fdp_com.default_jobs_dir(), "*")))
+        with open(os.path.join(_job, fdp_com.USER_CONFIG_FILE)) as job_f:
+            _read = yaml.safe_load(job_f)["read"]
+        assert [(r["data_product"], r["use"]["version"]) for r in _read] == [
+            ("unversioned/data", "0.0.2")
+        ]
+
+        _latest = dict(_entry, version="${{LATEST}}")
+        _write("a,b\n3,4\n", _latest)
+        assert _fair("pull").exit_code == 0
+        _write("a,b\n5,6\n", _latest)
+        _res = _fair("pull")
+        assert _res.exit_code == 1
+        assert "has changed" in _res.output
+        assert _versions() == ["0.0.1", "0.0.2"]
+
+        _write("a,b\n1,2\n", dict(_entry, data_product="never/pulled"))
+        _res = _fair("run", "--local", "--dirty")
+        assert _res.exit_code == 1
+        assert "was not found" in _res.output

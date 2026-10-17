@@ -44,6 +44,12 @@ logger = logging.getLogger("FAIRDataPipeline.Register")
 _FILE_KEYS = ("root", "path", "file_type", "cache", "public")
 
 
+# Whether a 'register' entry's version is ${{LATEST}}: the highest version,
+# whose file the entry's must be
+def _is_latest(version: str) -> bool:
+    return "${{" in version and fdp_ver.parse_incrementer(version) is None
+
+
 def check_no_file_entry(entry: typing.Dict) -> None:
     """Refuse a 'register' entry that has no file but is not written as one
 
@@ -317,6 +323,20 @@ def fetch_registrations(
                 os.remove(_temp_data_file)
             continue
 
+        elif _is_latest(entry["use"]["version"]):
+            if _remove:
+                os.remove(_temp_data_file)
+            _why = (
+                "its file has changed since that version was registered"
+                if _is_present != "absent"
+                else "no version of it is registered"
+            )
+            raise fdp_exc.UserConfigError(
+                f"Cannot register '{_name}' at its latest version: {_why}",
+                hint="Give it '${{PATCH}}' for a new version whenever its "
+                "file changes, or a version of its own",
+            )
+
         # Item found but not hash matched retrieve a version number
         elif _is_present != "absent":
             _results = _is_present
@@ -365,6 +385,8 @@ def fetch_registrations(
             _public = entry["public"]
 
         data = copy.deepcopy(entry)
+        # The version decided here, where the entry's may be a token
+        data["use"]["version"] = str(_user_version)
 
         if "authors" in entry:
             data["authors"] = fetch_authors(local_uri, entry["authors"])

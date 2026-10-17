@@ -70,6 +70,26 @@ def test_default_output_namespace(make_config: fdp_user.JobConfiguration):
 
 
 @pytest.mark.faircli_user_config
+def test_preparation_of_a_register_entry_never_pulled(
+    mocker: pytest_mock.MockerFixture,
+    make_config: fdp_user.JobConfiguration,
+    local_config: typing.Tuple[str, str],
+    local_registry: conf.RegistryTest,
+):
+    # A run reads what 'fair pull' registered for its 'register' block; with
+    # nothing registered under the name, it is refused before the model is
+    # started. The name is one nothing in these tests registers
+    mocker.patch("fair.common.registry_home", lambda: local_registry._install)
+    for _entry in make_config["register"]:
+        if "external_object" in _entry:
+            _entry["external_object"] = "never/pulled"
+    with local_registry:
+        os.makedirs(os.path.join(local_config[1], fdp_com.FAIR_FOLDER, "logs"))
+        with pytest.raises(fdp_exc.UserConfigError, match="'never/pulled'"):
+            make_config.prepare(fdp_com.CMD_MODE.RUN, True)
+
+
+@pytest.mark.faircli_user_config
 def test_preparation(
     mocker: pytest_mock.MockerFixture,
     make_config: fdp_user.JobConfiguration,
@@ -79,6 +99,12 @@ def test_preparation(
     mocker.patch("fair.common.registry_home", lambda: local_registry._install)
     with local_registry:
         os.makedirs(os.path.join(local_config[1], fdp_com.FAIR_FOLDER, "logs"))
+        # What the 'register' block names is read from the local registry.
+        # The registry's example data holds it, as 'fair pull' would leave it
+        _manage = os.path.join(local_registry._install, "manage.py")
+        local_registry._venv.run(
+            "python", f"{_manage}", "add_example_data", capture=True
+        )
         make_config.prepare(fdp_com.CMD_MODE.RUN, True)
 
         _out_dir = os.path.join(conf.TEST_OUT_DIR, "test_preparation")
@@ -298,6 +324,85 @@ def test_register_entry_with_no_file():
     _read = _config._clean()["read"]
     assert [_entry["data_product"] for _entry in _read] == ["deposit/whole"]
     assert set(_read[0]) <= {"data_product", "description", "use", "registered"}
+
+
+@pytest.mark.faircli_user_config
+def test_register_version_token_left_for_pull(
+    mocker: pytest_mock.MockerFixture,
+):
+    # A 'register' entry's token is resolved once its file is known, not here;
+    # a version given outright is looked up as before
+    mocker.patch(
+        "fair.registry.requests.get",
+        side_effect=AssertionError("the registry was asked"),
+    )
+    _config = fdp_user.JobConfiguration()
+    _config._config = {
+        "run_metadata": {},
+        "register": [
+            {
+                "data_product": "a/b",
+                "use": {
+                    "data_product": "a/b",
+                    "namespace": "PSU",
+                    "version": "${{PATCH}}",
+                },
+            }
+        ],
+    }
+    _filled = _config._fill_versions("register")
+    assert _filled[0]["use"]["version"] == "${{PATCH}}"
+
+
+@pytest.mark.faircli_user_config
+def test_resolve_registered_reads(mocker: pytest_mock.MockerFixture):
+    # A read made from a 'register' entry is of what the local registry holds:
+    # a token the highest version, a version given outright one that is there;
+    # anything else is refused, and other reads are left as they are
+    _held = {"a/b": ["0.0.1", "0.0.2"]}
+
+    def mock_get(uri, obj, token, params=None):
+        return [
+            {"version": v}
+            for v in _held.get(params["name"], [])
+            if params.get("version", v) == v
+        ]
+
+    mocker.patch("fair.registry.requests.local_token", return_value="")
+    mocker.patch("fair.register.convert_key_value_to_id", return_value=3)
+    mocker.patch("fair.registry.requests.get", mock_get)
+    _config = fdp_user.JobConfiguration()
+    _config._config = {
+        "run_metadata": {
+            "local_data_registry_url": "http://127.0.0.1:8000/api/"
+        }
+    }
+
+    def _read(name, version, registered=True):
+        _entry = {
+            "data_product": name,
+            "use": {
+                "data_product": name,
+                "namespace": "PSU",
+                "version": version,
+            },
+        }
+        if registered:
+            _entry["registered"] = True
+        return _entry
+
+    _other = _read("c/d", "${{ LATEST }}", registered=False)
+    _resolved = _config._resolve_registered_reads(
+        [_read("a/b", "${{ LATEST }}"), _read("a/b", "0.0.1"), _other]
+    )
+    assert [r["use"]["version"] for r in _resolved] == [
+        "0.0.2",
+        "0.0.1",
+        "${{ LATEST }}",
+    ]
+    for _missing in (_read("a/b", "0.0.3"), _read("x/y", "${{ LATEST }}")):
+        with pytest.raises(fdp_exc.UserConfigError, match="was not found"):
+            _config._resolve_registered_reads([_missing])
 
 
 @pytest.mark.faircli_user_config

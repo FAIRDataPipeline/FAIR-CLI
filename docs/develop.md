@@ -348,6 +348,8 @@ if run on `10/10/2021` would download the data from the given `root`/`path` URL 
 
 and register all required objects into the local registry.
 
+An entry's `version` may instead be a token, which is resolved once the file has been fetched. With `${{PATCH}}` - the default, when no version is given - or `${{MINOR}}` or `${{MAJOR}}`, the highest version registered is kept while the file is that version's, and a changed file is registered at the next version. With `${{LATEST}}` the highest version is kept, and a changed file, or a name with no version yet, is refused: a way of pinning an input that is expected not to change. `fair run` reads the version that `fair pull` registered, and refuses an entry it has not.
+
 A source with no file of its own - such as a data store that a run queries for the files it needs, named by its DOI - is registered with `no_file: true` in place of `root`, `path` and `file_type`. It becomes a data product with no file, whose source is the external object, and a run may then name it in its `read` block. Its `version` must be given, and stays as it is: with no file, nothing else says when it changes. `cache` and `public` describe a file, and are refused with `no_file`:
 
 ```yaml

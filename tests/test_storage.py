@@ -164,6 +164,54 @@ def test_presence_of_a_data_product_without_a_file(
 
 @pytest.mark.faircli_storage
 @pytest.mark.parametrize(
+    "version, file_of, expected",
+    [
+        ("${{PATCH}}", "0.0.2", "hash_match"),
+        ("${{PATCH}}", "0.0.1", "results"),
+        ("${{ LATEST }}", "0.0.2", "hash_match"),
+        ("0.0.1", "0.0.1", "hash_match"),
+    ],
+)
+def test_presence_of_a_file_by_version(
+    mocker: pytest_mock.MockerFixture, tmp_path, version, file_of, expected
+):
+    # A version given by a token keeps the highest version while the file is
+    # that version's: a file that is an older version's is not present. A
+    # version given outright is compared with that version's file
+    _data_file = os.path.join(tmp_path, "data.csv")
+    with open(_data_file, "w") as out_f:
+        out_f.write("a,b\n1,2\n")
+    _hash = fdp_store.calculate_file_hash(_data_file)
+    # Each version's object and location are named by the version
+    _all = [
+        {"object": f"object/{v}", "version": v} for v in ("0.0.1", "0.0.2")
+    ]
+
+    def mock_get(uri, obj, params=None, token=None):
+        if "version" in params:
+            return [r for r in _all if r["version"] == params["version"]]
+        return _all
+
+    def mock_url_get(url, *args, **kwargs):
+        _kind, _version = url.split("/")
+        if _kind == "object":
+            return {"storage_location": f"location/{_version}"}
+        return {"hash": _hash if _version == file_of else "another"}
+
+    mocker.patch("fair.registry.requests.get", mock_get)
+    mocker.patch("fair.registry.requests.url_get", mock_url_get)
+    _present = fdp_store.check_if_object_exists(
+        local_uri=LOCAL_URL,
+        file_loc=_data_file,
+        obj_type="data_product",
+        search_data={"name": "a/b", "version": version},
+        token="",
+    )
+    assert _present == ("hash_match" if expected == "hash_match" else _all)
+
+
+@pytest.mark.faircli_storage
+@pytest.mark.parametrize(
     "held",
     ["the same file", "another file", "no file", "older registry", None],
 )

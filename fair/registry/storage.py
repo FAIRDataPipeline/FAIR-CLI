@@ -956,8 +956,9 @@ def check_if_object_exists(
     Returns
     -------
     str
-        whether object is present with matching hash, present or absent
-        if present but not hash matched return the latest version identifier
+        "hash_match" if the file is that of the version asked for - for a
+        version given by a token, the highest - "absent" if there is no such
+        data product, and otherwise the data products found
     """
     _version = None
 
@@ -969,17 +970,17 @@ def check_if_object_exists(
     # Obtain list of storage_locations for the given data_product
     _results = fdp_req.get(local_uri, obj_type, params=search_data, token=token)
 
-    try:
-        fdp_ver.get_correct_version(
-            version=_version, results_list=_results, free_write=True
-        )
-    except fdp_exc.UserConfigError:
-        return "absent"
-
     if not _results:
         return "absent"
 
-    _object_urls = [res["object"] for res in _results]
+    # A version given by a token keeps the highest version while its file is
+    # the same: the file is compared with that version's alone
+    _compared = _results
+    if _version and "${{" in _version:
+        _highest = str(fdp_ver.get_latest_version(_results))
+        _compared = [res for res in _results if res["version"] == _highest]
+
+    _object_urls = [res["object"] for res in _compared]
 
     _storage_urls = [
         fdp_req.url_get(obj_url, token=token)["storage_location"]

@@ -16,6 +16,12 @@
 - A data product on a code repository's object, such as a release of the code registered with its DOI, was pushed
   with the repository's web page as its file, and could not then be pulled. Its location is the repository at a
   commit, and it is now pushed and pulled as that, with nothing downloaded.
+- A `register:` entry with no version was registered again at the next patch version on every `fair pull`, whether
+  or not its file had changed, and `fair run` then read a version that did not exist (#317). The highest version is
+  now kept while the file is the same, and `fair run` reads it. `${{LATEST}}` on such an entry keeps the highest
+  version and refuses a changed file.
+- `fair run` did not check that `fair pull` had registered what a `register:` entry names, so the model found out;
+  it now refuses to start.
 
 # 2026-10-05 [v0.10.2](https://github.com/FAIRDataPipeline/FAIR-CLI/releases/tag/v0.10.2)
 

@@ -858,6 +858,7 @@ class JobConfiguration(MutableMapping):
 
         if "read" in self:
             self["read"] = self._update_use_sections(self["read"])
+            self["read"] = self._resolve_registered_reads(self["read"])
 
         self._config = self._clean()
 
@@ -1001,6 +1002,71 @@ class JobConfiguration(MutableMapping):
             _read_block.append(_readable)
         return _read_block
 
+    def _resolve_registered_reads(
+        self, read_block: typing.List[typing.Dict]
+    ) -> typing.List[typing.Dict]:
+        """Resolve the reads made from 'register' entries in the local registry
+
+        'fair pull' registers what a 'register' entry names, so a read of it
+        is of what the local registry holds: a version given by a token is
+        the highest version there, and one given outright must be there.
+
+        Parameters
+        ----------
+        read_block : typing.List[typing.Dict]
+            the 'read' entries, those made from 'register' entries tagged
+            'registered'
+
+        Returns
+        -------
+        typing.List[typing.Dict]
+            the entries, each 'registered' one at a version it can read
+
+        Raises
+        ------
+        fdp_exc.UserConfigError
+            if what a 'register' entry names is not in the local registry
+        """
+        _token = fdp_req.local_token()
+        _resolved: typing.List[typing.Dict] = []
+        for entry in read_block:
+            if "registered" not in entry or "data_product" not in entry:
+                _resolved.append(entry)
+                continue
+            _name = entry["use"]["data_product"]
+            _namespace = entry["use"]["namespace"]
+            _version = entry["use"]["version"]
+            try:
+                _search = {
+                    "name": _name,
+                    "namespace": fdp_reg.convert_key_value_to_id(
+                        self.local_uri, "namespace", _namespace, _token
+                    ),
+                }
+                if "${{" not in _version:
+                    _search["version"] = _version
+                _results = fdp_req.get(
+                    self.local_uri, "data_product", _token, params=_search
+                )
+            except fdp_exc.RegistryError:
+                _results = []
+            if not _results:
+                _wanted = f"version '{_version}'"
+                if "${{" in _version:
+                    _wanted = "any version"
+                raise fdp_exc.UserConfigError(
+                    f"Cannot read data product '{_name}', named in the "
+                    f"'register' block: {_wanted} of it was not found in "
+                    f"namespace '{_namespace}' on registry '{self.local_uri}'",
+                    hint="Has 'fair pull' registered it?",
+                )
+            _new_entry = copy.deepcopy(entry)
+            _new_entry["use"]["version"] = str(
+                fdp_ver.get_latest_version(_results)
+            )
+            _resolved.append(_new_entry)
+        return _resolved
+
     def _update_use_sections(
         self, read_block: typing.List[typing.Dict]
     ) -> typing.List[typing.Dict]:
@@ -1106,6 +1172,12 @@ class JobConfiguration(MutableMapping):
             # template for names the model writes that match it
             _new_item["use"]["data_product"] = _name
             _namespace = item["use"]["namespace"]
+
+            # A 'register' entry's token is resolved by 'fair pull' once its
+            # file is known: the version stays the highest while the file does
+            if block_type == "register" and "${{" in _version:
+                _entries.append(_new_item)
+                continue
 
             # A read to be fetched is looked for where it will come from,
             # and only then in the local registry
