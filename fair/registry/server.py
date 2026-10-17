@@ -29,6 +29,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 import typing
 
 import git
@@ -105,6 +106,42 @@ def _accepts_token(uri: str, token: str) -> bool:
     return _response.status_code not in (401, 403)
 
 
+# Whether the server at a registry endpoint answers within the time given,
+# asked once a second
+def _wait_for_server(uri: str, seconds: int = 30) -> bool:
+    for _ in range(seconds):
+        if check_server_running(uri):
+            return True
+        time.sleep(1)
+    return False
+
+
+# Write a registry's token where its start script did not, by the registry's
+# own command, as the script runs it
+def _write_missing_token(registry_dir: str) -> None:
+    try:
+        fdp_req.local_token(registry_dir)
+        return
+    except fdp_exc.FileNotFoundError:
+        pass
+    _token_file = os.path.join(registry_dir, "token")
+    _bin, _exe = ("bin", "python")
+    if platform.system() == "Windows":
+        _bin, _exe = ("Scripts", "python.exe")
+    _token = subprocess.check_output(
+        [
+            os.path.join(registry_dir, "venv", _bin, _exe),
+            os.path.join(registry_dir, "manage.py"),
+            "get_token",
+        ],
+        env=django_environ(),
+        cwd=registry_dir,
+        text=True,
+    )
+    with open(_token_file, "w", encoding="utf-8") as token_f:
+        token_f.write(f"{_token.strip()}\n")
+
+
 def launch_server(
     port: int = 8000,
     registry_dir: str = None,
@@ -159,10 +196,14 @@ def launch_server(
 
     local_uri = fdp_conf.update_local_port(registry_dir)
 
-    if not check_server_running(local_uri):
+    # The start script waits for the server and writes its token, but on
+    # Windows with no console its waits return at once, and it can give up
+    # before either: both are waited for here
+    if not _wait_for_server(local_uri):
         raise fdp_exc.RegistryError(
             "Failed to start local registry, no response from server"
         )
+    _write_missing_token(registry_dir)
 
     # A response does not show that this registry started: another one that
     # holds the port answers too, while this one stops for want of it, and

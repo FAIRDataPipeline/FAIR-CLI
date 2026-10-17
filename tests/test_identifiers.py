@@ -194,3 +194,29 @@ def test_check_github_forbidden_not_rate_limited(mocker: pytest_mock.MockerFixtu
     _get = _fake_github(mocker, _forbidden, _forbidden)
     assert fdp_id.check_github(GITHUB_USER) == {}
     assert _get.call_count == 2
+
+
+@pytest.mark.faircli_ids
+@pytest.mark.parametrize("known", [True, False])
+def test_check_permitted_ror(mocker: pytest_mock.MockerFixture, known):
+    # A ROR identifier is looked up through ROR's API, never its website,
+    # which refuses automated requests that come too often
+    mocker.patch.object(
+        fdp_id.requests,
+        "get",
+        side_effect=AssertionError("ror.org was fetched"),
+    )
+    _check_ror = mocker.patch.object(
+        fdp_id, "check_ror", return_value={"name": "A body"} if known else {}
+    )
+    assert fdp_id.check_id_permitted(f"https://ror.org/{ROR_ID}") is known
+    _check_ror.assert_called_once_with(ROR_ID)
+
+
+@pytest.mark.faircli_ids
+def test_check_permitted_ror_through_the_api():
+    if not conf.test_can_be_run(f'{fdp_id.QUERY_URLS["ror"]}{ROR_ID}'):
+        warnings.warn("ROR API Unavailable")
+        pytest.skip("Cannot Reach ROR API")
+    assert fdp_id.check_id_permitted(f"https://ror.org/{ROR_ID}")
+    assert not fdp_id.check_id_permitted("https://ror.org/0000notaror")

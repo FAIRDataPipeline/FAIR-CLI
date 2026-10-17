@@ -309,7 +309,8 @@ def check_id_permitted(identifier: str, retries: int = 5) -> bool:
 
     This ID is expected to be a valid URL. Permitted means that it
     resolves: the URL, after any redirects, is served, or it redirects to a
-    page that refuses access (401/403), as a publisher behind a DOI may.
+    page that refuses access (401/403), as a publisher behind a DOI may. A
+    ROR identifier is one that ROR's API knows.
 
     Parameters
     ----------
@@ -323,6 +324,11 @@ def check_id_permitted(identifier: str, retries: int = 5) -> bool:
     bool
         if valid identifier
     """
+    # ROR's website refuses automated requests that come too often (429),
+    # where its API answers them
+    if urllib.parse.urlparse(identifier).netloc == "ror.org":
+        return bool(check_ror(strip_identifier(identifier)))
+
     _n_attempts = 0
     fake_agent = False
 

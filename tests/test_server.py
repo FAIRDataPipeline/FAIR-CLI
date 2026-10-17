@@ -183,6 +183,84 @@ def test_registry_refuses_another_token(local_registry: conf.RegistryTest):
         assert not fdp_serv._accepts_token(local_registry._url, "0" * 40)
 
 
+# A registry directory with the files a start reads, and nothing to run: the
+# start script is not run by the tests that use it
+def _registry_files(tmp_path, token: typing.Optional[str]) -> str:
+    reg_dir = os.path.join(tmp_path, "registry")
+    os.makedirs(os.path.join(reg_dir, "scripts"))
+    _files = [
+        (os.path.join("scripts", "start_fair_registry"), ""),
+        (os.path.join("scripts", "start_fair_registry_windows.bat"), ""),
+        ("session_port.log", "8000"),
+        ("session_address.log", "127.0.0.1"),
+    ]
+    if token is not None:
+        _files.append(("token", token))
+    for _file, _text in _files:
+        with open(os.path.join(reg_dir, _file), "w") as out_f:
+            out_f.write(_text)
+    return reg_dir
+
+
+@pytest.mark.faircli_server
+@pytest.mark.parametrize("token", ["this-registrys-token", "", None])
+def test_launch_server_waits_and_writes_its_token(
+    local_config: typing.Tuple[str, str],
+    mocker: pytest_mock.MockerFixture,
+    tmp_path,
+    token,
+):
+    # The start script can return before the server answers, and without
+    # writing its token, as on Windows with no console: the server is waited
+    # for, and a missing or empty token written by the registry's own command
+    reg_dir = _registry_files(tmp_path, token)
+    mocker.patch.dict(os.environ)
+    mocker.patch("subprocess.Popen")
+    _answers = iter([False, False, True])
+    mocker.patch(
+        "fair.registry.server.check_server_running",
+        side_effect=lambda *args: next(_answers),
+    )
+    _sleep = mocker.patch("fair.registry.server.time.sleep")
+    _get_token = mocker.patch(
+        "fair.registry.server.subprocess.check_output",
+        return_value="a-new-token\n",
+    )
+    _accepts = mocker.patch(
+        "fair.registry.server._accepts_token", return_value=True
+    )
+
+    fdp_serv.launch_server(registry_dir=reg_dir)
+
+    assert _sleep.call_count == 2
+    _wanted = token or "a-new-token"
+    assert _accepts.call_args.args[1] == _wanted
+    assert _get_token.called == (not token)
+    if not token:
+        assert _get_token.call_args.args[0][1:] == [
+            os.path.join(reg_dir, "manage.py"),
+            "get_token",
+        ]
+
+
+@pytest.mark.faircli_server
+def test_launch_server_with_no_answer(
+    local_config: typing.Tuple[str, str],
+    mocker: pytest_mock.MockerFixture,
+    tmp_path,
+):
+    reg_dir = _registry_files(tmp_path, "this-registrys-token")
+    mocker.patch.dict(os.environ)
+    mocker.patch("subprocess.Popen")
+    mocker.patch(
+        "fair.registry.server.check_server_running", return_value=False
+    )
+    _sleep = mocker.patch("fair.registry.server.time.sleep")
+    with pytest.raises(fdp_exc.RegistryError, match="no response"):
+        fdp_serv.launch_server(registry_dir=reg_dir)
+    assert _sleep.call_count == 30
+
+
 @pytest.mark.faircli_server
 @pytest.mark.parametrize("status", (200, 403))
 def test_launch_server_with_another_on_its_port(

@@ -22,6 +22,11 @@
   version and refuses a changed file.
 - `fair run` did not check that `fair pull` had registered what a `register:` entry names, so the model found out;
   it now refuses to start.
+- A ROR identifier (`https://ror.org/...`) of an author or a source was checked by fetching ROR's website, which
+  refuses automated requests that come too often (429), and was then rejected. It is now checked through ROR's API.
+- On Windows, `fair registry start` could fail - no response, or no token - when the registry's start script gave up
+  waiting for the server, leaving the server running. The CLI now waits for the server itself, up to 30 seconds, and
+  writes the registry's token if the script did not.
 
 # 2026-10-05 [v0.10.2](https://github.com/FAIRDataPipeline/FAIR-CLI/releases/tag/v0.10.2)
 
