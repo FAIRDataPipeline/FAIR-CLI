@@ -286,7 +286,7 @@ def test_launch_server_with_another_on_its_port(
     mocker.patch.dict(os.environ)
     mocker.patch("subprocess.Popen")
 
-    def _answer(url, headers=None):
+    def _answer(url, headers=None, timeout=None):
         # Any registry answers a request that carries no token
         return mocker.Mock(status_code=status if headers else 200)
 
@@ -300,6 +300,7 @@ def test_launch_server_with_another_on_its_port(
     assert _get.call_args == mocker.call(
         "http://127.0.0.1:8000/api/users/",
         headers={"Authorization": "token this-registrys-token"},
+        timeout=fdp_serv.REQUEST_SECONDS,
     )
 
 

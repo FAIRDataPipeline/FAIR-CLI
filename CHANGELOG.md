@@ -1,6 +1,23 @@
 # Unreleased
 
+## Changed behaviour
+- A command that starts the local registry stops it again when the last command using it finishes; it used to leave
+  it running. Each command holds a session on the registry while it runs. `fair registry start` keeps it running
+  until `fair registry stop`, and run while a command has it running keeps that registry rather than refusing.
+- `fair registry start` with no `--port`, and a command that starts the registry, use the configured port, where
+  they used 8000 whatever the configuration said.
+- An install's registry runs on one host at a time: where its directory is shared between machines, starting,
+  stopping or using it from another machine is refused, naming the machine running it and the file that records it.
+- `fair purge --all`, `fair registry uninstall` and `fair registry install --force` stop the registry first, and
+  remove nothing while a command is using it or it runs on another machine.
+- Two versions of the CLI sharing one registry install are not supported: one of an earlier version neither records
+  its sessions nor respects this one's.
+
 ## Added
+- `fair registry session open --pid <pid> --json` and `fair registry session close <id>`, for a program using the
+  registry outside a `fair` command, such as a language API. A script run by `fair run` is told the run's session
+  in `FDP_SESSION`.
+- `fair registry status` says who holds the registry and which processes are using it.
 - A `register:` entry for an external object may have `no_file: true` in place of `root`, `path` and `file_type`,
   for a source with no file of its own, such as a data store a run queries: `fair pull` registers it as a data
   product with no file, which a run may read. Its `version` must be given.
@@ -27,6 +44,11 @@
 - On Windows, `fair registry start` could fail - no response, or no token - when the registry's start script gave up
   waiting for the server, leaving the server running. The CLI now waits for the server itself, up to 30 seconds, and
   writes the registry's token if the script did not.
+- A command that crashed, or a reboot after `fair registry start`, left a session file behind that made every later
+  command skip starting the registry and `fair registry stop` refuse. A session now names its process, and one whose
+  process has gone is removed. This needs a new dependency, `psutil`.
+- A failed `fair registry start` left a session file behind, and a server on the port that never answered was waited
+  on for ever; neither now happens. Another install's registry on the port is named as such.
 
 # 2026-10-05 [v0.10.2](https://github.com/FAIRDataPipeline/FAIR-CLI/releases/tag/v0.10.2)
 

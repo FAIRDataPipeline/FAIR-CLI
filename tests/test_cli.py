@@ -26,6 +26,7 @@ import requests
 import yaml
 
 import fair.common as fdp_com
+import fair.registry.lifecycle
 import fair.registry.server
 import fair.session
 import fair.staging
@@ -237,6 +238,7 @@ def test_init_full(
             "",  # remote api url
             "",  # remote data url
             "0123456789012345678901234567890123456789",  # remote token
+            "n",  # not to keep the registry running on that port
             "",  # default data store
             _dummy_email,  # email
             "NONE",  # id system
@@ -601,18 +603,17 @@ def test_session_file_removed_from_subdirectory(
 ):
     mocker.patch("fair.common.registry_home", lambda: local_config[0])
     mocker.patch("fair.registry.server.launch_server", lambda **kwargs: None)
+    mocker.patch("fair.registry.lifecycle._server_here", return_value=None)
     mocker.patch("fair.common.find_fair_root", _FIND_FAIR_ROOT)
     _subdir = os.path.join(local_config[1], "subdir")
     os.makedirs(_subdir)
-    _sessions = os.path.join(fdp_com.session_cache_dir(), "*.run")
 
     with fair.session.FAIR(
         _subdir, server_mode=fair.registry.server.SwitchMode.CLI
     ):
-        assert len(glob.glob(_sessions)) == 1
-    # A stale session file would make the next command skip starting the
-    # registry, and 'fair registry stop' refuse without --force
-    assert not glob.glob(_sessions)
+        assert len(fair.registry.lifecycle._session_records(local_config[0])) == 1
+    # A session left open would keep the registry from being stopped
+    assert not fair.registry.lifecycle._session_records(local_config[0])
 
 
 @pytest.mark.faircli_cli
@@ -624,6 +625,7 @@ def test_run_passive_does_not_execute(
     # without __init__ and its collaborators are mocked
     _session = object.__new__(fair.session.FAIR)
     _session._allow_dirty = False
+    _session._session_id = None
     _session._session_config = mocker.MagicMock()
     mocker.patch.object(_session, "_pre_job_setup")
     mocker.patch.object(_session, "check_git_repo_state")

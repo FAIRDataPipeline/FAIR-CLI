@@ -33,11 +33,9 @@ import copy
 import glob
 import logging
 import os
-import pathlib
 import re
 import shutil
 import typing
-import uuid
 import platform
 import traceback
 
@@ -54,6 +52,7 @@ import fair.configuration as fdp_conf
 import fair.configuration.validation as fdp_clivalid
 import fair.exceptions as fdp_exc
 import fair.history as fdp_hist
+import fair.registry.lifecycle as fdp_life
 import fair.registry.requests as fdp_req
 import fair.registry.server as fdp_serv
 import fair.registry.sync as fdp_sync
@@ -90,7 +89,7 @@ class FAIR:
         user_config: str = None,
         debug: bool = False,
         server_mode: fdp_serv.SwitchMode = fdp_serv.SwitchMode.NO_SERVER,
-        server_port: int = 8000,
+        server_port: int = None,
         server_address: str = "127.0.0.1",
         allow_dirty: bool = False,
         testing: bool = False,
@@ -101,9 +100,9 @@ class FAIR:
         All actions are performed relative to the specified folder after the
         local '.fair' directory for the repository has been located.
 
-        A session is usually cached to ensure that the server is not shut down
-        when a process is taking place. The exception is where the user
-        explicitly requests for it to be started.
+        In the CLI's own mode the session holds the local registry, starting
+        it where none runs, so that it is not stopped while the command uses
+        it.
 
         Parameters
         ----------
@@ -116,7 +115,8 @@ class FAIR:
         server_mode : fair.registry.server.SwitchMode, optional
             stop/start server mode during session
         server_port : int, optional
-            port to run local registry on, default is 8000
+            port on which 'fair registry start' starts the local registry, by
+            default the configured one
         allow_dirty : bool, optional
             allow runs with uncommitted changes, default is False
         testing : bool
@@ -136,9 +136,8 @@ class FAIR:
         self._logger.debug(f"Session location: {self._session_loc}")
         self._run_mode = server_mode
         self._stager: fdp_stage.Stager = fdp_stage.Stager(self._session_loc)
-        self._session_id = (
-            uuid.uuid4() if server_mode == fdp_serv.SwitchMode.CLI else None
-        )
+        self._session_id = None
+        self._session_registry = None
         self._session_config = None
 
         if user_config and not os.path.exists(user_config):
@@ -211,6 +210,15 @@ class FAIR:
         _root_dir = os.path.join(
             fdp_com.find_fair_root(self._session_loc), fdp_com.FAIR_FOLDER
         )
+        # Nothing is removed if the registry cannot be stopped first
+        if clear_all:
+            try:
+                fdp_life.stop_for_removal(fdp_com.registry_home())
+            except (fdp_exc.FileNotFoundError, fdp_exc.CLIConfigurationError):
+                click.echo(
+                    "Warning: Unable to check if server is running, "
+                    "you may need to manually terminate the Django process"
+                )
         if os.path.exists(_root_dir):
             if verbose:
                 click.echo(f"Removing directory '{_root_dir}'")
@@ -218,14 +226,6 @@ class FAIR:
                 fdp_com.set_file_permissions(_root_dir)
             shutil.rmtree(_root_dir, onerror=fdp_com.remove_readonly)
         if clear_all:
-            try:
-                if fdp_serv.check_server_running():
-                    fdp_serv.stop_server()
-            except (fdp_exc.FileNotFoundError, fdp_exc.CLIConfigurationError):
-                click.echo(
-                    "Warning: Unable to check if server is running, "
-                    "you may need to manually terminate the Django process"
-                )
             if verbose and os.path.exists(fdp_com.USER_FAIR_DIR):
                 click.echo(f"Removing directory '{fdp_com.USER_FAIR_DIR}'")
             if platform.system() == "Windows":
@@ -271,64 +271,40 @@ class FAIR:
             self._stop_server()
 
     def _stop_server(self) -> None:
-        _cache_addr = os.path.join(fdp_com.session_cache_dir(), "user.run")
-        if not fdp_serv.check_server_running():
-            raise fdp_exc.UnexpectedRegistryServerState("Server is not running.")
-        if os.path.exists(_cache_addr):
-            os.remove(_cache_addr)
-        click.echo("Stopping local registry server.")
-        if (
-            os.listdir(fdp_com.session_cache_dir())
-            and self._run_mode != fdp_serv.SwitchMode.FORCE_STOP
-        ):
-            raise fdp_exc.UnexpectedRegistryServerState(
-                "Cannot stop registry, a process may still be running",
-                hint="You can force stop using '--force'",
-            )
-        fdp_serv.stop_server(
-            force=self._run_mode == fdp_serv.SwitchMode.FORCE_STOP,
+        fdp_life.stop_for_user(
+            force=self._run_mode == fdp_serv.SwitchMode.FORCE_STOP
         )
+        click.echo("Stopped the local registry server.")
 
     def _setup_server_cli_mode(self, port: int, address: str) -> None:
         self.check_is_repo()
-        _cache_addr = os.path.join(
-            fdp_com.session_cache_dir(), f"{self._session_id}.run"
-        )
+        self._session_registry = fdp_com.registry_home()
+        _session = fdp_life.open_session(self._session_registry)
+        self._session_id = _session["session"]
+        self._logger.debug(f"Opened session #{self._session_id}")
 
-        self._logger.debug("Checking for existing sessions")
-        # If there are no session cache files start the server
-        if not glob.glob(os.path.join(fdp_com.session_cache_dir(), "*.run")):
-            self._logger.debug("No sessions found, launching server")
-            fdp_serv.launch_server(port=port, address=address)
-
-        self._logger.debug(f"Creating new session #{self._session_id}")
-
-        if not os.path.exists(fdp_com.session_cache_dir()):
-            raise fdp_exc.InternalError(
-                "Failed to create session cache file, "
-                f"expected cache directory '{fdp_com.session_cache_dir()}' to exist"
-            )
-
-        # Create new session cache file
-        pathlib.Path(_cache_addr).touch()
+        # The registry runs where its record says, which a configuration
+        # changed while it ran no longer names: the configuration this session
+        # read is written back as it closes
+        if _session["registry_url"] != fdp_conf.get_local_uri():
+            fdp_conf.set_local_uri(_session["registry_url"])
 
     def _setup_server_user_start(self, port: int, address: str) -> None:
-        if not os.path.exists(fdp_com.session_cache_dir()):
-            os.makedirs(fdp_com.session_cache_dir())
-
-        _cache_addr = os.path.join(fdp_com.session_cache_dir(), "user.run")
-
         if self._global_config and "registries" not in self._global_config:
             raise fdp_exc.CLIConfigurationError(
                 "Cannot find server address in current configuration",
                 hint="Is the current location a FAIR repository?",
             )
 
-        if fdp_serv.check_server_running():
-            raise fdp_exc.UnexpectedRegistryServerState("Server already running.")
-        click.echo("Starting local registry server")
-        pathlib.Path(_cache_addr).touch()
-        fdp_serv.launch_server(port=port, verbose=True, address=address)
+        if not port:
+            try:
+                port = fdp_conf.get_local_port()
+            except fdp_exc.InternalError:
+                port = 8000
+        _uri = fdp_life.start_for_user(port=port, address=address, verbose=True)
+        click.echo(
+            f"Local registry running at {_uri}, until 'fair registry stop'"
+        )
 
     def _pre_job_setup(self, remote: str = None) -> None:
         self._logger.debug("Running pre-job setup")
@@ -352,10 +328,42 @@ class FAIR:
         self._session_config.close_log()
 
     def registry_status(self):
-        if fdp_serv.check_server_running():
+        if not os.path.isdir(fdp_com.registry_home()):
+            click.echo("Server is not running")
+            return
+        _status = fdp_life.status()
+        _server = _status["server"]
+        if _status["elsewhere"]:
+            click.echo(
+                f"Server recorded as running on the host '{_server['host']}' "
+                f"at: {_server['uri']}, which this host cannot check"
+            )
+        elif _server:
+            click.echo(f"Server running at: {_server['uri']}")
+        elif fdp_serv.check_server_running():
             click.echo(f"Server running at: {fdp_conf.get_local_uri()}")
         else:
             click.echo("Server is not running")
+            return
+        if _server:
+            click.echo(
+                {
+                    fdp_life.HELD_BY_USER: "Held by the user: it runs until "
+                    "'fair registry stop'",
+                    fdp_life.HELD_BY_SESSIONS: "Started by a session: it stops "
+                    "when the last session closes",
+                    fdp_life.HELD_BY_NOBODY: "Not started by the CLI: no "
+                    "session stops it",
+                }.get(_server.get("holder"), "")
+                + f" (since {_server.get('started')}, recorded in "
+                f"'{_status['record_file']}')"
+            )
+        for _session in _status["sessions"]:
+            click.echo(
+                f"Session {_session.get('id')}: process {_session.get('pid')} "
+                f"on '{_session.get('host')}' since {_session.get('opened')}"
+                f" ({_session['command']})"
+            )
 
     def push(self, remote: str = "origin"):
         self._pre_job_setup(remote)
@@ -540,6 +548,8 @@ class FAIR:
         if not local:
             self.check_git_repo_state(allow_dirty=allow_dirty)
 
+        # Named to the script, which then needs no session of its own
+        self._session_config.session_id = self._session_id
         self._session_config.write()
 
         # A passive run only prepares the job directory, for the model to be
@@ -1182,7 +1192,6 @@ class FAIR:
 
         if not os.path.exists(_fair_dir) or self._testing:
             os.makedirs(_fair_dir, exist_ok=True)
-            os.makedirs(fdp_com.session_cache_dir(), exist_ok=True)
             if using:
                 self._validate_and_load_cli_config(using)
             self._stager.initialise()
@@ -1257,9 +1266,7 @@ class FAIR:
     def _clean_reset(self, _fair_dir, e: Exception = None, local_only: bool = False):
         if not local_only:
             if platform.system() == "Windows":
-                fdp_com.set_file_permissions(fdp_com.session_cache_dir())
                 fdp_com.set_file_permissions(fdp_com.global_config_dir())
-            shutil.rmtree(fdp_com.session_cache_dir(), onerror=fdp_com.remove_readonly)
             shutil.rmtree(fdp_com.global_config_dir(), onerror=fdp_com.remove_readonly)
         if platform.system() == "Windows":
             fdp_com.set_file_permissions(_fair_dir)
@@ -1268,16 +1275,13 @@ class FAIR:
             raise e
 
     def close_session(self) -> None:
-        """Upon exiting, dump all configurations to file"""
+        """Upon exiting, release the registry and dump all configurations to file"""
+        if self._session_id:
+            fdp_life.close_session(self._session_id, self._session_registry)
+            self._session_id = None
+
         if not fdp_com.find_fair_root(self._session_loc):
             return
-
-        if self._session_id:
-            # Remove the session cache file
-            _cache_addr = os.path.join(
-                fdp_com.session_cache_dir(), f"{self._session_id}.run"
-            )
-            os.remove(_cache_addr)
 
         if os.path.exists(os.path.dirname(fdp_com.global_fdpconfig())):
             with open(fdp_com.global_fdpconfig(), encoding="utf-8", mode="w") as f:

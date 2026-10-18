@@ -12,6 +12,14 @@ fair.registry.file\_types module
    :undoc-members:
    :show-inheritance:
 
+fair.registry.lifecycle module
+------------------------------
+
+.. automodule:: fair.registry.lifecycle
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 fair.registry.requests module
 -----------------------------
 

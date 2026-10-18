@@ -148,6 +148,9 @@ class JobConfiguration(MutableMapping):
         self.env = None
         self._job_dir = None
         self._log_file = None
+        # The session holding the local registry for the job, named to its
+        # script as FDP_SESSION
+        self.session_id = None
 
     def _get_local_namespaces(self) -> typing.List[str]:
         _namespaces = fdp_req.get(self.local_uri, "namespace", fdp_req.local_token())
@@ -758,6 +761,8 @@ class JobConfiguration(MutableMapping):
         _environment["FDP_DATA_STORE"] = self.default_data_store
         _environment["FDP_SCRIPT"] = self.script
         _environment["FDP_LOCAL_TOKEN"] = fdp_req.local_token()
+        if self.session_id:
+            _environment["FDP_SESSION"] = self.session_id
         return _environment
 
     def set_script(self, command_script: str) -> None:

@@ -46,7 +46,6 @@ __date__ = "2021-07-02"
 import copy
 import logging
 import os
-import pathlib
 import typing
 import uuid
 import time
@@ -59,6 +58,7 @@ import yaml
 import fair.common as fdp_com
 import fair.exceptions as fdp_exc
 import fair.identifiers as fdp_id
+import fair.registry.lifecycle as fdp_life
 import fair.registry.requests as fdp_req
 import fair.registry.server as fdp_serv
 
@@ -805,21 +805,18 @@ def global_config_query(
                 f"Token could not be written to {_rem_key_file}"
             )
 
-    if not fdp_serv.check_server_running():
+    if not fdp_serv.check_server_running(_local_uri):
         if _ := click.confirm(
             "Local registry is offline, would you like to start it and for it to remain running?",
             default=False,
         ):
-            fdp_serv.launch_server(registry_dir=registry)
-
-            # Keep server running by creating user run cache file
-            _cache_addr = os.path.join(fdp_com.session_cache_dir(), "user.run")
-            pathlib.Path(_cache_addr).touch()
-
+            fdp_life.start_for_user(
+                port=get_local_port(_local_uri), registry_dir=registry
+            )
         else:
             click.echo("Temporarily launching local registry to retrieve API token.")
-            fdp_serv.launch_server(registry_dir=registry)
-            fdp_serv.stop_server(registry_dir=registry, local_uri=_local_uri)
+            with fdp_life.session(registry, _local_uri):
+                pass
             try:
                 fdp_req.local_token(registry_dir=registry)
             except fdp_exc.FileNotFoundError as e:

@@ -74,11 +74,11 @@ The layout of FAIR-CLI on a simplified system looks like this:
 $HOME
 ├── .fair
 │   ├── cli
-│   │   ├── cli-config.yaml
-│   │   └── sessions
+│   │   └── cli-config.yaml
 │   ├── data
 │   │   └── jobs
 │   └── $REGISTRY_HOME
+│       └── sessions
 │
 └─ Documents
    └─ my_project
@@ -101,7 +101,7 @@ The directory `$HOME/.fair/data` is the default data store initialised by FAIR-C
 
 ### Sessions Directory
 
-The directory `$HOME/.fair/sessions` is used to keep track of ongoing queries to the registry as a safety mechanism to ensure the registry is not shutdown whilst processes are still occuring.
+The directory `sessions` in the registry's own directory records the registry's server - the host it runs on, its address, and whether `fair registry start` or a command started it - and a session for each process using it, naming the process. The registry is not stopped while a session is open, and one a command started is stopped when the last session closes. A file `lock` there lets one process at a time start or stop the registry.
 
 ### Logs Directory
 
@@ -396,23 +396,7 @@ fair purge --yes
 
 ### `registry`
 
-By default the CLI will launch the registry whenever a synchronisation or run is called. The server will only be halted once all ongoing CLI processes (in the case of multiple parallel calls) have been completed.
-
-However the user may also specify a manual launch that will override this behaviour, instead leaving the server running constantly allowing them to view the registry in the browser.
-
-The commands:
-
-```sh
-fair registry start
-```
-
-and
-
-```sh
-fair registry stop
-```
-
-will launch and halt the server respectively.
+A command that uses the local registry starts it, on the configured port, if it is not running, and a registry started that way is stopped when the last command using it finishes. `fair registry start` starts it - or keeps the one a command started - until `fair registry stop`. The [README](https://github.com/FAIRDataPipeline/FAIR-CLI#registry) says more, including the session commands for programs that use the registry outside a `fair` command.
 
 ### `log`
 

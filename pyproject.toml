@@ -63,6 +63,7 @@ simplejson = "^3.17.5"
 toml = "^0.10.2"
 validators = "^0.18.2"
 fake-useragent = "^1"
+psutil = ">=5.9.0"
 
 [tool.poetry.group.dev.dependencies]
 bandit = "*"

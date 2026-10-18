@@ -89,7 +89,7 @@ fair registry install --force --version <branch>
 
 Without `--force` an existing registry is left as it is and the command stops. `fair registry uninstall`, which asks first, followed by `fair registry install` does the same in two steps, and is the way with `fair-cli` 0.10.1 or earlier, where `--force` is refused.
 
-With `--force` the old registry is kept until the new one is built. If the install fails - a `--version` that does not exist, no network, a build that fails - the old registry is put back as it was, and the configuration still names it. On Windows the registry has to be stopped first, or it cannot be moved aside to be replaced.
+With `--force` the old registry is kept until the new one is built. If the install fails - a `--version` that does not exist, no network, a build that fails - the old registry is put back as it was, and the configuration still names it. A running registry is stopped first, and nothing is replaced while a command is using it.
 
 The registry is installed in `~/.fair/registry`, or in the directory given with `--directory`, which has to be given again to replace a registry that was installed elsewhere. A reinstall replaces that directory:
 
@@ -277,23 +277,34 @@ fair purge --yes
 
 ### `registry`
 
-By default the CLI will launch the registry whenever a synchronisation or run is called. The server will only be halted once all ongoing CLI processes (in the case of multiple parallel calls) have been completed.
+A command that uses the local registry - `run`, `pull`, `push`, `status`, `list`, `find`, `identify`, `reset` - starts it, on the port the configuration names, if it is not running, and a registry started that way is stopped when the last command using it finishes. Each command holds a *session* on the registry while it runs, and the registry is not stopped while any session is open.
 
-However the user may also specify a manual launch that will override this behaviour, instead leaving the server running constantly allowing them to view the registry in the browser.
-
-The commands:
+To keep the registry running - to look at it in the browser, or to save each command the few seconds a start takes - start it yourself:
 
 ```sh
 fair registry start
 ```
 
-and
+It then runs until
 
 ```sh
 fair registry stop
 ```
 
-will launch and halt the server respectively.
+`fair registry start` takes the port in the configuration (`registries.local.uri` in `~/.fair/cli/cli-config.yaml`), or the one given with `--port`, which becomes the configured one when the registry starts there. Run while a command has the registry running, it keeps that registry running from then on rather than starting another. `fair registry stop` refuses while a command is using the registry; `--force` stops it anyway. `fair registry status` says where the registry is running, whether it was started by `fair registry start` or by a command, and which processes are using it.
+
+An install's registry runs on one host at a time, since its database is a file in its directory: where that directory is shared between machines, as a home directory on a cluster may be, the registry cannot be started, stopped or used from a machine other than the one running it. The refusal names that machine, and the file in the registry's directory that records it. If that machine no longer runs the registry - it has shut down or restarted - delete the file and try again.
+
+`fair purge --all`, `fair registry uninstall` and `fair registry install --force` stop the registry before removing it, and remove nothing while a command is using it or while it is running on another machine.
+
+A program that uses the registry outside a `fair` command, such as a language API, can hold a session of its own:
+
+```sh
+fair registry session open --pid <process id> --json
+fair registry session close <session id>
+```
+
+`session open` starts the registry if it is not running, and prints the session's id, the registry's address and the file holding its token, as one JSON object (`{"session": ..., "registry_url": ..., "token_file": ...}`). The session ends when it is closed or when the process it names ends. A script run by `fair run` is told the run's session in `FDP_SESSION`, and needs none of its own.
 
 The registry can be installed using the CLI as well by running:
 ```sh

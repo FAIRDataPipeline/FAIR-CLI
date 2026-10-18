@@ -12,6 +12,7 @@ interact with the synchronisation tool.
 __date__ = "2021-06-24"
 
 import glob
+import json
 import logging
 from multiprocessing import context
 import os
@@ -27,6 +28,7 @@ import fair.common as fdp_com
 import fair.configuration as fdp_conf
 import fair.exceptions as fdp_exc
 import fair.history as fdp_hist
+import fair.registry.lifecycle as fdp_life
 import fair.registry.server as fdp_svr
 import fair.run as fdp_run
 import fair.session as fdp_session
@@ -406,6 +408,8 @@ def install(debug: bool, force: bool, directory: str, version: str):
     try:
         if debug:
             logging.getLogger("FAIRDataPipeline").setLevel(logging.DEBUG)
+        if force:
+            fdp_life.stop_for_removal(directory or fdp_com.DEFAULT_REGISTRY_LOCATION)
         _version = fdp_svr.install_registry(
             install_dir=directory, reference=version, force=force
         )
@@ -418,7 +422,12 @@ def install(debug: bool, force: bool, directory: str, version: str):
 
 @registry.command()
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
-@click.option("--port", help="port on which to run registry", default=8000)
+@click.option(
+    "--port",
+    help="port on which to run registry, by default the configured one",
+    type=int,
+    default=None,
+)
 @click.option("--address", help="Address on which to run registry", default="127.0.0.1")
 def start(debug: bool, port: int, address: str) -> None:
     """Start the local registry server"""
@@ -446,6 +455,62 @@ def stop(force: bool, debug: bool) -> None:
         fdp_session.FAIR(os.getcwd(), server_mode=_mode, debug=debug)
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
+        if e.level.lower() == "error":
+            sys.exit(e.exit_code)
+
+
+@registry.group()
+def session() -> None:
+    """Sessions that hold the local registry while a process uses it"""
+    pass
+
+
+@session.command("open")
+@click.option(
+    "--pid",
+    help="Process holding the session, which ends with it",
+    type=int,
+    required=True,
+)
+@click.option(
+    "--json",
+    "as_json",
+    is_flag=True,
+    default=False,
+    help="Print the session as one JSON object",
+)
+@click.option("--debug/--no-debug", help="Run in debug mode", default=False)
+def session_open(pid: int, as_json: bool, debug: bool) -> None:
+    """Open a session on the local registry, starting it if it is not running"""
+    try:
+        if debug:
+            logging.getLogger("FAIRDataPipeline").setLevel(logging.DEBUG)
+        _session = fdp_life.open_session(pid=pid)
+        if as_json:
+            click.echo(json.dumps(_session))
+        else:
+            click.echo(
+                f"Opened session {_session['session']} on the local registry "
+                f"at {_session['registry_url']}"
+            )
+    except fdp_exc.FAIRCLIException as e:
+        e.err_print(err=True)
+        if e.level.lower() == "error":
+            sys.exit(e.exit_code)
+
+
+@session.command("close")
+@click.argument("session_id")
+@click.option("--debug/--no-debug", help="Run in debug mode", default=False)
+def session_close(session_id: str, debug: bool) -> None:
+    """Close a session, stopping the registry if a session started it and none remain"""
+    try:
+        if debug:
+            logging.getLogger("FAIRDataPipeline").setLevel(logging.DEBUG)
+        if not fdp_life.close_session(session_id):
+            click.echo(f"Warning: no session '{session_id}' is open", err=True)
+    except fdp_exc.FAIRCLIException as e:
+        e.err_print(err=True)
         if e.level.lower() == "error":
             sys.exit(e.exit_code)
 

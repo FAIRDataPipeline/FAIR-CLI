@@ -64,11 +64,11 @@ class FAIRCLIException(Exception):
         self.exit_code = exit_code
         super().__init__(msg)
 
-    def err_print(self) -> None:
+    def err_print(self, err: bool = False) -> None:
         _out_msg = f"{f'{self.level}: ' if self.level else ''}{self.msg}"
         if self.hint:
             _out_msg += f"\n{self.hint}"
-        click.echo(_out_msg)
+        click.echo(_out_msg, err=err)
 
 
 class RegistryError(FAIRCLIException):
