@@ -211,6 +211,20 @@ note the command itself must be quoted as it is a single argument.
 
 By default the CLI will not allow the user to perform a run if the state of the analysis repository is such that it is behind the git remote, or contains uncommitted changes. To override this behaviour use the `--dirty` flag.
 
+To prepare a job without running it, as a language API's rehearsal of a run does, use `--rehearse`:
+
+```sh
+fair run --rehearse
+```
+
+It writes the job's folder, its working config and its script exactly as a run would, and runs nothing. It makes no git check - the commit is recorded as it is, marked `-dirty` where there are uncommitted changes - and stages nothing. Its only output on stdout is one JSON object naming the job's files, its log going to stderr:
+
+```json
+{"job_dir": "...", "config": "...", "script": "...", "data_store": "...", "token_file": "..."}
+```
+
+`token_file` is the file holding the local registry's token; the token itself is never printed. Like every command, a rehearsal holds the local registry only while it runs, so a program that goes on to run the job's script holds a [session](#registry) of its own around both. `fair run --ci` also prepares a job without running it, but stages it, warns about the repository's state, and prints the job's folder as its last line.
+
 ### `pull`
 
 The command `pull` will update any entries within the `config.yaml` under the `register` heading creating `external_object` and `data_product` objects on the registry and downloading the data to the local data storage. An `external_object` entry with `no_file: true`, and no `root`, `path` or `file_type`, registers a source that has no file of its own, such as a data store a run queries, as a data product with no file; it must give its `version`. Any data required for a run is downloaded and stored within the local registry. In addition any data products requested that are available on the remote registry are pulled locally.
@@ -364,3 +378,15 @@ Within the `config.yaml` file, template variables can be specified by using the 
 | `GIT_BRANCH`        | Current branch of the `git` repository                                           |
 | `GIT_REMOTE`        | The URI of the git repository specified during setup                             |
 | `GIT_TAG`           | The latest tag on `git`                                                          |
+
+## What a program may read of the CLI's configuration
+
+A language API, or any other program working with the pipeline, may rely on these parts of the CLI's configuration files:
+
+- `registries.local.uri` and `registries.local.token` in `~/.fair/cli/cli-config.yaml`: the local registry's API address, and the file holding its token.
+- `registries.<name>.uri` and `registries.<name>.token` in a project's `.fair/cli-config.yaml`: the same for each remote registry, by its name - `origin`, or one added with `fair remote add`.
+- A token file holds that registry's token alone, read as it is with surrounding white space stripped. Use it only for the registry whose entry names it.
+- `git.remote` in a project's `.fair/cli-config.yaml`: the name of the project's git remote. Its URL is the git repository's to give (`git remote get-url <name>`); `git.remote_repo` beside it is a copy taken by `fair init`, and goes out of date when the remote moves.
+- A directory with a `.fair` folder is a FAIR project, found by searching upwards from the working directory, as every `fair` command does.
+
+Within a run the working config holds what a script needs - among it `run_metadata.local_data_registry_url` and `run_metadata.remote_repo`, the git remote's URL - and the script's environment holds `FDP_CONFIG_DIR`, `FDP_LOCAL_TOKEN` and `FDP_SESSION`.

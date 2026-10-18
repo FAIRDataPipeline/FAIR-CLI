@@ -8,6 +8,8 @@ all CLI commands run without any errors
 """
 
 import glob
+import inspect
+import json
 import os
 import shutil
 import sys
@@ -636,6 +638,80 @@ def test_run_passive_does_not_execute(
     assert _session._session_config.execute.called is not passive
     _session._session_config.write.assert_called_once()
     _breakdown.assert_called_once_with(add_run=True)
+
+
+@pytest.mark.faircli_cli
+def test_run_rehearsal_runs_checks_and_stages_nothing(
+    mocker: pytest_mock.MockerFixture,
+):
+    # As above: run()'s own control flow alone
+    _session = object.__new__(fair.session.FAIR)
+    _session._allow_dirty = False
+    _session._session_id = None
+    _session._session_config = mocker.MagicMock()
+    mocker.patch.object(_session, "_pre_job_setup")
+    _check = mocker.patch.object(_session, "check_git_repo_state")
+    _breakdown = mocker.patch.object(_session, "_post_job_breakdown")
+
+    _session.run(rehearse=True)
+
+    # The commit is recorded as it is, uncommitted changes and all
+    assert _session._session_config.prepare.call_args.kwargs["allow_dirty"]
+    _check.assert_not_called()
+    _session._session_config.write.assert_called_once()
+    _session._session_config.execute.assert_not_called()
+    _breakdown.assert_not_called()
+    _session._session_config.close_log.assert_called_once()
+
+
+# A command line runner that keeps what a command writes to stderr apart from
+# its stdout, which click before 8.2 does only when asked
+def _runner() -> click.testing.CliRunner:
+    if "mix_stderr" in inspect.signature(click.testing.CliRunner).parameters:
+        return click.testing.CliRunner(mix_stderr=False)
+    return click.testing.CliRunner()
+
+
+@pytest.mark.faircli_cli
+def test_cli_run_rehearse(
+    local_config: typing.Tuple[str, str],
+    local_registry: conf.RegistryTest,
+    click_test: click.testing.CliRunner,
+    mocker: pytest_mock.MockerFixture,
+    tmp_path,
+):
+    _staging = os.path.join(local_config[1], fdp_com.FAIR_FOLDER, "staging")
+    _ran = os.path.join(tmp_path, "ran")
+    with local_registry:
+        mocker.patch("fair.common.registry_home", lambda: local_registry._install)
+        mocker.patch(
+            "fair.registry.requests.local_token",
+            lambda *args: local_registry._token,
+        )
+        with open(_staging, "w") as staged:
+            yaml.dump({"job": {}, "data_product": {}, "code_run": {}}, staged)
+        _result = _runner().invoke(
+            cli, ["run", "--rehearse", "--script", f'touch "{_ran}"']
+        )
+    assert _result.exit_code == 0, _result.output
+    _job = json.loads(_result.stdout)
+    assert sorted(_job) == ["config", "data_store", "job_dir", "script", "token_file"]
+    assert os.path.dirname(_job["config"]) == _job["job_dir"]
+    assert os.path.dirname(_job["script"]) == _job["job_dir"]
+    assert os.path.isfile(_job["config"])
+    assert os.path.isfile(_job["script"])
+    assert _job["token_file"] == os.path.join(local_registry._install, "token")
+    assert not os.path.exists(_ran)
+    with open(_staging) as staged:
+        assert not yaml.safe_load(staged)["job"]
+
+
+@pytest.mark.faircli_cli
+def test_cli_run_rehearse_with_ci_is_refused(click_test: click.testing.CliRunner):
+    _result = _runner().invoke(cli, ["run", "--rehearse", "--ci"])
+    assert _result.exit_code == 2
+    assert not _result.stdout
+    assert "cannot be given together" in _result.stderr
 
 
 @pytest.mark.faircli_cli

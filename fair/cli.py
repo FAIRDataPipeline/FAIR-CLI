@@ -641,10 +641,29 @@ def rm(job_ids: typing.List[str], cached: bool = False, debug: bool = False) -> 
     help="init without a remote registry - useful for closed systems",
     default=False,
 )
-def run(config: str, script: str, debug: bool, ci: bool, dirty: bool, local: bool):
+@click.option(
+    "--rehearse",
+    is_flag=True,
+    default=False,
+    help="Prepare the job as a run would, without running its script, "
+    "and print its files as one JSON object",
+)
+def run(
+    config: str,
+    script: str,
+    debug: bool,
+    ci: bool,
+    dirty: bool,
+    local: bool,
+    rehearse: bool,
+):
     """Initialises a job with the option to specify a bash command"""
+    if rehearse and ci:
+        raise click.UsageError("'--rehearse' and '--ci' cannot be given together")
+    # A rehearsal's stdout is its JSON alone
+    if not rehearse:
+        click.echo("Running run please wait")
     # Allow no config to be specified, if that is the case use default local
-    click.echo("Running run please wait")
     config = config[0] if config else fdp_com.local_user_config(os.getcwd())
     try:
         with fdp_session.FAIR(
@@ -655,11 +674,15 @@ def run(config: str, script: str, debug: bool, ci: bool, dirty: bool, local: boo
             allow_dirty=dirty,
             local=local,
         ) as fair_session:
-            _hash = fair_session.run(script, passive=ci, allow_dirty=dirty, local=local)
+            _hash = fair_session.run(
+                script, passive=ci, allow_dirty=dirty, local=local, rehearse=rehearse
+            )
             if ci:
                 click.echo(fdp_run.get_job_dir(_hash))
+            if rehearse:
+                click.echo(json.dumps(fair_session.rehearsal()))
     except fdp_exc.FAIRCLIException as e:
-        e.err_print()
+        e.err_print(err=rehearse)
         if e.level.lower() == "error":
             sys.exit(e.exit_code)
 

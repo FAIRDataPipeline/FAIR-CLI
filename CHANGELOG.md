@@ -18,6 +18,10 @@
   registry outside a `fair` command, such as a language API. A script run by `fair run` is told the run's session
   in `FDP_SESSION`.
 - `fair registry status` says who holds the registry and which processes are using it.
+- `fair run --rehearse` prepares a job as a run would without running it - no git check, nothing staged - and prints
+  its files as one JSON object, `{"job_dir", "config", "script", "data_store", "token_file"}`, for a language API's
+  rehearsal of a run.
+- The README says which parts of the CLI's configuration a program such as a language API may read.
 - A `register:` entry for an external object may have `no_file: true` in place of `root`, `path` and `file_type`,
   for a source with no file of its own, such as a data store a run queries: `fair pull` registers it as a data
   product with no file, which a run may read. Its `version` must be given.

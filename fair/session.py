@@ -523,13 +523,19 @@ class FAIR:
         passive: bool = False,
         allow_dirty: bool = False,
         local: bool = False,
+        rehearse: bool = False,
     ) -> str:
-        """Execute a run using the given user configuration file"""
+        """Execute a run using the given user configuration file
+
+        A rehearsal prepares the job as a run does and runs nothing: the git
+        checks are skipped, the commit recorded as it is, and nothing of the
+        job is staged.
+        """
         self._pre_job_setup()
 
         self._session_config.prepare(
-            fdp_com.CMD_MODE.PASS if passive else fdp_com.CMD_MODE.RUN,
-            allow_dirty=self._allow_dirty,
+            fdp_com.CMD_MODE.PASS if passive or rehearse else fdp_com.CMD_MODE.RUN,
+            allow_dirty=self._allow_dirty or rehearse,
             local=local,
         )
 
@@ -545,7 +551,7 @@ class FAIR:
         # Only apply constraint for clean repository when executing a run
         if passive:
             allow_dirty = True
-        if not local:
+        if not local and not rehearse:
             self.check_git_repo_state(allow_dirty=allow_dirty)
 
         # Named to the script, which then needs no session of its own
@@ -554,12 +560,37 @@ class FAIR:
 
         # A passive run only prepares the job directory, for the model to be
         # run from it separately
-        if not passive:
+        if not passive and not rehearse:
             self._session_config.execute()
 
-        self._post_job_breakdown(add_run=True)
+        if rehearse:
+            self._session_config.close_log()
+        else:
+            self._post_job_breakdown(add_run=True)
 
         return self._session_config.hash
+
+    def rehearsal(self) -> typing.Dict[str, str]:
+        """Return the files of a job that a rehearsal prepared
+
+        Returns
+        -------
+        typing.Dict[str, str]
+            the job's directory ("job_dir"), its working configuration
+            ("config"), its script ("script"), the data store it writes to
+            ("data_store"), and the file holding the local registry's token
+            ("token_file")
+        """
+        _environment = self._session_config.environment
+        return {
+            "job_dir": _environment["FDP_CONFIG_DIR"],
+            "config": os.path.join(
+                _environment["FDP_CONFIG_DIR"], _environment["FDP_CONFIG_NAME"]
+            ),
+            "script": _environment["FDP_SCRIPT"],
+            "data_store": _environment["FDP_DATA_STORE"],
+            "token_file": os.path.join(fdp_com.registry_home(), "token"),
+        }
 
     def check_is_repo(self, location: str = None) -> None:
         """Check that the current location is a FAIR repository"""
