@@ -129,6 +129,15 @@ def _namespace_of_matches(registry: conf.RegistryTest, pattern: str) -> str:
     return fdp_req.url_get(_matches[0]["namespace"], registry._token)["name"]
 
 
+# The entries a pattern was expanded to, its own entry, which must be there
+# once, left out
+def _without_pattern(
+    block: typing.List[typing.Dict], pattern: str
+) -> typing.List[typing.Dict]:
+    assert [entry["data_product"] for entry in block].count(pattern) == 1
+    return [entry for entry in block if entry["data_product"] != pattern]
+
+
 @pytest.mark.faircli_user_config
 def test_wildcard_unpack_local(
     local_config: typing.Tuple[str, str],
@@ -176,11 +185,12 @@ def test_wildcard_unpack_local(
         _config = fdp_user.JobConfiguration(_new_cfg_path)
         _config.update_from_fair(os.path.join(local_config[1], "project"))
         _config.prepare(fdp_com.CMD_MODE.RUN, True)
-        assert len(_config["read"]) > 1
+        _matches = _without_pattern(_config["read"], _wildcard_path)
+        assert len(_matches) > 1
         assert all(
             fdp_glob.matches_wildcard(_wildcard_path, entry["data_product"])
             and entry["use"]["namespace"] == _namespace
-            for entry in _config["read"]
+            for entry in _matches
         )
 
         _config.write(os.path.join(_out_dir, "out.yaml"))
@@ -243,12 +253,15 @@ def test_wildcard_unpack_remote(
             remote_registry._url,
             remote_registry._token,
         )
-        assert len(_config["read"]) > 1
+        _matches = _without_pattern(_config["read"], _wildcard_path)
+        assert len(_matches) > 1
         assert all(
             fdp_glob.matches_wildcard(_wildcard_path, entry["data_product"])
             and entry["use"]["namespace"] == _namespace
-            for entry in _config["read"]
+            for entry in _matches
         )
+        # 'fair pull' fetches the matches, and nothing for the pattern's entry
+        assert len(_config.get_readables()) == len(_matches)
 
         _config.write(os.path.join(_out_dir, "out.yaml"))
 
@@ -604,6 +617,9 @@ def test_update_from_fair_without_git_remote(
         ("a/*/c", "a/b/c", True),
         ("a/*/c", "a/b/d/c", False),
         ("a.b/*", "aXb/1", False),
+        # A pattern never matches itself, nor a name the registry refuses
+        ("era5/t2m/*", "era5/t2m/*", False),
+        ("era5/t2m/*", "era5/t2m/[1]", False),
     ],
 )
 def test_matches_wildcard(pattern: str, name: str, matches: bool):
@@ -807,12 +823,15 @@ _FAMILY = [
 @pytest.mark.parametrize(
     "use,expected",
     [
-        # In its namespace only, and the highest version of each name
+        # In its namespace only, and the highest version of each name; the
+        # pattern's own entry is kept, last, at its matches' highest version,
+        # the version it names, or 0.0.0
         (
             {},
             [
                 ("testing", "fetched/era5/1940", "0.0.2"),
                 ("testing", "fetched/era5/1941", "0.0.1"),
+                ("testing", "fetched/era5/*", "0.0.2"),
             ],
         ),
         (
@@ -820,6 +839,7 @@ _FAMILY = [
             [
                 ("other", "fetched/era5/1999", "1.0.0"),
                 ("other", "fetched/era5/1940", "9.0.0"),
+                ("other", "fetched/era5/*", "9.0.0"),
             ],
         ),
         # A version given is the version read, of each name that has it
@@ -828,19 +848,31 @@ _FAMILY = [
             [
                 ("testing", "fetched/era5/1941", "0.0.1"),
                 ("testing", "fetched/era5/1940", "0.0.1"),
+                ("testing", "fetched/era5/*", "0.0.1"),
             ],
         ),
-        ({"version": "0.0.2"}, [("testing", "fetched/era5/1940", "0.0.2")]),
+        (
+            {"version": "0.0.2"},
+            [
+                ("testing", "fetched/era5/1940", "0.0.2"),
+                ("testing", "fetched/era5/*", "0.0.2"),
+            ],
+        ),
         (
             {"version": "${{LATEST}}", "namespace": "other"},
             [
                 ("other", "fetched/era5/1999", "1.0.0"),
                 ("other", "fetched/era5/1940", "9.0.0"),
+                ("other", "fetched/era5/*", "9.0.0"),
             ],
         ),
-        # A pattern asks for whatever matches it, which may be nothing
-        ({"version": "3.0.0"}, []),
-        ({"namespace": "unregistered"}, []),
+        # A pattern asks for whatever matches it, which may be nothing: then
+        # its own entry alone says it was given
+        ({"version": "3.0.0"}, [("testing", "fetched/era5/*", "3.0.0")]),
+        (
+            {"namespace": "unregistered"},
+            [("unregistered", "fetched/era5/*", "0.0.0")],
+        ),
     ],
 )
 def test_wildcard_read(mocker: pytest_mock.MockerFixture, use, expected):
@@ -853,6 +885,22 @@ def test_wildcard_read(mocker: pytest_mock.MockerFixture, use, expected):
         entry["data_product"] == entry["use"]["data_product"]
         for entry in _read
     )
+
+
+@pytest.mark.faircli_user_config
+def test_readables_leave_out_a_patterns_own_entry():
+    _config = fdp_user.JobConfiguration()
+    _config["read"] = [
+        {
+            "data_product": "fetched/era5/1940",
+            "use": {"namespace": "testing", "version": "0.0.2"},
+        },
+        {
+            "data_product": "fetched/era5/*",
+            "use": {"namespace": "testing", "version": "0.0.2"},
+        },
+    ]
+    assert _config.get_readables() == ["testing:fetched/era5/1940@v0.0.2"]
 
 
 @pytest.mark.faircli_user_config

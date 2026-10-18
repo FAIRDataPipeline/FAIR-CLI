@@ -503,7 +503,10 @@ class JobConfiguration(MutableMapping):
                         }
                     )
 
-        if block_type == "write":
+        # The pattern's own entry is kept: in a write block as the template
+        # for names the model writes that match it, and in a read block so
+        # that a pattern that matched nothing is told from one never given
+        if block_type in ("read", "write"):
             _new_entries.append(block_entry)
 
         return _new_entries
@@ -1173,8 +1176,7 @@ class JobConfiguration(MutableMapping):
             else:
                 self._logger.warning(f"Missing use:data_product in {item}")
                 continue
-            # Only a wildcard entry lacks this: kept in the write block as the
-            # template for names the model writes that match it
+            # Only a wildcard's own entry lacks this
             _new_item["use"]["data_product"] = _name
             _namespace = item["use"]["namespace"]
 
@@ -1568,6 +1570,9 @@ class JobConfiguration(MutableMapping):
                 continue
 
             if "data_product" not in readable:
+                continue
+            # A wildcard's own entry names nothing to fetch: its matches do
+            if "*" in readable["data_product"]:
                 continue
             if "use" not in readable:
                 self._logger.error(

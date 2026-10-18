@@ -12,6 +12,11 @@
   remove nothing while a command is using it or it runs on another machine.
 - Two versions of the CLI sharing one registry install are not supported: one of an earlier version neither records
   its sessions nor respects this one's.
+- A `read:` wildcard's own entry is kept in the working config beside the entries it expands to, as a `write:`
+  wildcard's is, so that an API can tell a pattern that matched nothing from one never given. `fair pull` fetches
+  nothing for it. Its version - its matches' highest, the version it names, or 0.0.0 - means nothing.
+- A `*` in a wildcard no longer matches `[`, `]`, `?` or `*`, which the registry refuses in a name, so a pattern
+  never matches itself.
 
 ## Added
 - `fair registry session open --pid <pid> --json` and `fair registry session close <id>`, for a program using the
