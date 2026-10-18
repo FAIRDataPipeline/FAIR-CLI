@@ -1443,7 +1443,13 @@ class JobConfiguration(MutableMapping):
     def git_branch(self) -> str:
         """Retrieves the current git repository branch"""
         _git_loc = fdp_conf.local_git_repo(self.local_repository)
-        return git.Repo(_git_loc).active_branch.name
+        _repo = git.Repo(_git_loc)
+        if _repo.head.is_detached:
+            raise fdp_exc.UserConfigError(
+                "Cannot use GIT_BRANCH variable, the git repository is on no "
+                "branch: its checkout is detached, at a tag or a commit."
+            )
+        return _repo.active_branch.name
 
     @property
     def command(self) -> typing.Optional[str]:

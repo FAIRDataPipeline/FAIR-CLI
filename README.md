@@ -211,6 +211,8 @@ note the command itself must be quoted as it is a single argument.
 
 By default the CLI will not allow the user to perform a run if the state of the analysis repository is such that it is behind the git remote, or contains uncommitted changes. To override this behaviour use the `--dirty` flag.
 
+A detached checkout - a tag or a commit checked out, or a pull request on a CI system - has no branch to compare, so there the commit has to be one the remote has, on a branch or a tag; `--dirty` lets one the remote does not have through.
+
 To prepare a job without running it, as a language API's rehearsal of a run does, use `--rehearse`:
 
 ```sh

@@ -58,6 +58,9 @@
   process has gone is removed. This needs a new dependency, `psutil`.
 - A failed `fair registry start` left a session file behind, and a server on the port that never answered was waited
   on for ever; neither now happens. Another install's registry on the port is named as such.
+- `fair run` refused a detached checkout - a tag, a commit, a pull request on CI - unless given `--dirty`. It now runs
+  where the commit is one the remote has, on a branch or a tag, and refuses one the remote does not have.
+  `${{GIT_BRANCH}}` there is an error saying there is no branch.
 
 # 2026-10-05 [v0.10.2](https://github.com/FAIRDataPipeline/FAIR-CLI/releases/tag/v0.10.2)
 

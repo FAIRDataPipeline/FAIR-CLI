@@ -28,10 +28,12 @@ import requests
 import yaml
 
 import fair.common as fdp_com
+import fair.exceptions as fdp_exc
 import fair.registry.lifecycle
 import fair.registry.server
 import fair.session
 import fair.staging
+import fair.user_config
 from fair.cli import cli
 from tests import conftest as conf
 
@@ -638,6 +640,144 @@ def test_run_passive_does_not_execute(
     assert _session._session_config.execute.called is not passive
     _session._session_config.write.assert_called_once()
     _breakdown.assert_called_once_with(add_run=True)
+
+
+# A git remote and what was pushed to it: a branch, an annotated tag, and a
+# pull request's merge commit under refs/pull/1/merge, as GitHub keeps one.
+# A commit may be fetched by its hash, as from GitHub
+@pytest.fixture
+def git_remote(tmp_path, monkeypatch) -> typing.Dict[str, str]:
+    for _key, _value in (
+        ("GIT_AUTHOR_NAME", "Test"),
+        ("GIT_COMMITTER_NAME", "Test"),
+        ("GIT_AUTHOR_EMAIL", "test@noreply"),
+        ("GIT_COMMITTER_EMAIL", "test@noreply"),
+    ):
+        monkeypatch.setenv(_key, _value)
+    _bare = git.Repo.init(os.path.join(tmp_path, "remote.git"), bare=True)
+    _bare.git.config("uploadpack.allowAnySHA1InWant", "true")
+    _url = Path(_bare.git_dir).as_uri()
+    _work = git.Repo.init(os.path.join(tmp_path, "work"))
+    _work.git.checkout("-b", "main")
+    _work.create_remote("origin", _url)
+    for _name in ("a", "b"):
+        with open(os.path.join(_work.working_dir, _name), "w") as out_f:
+            out_f.write(_name)
+        _work.git.add(_name)
+        _work.git.commit("-m", _name)
+    _work.git.tag("-a", "v1", "-m", "v1")
+    _work.git.push("origin", "main", "v1")
+    _main = _work.head.commit.hexsha
+    _work.git.checkout("-b", "feature")
+    with open(os.path.join(_work.working_dir, "c"), "w") as out_f:
+        out_f.write("c")
+    _work.git.add("c")
+    _work.git.commit("-m", "c")
+    _work.git.push("origin", "feature")
+    _work.git.checkout("main")
+    _work.git.merge("--no-ff", "-m", "Merge pull request", "feature")
+    _work.git.push("origin", "HEAD:refs/pull/1/merge")
+    _merge = _work.head.commit.hexsha
+    return {"url": _url, "main": _main, "merge": _merge, "dir": str(tmp_path)}
+
+
+# A session that checks the git repository at a location, built without
+# __init__ since only the check is under test
+def _session_at(location: str) -> fair.session.FAIR:
+    _session = object.__new__(fair.session.FAIR)
+    _session._session_loc = location
+    return _session
+
+
+def _clone(remote: typing.Dict[str, str], name: str) -> git.Repo:
+    return git.Repo.clone_from(remote["url"], os.path.join(remote["dir"], name))
+
+
+# What actions/checkout does for a pull request or a tag: one commit fetched
+# by its hash, depth 1, into a ref of its own, then checked out
+def _ci_checkout(
+    remote: typing.Dict[str, str], name: str, commit: str, ref: str
+) -> git.Repo:
+    _repo = git.Repo.init(os.path.join(remote["dir"], name))
+    _repo.create_remote("origin", remote["url"])
+    _repo.git.fetch("--no-tags", "--depth=1", "origin", f"+{commit}:{ref}")
+    _repo.git.checkout("--force", ref)
+    return _repo
+
+
+@pytest.mark.faircli_cli
+def test_git_check_on_a_branch(git_remote: typing.Dict[str, str]):
+    _repo = _clone(git_remote, "clone")
+    _session_at(_repo.working_dir).check_git_repo_state()
+
+    with open(os.path.join(_repo.working_dir, "d"), "w") as out_f:
+        out_f.write("d")
+    _repo.git.add("d")
+    _repo.git.commit("-m", "d")
+    with pytest.raises(fdp_exc.FDPRepositoryError, match="not level with remote"):
+        _session_at(_repo.working_dir).check_git_repo_state()
+
+
+@pytest.mark.faircli_cli
+@pytest.mark.parametrize("target", ["v1", "main~1"])
+def test_git_check_detached_at_a_pushed_commit(
+    git_remote: typing.Dict[str, str], target: str
+):
+    _repo = _clone(git_remote, "clone")
+    _repo.git.checkout(target)
+    assert _repo.head.is_detached
+    # Its remote-tracking branches say so: the remote is not asked
+    _repo.remotes.origin.set_url(os.path.join(git_remote["dir"], "nowhere"))
+    _session_at(_repo.working_dir).check_git_repo_state()
+
+
+@pytest.mark.faircli_cli
+def test_git_check_detached_at_a_local_commit(
+    git_remote: typing.Dict[str, str], capsys
+):
+    _repo = _clone(git_remote, "clone")
+    with open(os.path.join(_repo.working_dir, "d"), "w") as out_f:
+        out_f.write("d")
+    _repo.git.add("d")
+    _repo.git.commit("-m", "d")
+    _repo.git.checkout("--detach")
+    with pytest.raises(fdp_exc.FDPRepositoryError, match="on no branch or tag"):
+        _session_at(_repo.working_dir).check_git_repo_state()
+    _session_at(_repo.working_dir).check_git_repo_state(allow_dirty=True)
+    assert "Warning: commit" in capsys.readouterr().out
+
+
+@pytest.mark.faircli_cli
+@pytest.mark.parametrize("checkout", ["pull_request", "tag"])
+def test_git_check_detached_as_ci_checks_out(
+    git_remote: typing.Dict[str, str], checkout: str
+):
+    # Neither leaves a branch of the remote to look at, so the remote is asked
+    if checkout == "pull_request":
+        _commit, _ref = git_remote["merge"], "refs/remotes/pull/1/merge"
+    else:
+        _commit, _ref = git_remote["main"], "refs/tags/v1"
+    _repo = _ci_checkout(git_remote, checkout, _commit, _ref)
+    assert _repo.head.is_detached
+    _session_at(_repo.working_dir).check_git_repo_state()
+
+    _repo.remotes.origin.set_url(os.path.join(git_remote["dir"], "nowhere"))
+    with pytest.raises(fdp_exc.FDPRepositoryError, match="could not be asked"):
+        _session_at(_repo.working_dir).check_git_repo_state()
+
+
+@pytest.mark.faircli_cli
+def test_git_branch_variable_on_a_detached_checkout(
+    git_remote: typing.Dict[str, str], mocker: pytest_mock.MockerFixture
+):
+    _repo = _clone(git_remote, "clone")
+    _config = fair.user_config.JobConfiguration()
+    _config["run_metadata.local_repo"] = _repo.working_dir
+    mocker.patch("fair.configuration.local_git_repo", lambda *args: _repo.working_dir)
+    assert _config.git_branch == "main"
+    _repo.git.checkout("v1")
+    with pytest.raises(fdp_exc.UserConfigError, match="on no branch"):
+        _config.git_branch
 
 
 @pytest.mark.faircli_cli

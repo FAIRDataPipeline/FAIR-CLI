@@ -605,12 +605,27 @@ class FAIR:
     def check_git_repo_state(
         self, remote_label: str = "origin", allow_dirty: bool = False
     ) -> bool:
-        """Checks the git repository is clean and that local matches remote"""
+        """Checks the git repository is clean and that local matches remote
+
+        A detached checkout - a tag, a commit, a pull request's merge on CI -
+        has no branch to compare, so its commit must be one the remote has.
+        """
         _repo_root = fdp_com.find_git_root(self._session_loc)
         _repo = git.Repo(_repo_root)
         _rem_commit = None
         _loc_commit = None
         _current_branch = None
+
+        if _repo.head.is_detached:
+            _com_match = self._check_detached_commit(_repo, remote_label, allow_dirty)
+            if _repo.is_dirty():
+                if allow_dirty:
+                    click.echo("Warning: running with uncommitted changes")
+                else:
+                    raise fdp_exc.FDPRepositoryError(
+                        "Cannot run job, git repository contains uncommitted changes"
+                    )
+            return _repo.is_dirty() and _com_match
 
         # Firstly get the current branch
         try:
@@ -668,6 +683,51 @@ class FAIR:
                 )
 
         return _repo.is_dirty() and _com_match
+
+    # Whether the remote has the commit of a detached checkout: on one of its
+    # branches, as its remote-tracking branches say, else among the refs it
+    # lists itself - a pull request's merge commit, or a tag that a CI checkout
+    # fetched alone, leave no remote-tracking branch. A failure is refused, or
+    # with allow_dirty a warning
+    @staticmethod
+    def _check_detached_commit(
+        repo: git.Repo, remote_label: str, allow_dirty: bool
+    ) -> bool:
+        _sha = repo.head.commit.hexsha
+        _problem = None
+        _tracking = repo.git.for_each_ref(
+            "--contains", _sha, "--format=%(refname)", f"refs/remotes/{remote_label}/"
+        )
+        if _tracking:
+            return True
+        try:
+            # Not GitPython's kill_after_timeout, which raises on Windows
+            _listing = repo.git.ls_remote(
+                remote_label, env={"GIT_TERMINAL_PROMPT": "0"}
+            )
+            if any(
+                _line.split()[0] == _sha
+                for _line in _listing.splitlines()
+                if _line.strip()
+            ):
+                return True
+            _problem = (
+                f"commit {_sha[:7]} of the detached checkout is on no branch or "
+                f"tag of remote '{remote_label}'"
+            )
+        except git.GitCommandError as e:
+            _problem = (
+                f"commit {_sha[:7]} of the detached checkout is on no branch of "
+                f"remote '{remote_label}' known here, and the remote could not be "
+                f"asked for its other refs: {(e.stderr or '').strip()}"
+            )
+        if not allow_dirty:
+            raise fdp_exc.FDPRepositoryError(
+                f"Cannot run job, {_problem}",
+                hint="Push the commit, or give '--dirty' to run it anyway",
+            )
+        click.echo(f"Warning: {_problem}")
+        return False
 
     def __enter__(self) -> None:
         """Method called when using 'with' statement."""
