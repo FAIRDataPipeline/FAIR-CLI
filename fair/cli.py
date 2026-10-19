@@ -662,7 +662,11 @@ def run(
         raise click.UsageError("'--rehearse' and '--ci' cannot be given together")
     # A rehearsal's stdout is its JSON alone
     if not rehearse:
-        click.echo("Running run please wait")
+        click.echo(
+            "Preparing the job, please wait"
+            if ci
+            else "Preparing the job and running its script, please wait"
+        )
     # Allow no config to be specified, if that is the case use default local
     config = config[0] if config else fdp_com.local_user_config(os.getcwd())
     try:
@@ -784,8 +788,8 @@ def modify(ctx, label: str, url: str, debug: bool) -> None:
 )
 def push(remote: str, debug: bool, dirty: bool):
     """Push data between the local and remote registry"""
-    click.echo("Running push please wait")
     remote = remote[0] if remote else "origin"
+    click.echo(f"Pushing to '{remote}', please wait")
     try:
         with fdp_session.FAIR(
             os.getcwd(),
@@ -828,7 +832,7 @@ def config_email(user_email: str) -> None:
 )
 def pull(config: str, debug: bool, local: bool):
     """Update local registry from remotes and sources"""
-    click.echo("Running pull please wait")
+    click.echo("Pulling, please wait")
     config = config[0] if config else fdp_com.local_user_config(os.getcwd())
     try:
         with fdp_session.FAIR(
