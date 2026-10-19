@@ -1,4 +1,4 @@
-# Unreleased
+# 2026-10-19 [v0.11.0](https://github.com/FAIRDataPipeline/FAIR-CLI/releases/tag/v0.11.0)
 
 ## Changed behaviour
 - A command that starts the local registry stops it again when the last command using it finishes; it used to leave
