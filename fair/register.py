@@ -337,6 +337,20 @@ def fetch_registrations(
                 "file changes, or a version of its own",
             )
 
+        # A version given outright that is registered holds another file, the
+        # same one having been passed over: refused before the copy, which
+        # would go over the registered file
+        elif _is_present != "absent" and "${{" not in str(entry["use"]["version"]):
+            if _remove:
+                os.remove(_temp_data_file)
+            raise fdp_exc.UserConfigError(
+                f"Cannot register '{entry['use']['data_product']}' at version "
+                f"{entry['use']['version']}: that version is registered in "
+                f"namespace '{_namespace}' with another file",
+                hint="Give it a version of its own, or '${{PATCH}}' for a new "
+                "version whenever its file changes",
+            )
+
         # Item found but not hash matched retrieve a version number
         elif _is_present != "absent":
             _results = _is_present

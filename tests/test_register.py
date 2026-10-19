@@ -194,6 +194,8 @@ def test_register_no_file_fetches_nothing(mocker, tmp_path, registered):
         ("${{ LATEST }}", "results", "has changed"),
         ("${{ LATEST }}", "absent", "no version of it"),
         ("2.0.0", "absent", "2.0.0"),
+        ("2.0.0", "hash_match", "passed over"),
+        ("2.0.0", "results", "with another file"),
     ],
 )
 def test_register_version_decided_by_the_file(
@@ -201,7 +203,8 @@ def test_register_version_decided_by_the_file(
 ):
     # A token keeps the highest version while the file is its file. Otherwise
     # ${{PATCH}} makes the next version and ${{LATEST}} is refused; the
-    # version decided is the one registered
+    # version decided is the one registered. A version given outright that is
+    # registered with another file is refused
     _data_file = os.path.join(tmp_path, "data.csv")
     with open(_data_file, "w") as out_f:
         out_f.write("a,b\n1,2\n")
@@ -227,12 +230,15 @@ def test_register_version_decided_by_the_file(
         "public": True,
     }
     _store_dir = os.path.join(tmp_path, "store")
-    if outcome in ("has changed", "no version of it"):
+    if outcome in ("has changed", "no version of it", "with another file"):
         with pytest.raises(fdp_exc.UserConfigError, match=outcome):
             fdp_reg.fetch_registrations(
                 "http://127.0.0.1:8000/api/", "", _store_dir, [_entry]
             )
         _store.assert_not_called()
+        # Nothing copied into the data store, and the fetched file removed
+        assert not os.path.exists(_store_dir)
+        assert not os.path.exists(_data_file)
         return
     fdp_reg.fetch_registrations(
         "http://127.0.0.1:8000/api/", "", _store_dir, [_entry]
@@ -635,3 +641,80 @@ def test_register_without_a_version(
         _res = _fair("run", "--local", "--dirty")
         assert _res.exit_code == 1
         assert "was not found" in _res.output
+
+
+@pytest.mark.faircli_register
+@pytest.mark.dependency(depends=["register"])
+def test_register_at_a_version_with_another_file(
+    local_registry,
+    remote_registry,
+    pyDataPipeline: str,
+    monkeypatch_module,
+    tmp_path,
+):
+    # A version given outright that is registered with another file is
+    # refused, and the registered file, which the copy would go over, is kept
+    monkeypatch_module.chdir(pyDataPipeline)
+    _file = os.path.join(tmp_path, "pinned.csv")
+    _entry = {
+        "data_product": "pinned/data",
+        "namespace_name": "TestNameSpace",
+        "root": f"file://{tmp_path}{os.path.sep}",
+        "path": "pinned.csv",
+        "file_type": "csv",
+        "version": "1.0.0",
+        "public": True,
+    }
+    _cfg = {
+        "run_metadata": {"description": "A pinned version", "script": "echo"},
+        "register": [
+            {"namespace": "TestNameSpace", "full_name": "A namespace"},
+            _entry,
+        ],
+    }
+    _cfg_path = os.path.join(tmp_path, "pinned.yaml")
+    with open(_cfg_path, "w") as cfg_f:
+        yaml.dump(_cfg, cfg_f, sort_keys=False)
+    _cli_runner = click.testing.CliRunner()
+
+    def _pull(content):
+        with open(_file, "w") as out_f:
+            out_f.write(content)
+        return _cli_runner.invoke(
+            cli, ["pull", _cfg_path, "--debug"], catch_exceptions=True
+        )
+
+    with local_registry, remote_registry:
+        _token = local_registry._token
+
+        def _registered():
+            _products = fdp_req.get(
+                local_registry._url,
+                "data_product",
+                _token,
+                params={"name": "pinned/data"},
+            )
+            _location = fdp_req.url_get(
+                fdp_req.url_get(_products[0]["object"], _token)["storage_location"],
+                _token,
+            )
+            _root = fdp_req.url_get(_location["storage_root"], _token)["root"]
+            _path = os.path.join(_root.replace("file://", ""), _location["path"])
+            return len(_products), _location["hash"], _path
+
+        assert _pull("a,b\n1,2\n").exit_code == 0
+        _count, _hash, _path = _registered()
+        assert _count == 1
+        assert fdp_store.calculate_file_hash(_path) == _hash
+
+        # The same file again is passed over
+        assert _pull("a,b\n1,2\n").exit_code == 0
+        assert _registered() == (1, _hash, _path)
+
+        _res = _pull("a,b\n3,4\n")
+        assert _res.exit_code == 1
+        assert "registered in namespace 'TestNameSpace' with another file" in (
+            _res.output
+        )
+        assert _registered() == (1, _hash, _path)
+        assert fdp_store.calculate_file_hash(_path) == _hash
