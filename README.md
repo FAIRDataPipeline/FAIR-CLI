@@ -233,7 +233,7 @@ It writes the job's folder, its working config and its script exactly as a run w
 
 ### `pull`
 
-The command `pull` will update any entries within the `config.yaml` under the `register` heading creating `external_object` and `data_product` objects on the registry and downloading the data to the local data storage. An `external_object` entry with `no_file: true`, and no `root`, `path` or `file_type`, registers a source that has no file of its own, such as a data store a run queries, as a data product with no file; it must give its `version`. Any data required for a run is downloaded and stored within the local registry. In addition any data products requested that are available on the remote registry are pulled locally.
+The command `pull` will update any entries within the `config.yaml` under the `register` heading creating `external_object` and `data_product` objects on the registry and downloading the data to the local data storage. An `external_object` entry with `no_file: true`, and no `root`, `path` or `file_type`, registers a source that has no file of its own, such as a data store that a run queries to extract data, as a data product with no file; it must give its `version`. Any data required for a run is downloaded and stored within the local registry. In addition any data products requested that are available on the remote registry are pulled locally.
 
 ```sh
 fair pull /path/to/config.yaml
