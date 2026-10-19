@@ -140,11 +140,9 @@ class RegistryAPICallError(FAIRCLIException):
 
     def __init__(self, msg, error_code):
         self.error_code = error_code
-        _level = "Warning" if self.error_code in [403] else "Error"
         super().__init__(
             f"[HTTP {self.error_code}]: {msg}",
             exit_code=error_code,
-            level=_level,
         )
 
 

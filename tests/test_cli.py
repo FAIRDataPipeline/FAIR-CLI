@@ -642,6 +642,33 @@ def test_run_passive_does_not_execute(
     _breakdown.assert_called_once_with(add_run=True)
 
 
+@pytest.mark.faircli_cli
+@pytest.mark.parametrize(
+    "error, shown, fails",
+    [
+        (fdp_exc.InternalError("a fault"), "InternalError: a fault", True),
+        (
+            fdp_exc.RegistryAPICallError("request forbidden", 403),
+            "Error: [HTTP 403]: request forbidden",
+            True,
+        ),
+        (fdp_exc.FAIRCLIException("a note", level="Warning"), "Warning: a note", False),
+    ],
+)
+def test_what_a_calling_script_sees(
+    click_test: click.testing.CliRunner,
+    mocker: pytest_mock.MockerFixture,
+    error: fdp_exc.FAIRCLIException,
+    shown: str,
+    fails: bool,
+):
+    # Anything but a warning is a failure, a registry's refusal included
+    mocker.patch("fair.session.FAIR", side_effect=error)
+    _result = click_test.invoke(cli, ["status"])
+    assert (_result.exit_code != 0) is fails, _result.output
+    assert shown in _result.output
+
+
 # A git remote and what was pushed to it: a branch, an annotated tag, and a
 # pull request's merge commit under refs/pull/1/merge, as GitHub keeps one.
 # A commit may be fetched by its hash, as from GitHub
