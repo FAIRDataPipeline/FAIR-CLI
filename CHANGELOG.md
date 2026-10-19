@@ -12,6 +12,9 @@
   remove nothing while a command is using it or it runs on another machine.
 - Two versions of the CLI sharing one registry install are not supported: one of an earlier version neither records
   its sessions nor respects this one's.
+- Records left behind when the registry or a session ends outside `fair` - a restart, a crash, a killed process - are
+  removed with a line saying what was removed and why, naming `fair registry start` where that had started the
+  registry. A record left half-written is removed the same way.
 - `fair init` asks for the user's identifier before their email, and offers as the email the address the
   identifier's record makes public - an ORCID's or a GitHub account's. Anything answering its questions in order
   must put the email after the identifier.

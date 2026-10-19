@@ -209,6 +209,91 @@ def test_a_session_for_a_process_that_does_not_exist_is_refused(
         fdp_life.open_session(pid=child.pid)
 
 
+# Leave the records a reboot leaves: those of the user's registry and of a
+# session whose command was running, with the server and the session's process
+# ended
+def _reboot(server: _Server, child: subprocess.Popen) -> None:
+    fdp_life.start_for_user(port=8000)
+    fdp_life.open_session(pid=child.pid)
+    child.kill()
+    child.wait()
+    server.running = False
+
+
+@pytest.mark.faircli_lifecycle
+def test_after_a_reboot_a_session_starts_the_registry_again(
+    registry_dir: str, mocker: pytest_mock.MockerFixture, child, capsys
+):
+    _server = _Server(mocker)
+    _reboot(_server, child)
+    capsys.readouterr()
+    _session = fdp_life.open_session()
+    _said = capsys.readouterr().err
+    assert f"recorded as running at {URI}" in _said
+    assert "started by 'fair registry start'" in _said
+    assert f"A session not closed by its process, {child.pid}," in _said
+    assert _server.launch.call_count == 2
+    assert _server_record(registry_dir)["holder"] == fdp_life.HELD_BY_SESSIONS
+    assert len(_sessions(registry_dir)) == 1
+
+    fdp_life.close_session(_session["session"])
+    assert not _server.running
+    assert not _server_record(registry_dir)
+    assert not _sessions(registry_dir)
+
+
+@pytest.mark.faircli_lifecycle
+def test_after_a_reboot_the_user_starts_the_registry_again(
+    registry_dir: str, mocker: pytest_mock.MockerFixture, child, capsys
+):
+    _server = _Server(mocker)
+    _reboot(_server, child)
+    capsys.readouterr()
+    _status = fdp_life.status()
+    assert not _status["server"]
+    assert not _status["sessions"]
+    assert not _sessions(registry_dir)
+    assert "has stopped outside 'fair'" in capsys.readouterr().err
+
+    # Said once, as the records are removed
+    fdp_life.start_for_user(port=8000)
+    assert not capsys.readouterr().err
+    assert _server.launch.call_count == 2
+    assert _server_record(registry_dir)["holder"] == fdp_life.HELD_BY_USER
+
+
+@pytest.mark.faircli_lifecycle
+def test_records_removed_in_normal_use_are_not_said(
+    registry_dir: str, mocker: pytest_mock.MockerFixture, child, capsys
+):
+    _Server(mocker)
+    _first = fdp_life.open_session()
+    _second = fdp_life.open_session(pid=child.pid)
+    fdp_life.close_session(_second["session"])
+    fdp_life.close_session(_first["session"])
+    fdp_life.start_for_user(port=8000)
+    fdp_life.open_session()
+    fdp_life.stop_for_user(force=True)
+    assert not capsys.readouterr().err
+
+
+@pytest.mark.faircli_lifecycle
+def test_a_record_whose_writing_was_cut_short_is_removed(
+    registry_dir: str, mocker: pytest_mock.MockerFixture, capsys
+):
+    _Server(mocker)
+    _dir = fdp_life.records_directory(registry_dir)
+    os.makedirs(_dir)
+    _cut_short = os.path.join(_dir, "tmpcutshort.tmp")
+    with open(_cut_short, "w") as out_f:
+        out_f.write('{"id": "')
+    fdp_life.status()
+    assert not os.path.exists(_cut_short)
+    assert (
+        "half-written is removed: tmpcutshort.tmp" in capsys.readouterr().err
+    )
+
+
 # A server record written as though on another host
 def _record_elsewhere(registry_dir: str) -> str:
     os.makedirs(fdp_life.records_directory(registry_dir), exist_ok=True)
@@ -413,6 +498,39 @@ def test_the_lock_holds_between_processes(registry_dir: str):
 
 
 @pytest.mark.faircli_lifecycle
+def test_the_lock_of_a_process_killed_holding_it_is_free(
+    registry_dir: str, mocker: pytest_mock.MockerFixture
+):
+    # The lock file stays, as after a reboot, but the system releases the lock;
+    # Windows may take a moment to
+    mocker.patch.object(fdp_life, "LOCK_SECONDS", 30)
+    _child = subprocess.Popen(
+        [
+            sys.executable,
+            "-c",
+            "import sys, time\n"
+            "import fair.registry.lifecycle as fdp_life\n"
+            "with fdp_life._locked(sys.argv[1]):\n"
+            "    print('locked', flush=True)\n"
+            "    time.sleep(300)\n",
+            registry_dir,
+        ],
+        stdout=subprocess.PIPE,
+        text=True,
+        cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    )
+    try:
+        assert _child.stdout.readline().strip() == "locked"
+    finally:
+        _child.kill()
+        _child.wait()
+    _records = fdp_life.records_directory(registry_dir)
+    assert os.path.exists(os.path.join(_records, fdp_life.LOCK_FILE))
+    with fdp_life._locked(registry_dir):
+        pass
+
+
+@pytest.mark.faircli_lifecycle
 def test_status_names_the_holder_and_the_sessions(
     registry_dir: str, mocker: pytest_mock.MockerFixture
 ):
@@ -479,6 +597,24 @@ def test_session_open_that_fails_prints_nothing_on_stdout(
     assert _result.exit_code == 1
     assert not _result.stdout
     assert "another-host" in _result.stderr
+
+
+@pytest.mark.faircli_lifecycle
+def test_session_open_after_a_reboot_keeps_its_json_alone(
+    registry_dir: str, mocker: pytest_mock.MockerFixture, child
+):
+    _reboot(_Server(mocker), child)
+    _result = _runner().invoke(
+        cli,
+        ["registry", "session", "open", "--pid", str(os.getpid()), "--json"],
+    )
+    assert _result.exit_code == 0, _result.output
+    _session = json.loads(_result.stdout)
+    assert sorted(_session) == ["registry_url", "session", "token_file"]
+    assert "has stopped outside 'fair'" in _result.stderr
+    assert (
+        f"A session not closed by its process, {child.pid}," in _result.stderr
+    )
 
 
 @pytest.mark.faircli_lifecycle

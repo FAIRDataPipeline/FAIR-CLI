@@ -49,6 +49,7 @@ import typing
 import urllib.parse
 import uuid
 
+import click
 import psutil
 import requests
 
@@ -331,22 +332,81 @@ def _on_another_host(
 
 
 # The server record, with every record that no longer holds removed: the
-# server's where it no longer answers as this install's, and the sessions
-# whose processes have gone. A server recorded on another host is refused and
-# nothing is removed
+# server's where it no longer answers as this install's, the sessions whose
+# processes have gone, and any whose writing was cut short. Only something
+# ending outside 'fair' leaves one, so each removal is said. A server recorded
+# on another host is refused and nothing is removed
 def _current_server(registry_dir: str) -> typing.Optional[typing.Dict]:
     _server = _read_record(server_record_file(registry_dir))
     if _server and _server.get("host") != _host():
         raise _on_another_host(registry_dir, _server)
     if _server and not _server_here(registry_dir, _server["uri"]):
-        logger.debug("Removing the record of a server that has stopped")
         _remove(server_record_file(registry_dir))
+        click.echo(_server_gone(_server), err=True)
         _server = None
+    _pids = []
     for _path, _session in _session_records(registry_dir).items():
         if not _session_is_live(_session, _server):
-            logger.debug("Removing the stale session record '%s'", _path)
             _remove(_path)
+            _pids.append(_session.get("pid", "unknown"))
+    if _pids:
+        click.echo(_sessions_gone(_pids), err=True)
+    _unfinished = _unfinished_records(registry_dir)
+    for _path in _unfinished:
+        _remove(_path)
+    if _unfinished:
+        click.echo(_unfinished_gone(_unfinished), err=True)
     return _server
+
+
+# What is said as the record of a registry that has stopped is removed
+def _server_gone(server: typing.Dict) -> str:
+    _said = (
+        f"The local registry recorded as running at {server['uri']} since "
+        f"{server.get('started', 'an unknown time')} has stopped outside "
+        "'fair' - after a restart, say - and its record is removed."
+    )
+    if server.get("holder") == HELD_BY_USER:
+        _said += (
+            " It was started by 'fair registry start': start it again to keep "
+            "it running."
+        )
+    return _said
+
+
+# What is said as the records of sessions their processes did not close are
+# removed
+def _sessions_gone(pids: typing.List) -> str:
+    if len(pids) == 1:
+        return f"A session not closed by its process, {pids[0]}, is removed."
+    return (
+        f"{len(pids)} sessions not closed by their processes are removed: "
+        f"processes {', '.join(str(_pid) for _pid in pids)}."
+    )
+
+
+# The files of records whose writing was cut short. Every record is written,
+# and these are looked for, under the install's lock, so none found is being
+# written; a record written without the lock could be removed half-way
+def _unfinished_records(registry_dir: str) -> typing.List[str]:
+    _dir = records_directory(registry_dir)
+    if not os.path.isdir(_dir):
+        return []
+    return sorted(
+        os.path.join(_dir, _name)
+        for _name in os.listdir(_dir)
+        if _name.endswith(".tmp")
+    )
+
+
+# What is said as the files of records whose writing was cut short are removed
+def _unfinished_gone(paths: typing.List[str]) -> str:
+    _names = ", ".join(os.path.basename(_path) for _path in paths)
+    if len(paths) == 1:
+        return f"A record file left half-written is removed: {_names}."
+    return (
+        f"{len(paths)} record files left half-written are removed: {_names}."
+    )
 
 
 # Record the server this install runs on this host, and who holds it
