@@ -139,6 +139,8 @@ A full description of `config.yaml` files can be found [here](https://www.fairda
 
 Initialises a new FAIR repository within the given directory. This should ideally be the same location as the `.git` folder for the current project, however during setup an option is given to specify an alternative. The command will ask the user a series of questions which will provide metadata for tracking run authors, and also allow for the creation of a starter `config.yaml` file. Initialisation will also configure the CLI itself.
 
+The user's identifier is asked for before their email: where the identifier's record makes an address public - an ORCID's, or a GitHub account's - that address is offered as the email, and with none given a GitHub no-reply address is used.
+
 In a repository that is already initialised the command asks nothing and leaves the repository as it is. It registers the repository's user in the local registry, which a registry [reinstalled](#upgrading-and-reinstalling) since the repository was initialised no longer holds.
 
 #### Custom CLI Configuration

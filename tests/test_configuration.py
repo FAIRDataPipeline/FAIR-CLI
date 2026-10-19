@@ -189,6 +189,7 @@ def test_user_info(mocker: pytest_mock.MockerFixture):
 
     mocker.patch("click.prompt", lambda x, default=None: _override[x] or default)
     mocker.patch("fair.identifiers.check_orcid", lambda *args: _orcid_override)
+    mocker.patch("fair.identifiers.check_orcid_email", return_value=None)
 
     _orc = fdp_conf._get_user_info_and_namespaces()
 
@@ -201,6 +202,65 @@ def test_user_info(mocker: pytest_mock.MockerFixture):
 
     assert not deepdiff.DeepDiff(_noorc, _expect_noorc)
     assert not deepdiff.DeepDiff(_orc, _expect_orcid)
+
+
+@pytest.mark.faircli_configuration
+@pytest.mark.parametrize(
+    "system, answers, found",
+    [
+        ("GITHUB", {"GitHub Username": "jbloggs"}, "jbloggs@example.org"),
+        ("ORCID", {"ORCID": "0000-0000-0000-0000"}, "joseph@example.org"),
+        ("None", {"Full Name": "Joseph Bloggs"}, ""),
+    ],
+)
+def test_email_asked_after_the_identifier(
+    mocker: pytest_mock.MockerFixture, system, answers, found
+):
+    # The address the identifier's record gives is offered as the default
+    mocker.patch(
+        "fair.identifiers.check_github",
+        return_value={
+            "name": "Joseph Bloggs",
+            "family_name": "Bloggs",
+            "given_names": "Joseph",
+            "github": "jbloggs",
+            "uri": "https://github.com/jbloggs",
+            "email": "jbloggs@example.org",
+        },
+    )
+    mocker.patch(
+        "fair.identifiers.check_orcid",
+        return_value={
+            "name": "Joseph Bloggs",
+            "family_name": "Bloggs",
+            "given_names": "Joseph",
+            "uri": "https://orcid.org/0000-0000-0000-0000",
+        },
+    )
+    mocker.patch(
+        "fair.identifiers.check_orcid_email", return_value="joseph@example.org"
+    )
+    _asked = []
+    _answers = {
+        "User ID system (GITHUB/GITLAB/ORCID/ROR/GRID/None)": system,
+        **answers,
+    }
+
+    def _prompt(text, default=None):
+        _asked.append((text, default))
+        return _answers.get(text, default)
+
+    mocker.patch("click.prompt", _prompt)
+    _info = fdp_conf._get_user_info_and_namespaces(local=True)
+    _questions = [text for text, _ in _asked]
+    assert _questions.index("Email (optional)") > _questions.index(
+        "User ID system (GITHUB/GITLAB/ORCID/ROR/GRID/None)"
+    )
+    assert dict(_asked)["Email (optional)"] == found
+    # Taken as offered; with nothing to offer, the no-reply address
+    assert _info["user"]["email"] == (
+        found or "FAIRDataPipeline@users.noreply.github.com"
+    )
 
 
 @pytest.mark.faircli_configuration

@@ -220,3 +220,56 @@ def test_check_permitted_ror_through_the_api():
         pytest.skip("Cannot Reach ROR API")
     assert fdp_id.check_id_permitted(f"https://ror.org/{ROR_ID}")
     assert not fdp_id.check_id_permitted("https://ror.org/0000notaror")
+
+
+@pytest.mark.faircli_ids
+def test_check_github_gives_a_public_email(mocker: pytest_mock.MockerFixture):
+    mocker.patch.dict(fdp_id.os.environ, {}, clear=True)
+    _response = _GitHubResponse(200)
+    _response.json = lambda: {
+        "login": GITHUB_USER,
+        "name": "FAIR Data Pipeline",
+        "email": "pipeline@example.org",
+    }
+    _fake_github(mocker, _response)
+    assert fdp_id.check_github(GITHUB_USER)["email"] == "pipeline@example.org"
+    # None where its holder made none public
+    _fake_github(mocker, _GitHubResponse(200))
+    assert fdp_id.check_github(GITHUB_USER)["email"] is None
+
+
+@pytest.mark.faircli_ids
+@pytest.mark.parametrize(
+    "status, found, expected",
+    [
+        (
+            200,
+            {"expanded-result": [{"email": ["a@example.org", "b@example.org"]}]},
+            "a@example.org",
+        ),
+        (200, {"expanded-result": [{"email": []}]}, None),
+        (200, {"expanded-result": None}, None),
+        (500, {}, None),
+    ],
+    ids=["public", "none public", "no such record", "refused"],
+)
+def test_check_orcid_email(
+    mocker: pytest_mock.MockerFixture, status, found, expected
+):
+    _get = mocker.patch.object(
+        fdp_id.requests,
+        "get",
+        return_value=mocker.Mock(status_code=status, json=lambda: found),
+    )
+    assert fdp_id.check_orcid_email(f"https://orcid.org/{ORCID_ID}") == expected
+    assert _get.call_args.kwargs["params"] == {"q": f"orcid:{ORCID_ID}"}
+
+
+@pytest.mark.faircli_ids
+def test_check_orcid_email_unreachable(mocker: pytest_mock.MockerFixture):
+    mocker.patch.object(
+        fdp_id.requests,
+        "get",
+        side_effect=fdp_id.requests.exceptions.ConnectionError("down"),
+    )
+    assert fdp_id.check_orcid_email(ORCID_ID) is None

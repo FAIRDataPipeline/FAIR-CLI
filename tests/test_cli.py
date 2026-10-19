@@ -245,9 +245,9 @@ def test_init_full(
             "0123456789012345678901234567890123456789",  # remote token
             "n",  # not to keep the registry running on that port
             "",  # default data store
-            _dummy_email,  # email
             "NONE",  # id system
             _dummy_name,  # Full name
+            _dummy_email,  # email
             "",  # Output namespace
             "",  # Input namespace
             pySimpleModel,  # Repo
@@ -315,9 +315,9 @@ def test_init_local(
         _args = [
             "8000",
             "",
-            _dummy_email,
             "NONE",
             _dummy_name,
+            _dummy_email,
             "",
             "",
             pySimpleModel,

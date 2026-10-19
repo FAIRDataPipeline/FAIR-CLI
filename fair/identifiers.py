@@ -12,6 +12,7 @@ Contents
 Functions
 ---------
     check_orcid - verify an ORCID and return name information
+    check_orcid_email - an email address an ORCID's holder has made public
     check_ror - verify a ROR and return name information
     check_grid - verify a GRID ID and return name information
 """
@@ -88,6 +89,38 @@ def check_orcid(orcid: str) -> typing.Dict:
     return _result_dict
 
 
+def check_orcid_email(orcid: str) -> typing.Optional[str]:
+    """Return an email address the holder of an ORCID has made public, if any
+
+    ORCID's search gives it where the record itself may list none.
+
+    Parameters
+    ----------
+    orcid : str
+        ORCID whose holder's address is wanted
+
+    Returns
+    -------
+    typing.Optional[str]
+        the first public address, or None
+    """
+    orcid = orcid.replace(ID_URIS["orcid"], "")
+    _url = urllib.parse.urljoin(QUERY_URLS["orcid"], "expanded-search/")
+    try:
+        _response = requests.get(
+            _url, params={"q": f"orcid:{orcid}"}, headers=JSON_HEADERS, timeout=30
+        )
+    except requests.exceptions.RequestException as e:
+        logger.debug(f"{_url} could not be asked: {e}")
+        return None
+    if _response.status_code != 200:
+        logger.debug(f"{_url} Responded with {_response.status_code}")
+        return None
+    _results = _response.json().get("expanded-result") or []
+    _emails = _results[0].get("email") if _results else None
+    return _emails[0] if _emails else None
+
+
 def check_github(github: str) -> typing.Dict:
     """Checks if valid GitHub Username using GitHub Username public api
 
@@ -147,6 +180,8 @@ def check_github(github: str) -> typing.Dict:
     _result_dict["name"] = _name
     _result_dict["github"] = _login
     _result_dict["uri"] = f'{ID_URIS["github"]}{_login}'
+    # Public where its holder made it so, else None
+    _result_dict["email"] = _response.json().get("email")
 
     return _result_dict
 

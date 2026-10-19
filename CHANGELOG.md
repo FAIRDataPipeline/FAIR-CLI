@@ -12,6 +12,9 @@
   remove nothing while a command is using it or it runs on another machine.
 - Two versions of the CLI sharing one registry install are not supported: one of an earlier version neither records
   its sessions nor respects this one's.
+- `fair init` asks for the user's identifier before their email, and offers as the email the address the
+  identifier's record makes public - an ORCID's or a GitHub account's. Anything answering its questions in order
+  must put the email after the identifier.
 - A `read:` wildcard's own entry is kept in the working config beside the entries it expands to, as a `write:`
   wildcard's is, so that an API can tell a pattern that matched nothing from one never given. `fair pull` fetches
   nothing for it. Its version - its matches' highest, the version it names, or 0.0.0 - means nothing.
