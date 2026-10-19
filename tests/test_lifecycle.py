@@ -1,5 +1,6 @@
 import inspect
 import json
+import logging
 import os
 import subprocess
 import sys
@@ -292,6 +293,89 @@ def test_a_record_whose_writing_was_cut_short_is_removed(
     assert (
         "half-written is removed: tmpcutshort.tmp" in capsys.readouterr().err
     )
+
+
+@pytest.mark.faircli_lifecycle
+def test_a_record_that_cannot_be_removed_is_said_and_left(
+    registry_dir: str, mocker: pytest_mock.MockerFixture, child, capsys
+):
+    _server = _Server(mocker)
+    _reboot(_server, child)
+    _stale = _sessions(registry_dir)
+    capsys.readouterr()
+    mocker.patch.object(
+        fdp_life.os,
+        "remove",
+        side_effect=PermissionError(13, "Permission denied"),
+    )
+    mocker.patch.object(fdp_life.time, "sleep")
+
+    # The command carries on, the registry started again
+    fdp_life.open_session()
+    assert _server.launch.call_count == 2
+    _said = capsys.readouterr().err
+    assert _said.count("could not be removed: Permission denied") == 2
+    assert "is removed" not in _said
+    assert all(os.path.exists(_path) for _path in _stale)
+
+
+@pytest.mark.faircli_lifecycle
+def test_on_windows_a_file_held_open_is_waited_for(
+    mocker: pytest_mock.MockerFixture, tmp_path
+):
+    mocker.patch.object(fdp_life.platform, "system", return_value="Windows")
+    _sleep = mocker.patch.object(fdp_life.time, "sleep")
+    _in_use = PermissionError(13, "in use by another process")
+    _remove = mocker.patch.object(
+        fdp_life.os, "remove", side_effect=[_in_use, _in_use, None]
+    )
+    assert fdp_life._remove(os.path.join(tmp_path, "record.json"))
+    assert _remove.call_count == 3
+    assert _sleep.call_count == 2
+
+
+@pytest.mark.faircli_lifecycle
+def test_a_session_whose_start_time_cannot_be_read_is_kept_and_said(
+    local_config: typing.Tuple[str, str],
+    registry_dir: str,
+    mocker: pytest_mock.MockerFixture,
+    child,
+    capsys,
+    caplog,
+):
+    # The session's process has gone, and its id is now a process whose start
+    # time the system will not give, as a protected one's on Windows
+    _Server(mocker)
+    fdp_life.start_for_user(port=8000)
+    fdp_life.open_session(pid=child.pid)
+    child.kill()
+    child.wait()
+    _real = fdp_life.psutil.Process
+
+    def _process(pid=None):
+        if pid == child.pid:
+            raise fdp_life.psutil.AccessDenied(pid)
+        return _real(pid)
+
+    mocker.patch.object(fdp_life.psutil, "Process", side_effect=_process)
+    capsys.readouterr()
+
+    with caplog.at_level(logging.WARNING, logger="FAIRDataPipeline"):
+        _status = fdp_life.status()
+        assert [_s["pid"] for _s in _status["sessions"]] == [child.pid]
+        assert _status["sessions"][0]["start_unreadable"]
+        with pytest.raises(
+            fdp_exc.UnexpectedRegistryServerState,
+            match="start time cannot be read",
+        ):
+            fdp_life.stop_for_user()
+    # Said where it matters, not on every command
+    assert not capsys.readouterr().err
+    assert not [_r for _r in caplog.records if _r.levelno >= logging.WARNING]
+
+    _result = click.testing.CliRunner().invoke(cli, ["registry", "status"])
+    assert _result.exit_code == 0, _result.output
+    assert f"{fdp_life.START_UNREADABLE})" in _result.output
 
 
 # A server record written as though on another host

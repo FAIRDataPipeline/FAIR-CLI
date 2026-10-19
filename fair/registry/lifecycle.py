@@ -81,6 +81,12 @@ HELD_BY_USER = "user"
 HELD_BY_SESSIONS = "sessions"
 HELD_BY_NOBODY = "nobody"
 
+# What is said of a session whose process exists but whose start time cannot
+# be read, as on Windows for a protected process given a dead one's id
+START_UNREADABLE = (
+    "its start time cannot be read, so it is taken to be running"
+)
+
 # The locks this process holds, by file, with how deeply each is held: a
 # second lock on the same file from one process would deadlock on Windows,
 # and releasing it would release the first on Unix
@@ -222,10 +228,28 @@ def _write_record(path: str, record: typing.Dict) -> None:
     os.replace(_temp, path)
 
 
-# Remove a file that may already have gone
-def _remove(path: str) -> None:
-    with contextlib.suppress(FileNotFoundError):
-        os.remove(path)
+# Remove a file that may already have gone, saying whether it has. On Windows
+# a file another process has open - a virus scanner, an indexer - cannot be
+# removed until it is closed, so that is waited for briefly. One that still
+# cannot be removed is said and left: a stale record left is judged again next
+# time
+def _remove(path: str) -> bool:
+    _tries = 5 if platform.system() == "Windows" else 1
+    for _try in range(_tries):
+        try:
+            os.remove(path)
+            return True
+        except FileNotFoundError:
+            return True
+        except OSError as e:
+            if _try + 1 < _tries:
+                time.sleep(0.2)
+                continue
+            click.echo(
+                f"Warning: '{path}' could not be removed: {e.strerror or e}",
+                err=True,
+            )
+    return False
 
 
 # Every session record of an install, by its file
@@ -252,6 +276,18 @@ def _process_alive(pid: int, started: float) -> bool:
         return False
     except psutil.AccessDenied:
         return True
+
+
+# Whether a process's start time cannot be read, so that whether it is the
+# process a record names cannot be told
+def _start_unreadable(pid: typing.Optional[int]) -> bool:
+    try:
+        psutil.Process(pid).create_time()
+    except psutil.AccessDenied:
+        return True
+    except (psutil.Error, TypeError, ValueError):
+        pass
+    return False
 
 
 # When a process started, to tell it from a later one given its id
@@ -341,19 +377,18 @@ def _current_server(registry_dir: str) -> typing.Optional[typing.Dict]:
     if _server and _server.get("host") != _host():
         raise _on_another_host(registry_dir, _server)
     if _server and not _server_here(registry_dir, _server["uri"]):
-        _remove(server_record_file(registry_dir))
-        click.echo(_server_gone(_server), err=True)
+        if _remove(server_record_file(registry_dir)):
+            click.echo(_server_gone(_server), err=True)
         _server = None
     _pids = []
     for _path, _session in _session_records(registry_dir).items():
-        if not _session_is_live(_session, _server):
-            _remove(_path)
+        if not _session_is_live(_session, _server) and _remove(_path):
             _pids.append(_session.get("pid", "unknown"))
     if _pids:
         click.echo(_sessions_gone(_pids), err=True)
-    _unfinished = _unfinished_records(registry_dir)
-    for _path in _unfinished:
-        _remove(_path)
+    _unfinished = [
+        _path for _path in _unfinished_records(registry_dir) if _remove(_path)
+    ]
     if _unfinished:
         click.echo(_unfinished_gone(_unfinished), err=True)
     return _server
@@ -681,10 +716,17 @@ def _remove_records(registry_dir: str) -> None:
         _remove(_path)
 
 
-# The processes of sessions, as a user would know them
+# The processes of sessions, as a user would know them, with a word on one
+# that is only taken to be running
 def _describe_sessions(sessions: typing.List[typing.Dict]) -> str:
     return ", ".join(
-        f"process {_session.get('pid')} ({_command(_session.get('pid'))})"
+        f"process {_session.get('pid')} ({_command(_session.get('pid'))}"
+        + (
+            f"; {START_UNREADABLE}"
+            if _start_unreadable(_session.get("pid"))
+            else ""
+        )
+        + ")"
         for _session in sessions
     )
 
@@ -733,7 +775,8 @@ def status(registry_dir: str = None) -> typing.Dict[str, typing.Any]:
         the server record ("server", None where there is none), whether it
         is on another host ("elsewhere"), the file holding it
         ("record_file"), and the live sessions ("sessions"), each with the
-        command its process runs ("command")
+        command its process runs ("command") and whether its start time
+        cannot be read ("start_unreadable")
     """
     registry_dir = registry_dir or fdp_com.registry_home()
     _status = {
@@ -749,7 +792,11 @@ def status(registry_dir: str = None) -> typing.Dict[str, typing.Any]:
         else:
             _status["server"] = _current_server(registry_dir)
         _status["sessions"] = [
-            {**_session, "command": _command(_session.get("pid"))}
+            {
+                **_session,
+                "command": _command(_session.get("pid")),
+                "start_unreadable": _start_unreadable(_session.get("pid")),
+            }
             for _session in _session_records(registry_dir).values()
         ]
     return _status

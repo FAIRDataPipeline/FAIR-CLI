@@ -359,10 +359,15 @@ class FAIR:
                 f"'{_status['record_file']}')"
             )
         for _session in _status["sessions"]:
+            _unreadable = (
+                f"; {fdp_life.START_UNREADABLE}"
+                if _session.get("start_unreadable")
+                else ""
+            )
             click.echo(
                 f"Session {_session.get('id')}: process {_session.get('pid')} "
                 f"on '{_session.get('host')}' since {_session.get('opened')}"
-                f" ({_session['command']})"
+                f" ({_session['command']}{_unreadable})"
             )
 
     def push(self, remote: str = "origin"):
