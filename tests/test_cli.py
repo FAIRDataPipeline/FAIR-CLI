@@ -671,6 +671,31 @@ def test_init_that_fails_in_a_subdirectory_leaves_the_repository(
 
 
 @pytest.mark.faircli_cli
+def test_init_in_a_subdirectory_makes_its_own_staging_file(
+    local_config: typing.Tuple[str, str],
+    click_test: click.testing.CliRunner,
+    mocker: pytest_mock.MockerFixture,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+):
+    mocker.patch("fair.common.find_fair_root", _FIND_FAIR_ROOT)
+    mocker.patch("fair.registry.server.update_registry_post_setup")
+    _subdir = os.path.join(local_config[1], "subdir")
+    os.makedirs(_subdir)
+    monkeypatch.chdir(_subdir)
+    _repo_staging = os.path.join(
+        local_config[1], fdp_com.FAIR_FOLDER, "staging"
+    )
+    assert not os.path.exists(_repo_staging)
+    _using = _using_file(tmp_path, _cli_configuration(tmp_path))
+    _result = click_test.invoke(cli, ["init", "--using", _using], input="y\n")
+    assert _result.exit_code == 0, _result.output
+    with open(os.path.join(_subdir, fdp_com.FAIR_FOLDER, "staging")) as in_f:
+        assert yaml.safe_load(in_f) == _EMPTY_STAGING
+    assert not os.path.exists(_repo_staging)
+
+
+@pytest.mark.faircli_cli
 def test_init_that_fails_registering_its_user_is_completed_by_init_again(
     click_test: click.testing.CliRunner,
     fresh_fair_dir: str,

@@ -1300,6 +1300,8 @@ class FAIR:
                 os.makedirs(_fair_dir, exist_ok=True)
                 if using:
                     self._validate_and_load_cli_config(using)
+                # One made before this '.fair' existed holds a parent's staging
+                self._stager = fdp_stage.Stager(self._session_loc)
                 self._stager.initialise()
 
             if not self._global_config_present():

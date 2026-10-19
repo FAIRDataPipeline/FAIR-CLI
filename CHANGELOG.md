@@ -77,6 +77,8 @@
   unfinished, or the global configuration empty.
 - `fair init` failing in a subdirectory of a project could write the configuration it had refused over the project's;
   the project's is now left as it was.
+- `fair init` in a subdirectory of a project made the project's staging file and not its own, so a later command
+  there that staged something failed; it now makes its own.
 
 # 2026-10-05 [v0.10.2](https://github.com/FAIRDataPipeline/FAIR-CLI/releases/tag/v0.10.2)
 
