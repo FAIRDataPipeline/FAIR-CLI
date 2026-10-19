@@ -220,36 +220,54 @@ def _read_record(path: str) -> typing.Optional[typing.Dict]:
         return None
 
 
-# Write a record whole or not at all, by renaming a complete file into place
+# Apply an operation to files, trying again briefly on Windows, where a file
+# another process has open - a virus scanner, an indexer - cannot be removed
+# or replaced until it is closed. A file that is not there is not waited for
+def _retried(operation: typing.Callable[..., None], *paths: str) -> None:
+    _tries = 5 if platform.system() == "Windows" else 1
+    for _try in range(_tries):
+        try:
+            operation(*paths)
+            return
+        except FileNotFoundError:
+            raise
+        except OSError:
+            if _try + 1 == _tries:
+                raise
+            time.sleep(0.2)
+
+
+# Write a record whole or not at all, by renaming a complete file into place.
+# One that cannot be put in place is an error, and its complete file removed
 def _write_record(path: str, record: typing.Dict) -> None:
     _out_fd, _temp = tempfile.mkstemp(dir=os.path.dirname(path), suffix=".tmp")
     with os.fdopen(_out_fd, "w", encoding="utf-8") as out_f:
         json.dump(record, out_f, indent=2)
-    os.replace(_temp, path)
+    try:
+        _retried(os.replace, _temp, path)
+    except OSError as e:
+        _remove(_temp)
+        raise fdp_exc.RegistryError(
+            f"The record '{path}' could not be written: {e.strerror or e}",
+            hint="Try again once no other program has it open",
+        ) from e
 
 
-# Remove a file that may already have gone, saying whether it has. On Windows
-# a file another process has open - a virus scanner, an indexer - cannot be
-# removed until it is closed, so that is waited for briefly. One that still
-# cannot be removed is said and left: a stale record left is judged again next
-# time
+# Remove a file that may already have gone, saying whether it has. One that
+# cannot be removed is said and left: a stale record left is judged again
+# next time
 def _remove(path: str) -> bool:
-    _tries = 5 if platform.system() == "Windows" else 1
-    for _try in range(_tries):
-        try:
-            os.remove(path)
-            return True
-        except FileNotFoundError:
-            return True
-        except OSError as e:
-            if _try + 1 < _tries:
-                time.sleep(0.2)
-                continue
-            click.echo(
-                f"Warning: '{path}' could not be removed: {e.strerror or e}",
-                err=True,
-            )
-    return False
+    try:
+        _retried(os.remove, path)
+    except FileNotFoundError:
+        pass
+    except OSError as e:
+        click.echo(
+            f"Warning: '{path}' could not be removed: {e.strerror or e}",
+            err=True,
+        )
+        return False
+    return True
 
 
 # Every session record of an install, by its file

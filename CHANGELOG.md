@@ -15,8 +15,9 @@
 - Records left behind when the registry or a session ends outside `fair` - a restart, a crash, a killed process - are
   removed with a line saying what was removed and why, naming `fair registry start` where that had started the
   registry. A record left half-written is removed the same way. One that cannot be removed - on Windows, a file
-  another program has open - is waited for briefly, then named and left, and the command carries on. A session
-  whose process cannot be checked is taken to be running, and says so where it stops the registry being stopped.
+  another program has open - is waited for briefly, then named and left, and the command carries on; one that
+  cannot be written is waited for the same way, then is an error naming it. A session whose process cannot be
+  checked is taken to be running, and says so where it stops the registry being stopped.
 - `fair init` asks for the user's identifier before their email, and offers as the email the address the
   identifier's record makes public - an ORCID's or a GitHub account's. Anything answering its questions in order
   must put the email after the identifier.

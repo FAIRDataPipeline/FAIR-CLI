@@ -335,6 +335,65 @@ def test_on_windows_a_file_held_open_is_waited_for(
 
 
 @pytest.mark.faircli_lifecycle
+def test_on_windows_a_file_already_gone_is_not_waited_for(
+    mocker: pytest_mock.MockerFixture, tmp_path
+):
+    mocker.patch.object(fdp_life.platform, "system", return_value="Windows")
+    _sleep = mocker.patch.object(fdp_life.time, "sleep")
+    assert fdp_life._remove(os.path.join(tmp_path, "record.json"))
+    _sleep.assert_not_called()
+
+
+@pytest.mark.faircli_lifecycle
+def test_on_windows_a_record_held_open_is_waited_for(
+    mocker: pytest_mock.MockerFixture, tmp_path
+):
+    mocker.patch.object(fdp_life.platform, "system", return_value="Windows")
+    _sleep = mocker.patch.object(fdp_life.time, "sleep")
+    _replace = os.replace
+    _in_use = [PermissionError(13, "in use by another process")] * 2
+
+    def _replace_once_closed(*paths):
+        if _in_use:
+            raise _in_use.pop()
+        _replace(*paths)
+
+    mocker.patch.object(
+        fdp_life.os, "replace", side_effect=_replace_once_closed
+    )
+    _path = os.path.join(tmp_path, "record.json")
+    fdp_life._write_record(_path, {"id": "a"})
+    assert fdp_life._read_record(_path) == {"id": "a"}
+    assert _sleep.call_count == 2
+    assert os.listdir(tmp_path) == ["record.json"]
+
+
+@pytest.mark.faircli_lifecycle
+def test_a_record_that_cannot_be_written_is_an_error_and_leaves_nothing(
+    registry_dir: str, mocker: pytest_mock.MockerFixture
+):
+    _server = _Server(mocker)
+    _replace = mocker.patch.object(
+        fdp_life.os,
+        "replace",
+        side_effect=PermissionError(13, "Access is denied"),
+    )
+    with pytest.raises(fdp_exc.RegistryError) as e:
+        fdp_life.open_session()
+    _file = fdp_life.server_record_file(registry_dir)
+    assert f"'{_file}' could not be written: Access is denied" in e.value.msg
+    assert os.listdir(fdp_life.records_directory(registry_dir)) == [
+        fdp_life.LOCK_FILE
+    ]
+
+    # The registry started is used by the next command, as one found running
+    mocker.stop(_replace)
+    _session = fdp_life.open_session()
+    assert _server.launch.call_count == 1
+    fdp_life.close_session(_session["session"])
+
+
+@pytest.mark.faircli_lifecycle
 def test_a_session_whose_start_time_cannot_be_read_is_kept_and_said(
     local_config: typing.Tuple[str, str],
     registry_dir: str,
