@@ -113,14 +113,32 @@ class RunMetadata(pydantic.BaseModel):
         title="script path",
         description="path of script to execute during a run",
     )
-    shell: typing.Optional[SupportedShells] = pydantic.Field(
-        None, title="shell", description="shell to use for script execution"
+    shell: typing.Optional[str] = pydantic.Field(
+        None,
+        title="shell",
+        description="shell to use for script execution, then any flags for "
+        "its program",
     )
     public: typing.Optional[bool] = pydantic.Field(
         True,
         title="public",
         description="whether items are/should be publically accessible",
     )
+
+    # A shell is a supported shell's name, then any flags for its program
+    @pydantic.validator("shell")
+    def shell_is_supported(
+        cls, shell: typing.Optional[str]
+    ) -> typing.Optional[str]:
+        if shell is None:
+            return shell
+        _supported = [s.value for s in SupportedShells]
+        _words = shell.split()
+        if not _words or _words[0] not in _supported:
+            raise ValueError(
+                f"must start with one of: {', '.join(_supported)}"
+            )
+        return shell
 
     class Config:
         extra = "forbid"

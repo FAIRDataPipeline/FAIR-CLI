@@ -9,6 +9,7 @@ import sys
 import typing
 
 import git
+import pydantic
 import pytest
 import pytest_mock
 import yaml
@@ -461,6 +462,119 @@ def test_execute_uses_run_metadata_shell(mocker: pytest_mock.MockerFixture):
 
 
 @pytest.mark.faircli_user_config
+@pytest.mark.parametrize(
+    "shell, command",
+    [
+        ("julia --project=@.", ["julia", "--project=@.", "script"]),
+        ("bash -x", ["bash", "-x", "-eo", "pipefail", "script"]),
+        ("pwsh -NoProfile", ["pwsh", "-NoProfile", "-command", ". 'script'"]),
+        (
+            "R  --vanilla --quiet ",
+            ["R", "--vanilla", "--quiet", "-f", "script"],
+        ),
+        ("python3 -X{0}", ["python3", "-X{0}", "script"]),
+    ],
+    ids=["julia", "bash", "pwsh", "R", "brace"],
+)
+def test_execute_puts_a_shells_flags_after_its_program(
+    shell: str, command: typing.List[str], mocker: pytest_mock.MockerFixture
+):
+    _config = fdp_user.JobConfiguration()
+    _config._config = {
+        "run_metadata": {
+            "local_repo": os.getcwd(),
+            "script_path": "script",
+            "shell": shell,
+        }
+    }
+    _config.env = {"PATH": ""}
+    _config._log_file = io.StringIO()
+    mocker.patch(
+        "fair.configuration.get_current_user_name", lambda *args: [""]
+    )
+    mocker.patch("fair.configuration.get_current_user_email", lambda *args: "")
+    _popen = mocker.patch("subprocess.Popen")
+    _popen.return_value.stdout.readline.return_value = ""
+    _popen.return_value.returncode = 0
+
+    _config.execute()
+    assert _popen.call_args.args[0] == command
+
+
+@pytest.mark.faircli_user_config
+@pytest.mark.parametrize(
+    "shell, said",
+    [
+        ("jula", "Unknown shell 'jula'"),
+        ("", "Unknown shell ''"),
+        ("batch -x", "The shell 'batch' takes no flags"),
+    ],
+    ids=["unknown", "empty", "batch"],
+)
+def test_a_shell_that_cannot_run_the_script_is_refused(
+    shell: str, said: str, tmp_path
+):
+    _config = fdp_user.JobConfiguration()
+    _config._config = {
+        "run_metadata": {
+            "local_repo": str(tmp_path),
+            "script": "echo",
+            "shell": shell,
+        }
+    }
+    _config._job_dir = str(tmp_path)
+    with pytest.raises(fdp_exc.UserConfigError, match=re.escape(said)):
+        _config.setup_job_script()
+    assert not os.listdir(tmp_path)
+
+
+@pytest.mark.faircli_user_config
+def test_a_script_takes_its_extension_from_the_shells_name(tmp_path):
+    _config = fdp_user.JobConfiguration()
+    _config._config = {
+        "run_metadata": {
+            "local_repo": str(tmp_path),
+            "script": 'println("fair-ran-it")',
+            "shell": "julia --project=@.",
+        }
+    }
+    _config._job_dir = str(tmp_path)
+    _job = _config.setup_job_script()
+    assert _job["script"] == os.path.join(tmp_path, "script.jl")
+    assert _config.shell == "julia --project=@."
+
+
+@pytest.mark.faircli_user_config
+@pytest.mark.parametrize(
+    "shell, valid",
+    [
+        ("julia", True),
+        ("julia --project=@.", True),
+        ("jula --project=@.", False),
+        ("--project=@. julia", False),
+        ("", False),
+    ],
+)
+def test_the_schema_takes_a_shell_with_flags(shell: str, valid: bool):
+    _metadata = {
+        "local_repo": os.getcwd(),
+        "latest_commit": "0" * 40,
+        "remote_repo": "https://github.com/FAIRDataPipeline/FAIR-CLI",
+        "local_data_registry_url": "http://127.0.0.1:8000/api/",
+        "remote_data_registry_url": "http://127.0.0.1:8001/api/",
+        "default_input_namespace": "testing",
+        "default_output_namespace": "testing",
+        "write_data_store": os.getcwd(),
+        "shell": shell,
+    }
+    if valid:
+        assert fdp_valid.RunMetadata(**_metadata).shell == shell
+    else:
+        with pytest.raises(pydantic.ValidationError, match="must start with"):
+            fdp_valid.RunMetadata(**_metadata)
+
+
+@pytest.mark.faircli_user_config
 def test_execute_output_unencodable(
     mocker: pytest_mock.MockerFixture, monkeypatch: pytest.MonkeyPatch
 ):
@@ -541,6 +655,63 @@ def test_execute_script_under_a_path_with_a_space(
 
     _config.execute()
     assert "fair-ran-it" in _config._log_file.getvalue()
+
+
+# A shell with flags, a script for it, and what the script prints: for sh,
+# bash, python3 and julia, only when the flags reach the program
+_FLAGGED_SHELLS = {
+    "sh -x": ('echo "fair-ran-it"\n', "+ echo"),
+    "bash -x": ('echo "fair-ran-it"\n', "+ echo"),
+    "python3 -O": (
+        'print("asserts", "off" if not __debug__ else "on")\n',
+        "asserts off",
+    ),
+    "julia --project=@.": (
+        'println(Base.active_project() == joinpath(pwd(), "Project.toml") '
+        '? "in its project" : "elsewhere")\n',
+        "in its project",
+    ),
+    "pwsh -NoProfile": ('Write-Output "fair-ran-it"\n', "fair-ran-it"),
+    "powershell -NoProfile": ('Write-Output "fair-ran-it"\n', "fair-ran-it"),
+}
+
+
+@pytest.mark.faircli_user_config
+@pytest.mark.parametrize("shell", sorted(_FLAGGED_SHELLS))
+def test_execute_gives_a_shell_its_flags(
+    shell: str, mocker: pytest_mock.MockerFixture, tmp_path
+):
+    _name = shell.split()[0]
+    _windows = platform.system() == "Windows"
+    if _name not in (_WINDOWS_SHELLS if _windows else _OTHER_SHELLS):
+        pytest.skip(f"Shell '{_name}' is not one for this platform")
+    if not shutil.which(_name):
+        pytest.skip(f"Shell '{_name}' is not installed")
+
+    # The repository is a Julia project, for '--project=@.' to find
+    _repo = tmp_path / "repo dir"
+    _repo.mkdir()
+    (_repo / "Project.toml").write_text("")
+    _text, _printed = _FLAGGED_SHELLS[shell]
+    _script = _repo / f"script.{fdp_user.SHELLS[_name]['extension']}"
+    _script.write_text(_text)
+    _config = fdp_user.JobConfiguration()
+    _config._config = {
+        "run_metadata": {
+            "local_repo": str(_repo),
+            "script_path": str(_script),
+            "shell": shell,
+        }
+    }
+    _config.env = dict(os.environ)
+    _config._log_file = io.StringIO()
+    mocker.patch(
+        "fair.configuration.get_current_user_name", lambda *args: [""]
+    )
+    mocker.patch("fair.configuration.get_current_user_email", lambda *args: "")
+
+    _config.execute()
+    assert _printed in _config._log_file.getvalue()
 
 
 @pytest.mark.faircli_user_config

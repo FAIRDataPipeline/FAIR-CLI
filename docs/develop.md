@@ -122,7 +122,7 @@ This is the main file the user will interact with to customise their run. FAIR-C
 | **`script_path`**                                                                                                                                    |
 | This is a direct path to an existing script to use for submission.                                                                                   |
 
-By default the shell used will be `sh` or `pwsh` for UNIX and Windows systems respectively, however this can be overwritten with the optional `shell` key which recognises the following values (where `{0}` is the script file):
+By default the shell used will be `sh` or `batch` for UNIX and Windows systems respectively, however this can be overwritten with the optional `shell` key which recognises the following values (where `{0}` is the script file):
 
 | **Shell**    | **Command**                     |
 | ------------ | ------------------------------- |
@@ -136,6 +136,8 @@ By default the shell used will be `sh` or `pwsh` for UNIX and Windows systems re
 | `python`     | `python {0}`                    |
 | `R`          | `R -f {0}`                      |
 | `sh`         | `sh -e {0}`                     |
+
+Flags for a shell's program follow its name, separated by spaces, and go straight after the program: `shell: julia --project=@.` runs `julia --project=@. {0}`, starting Julia in the repository's project. A flag cannot contain a space, and `batch`, which has no program, takes none.
 
 | **NOTE**                                                                                                                                                                                                                                            |
 | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

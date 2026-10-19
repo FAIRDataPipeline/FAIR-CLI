@@ -131,6 +131,8 @@ By default the shell used to execute a process is `sh` or `batch` for UNIX and W
 | `sh`         | `sh -e {0}`                     |
 | `batch`      | `{0}`                           |
 
+Flags for a shell's program follow its name, separated by spaces, and go straight after the program: `shell: julia --project=@.` runs `julia --project=@. {0}`, starting Julia in the repository's project, and `shell: bash -x` runs `bash -x -eo pipefail {0}`. A flag cannot contain a space, and `batch`, which has no program, takes none.
+
 A full description of `config.yaml` files can be found [here](https://www.fairdatapipeline.org/docs/interface/config/).
 
 ## Available Commands

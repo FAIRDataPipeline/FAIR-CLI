@@ -95,6 +95,24 @@ SHELLS: typing.Dict[str, str] = {
 }
 
 
+# A configuration's shell, a name in SHELLS then any flags for its program,
+# split on whitespace, so that a flag cannot hold a space
+def _shell_name_and_flags(shell: str) -> typing.Tuple[str, typing.List[str]]:
+    _words = shell.split()
+    if not _words or _words[0] not in SHELLS:
+        raise fdp_exc.UserConfigError(
+            f"Unknown shell '{shell}' in 'run_metadata'",
+            hint="It must start with one of: " + ", ".join(SHELLS),
+        )
+    _name, _flags = _words[0], _words[1:]
+    if _flags and SHELLS[_name]["exec"][0] == "{0}":
+        raise fdp_exc.UserConfigError(
+            f"The shell '{_name}' takes no flags: it runs the script itself, "
+            "with no program to give them to"
+        )
+    return _name, _flags
+
+
 # Apply a function to every string in a configuration's nested dicts and lists,
 # keys included, returning the new structure
 def _map_strings(item: typing.Any, func: typing.Callable) -> typing.Any:
@@ -612,14 +630,16 @@ class JobConfiguration(MutableMapping):
 
         self._logger.debug("Will use shell: %s", _shell)
 
+        _name, _ = _shell_name_and_flags(_shell)
+
         if "script" in self["run_metadata"]:
             _cmd = self["run_metadata.script"]
 
-            if "extension" not in SHELLS[_shell]:
+            if "extension" not in SHELLS[_name]:
                 raise fdp_exc.InternalError(
-                    f"Failed to retrieve an extension for shell '{_shell}'"
+                    f"Failed to retrieve an extension for shell '{_name}'"
                 )
-            _ext = SHELLS[_shell]["extension"]
+            _ext = SHELLS[_name]["extension"]
             _out_file = os.path.join(self._job_dir, f"script.{_ext}")
             if _cmd:
                 with open(_out_file, encoding="utf-8", mode="w") as f:
@@ -1495,7 +1515,12 @@ class JobConfiguration(MutableMapping):
         if not self.env:
             raise fdp_exc.InternalError("Command execution environment setup failed")
 
-        _exec = [arg.format(self.script) for arg in SHELLS[self.shell]["exec"]]
+        _name, _flags = _shell_name_and_flags(self.shell)
+        _exec = [arg.format(self.script) for arg in SHELLS[_name]["exec"]]
+        # Flags go straight after the program, not just before the script:
+        # for pwsh and powershell everything after '-command' is the command.
+        # They are not formatted, so a brace in one is literal
+        _exec[1:1] = _flags
 
         self._logger.debug(
             "Executing command: %s", subprocess.list2cmdline(_exec)
