@@ -108,6 +108,21 @@ _NO_FILE_ENTRY = {
 
 
 @pytest.mark.faircli_register
+def test_an_author_with_no_public_name_is_posted_by_its_identifier(mocker):
+    mocker.patch("fair.registry.requests.get_author_exists", return_value=None)
+    mocker.patch("fair.registry.requests.local_token", lambda *args: "token")
+    _url = "http://127.0.0.1:8000/api/author/1/"
+    _post = mocker.patch(
+        "fair.registry.requests.post_else_get", return_value=_url
+    )
+    _orcid = "https://orcid.org/0000-0000-0000-0000"
+    assert fdp_reg._post_authors(
+        "http://127.0.0.1:8000/api/", [{"name": "", "uri": _orcid}]
+    ) == [_url]
+    assert _post.call_args.args[3] == {"identifier": _orcid}
+
+
+@pytest.mark.faircli_register
 @pytest.mark.parametrize(
     "change, refused",
     [

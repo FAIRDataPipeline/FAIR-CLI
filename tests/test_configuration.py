@@ -11,6 +11,7 @@ from . import conftest as conf
 
 import fair.common as fdp_com
 import fair.configuration as fdp_conf
+import fair.configuration.validation as fdp_clivalid
 import fair.identifiers as fdp_id
 
 GITHUB_USER = "FAIRDataPipeline"
@@ -69,6 +70,19 @@ def test_user_set(local_config: typing.Tuple[str, str]):
     )
     assert fdp_conf.read_global_fdpconfig()["user"]["given_names"] == "Victor Chester"
     assert fdp_conf.read_global_fdpconfig()["user"]["family_name"] == "Bloggs"
+
+
+@pytest.mark.faircli_configuration
+def test_user_set_to_one_word(local_config: typing.Tuple[str, str]):
+    fdp_conf.set_user(local_config[1], "ann", True)
+    for _conf in (
+        fdp_conf.read_local_fdpconfig(local_config[1]),
+        fdp_conf.read_global_fdpconfig(),
+    ):
+        _user = _conf["user"]
+        assert (_user["given_names"], _user["family_name"]) == ("Ann", "")
+        fdp_clivalid.User(**_user)
+    assert fdp_conf.get_current_user_name(local_config[1]) == ("Ann", "")
 
 
 @pytest.mark.faircli_configuration
@@ -206,17 +220,27 @@ def test_user_info(mocker: pytest_mock.MockerFixture):
 
 @pytest.mark.faircli_configuration
 @pytest.mark.parametrize(
-    "system, answers, found",
+    "system, answers, public",
     [
         ("GITHUB", {"GitHub Username": "jbloggs"}, "jbloggs@example.org"),
+        ("GITHUB", {"GitHub Username": "jbloggs"}, None),
         ("ORCID", {"ORCID": "0000-0000-0000-0000"}, "joseph@example.org"),
-        ("None", {"Full Name": "Joseph Bloggs"}, ""),
+        ("ORCID", {"ORCID": "0000-0000-0000-0000"}, None),
+        ("None", {"Full Name": "Joseph Bloggs"}, None),
+    ],
+    ids=[
+        "GitHub",
+        "GitHub, none public",
+        "ORCID",
+        "ORCID, none public",
+        "no identifier",
     ],
 )
 def test_email_asked_after_the_identifier(
-    mocker: pytest_mock.MockerFixture, system, answers, found
+    mocker: pytest_mock.MockerFixture, system, answers, public
 ):
     # The address the identifier's record gives is offered as the default
+    found = public or ""
     mocker.patch(
         "fair.identifiers.check_github",
         return_value={
@@ -225,7 +249,7 @@ def test_email_asked_after_the_identifier(
             "given_names": "Joseph",
             "github": "jbloggs",
             "uri": "https://github.com/jbloggs",
-            "email": "jbloggs@example.org",
+            "email": public,
         },
     )
     mocker.patch(
@@ -237,9 +261,7 @@ def test_email_asked_after_the_identifier(
             "uri": "https://orcid.org/0000-0000-0000-0000",
         },
     )
-    mocker.patch(
-        "fair.identifiers.check_orcid_email", return_value="joseph@example.org"
-    )
+    mocker.patch("fair.identifiers.check_orcid_email", return_value=public)
     _asked = []
     _answers = {
         "User ID system (GITHUB/GITLAB/ORCID/ROR/GRID/None)": system,
@@ -261,6 +283,68 @@ def test_email_asked_after_the_identifier(
     assert _info["user"]["email"] == (
         found or "FAIRDataPipeline@users.noreply.github.com"
     )
+
+
+@pytest.mark.faircli_configuration
+@pytest.mark.parametrize(
+    "found, answers, expected",
+    [
+        ({"given_names": "Ann", "family_name": None}, {}, ("Ann", "", "ann")),
+        (
+            {"given_names": None, "family_name": None},
+            {"Given Names": "Ann", "Family Name": "Lee"},
+            ("Ann", "Lee", "annlee"),
+        ),
+        (
+            {"given_names": None, "family_name": None},
+            {"Given Names": "Ann"},
+            ("Ann", "", "ann"),
+        ),
+    ],
+    ids=["no family name", "kept private", "kept private, no family name"],
+)
+def test_an_orcid_without_a_public_name(
+    mocker: pytest_mock.MockerFixture, found, answers, expected
+):
+    _record = {
+        **found,
+        "name": " ".join(_part for _part in found.values() if _part),
+        "orcid": "0000-0000-0000-0000",
+        "uri": "https://orcid.org/0000-0000-0000-0000",
+    }
+    mocker.patch("fair.identifiers.check_orcid", return_value=_record)
+    mocker.patch("fair.identifiers.check_orcid_email", return_value=None)
+    _answers = {
+        "User ID system (GITHUB/GITLAB/ORCID/ROR/GRID/None)": "ORCID",
+        "ORCID": "0000-0000-0000-0000",
+        **answers,
+    }
+    mocker.patch(
+        "click.prompt", lambda text, default=None: _answers.get(text, default)
+    )
+    _info = fdp_conf._get_user_info_and_namespaces(local=True)
+    _user = _info["user"]
+    assert (
+        _user["given_names"],
+        _user["family_name"],
+        _info["namespaces"]["output"],
+    ) == expected
+    # The configuration's validation refuses a family name that is None
+    fdp_clivalid.User(**_user)
+
+
+@pytest.mark.faircli_configuration
+def test_a_one_word_name_with_no_identifier(mocker: pytest_mock.MockerFixture):
+    _answers = {
+        "User ID system (GITHUB/GITLAB/ORCID/ROR/GRID/None)": "None",
+        "Full Name": "Ann",
+    }
+    mocker.patch(
+        "click.prompt", lambda text, default=None: _answers.get(text, default)
+    )
+    _user = fdp_conf._get_user_info_and_namespaces(local=True)["user"]
+    assert (_user["given_names"], _user["family_name"]) == ("Ann", "")
+    fdp_clivalid.User(**_user)
 
 
 @pytest.mark.faircli_configuration

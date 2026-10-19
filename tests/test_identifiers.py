@@ -273,3 +273,46 @@ def test_check_orcid_email_unreachable(mocker: pytest_mock.MockerFixture):
         side_effect=fdp_id.requests.exceptions.ConnectionError("down"),
     )
     assert fdp_id.check_orcid_email(ORCID_ID) is None
+
+
+@pytest.mark.faircli_ids
+def test_check_orcid_email_not_json(mocker: pytest_mock.MockerFixture):
+    # A page served in place of the API's answer, as during maintenance
+    _page = fdp_id.requests.models.Response()
+    _page.status_code = 200
+    _page._content = b"<html>ORCID is down for maintenance</html>"
+    mocker.patch.object(fdp_id.requests, "get", return_value=_page)
+    assert fdp_id.check_orcid_email(ORCID_ID) is None
+
+
+@pytest.mark.faircli_ids
+@pytest.mark.parametrize(
+    "names, expected",
+    [
+        (
+            {"given-names": {"value": "Ann"}, "family-name": {"value": "Lee"}},
+            ("Ann", "Lee", "Ann Lee"),
+        ),
+        (
+            {"given-names": {"value": "Ann"}, "family-name": None},
+            ("Ann", None, "Ann"),
+        ),
+        (None, (None, None, "")),
+    ],
+    ids=["both public", "no family name", "kept private"],
+)
+def test_check_orcid_names(mocker: pytest_mock.MockerFixture, names, expected):
+    mocker.patch.object(
+        fdp_id.requests,
+        "get",
+        return_value=mocker.Mock(
+            status_code=200, json=lambda: {"person": {"name": names}}
+        ),
+    )
+    _data = fdp_id.check_orcid(ORCID_ID)
+    assert (
+        _data["given_names"],
+        _data["family_name"],
+        _data["name"],
+    ) == expected
+    assert _data["uri"] == f"https://orcid.org/{ORCID_ID}"

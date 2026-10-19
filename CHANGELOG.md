@@ -85,6 +85,11 @@
 - A local registry that answered every request with an internal error (HTTP 500) was taken for one that works, and a
   command failed at its first request. Starting it, or a command that finds it running, now says so and names its
   log; `fair registry stop` still stops it.
+- `fair init` with an ORCID whose record keeps its holder's name private, or gives no family name, stopped with a
+  `TypeError`. It now asks for a name the record does not give, and takes a missing family name as empty. An author
+  in a `register:` entry whose ORCID keeps its name private is registered by its identifier. A one-word name - given
+  with no identifier, or to `fair config user.name` - failed the configuration's validation and broke the job logs;
+  its family name is now empty too.
 
 # 2026-10-05 [v0.10.2](https://github.com/FAIRDataPipeline/FAIR-CLI/releases/tag/v0.10.2)
 

@@ -158,11 +158,11 @@ def set_user(repo_loc: str, name: str, is_global: bool = False) -> None:
             )
     else:
         _loc_conf["user"]["given_names"] = name.title().strip()
-        _loc_conf["user"]["family_name"] = None
+        _loc_conf["user"]["family_name"] = ""
         if is_global:
             _glob_conf = read_global_fdpconfig()
             _glob_conf["user"]["given_names"] = name.title().strip()
-            _glob_conf["user"]["family_name"] = None
+            _glob_conf["user"]["family_name"] = ""
             yaml.dump(
                 _glob_conf, open(fdp_com.global_fdpconfig(), encoding="utf-8", mode="w")
             )
@@ -507,7 +507,19 @@ def _handle_orcid(user_orcid: str) -> typing.Tuple[typing.Dict, str]:
 
     _user_info["orcid"] = user_orcid.strip()
 
-    click.echo(f"Found entry: {_user_info['given_names']} {_user_info['family_name']}")
+    click.echo(f"Found entry: {_user_info.get('name') or _user_info['orcid']}")
+
+    # A record may keep its holder's name private, or give no family name,
+    # where the configuration needs a string
+    if not _user_info.get("given_names"):
+        _user_info["given_names"] = click.prompt("Given Names")
+        _user_info["family_name"] = click.prompt("Family Name", default="")
+    _user_info["family_name"] = _user_info.get("family_name") or ""
+    _user_info["name"] = " ".join(
+        _part
+        for _part in (_user_info["given_names"], _user_info["family_name"])
+        if _part
+    )
 
     _def_ospace = "".join(_user_info["given_names"]).lower()
 
@@ -631,7 +643,7 @@ def _handle_uuid() -> typing.Tuple[typing.Dict, str]:
     else:
         _def_ospace += _full_name
         _user_info["given_names"] = _full_name
-        _user_info["family_name"] = None
+        _user_info["family_name"] = ""
 
     return _user_info, _def_ospace
 

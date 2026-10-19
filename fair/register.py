@@ -468,7 +468,8 @@ def _post_authors(local_uri, authors):
     for _author in authors:
         _data = {}
         _search_keys = {}
-        if "name" in _author:
+        # One whose record keeps its name private is known by its identifier
+        if _author.get("name"):
             _data["name"] = _author["name"]
         if "uri" in _author:
             _data["identifier"] = _search_keys["identifier"] = _author["uri"]

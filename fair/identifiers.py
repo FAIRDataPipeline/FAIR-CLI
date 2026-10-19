@@ -61,7 +61,8 @@ def check_orcid(orcid: str) -> typing.Dict:
     Returns
     -------
     typing.Dict
-        metadata from the given ID
+        metadata from the given ID; a name, or part of one, the record does
+        not make public is None
     """
     orcid = orcid.replace(ID_URIS["orcid"], "")
     _header = JSON_HEADERS
@@ -75,10 +76,11 @@ def check_orcid(orcid: str) -> typing.Dict:
         logger.debug(f"{_url} Responded with {_response.status_code}")
         return _result_dict
 
-    _names = _response.json()["person"]["name"]
-    _given = _names["given-names"]["value"]
-    _family = _names["family-name"]["value"]
-    _name = f"{_given} {_family}"
+    # A record may keep its holder's name private, or give no family name
+    _names = (_response.json().get("person") or {}).get("name") or {}
+    _given = (_names.get("given-names") or {}).get("value")
+    _family = (_names.get("family-name") or {}).get("value")
+    _name = " ".join(_part for _part in (_given, _family) if _part)
 
     _result_dict["name"] = _name
     _result_dict["family_name"] = _family
@@ -116,7 +118,11 @@ def check_orcid_email(orcid: str) -> typing.Optional[str]:
     if _response.status_code != 200:
         logger.debug(f"{_url} Responded with {_response.status_code}")
         return None
-    _results = _response.json().get("expanded-result") or []
+    try:
+        _results = _response.json().get("expanded-result") or []
+    except ValueError as e:
+        logger.debug(f"{_url} answered with no JSON: {e}")
+        return None
     _emails = _results[0].get("email") if _results else None
     return _emails[0] if _emails else None
 
