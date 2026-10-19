@@ -1263,6 +1263,8 @@ class FAIR:
                 os.getcwd(),
                 os.path.join(os.getcwd(), ".fair"),
             )
+            if not local:
+                using["user"]["remote_user"] = self._ci_remote_user(using)
 
         if (
             _existing := fdp_com.find_fair_root(self._session_loc)
@@ -1353,6 +1355,19 @@ class FAIR:
         os.makedirs(fdp_hist.history_directory(self._session_loc), exist_ok=True)
 
         click.echo(f"Initialised empty fair repository in {_fair_dir}")
+
+    # The remote user of a configuration 'fair init --ci' made: the user the
+    # remote registry's token belongs to, as a fresh remote has none called
+    # 'FAIRDataPipeline'; that name is kept where the remote cannot be asked
+    @staticmethod
+    def _ci_remote_user(cli_config: typing.Dict) -> str:
+        _origin = cli_config["registries"]["origin"]
+        try:
+            with open(_origin["token"], encoding="utf-8") as token_f:
+                _token = token_f.read().strip()
+            return fdp_req.get_remote_user(_origin["uri"], _token)
+        except (OSError, fdp_exc.FAIRCLIException):
+            return cli_config["user"]["remote_user"]
 
     def _clean_reset(self, _fair_dir, e: Exception = None, local_only: bool = False):
         if not local_only:

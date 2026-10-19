@@ -33,6 +33,7 @@ import fair.registry.lifecycle
 import fair.registry.server
 import fair.session
 import fair.staging
+import fair.testing as fdp_test
 import fair.user_config
 from fair.cli import cli
 from tests import conftest as conf
@@ -669,6 +670,38 @@ def test_what_a_calling_script_sees(
     assert shown in _result.output
 
 
+@pytest.mark.faircli_cli
+@pytest.mark.parametrize(
+    "token, answer, expected",
+    [
+        ("a-token", "admin", "admin"),
+        ("a-token", fdp_exc.UnexpectedRegistryServerState("down"), "FAIRDataPipeline"),
+        (None, AssertionError("the remote was asked"), "FAIRDataPipeline"),
+    ],
+    ids=["answers", "unreachable", "no token"],
+)
+def test_ci_remote_user(
+    tmp_path, mocker: pytest_mock.MockerFixture, token, answer, expected
+):
+    _config = fdp_test.create_configurations(
+        str(tmp_path), str(tmp_path), str(tmp_path), str(tmp_path)
+    )
+    if token:
+        with open(_config["registries"]["origin"]["token"], "w") as token_f:
+            token_f.write(f"{token}\n")
+    _asked = mocker.patch(
+        "fair.registry.requests.get_remote_user",
+        side_effect=answer if isinstance(answer, Exception) else None,
+        return_value=None if isinstance(answer, Exception) else answer,
+    )
+    assert fair.session.FAIR._ci_remote_user(_config) == expected
+    if token:
+        assert _asked.call_args.args == (
+            _config["registries"]["origin"]["uri"],
+            token,
+        )
+
+
 # A git remote and what was pushed to it: a branch, an annotated tag, and a
 # pull request's merge commit under refs/pull/1/merge, as GitHub keeps one.
 # A commit may be fetched by its hash, as from GitHub
@@ -683,6 +716,8 @@ def git_remote(tmp_path, monkeypatch) -> typing.Dict[str, str]:
         monkeypatch.setenv(_key, _value)
     _bare = git.Repo.init(os.path.join(tmp_path, "remote.git"), bare=True)
     _bare.git.config("uploadpack.allowAnySHA1InWant", "true")
+    # Its default branch is the one pushed, whatever git's own default is
+    _bare.git.symbolic_ref("HEAD", "refs/heads/main")
     _url = Path(_bare.git_dir).as_uri()
     _work = git.Repo.init(os.path.join(tmp_path, "work"))
     _work.git.checkout("-b", "main")

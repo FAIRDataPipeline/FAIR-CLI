@@ -184,7 +184,7 @@ For integration into a CI workflow, the setup can be skipped by running:
 fair init --ci
 ```
 
-which will create temporary directories for some of the required location paths.
+which will create temporary directories for some of the required location paths. The remote registry is expected at `http://127.0.0.1:8001/api/`, with its token in the file `token` in the directory the command is run from; the user it records for the remote is the one that token belongs to, or `FAIRDataPipeline` where the remote cannot be asked.
 
 
 ### `run`

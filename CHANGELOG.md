@@ -60,6 +60,8 @@
   on for ever; neither now happens. Another install's registry on the port is named as such.
 - An internal error, and a registry's refusal of a request (HTTP 403), printed their message and exited 0, so a
   script or a CI step saw success. Both now exit non-zero, the refusal shown as an error.
+- `fair init --ci` named the remote user `FAIRDataPipeline`, which a freshly built remote registry does not have, so
+  `fair push` stopped. It now takes the user the remote's token belongs to, where the remote answers.
 - `fair run` refused a detached checkout - a tag, a commit, a pull request on CI - unless given `--dirty`. It now runs
   where the commit is one the remote has, on a branch or a tag, and refuses one the remote does not have.
   `${{GIT_BRANCH}}` there is an error saying there is no branch.

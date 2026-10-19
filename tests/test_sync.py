@@ -1907,3 +1907,26 @@ def test_push_to_registry_without_data_store(
         in record.getMessage()
         for record in caplog.records
     )
+
+
+@pytest.mark.faircli_sync
+def test_ci_remote_user_is_on_the_remote(remote_registry: RegistryTest, tmp_path):
+    # 'fair init --ci' names the user the remote's token belongs to, which a
+    # push then finds there; a fresh remote has no 'FAIRDataPipeline'
+    import fair.session
+
+    _config = fdp_test.create_configurations(
+        str(tmp_path), str(tmp_path), str(tmp_path), str(tmp_path)
+    )
+    _config["registries"]["origin"]["uri"] = remote_registry._url
+    with open(_config["registries"]["origin"]["token"], "w") as token_f:
+        token_f.write(remote_registry._token)
+    with remote_registry:
+        _user = fair.session.FAIR._ci_remote_user(_config)
+        assert _user != "FAIRDataPipeline"
+        assert fdp_req.get(
+            remote_registry._url,
+            "users",
+            remote_registry._token,
+            params={"username": _user},
+        )
