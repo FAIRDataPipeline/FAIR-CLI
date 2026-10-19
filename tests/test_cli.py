@@ -443,6 +443,349 @@ def test_init_in_subdirectory_names_existing_repository(
     assert not os.path.exists(os.path.join(_subdir, fdp_com.FAIR_FOLDER))
 
 
+# A FAIR directory of the test's own, holding no global configuration yet
+@pytest.fixture
+def fresh_fair_dir(tmp_path, mocker: pytest_mock.MockerFixture) -> str:
+    _dir = os.path.join(tmp_path, "home", fdp_com.FAIR_FOLDER)
+    mocker.patch("fair.common.USER_FAIR_DIR", _dir)
+    return _dir
+
+
+# A CLI configuration such as 'fair init --using' takes, for the repository in
+# the working directory
+def _cli_configuration(tmp_path) -> typing.Dict:
+    return fdp_test.create_configurations(
+        str(tmp_path), os.getcwd(), None, str(tmp_path), True
+    )
+
+
+# Write a CLI configuration for 'fair init --using', returning its file
+def _using_file(tmp_path, config: typing.Dict) -> str:
+    _file = os.path.join(tmp_path, "using.yaml")
+    with open(_file, "w") as out_f:
+        yaml.dump(config, out_f)
+    return _file
+
+
+# What the global configuration file holds, None where there is none
+def _global_configuration() -> typing.Optional[bytes]:
+    if not os.path.exists(fdp_com.global_fdpconfig()):
+        return None
+    with open(fdp_com.global_fdpconfig(), "rb") as in_f:
+        return in_f.read()
+
+
+# The staging file a new repository starts with
+_EMPTY_STAGING = {"job": {}, "file": {}, "data_product": {}, "code_run": {}}
+
+
+@pytest.mark.faircli_cli
+@pytest.mark.parametrize(
+    "failure",
+    [
+        fdp_exc.RegistryError("The remote registry refused the token"),
+        KeyboardInterrupt(),
+        OSError("Permission denied"),
+        click.exceptions.Abort(),
+    ],
+    ids=[
+        "refused token",
+        "interrupted",
+        "unreadable file",
+        "aborted at a question",
+    ],
+)
+def test_init_that_fails_in_set_up_leaves_nothing(
+    click_test: click.testing.CliRunner,
+    fresh_fair_dir: str,
+    mocker: pytest_mock.MockerFixture,
+    failure: BaseException,
+):
+    mocker.patch("fair.configuration.global_config_query", side_effect=failure)
+    _update = mocker.patch("fair.registry.server.update_registry_post_setup")
+    _result = click_test.invoke(cli, ["init"])
+    assert _result.exit_code != 0
+    assert not os.path.exists(os.path.join(os.getcwd(), fdp_com.FAIR_FOLDER))
+    assert not os.path.exists(fdp_com.global_config_dir())
+    _update.assert_not_called()
+
+
+@pytest.mark.faircli_cli
+@pytest.mark.parametrize(
+    "failure",
+    [
+        fdp_exc.RegistryError("The remote registry refused the token"),
+        KeyboardInterrupt(),
+    ],
+    ids=["refused token", "interrupted"],
+)
+def test_init_that_fails_keeps_the_global_configuration(
+    click_test: click.testing.CliRunner,
+    fresh_fair_dir: str,
+    mocker: pytest_mock.MockerFixture,
+    tmp_path,
+    failure: BaseException,
+):
+    os.makedirs(fdp_com.global_config_dir())
+    _config = _cli_configuration(tmp_path)
+    del _config["git"]
+    with open(fdp_com.global_fdpconfig(), "w") as out_f:
+        yaml.dump(_config, out_f)
+    _before = _global_configuration()
+    mocker.patch("fair.configuration.local_config_query", side_effect=failure)
+    _result = click_test.invoke(cli, ["init"])
+    assert _result.exit_code != 0
+    assert not os.path.exists(os.path.join(os.getcwd(), fdp_com.FAIR_FOLDER))
+    assert _global_configuration() == _before
+
+
+@pytest.mark.faircli_cli
+@pytest.mark.parametrize(
+    "remote_token", [None, "2" * 40], ids=["new", "replaced"]
+)
+def test_init_that_fails_puts_the_global_directory_back(
+    click_test: click.testing.CliRunner,
+    fresh_fair_dir: str,
+    mocker: pytest_mock.MockerFixture,
+    remote_token: typing.Optional[str],
+):
+    # A token the user keeps there, and the remote's token, which the set-up
+    # writes before it fails
+    os.makedirs(fdp_com.global_config_dir())
+    _kept = os.path.join(fdp_com.global_config_dir(), "token.txt")
+    with open(_kept, "w") as out_f:
+        out_f.write("0" * 40)
+    _remote = os.path.join(fdp_com.global_config_dir(), "remotetoken.txt")
+    if remote_token:
+        with open(_remote, "w") as out_f:
+            out_f.write(remote_token)
+
+    def _set_up(*args, **kwargs):
+        with open(_remote, "w") as out_f:
+            out_f.write("1" * 40)
+        raise click.exceptions.Abort()
+
+    mocker.patch("fair.configuration.global_config_query", side_effect=_set_up)
+    _result = click_test.invoke(cli, ["init"])
+    assert _result.exit_code == 1
+    assert not os.path.exists(os.path.join(os.getcwd(), fdp_com.FAIR_FOLDER))
+    with open(_kept) as in_f:
+        assert in_f.read() == "0" * 40
+    if remote_token:
+        with open(_remote) as in_f:
+            assert in_f.read() == remote_token
+    else:
+        assert not os.path.exists(_remote)
+    assert _global_configuration() is None
+
+
+@pytest.mark.faircli_cli
+def test_init_using_a_configuration_missing_a_key_leaves_nothing(
+    click_test: click.testing.CliRunner,
+    fresh_fair_dir: str,
+    mocker: pytest_mock.MockerFixture,
+    tmp_path,
+):
+    _update = mocker.patch("fair.registry.server.update_registry_post_setup")
+    _config = _cli_configuration(tmp_path)
+    del _config["registries"]["local"]["directory"]
+    _result = click_test.invoke(
+        cli, ["init", "--using", _using_file(tmp_path, _config)]
+    )
+    assert _result.exit_code == 1
+    assert "Expected key 'directory'" in _result.output
+    assert not os.path.exists(os.path.join(os.getcwd(), fdp_com.FAIR_FOLDER))
+    assert _global_configuration() is None
+    _update.assert_not_called()
+
+
+@pytest.mark.faircli_cli
+def test_init_using_a_configuration_that_does_not_validate_leaves_nothing(
+    click_test: click.testing.CliRunner,
+    fresh_fair_dir: str,
+    mocker: pytest_mock.MockerFixture,
+    tmp_path,
+):
+    # '--using' writes the global configuration over the one there before
+    os.makedirs(fdp_com.global_config_dir())
+    _config = _cli_configuration(tmp_path)
+    del _config["git"]
+    with open(fdp_com.global_fdpconfig(), "w") as out_f:
+        yaml.dump(_config, out_f)
+    _before = _global_configuration()
+    _update = mocker.patch("fair.registry.server.update_registry_post_setup")
+    _config = _cli_configuration(tmp_path)
+    _config["user"]["email"] = "not an address"
+    _result = click_test.invoke(
+        cli, ["init", "--using", _using_file(tmp_path, _config)]
+    )
+    assert _result.exit_code == 1
+    assert "validation" in _result.output
+    assert not os.path.exists(os.path.join(os.getcwd(), fdp_com.FAIR_FOLDER))
+    assert _global_configuration() == _before
+    _update.assert_not_called()
+
+
+@pytest.mark.faircli_cli
+@pytest.mark.parametrize("failure", ["refused token", "invalid configuration"])
+def test_init_that_fails_in_a_subdirectory_leaves_the_repository(
+    local_config: typing.Tuple[str, str],
+    click_test: click.testing.CliRunner,
+    mocker: pytest_mock.MockerFixture,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+    failure: str,
+):
+    mocker.patch("fair.common.find_fair_root", _FIND_FAIR_ROOT)
+    mocker.patch("fair.registry.server.update_registry_post_setup")
+    _subdir = os.path.join(local_config[1], "subdir")
+    os.makedirs(_subdir)
+    monkeypatch.chdir(_subdir)
+    _repo_config = os.path.join(
+        local_config[1], fdp_com.FAIR_FOLDER, fdp_com.FAIR_CLI_CONFIG
+    )
+    with open(_repo_config) as in_f:
+        _before = yaml.safe_load(in_f)
+    _global_before = yaml.safe_load(_global_configuration())
+    if failure == "refused token":
+        mocker.patch(
+            "fair.configuration.local_config_query",
+            side_effect=fdp_exc.RegistryError(
+                "The remote registry refused the token"
+            ),
+        )
+    else:
+        # The questions answered, and their configuration then refused
+        _local = _cli_configuration(tmp_path)
+        del _local["registries"]["local"]
+        _local["user"]["email"] = "not an address"
+        mocker.patch(
+            "fair.configuration.local_config_query", return_value=_local
+        )
+    _result = click_test.invoke(cli, ["init"], input="y\n")
+    assert _result.exit_code == 1
+    assert not os.path.exists(os.path.join(_subdir, fdp_com.FAIR_FOLDER))
+    with open(_repo_config) as in_f:
+        assert yaml.safe_load(in_f) == _before
+    assert yaml.safe_load(_global_configuration()) == _global_before
+
+
+@pytest.mark.faircli_cli
+def test_init_that_fails_registering_its_user_is_completed_by_init_again(
+    click_test: click.testing.CliRunner,
+    fresh_fair_dir: str,
+    mocker: pytest_mock.MockerFixture,
+    tmp_path,
+):
+    _update = mocker.patch(
+        "fair.registry.server.update_registry_post_setup",
+        side_effect=[
+            fdp_exc.RegistryError("The local registry is not running"),
+            None,
+        ],
+    )
+    _using = _using_file(tmp_path, _cli_configuration(tmp_path))
+    _result = click_test.invoke(cli, ["init", "--using", _using])
+    assert _result.exit_code == 1
+    _repo_config = os.path.join(
+        os.getcwd(), fdp_com.FAIR_FOLDER, fdp_com.FAIR_CLI_CONFIG
+    )
+    with open(_repo_config) as in_f:
+        assert yaml.safe_load(in_f)["user"]["given_names"] == "Interface"
+
+    _result = click_test.invoke(cli, ["init"])
+    assert _result.exit_code == 0, _result.output
+    assert "already initialised" in _result.output
+    assert _update.call_count == 2
+
+
+@pytest.mark.faircli_cli
+@pytest.mark.parametrize(
+    "left",
+    [
+        {fdp_com.FAIR_CLI_CONFIG: {}, "staging": _EMPTY_STAGING},
+        {fdp_com.FAIR_CLI_CONFIG: {}},
+        {"staging": _EMPTY_STAGING},
+    ],
+    ids=["a failure", "a refused configuration", "a killed process"],
+)
+def test_init_begins_again_where_one_did_not_finish(
+    click_test: click.testing.CliRunner,
+    fresh_fair_dir: str,
+    mocker: pytest_mock.MockerFixture,
+    tmp_path,
+    left: typing.Dict[str, typing.Dict],
+):
+    mocker.patch("fair.registry.server.update_registry_post_setup")
+    _fair_dir = os.path.join(os.getcwd(), fdp_com.FAIR_FOLDER)
+    os.makedirs(_fair_dir)
+    for _name, _contents in left.items():
+        with open(os.path.join(_fair_dir, _name), "w") as out_f:
+            yaml.dump(_contents, out_f)
+    _using = _using_file(tmp_path, _cli_configuration(tmp_path))
+    _result = click_test.invoke(cli, ["init", "--using", _using])
+    assert _result.exit_code == 0, _result.output
+    assert "did not finish" in _result.output
+    with open(os.path.join(_fair_dir, fdp_com.FAIR_CLI_CONFIG)) as in_f:
+        assert yaml.safe_load(in_f)["user"]["given_names"] == "Interface"
+
+
+@pytest.mark.faircli_cli
+@pytest.mark.parametrize("more", ["data", "staged"])
+def test_init_refuses_an_unfinished_repository_holding_more(
+    click_test: click.testing.CliRunner,
+    fresh_fair_dir: str,
+    mocker: pytest_mock.MockerFixture,
+    tmp_path,
+    more: str,
+):
+    _update = mocker.patch("fair.registry.server.update_registry_post_setup")
+    _fair_dir = os.path.join(os.getcwd(), fdp_com.FAIR_FOLDER)
+    os.makedirs(_fair_dir)
+    with open(os.path.join(_fair_dir, fdp_com.FAIR_CLI_CONFIG), "w") as out_f:
+        yaml.dump({}, out_f)
+    _staging = {**_EMPTY_STAGING, "job": {"a-job": more == "staged"}}
+    with open(os.path.join(_fair_dir, "staging"), "w") as out_f:
+        yaml.dump(_staging if more == "staged" else _EMPTY_STAGING, out_f)
+    if more == "data":
+        os.makedirs(os.path.join(_fair_dir, "data_store"))
+    _before = sorted(os.listdir(_fair_dir))
+
+    _using = _using_file(tmp_path, _cli_configuration(tmp_path))
+    _result = click_test.invoke(cli, ["init", "--using", _using])
+    assert _result.exit_code == 1
+    assert f"'{_fair_dir}' holds no configuration" in _result.output
+    assert sorted(os.listdir(_fair_dir)) == _before
+    _update.assert_not_called()
+
+
+@pytest.mark.faircli_cli
+def test_init_replaces_an_empty_global_configuration(
+    click_test: click.testing.CliRunner,
+    fresh_fair_dir: str,
+    mocker: pytest_mock.MockerFixture,
+    tmp_path,
+):
+    os.makedirs(fdp_com.global_config_dir())
+    with open(fdp_com.global_fdpconfig(), "w") as out_f:
+        yaml.dump({}, out_f)
+    _global = _cli_configuration(tmp_path)
+    del _global["git"]
+    _local = _cli_configuration(tmp_path)
+    del _local["registries"]["local"]
+    _query = mocker.patch(
+        "fair.configuration.global_config_query", return_value=_global
+    )
+    mocker.patch("fair.configuration.local_config_query", return_value=_local)
+    _update = mocker.patch("fair.registry.server.update_registry_post_setup")
+    _result = click_test.invoke(cli, ["init"])
+    assert _result.exit_code == 0, _result.output
+    _query.assert_called_once()
+    assert yaml.safe_load(_global_configuration()) == _global
+    # A first set-up, in which the registry is given its file types
+    assert _update.call_args.args[1]
+
+
 @pytest.mark.faircli_cli
 def test_purge(
     local_config: typing.Tuple[str, str],

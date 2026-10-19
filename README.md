@@ -143,6 +143,8 @@ The user's identifier is asked for before their email: where the identifier's re
 
 In a repository that is already initialised the command asks nothing and leaves the repository as it is. It registers the repository's user in the local registry, which a registry [reinstalled](#upgrading-and-reinstalling) since the repository was initialised no longer holds.
 
+An initialisation that fails, or is interrupted, before the repository's configuration is written leaves things as they were: no `.fair` folder, and the global configuration unchanged. One that fails after it - registering the user in a local registry that is not running, say - leaves the repository initialised, and running `fair init` again completes it. A `.fair` folder with no configuration in it, as a process killed during `fair init` leaves, is removed and the repository initialised afresh, unless it holds more than that, when it is named and left for you to look through.
+
 #### Custom CLI Configuration
 After setup is complete, the current CLI configuration can also be saved using the command:
 ```

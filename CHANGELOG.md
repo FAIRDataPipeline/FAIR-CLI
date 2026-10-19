@@ -71,6 +71,12 @@
 - `fair run` refused a detached checkout - a tag, a commit, a pull request on CI - unless given `--dirty`. It now runs
   where the commit is one the remote has, on a branch or a tag, and refuses one the remote does not have.
   `${{GIT_BRANCH}}` there is an error saying there is no branch.
+- A `fair init` that failed - a token the remote refused, a registry that would not start, Ctrl-C other than at a
+  question, a `--using` file it refused - left `.fair` and an empty global configuration behind, so `fair init` again
+  failed too (#272). It now puts back what it changed, and `fair init` starts afresh where an earlier one left `.fair`
+  unfinished, or the global configuration empty.
+- `fair init` failing in a subdirectory of a project could write the configuration it had refused over the project's;
+  the project's is now left as it was.
 
 # 2026-10-05 [v0.10.2](https://github.com/FAIRDataPipeline/FAIR-CLI/releases/tag/v0.10.2)
 

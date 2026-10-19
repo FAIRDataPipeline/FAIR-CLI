@@ -1238,7 +1238,16 @@ class FAIR:
             os.path.join(self._session_loc, fdp_com.FAIR_FOLDER)
         )
 
-        _first_time = not os.path.exists(fdp_com.global_fdpconfig())
+        # What an initialisation that did not finish left is taken away, and
+        # the repository initialised afresh
+        if os.path.exists(_fair_dir) and self._unfinished(_fair_dir):
+            click.echo(
+                f"Removing '{_fair_dir}', left by an initialisation that "
+                "did not finish."
+            )
+            self._remove_fair_folder(_fair_dir)
+
+        _first_time = not self._global_config_present()
 
         # Also with --ci: the data store lives in .fair/, and the registry
         # still holds records pointing into it. 'fair purge' starts afresh.
@@ -1283,20 +1292,20 @@ class FAIR:
                 "Initialising FAIR repository, setup will now ask for basic info (leave blank for default value):\n"
             )
 
-        if not os.path.exists(_fair_dir) or self._testing:
-            os.makedirs(_fair_dir, exist_ok=True)
-            if using:
-                self._validate_and_load_cli_config(using)
-            self._stager.initialise()
+        # From here until the configuration is complete, a failure of any kind,
+        # an interruption included, undoes what this has made
+        _global_files = self._global_files()
+        try:
+            if not os.path.exists(_fair_dir) or self._testing:
+                os.makedirs(_fair_dir, exist_ok=True)
+                if using:
+                    self._validate_and_load_cli_config(using)
+                self._stager.initialise()
 
-        if not os.path.exists(fdp_com.global_fdpconfig()):
-            try:
+            if not self._global_config_present():
                 if not self._testing:
                     click.echo(GLOBAL_CONFIG_MESSAGE)
                 self._global_config = fdp_conf.global_config_query(registry, local)
-            except (fdp_exc.CLIConfigurationError, click.Abort) as e:
-                self._clean_reset(_fair_dir, e)
-            try:
                 if not self._testing:
                     click.echo(REPO_CONFIG_MESSAGE)
                 self._local_config = fdp_conf.local_config_query(
@@ -1304,55 +1313,66 @@ class FAIR:
                     first_time_setup=_first_time,
                     local=local,
                 )
-            except (fdp_exc.CLIConfigurationError, click.Abort) as e:
-                self._clean_reset(_fair_dir, e, True)
-        elif not using:
-            try:
+            elif not using:
                 if not self._testing:
                     click.echo(REPO_CONFIG_MESSAGE)
                 self._local_config = fdp_conf.local_config_query(
                     self._global_config, local=local
                 )
-            except (fdp_exc.CLIConfigurationError, click.Abort) as e:
-                self._clean_reset(_fair_dir, e, True)
-        if not using:
-            with open(
-                fdp_com.local_fdpconfig(self._session_loc), encoding="utf-8", mode="w"
-            ) as f:
-                yaml.dump(self._local_config, f)
-            with open(fdp_com.global_fdpconfig(), encoding="utf-8", mode="w") as f:
-                yaml.dump(self._global_config, f)
-        else:
-            if not self._testing:
-                click.echo(GLOBAL_CONFIG_MESSAGE)
-            self._global_config = fdp_conf.read_global_fdpconfig()
-            if not self._testing:
-                click.echo(REPO_CONFIG_MESSAGE)
-            self._local_config = fdp_conf.read_local_fdpconfig(self._session_loc)
+            if not using:
+                with open(
+                    fdp_com.local_fdpconfig(self._session_loc),
+                    encoding="utf-8",
+                    mode="w",
+                ) as f:
+                    yaml.dump(self._local_config, f)
+                with open(
+                    fdp_com.global_fdpconfig(), encoding="utf-8", mode="w"
+                ) as f:
+                    yaml.dump(self._global_config, f)
+            else:
+                if not self._testing:
+                    click.echo(GLOBAL_CONFIG_MESSAGE)
+                self._global_config = fdp_conf.read_global_fdpconfig()
+                if not self._testing:
+                    click.echo(REPO_CONFIG_MESSAGE)
+                self._local_config = fdp_conf.read_local_fdpconfig(
+                    self._session_loc
+                )
 
+            try:
+                fdp_clivalid.LocalCLIConfig(**self._local_config)
+            except pydantic.ValidationError as e:
+                self._logger.debug(f"Local CLI validator returned: {e.json()}")
+                raise fdp_exc.InternalError(
+                    "Initialisation failed, validation of local CLI config "
+                    "file did not pass"
+                ) from e
+
+            try:
+                fdp_clivalid.GlobalCLIConfig(**self._global_config)
+            except pydantic.ValidationError as e:
+                self._logger.debug(
+                    f"Global CLI validator returned: {e.json()}"
+                )
+                raise fdp_exc.InternalError(
+                    "Initialisation failed, validation of global CLI config "
+                    "file did not pass"
+                ) from e
+
+            os.makedirs(
+                fdp_hist.history_directory(self._session_loc), exist_ok=True
+            )
+        except BaseException:
+            self._undo_initialise(_fair_dir, _global_files)
+            raise
+
+        # The repository is initialised: should registering its user fail,
+        # 'fair init' again completes it
         if export_as:
             self._export_cli_configuration(export_as)
 
         fdp_serv.update_registry_post_setup(self._session_loc, _first_time, registry)
-        try:
-            fdp_clivalid.LocalCLIConfig(**self._local_config)
-        except pydantic.ValidationError as e:
-            self._logger.debug(f"Local CLI validator returned: {e.json()}")
-            self._clean_reset(_fair_dir, local_only=True)
-            raise fdp_exc.InternalError(
-                "Initialisation failed, validation of local CLI config file did not pass"
-            ) from e
-
-        try:
-            fdp_clivalid.GlobalCLIConfig(**self._global_config)
-        except pydantic.ValidationError as e:
-            self._logger.debug(f"Global CLI validator returned: {e.json()}")
-            self._clean_reset(_fair_dir, local_only=False)
-            raise fdp_exc.InternalError(
-                "Initialisation failed, validation of global CLI config file did not pass"
-            ) from e
-
-        os.makedirs(fdp_hist.history_directory(self._session_loc), exist_ok=True)
 
         click.echo(f"Initialised empty fair repository in {_fair_dir}")
 
@@ -1369,16 +1389,87 @@ class FAIR:
         except (OSError, fdp_exc.FAIRCLIException):
             return cli_config["user"]["remote_user"]
 
-    def _clean_reset(self, _fair_dir, e: Exception = None, local_only: bool = False):
-        if not local_only:
-            if platform.system() == "Windows":
-                fdp_com.set_file_permissions(fdp_com.global_config_dir())
-            shutil.rmtree(fdp_com.global_config_dir(), onerror=fdp_com.remove_readonly)
+    # Whether a '.fair' was left by an initialisation that did not finish: no
+    # configuration, or an empty one, and besides it nothing but a staging file
+    # with nothing staged. One with no configuration that holds anything more
+    # is not init's to remove, and is refused
+    @staticmethod
+    def _unfinished(fair_dir: str) -> bool:
+        _config = os.path.join(fair_dir, fdp_com.FAIR_CLI_CONFIG)
+        _staging = os.path.join(fair_dir, "staging")
+        try:
+            with open(_config, encoding="utf-8") as in_f:
+                if yaml.safe_load(in_f):
+                    return False
+        except FileNotFoundError:
+            pass
+        except yaml.YAMLError:
+            return False
+        try:
+            with open(_staging, encoding="utf-8") as in_f:
+                _staged = any((yaml.safe_load(in_f) or {}).values())
+        except FileNotFoundError:
+            _staged = False
+        except (yaml.YAMLError, AttributeError):
+            _staged = True
+        _known = {fdp_com.FAIR_CLI_CONFIG, "staging"}
+        if _staged or set(os.listdir(fair_dir)) - _known:
+            raise fdp_exc.CLIConfigurationError(
+                f"'{fair_dir}' holds no configuration, and more than an "
+                "initialisation that did not finish leaves",
+                hint=f"Keep what you need from '{fair_dir}', delete it, and "
+                "run 'fair init' again",
+            )
+        return True
+
+    # Whether a global configuration is in place: a file holding nothing, as an
+    # initialisation that failed could leave, counts as none
+    @staticmethod
+    def _global_config_present() -> bool:
+        return bool(fdp_conf.read_global_fdpconfig())
+
+    # The files in the global configuration's directory, each with what it
+    # holds, to put back should an initialisation fail
+    @staticmethod
+    def _global_files() -> typing.Dict[str, bytes]:
+        _dir = fdp_com.global_config_dir()
+        _files = {}
+        if os.path.isdir(_dir):
+            for _name in os.listdir(_dir):
+                _path = os.path.join(_dir, _name)
+                if os.path.isfile(_path):
+                    with open(_path, "rb") as in_f:
+                        _files[_path] = in_f.read()
+        return _files
+
+    # Take away what an initialisation that failed made: the repository's
+    # '.fair', and every file it wrote in the global configuration's directory,
+    # put back as it was. The session's configurations are read again, as the
+    # session writes them to disk on closing
+    def _undo_initialise(
+        self, fair_dir: str, global_files: typing.Dict[str, bytes]
+    ):
+        if os.path.exists(fair_dir):
+            self._remove_fair_folder(fair_dir)
+        _now = self._global_files()
+        for _path in _now.keys() | global_files.keys():
+            if _path not in global_files:
+                os.remove(_path)
+            elif _now.get(_path) != global_files[_path]:
+                with open(_path, "wb") as out_f:
+                    out_f.write(global_files[_path])
+        _dir = fdp_com.global_config_dir()
+        if os.path.isdir(_dir) and not os.listdir(_dir):
+            os.rmdir(_dir)
+        self._global_config, self._local_config = {}, {}
+        self._load_configurations()
+
+    # Remove a repository's '.fair', read-only files included
+    @staticmethod
+    def _remove_fair_folder(fair_dir: str) -> None:
         if platform.system() == "Windows":
-            fdp_com.set_file_permissions(_fair_dir)
-        shutil.rmtree(_fair_dir, onerror=fdp_com.remove_readonly)
-        if e:
-            raise e
+            fdp_com.set_file_permissions(fair_dir)
+        shutil.rmtree(fair_dir, onerror=fdp_com.remove_readonly)
 
     def close_session(self) -> None:
         """Upon exiting, release the registry and dump all configurations to file"""
@@ -1405,14 +1496,12 @@ class FAIR:
 
         for key in _exp_keys:
             if key not in cli_config:
-                self.purge(verbose=False)
                 raise fdp_exc.CLIConfigurationError(
                     f"Expected key '{key}' in CLI configuration file"
                 )
 
         for exp_reg in ["local", "origin"]:
             if exp_reg not in cli_config["registries"]:
-                self.purge(verbose=False)
                 raise fdp_exc.CLIConfigurationError(
                     f"Expected key 'registries:{exp_reg}' in CLI configuration file"
                 )
@@ -1439,7 +1528,6 @@ class FAIR:
 
         for key in _user_keys:
             if key not in cli_config["user"]:
-                self.purge(verbose=False)
                 raise fdp_exc.CLIConfigurationError(
                     f"Expected key 'user:{key}' in CLI configuration file"
                 )
@@ -1452,7 +1540,6 @@ class FAIR:
 
         for key in ["local_repo", "remote"]:
             if key not in cli_config["git"]:
-                self.purge(verbose=False)
                 raise fdp_exc.CLIConfigurationError(
                     f"Expected key 'git:{key}' in CLI configuration"
                 )
