@@ -53,10 +53,12 @@ class FAIRCLIException(Exception):
         ----------
         msg : str
             message to display
-        hint : str
+        hint : str, optional
             possible solution to issue raised
         level : str, optional
             level descriptor (message prefix), by default "Error"
+        exit_code : int, optional
+            exit code to return to the OS, by default 1
         """
         self.msg = msg
         self.level = level
@@ -65,6 +67,14 @@ class FAIRCLIException(Exception):
         super().__init__(msg)
 
     def err_print(self, err: bool = False) -> None:
+        """Prints the exception's level, message and hint to the console
+
+        Parameters
+        ----------
+        err : bool, optional
+            print to standard error rather than standard output, as a command
+            whose output is for another program must, by default False
+        """
         _out_msg = f"{f'{self.level}: ' if self.level else ''}{self.msg}"
         if self.hint:
             _out_msg += f"\n{self.hint}"
