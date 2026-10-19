@@ -5,7 +5,12 @@ on:
   workflow_dispatch:
   schedule:
     - cron: "0 9 * * 1" # Run Every Monday at 9AM
-  
+
+# GitHub's API answers 60 requests an hour from an address with no token, and
+# the CLI's GitHub lookups send this one
+env:
+  GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+
 jobs:
   Python:
     runs-on: ubuntu-latest
@@ -175,8 +180,6 @@ jobs:
 
   R:
     runs-on: ubuntu-latest
-    env:
-      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
     steps:
     - uses: actions/checkout@v7 # Clone FAIR CLI
 

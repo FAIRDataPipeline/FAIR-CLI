@@ -252,6 +252,7 @@ def test_register(
     remote_registry,
     pyDataPipeline: str,
     monkeypatch_module,
+    mocker,
     tmp_path,
     capsys,
 ):
@@ -435,6 +436,20 @@ def test_register(
 
         with open(_working_yaml_path, "w") as f:
             yaml.dump(_cfg, f, sort_keys=False)
+
+        # Its GitHub author is given its record: GitHub's API answers 60
+        # requests an hour from a machine with no token, and the lookup itself
+        # is tested in test_identifiers.py
+        mocker.patch(
+            "fair.identifiers.check_github",
+            return_value={
+                "name": "FAIR Data Pipeline",
+                "family_name": "Pipeline",
+                "given_names": "FAIR Data",
+                "github": "FAIRDataPipeline",
+                "uri": "https://github.com/FAIRDataPipeline",
+            },
+        )
 
         _res = _cli_runner.invoke(
             cli, ["pull", _working_yaml_path, "--debug"], catch_exceptions=True
