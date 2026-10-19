@@ -70,6 +70,26 @@ def test_default_output_namespace(make_config: fdp_user.JobConfiguration):
 
 
 @pytest.mark.faircli_user_config
+def test_preparation_of_a_register_entry_never_pulled(
+    mocker: pytest_mock.MockerFixture,
+    make_config: fdp_user.JobConfiguration,
+    local_config: typing.Tuple[str, str],
+    local_registry: conf.RegistryTest,
+):
+    # A run reads what 'fair pull' registered for its 'register' block; with
+    # nothing registered under the name, it is refused before the model is
+    # started. The name is one nothing in these tests registers
+    mocker.patch("fair.common.registry_home", lambda: local_registry._install)
+    for _entry in make_config["register"]:
+        if "external_object" in _entry:
+            _entry["external_object"] = "never/pulled"
+    with local_registry:
+        os.makedirs(os.path.join(local_config[1], fdp_com.FAIR_FOLDER, "logs"))
+        with pytest.raises(fdp_exc.UserConfigError, match="'never/pulled'"):
+            make_config.prepare(fdp_com.CMD_MODE.RUN, True)
+
+
+@pytest.mark.faircli_user_config
 def test_preparation(
     mocker: pytest_mock.MockerFixture,
     make_config: fdp_user.JobConfiguration,
@@ -79,6 +99,12 @@ def test_preparation(
     mocker.patch("fair.common.registry_home", lambda: local_registry._install)
     with local_registry:
         os.makedirs(os.path.join(local_config[1], fdp_com.FAIR_FOLDER, "logs"))
+        # What the 'register' block names is read from the local registry.
+        # The registry's example data holds it, as 'fair pull' would leave it
+        _manage = os.path.join(local_registry._install, "manage.py")
+        local_registry._venv.run(
+            "python", f"{_manage}", "add_example_data", capture=True
+        )
         make_config.prepare(fdp_com.CMD_MODE.RUN, True)
 
         _out_dir = os.path.join(conf.TEST_OUT_DIR, "test_preparation")
@@ -101,6 +127,15 @@ def _namespace_of_matches(registry: conf.RegistryTest, pattern: str) -> str:
         if fdp_glob.matches_wildcard(pattern, product["name"])
     ]
     return fdp_req.url_get(_matches[0]["namespace"], registry._token)["name"]
+
+
+# The entries a pattern was expanded to, its own entry, which must be there
+# once, left out
+def _without_pattern(
+    block: typing.List[typing.Dict], pattern: str
+) -> typing.List[typing.Dict]:
+    assert [entry["data_product"] for entry in block].count(pattern) == 1
+    return [entry for entry in block if entry["data_product"] != pattern]
 
 
 @pytest.mark.faircli_user_config
@@ -150,11 +185,12 @@ def test_wildcard_unpack_local(
         _config = fdp_user.JobConfiguration(_new_cfg_path)
         _config.update_from_fair(os.path.join(local_config[1], "project"))
         _config.prepare(fdp_com.CMD_MODE.RUN, True)
-        assert len(_config["read"]) > 1
+        _matches = _without_pattern(_config["read"], _wildcard_path)
+        assert len(_matches) > 1
         assert all(
             fdp_glob.matches_wildcard(_wildcard_path, entry["data_product"])
             and entry["use"]["namespace"] == _namespace
-            for entry in _config["read"]
+            for entry in _matches
         )
 
         _config.write(os.path.join(_out_dir, "out.yaml"))
@@ -217,12 +253,15 @@ def test_wildcard_unpack_remote(
             remote_registry._url,
             remote_registry._token,
         )
-        assert len(_config["read"]) > 1
+        _matches = _without_pattern(_config["read"], _wildcard_path)
+        assert len(_matches) > 1
         assert all(
             fdp_glob.matches_wildcard(_wildcard_path, entry["data_product"])
             and entry["use"]["namespace"] == _namespace
-            for entry in _config["read"]
+            for entry in _matches
         )
+        # 'fair pull' fetches the matches, and nothing for the pattern's entry
+        assert len(_config.get_readables()) == len(_matches)
 
         _config.write(os.path.join(_out_dir, "out.yaml"))
 
@@ -266,6 +305,117 @@ def test_subst_windows_config_dir():
     _config._config = {"run_metadata": {"description": "${{DATE}}"}}
     _config._subst_cli_vars(datetime.datetime(2026, 9, 27))
     assert _config["run_metadata.description"] == "20260927"
+
+
+@pytest.mark.faircli_user_config
+def test_register_entry_with_no_file():
+    # A source with no file is given no 'public', since there is no file for
+    # it to describe, and refused one written; and nothing of 'no_file'
+    # reaches the working config, whose read of it is like any other
+    _entry = {
+        "external_object": "deposit/whole",
+        "namespace_name": "ECMWF",
+        "identifier": "https://doi.org/10.24381/cds.f17050d7",
+        "title": "A deposit of files",
+        "release_date": "2021-09-20T12:00",
+        "primary": True,
+        "version": "1.0.0",
+        "no_file": True,
+    }
+    _config = fdp_user.JobConfiguration()
+    _config._config = {"run_metadata": {}}
+    _filled = _config._fill_block_item("register", _entry)
+    assert "public" not in _filled
+    with pytest.raises(fdp_exc.UserConfigError, match="Unexpected key 'public'"):
+        _config._fill_block_item("register", dict(_entry, public=True))
+    _with_file = {
+        k: v for k, v in _entry.items() if k != "no_file"
+    } | {"root": "https://example.com/", "path": "a.nc", "file_type": "nc"}
+    assert "public" in _config._fill_block_item("register", _with_file)
+
+    _config._config["read"] = _config._register_to_read([_filled])
+    _read = _config._clean()["read"]
+    assert [_entry["data_product"] for _entry in _read] == ["deposit/whole"]
+    assert set(_read[0]) <= {"data_product", "description", "use", "registered"}
+
+
+@pytest.mark.faircli_user_config
+def test_register_version_token_left_for_pull(
+    mocker: pytest_mock.MockerFixture,
+):
+    # A 'register' entry's token is resolved once its file is known, not here;
+    # a version given outright is looked up as before
+    mocker.patch(
+        "fair.registry.requests.get",
+        side_effect=AssertionError("the registry was asked"),
+    )
+    _config = fdp_user.JobConfiguration()
+    _config._config = {
+        "run_metadata": {},
+        "register": [
+            {
+                "data_product": "a/b",
+                "use": {
+                    "data_product": "a/b",
+                    "namespace": "PSU",
+                    "version": "${{PATCH}}",
+                },
+            }
+        ],
+    }
+    _filled = _config._fill_versions("register")
+    assert _filled[0]["use"]["version"] == "${{PATCH}}"
+
+
+@pytest.mark.faircli_user_config
+def test_resolve_registered_reads(mocker: pytest_mock.MockerFixture):
+    # A read made from a 'register' entry is of what the local registry holds:
+    # a token the highest version, a version given outright one that is there;
+    # anything else is refused, and other reads are left as they are
+    _held = {"a/b": ["0.0.1", "0.0.2"]}
+
+    def mock_get(uri, obj, token, params=None):
+        return [
+            {"version": v}
+            for v in _held.get(params["name"], [])
+            if params.get("version", v) == v
+        ]
+
+    mocker.patch("fair.registry.requests.local_token", return_value="")
+    mocker.patch("fair.register.convert_key_value_to_id", return_value=3)
+    mocker.patch("fair.registry.requests.get", mock_get)
+    _config = fdp_user.JobConfiguration()
+    _config._config = {
+        "run_metadata": {
+            "local_data_registry_url": "http://127.0.0.1:8000/api/"
+        }
+    }
+
+    def _read(name, version, registered=True):
+        _entry = {
+            "data_product": name,
+            "use": {
+                "data_product": name,
+                "namespace": "PSU",
+                "version": version,
+            },
+        }
+        if registered:
+            _entry["registered"] = True
+        return _entry
+
+    _other = _read("c/d", "${{ LATEST }}", registered=False)
+    _resolved = _config._resolve_registered_reads(
+        [_read("a/b", "${{ LATEST }}"), _read("a/b", "0.0.1"), _other]
+    )
+    assert [r["use"]["version"] for r in _resolved] == [
+        "0.0.2",
+        "0.0.1",
+        "${{ LATEST }}",
+    ]
+    for _missing in (_read("a/b", "0.0.3"), _read("x/y", "${{ LATEST }}")):
+        with pytest.raises(fdp_exc.UserConfigError, match="was not found"):
+            _config._resolve_registered_reads([_missing])
 
 
 @pytest.mark.faircli_user_config
@@ -467,6 +617,9 @@ def test_update_from_fair_without_git_remote(
         ("a/*/c", "a/b/c", True),
         ("a/*/c", "a/b/d/c", False),
         ("a.b/*", "aXb/1", False),
+        # A pattern never matches itself, nor a name the registry refuses
+        ("era5/t2m/*", "era5/t2m/*", False),
+        ("era5/t2m/*", "era5/t2m/[1]", False),
     ],
 )
 def test_matches_wildcard(pattern: str, name: str, matches: bool):
@@ -670,12 +823,15 @@ _FAMILY = [
 @pytest.mark.parametrize(
     "use,expected",
     [
-        # In its namespace only, and the highest version of each name
+        # In its namespace only, and the highest version of each name; the
+        # pattern's own entry is kept, last, at its matches' highest version,
+        # the version it names, or 0.0.0
         (
             {},
             [
                 ("testing", "fetched/era5/1940", "0.0.2"),
                 ("testing", "fetched/era5/1941", "0.0.1"),
+                ("testing", "fetched/era5/*", "0.0.2"),
             ],
         ),
         (
@@ -683,6 +839,7 @@ _FAMILY = [
             [
                 ("other", "fetched/era5/1999", "1.0.0"),
                 ("other", "fetched/era5/1940", "9.0.0"),
+                ("other", "fetched/era5/*", "9.0.0"),
             ],
         ),
         # A version given is the version read, of each name that has it
@@ -691,19 +848,31 @@ _FAMILY = [
             [
                 ("testing", "fetched/era5/1941", "0.0.1"),
                 ("testing", "fetched/era5/1940", "0.0.1"),
+                ("testing", "fetched/era5/*", "0.0.1"),
             ],
         ),
-        ({"version": "0.0.2"}, [("testing", "fetched/era5/1940", "0.0.2")]),
+        (
+            {"version": "0.0.2"},
+            [
+                ("testing", "fetched/era5/1940", "0.0.2"),
+                ("testing", "fetched/era5/*", "0.0.2"),
+            ],
+        ),
         (
             {"version": "${{LATEST}}", "namespace": "other"},
             [
                 ("other", "fetched/era5/1999", "1.0.0"),
                 ("other", "fetched/era5/1940", "9.0.0"),
+                ("other", "fetched/era5/*", "9.0.0"),
             ],
         ),
-        # A pattern asks for whatever matches it, which may be nothing
-        ({"version": "3.0.0"}, []),
-        ({"namespace": "unregistered"}, []),
+        # A pattern asks for whatever matches it, which may be nothing: then
+        # its own entry alone says it was given
+        ({"version": "3.0.0"}, [("testing", "fetched/era5/*", "3.0.0")]),
+        (
+            {"namespace": "unregistered"},
+            [("unregistered", "fetched/era5/*", "0.0.0")],
+        ),
     ],
 )
 def test_wildcard_read(mocker: pytest_mock.MockerFixture, use, expected):
@@ -716,6 +885,22 @@ def test_wildcard_read(mocker: pytest_mock.MockerFixture, use, expected):
         entry["data_product"] == entry["use"]["data_product"]
         for entry in _read
     )
+
+
+@pytest.mark.faircli_user_config
+def test_readables_leave_out_a_patterns_own_entry():
+    _config = fdp_user.JobConfiguration()
+    _config["read"] = [
+        {
+            "data_product": "fetched/era5/1940",
+            "use": {"namespace": "testing", "version": "0.0.2"},
+        },
+        {
+            "data_product": "fetched/era5/*",
+            "use": {"namespace": "testing", "version": "0.0.2"},
+        },
+    ]
+    assert _config.get_readables() == ["testing:fetched/era5/1940@v0.0.2"]
 
 
 @pytest.mark.faircli_user_config

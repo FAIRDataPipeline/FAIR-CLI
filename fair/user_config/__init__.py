@@ -148,6 +148,9 @@ class JobConfiguration(MutableMapping):
         self.env = None
         self._job_dir = None
         self._log_file = None
+        # The session holding the local registry for the job, named to its
+        # script as FDP_SESSION
+        self.session_id = None
 
     def _get_local_namespaces(self) -> typing.List[str]:
         _namespaces = fdp_req.get(self.local_uri, "namespace", fdp_req.local_token())
@@ -500,7 +503,10 @@ class JobConfiguration(MutableMapping):
                         }
                     )
 
-        if block_type == "write":
+        # The pattern's own entry is kept: in a write block as the template
+        # for names the model writes that match it, and in a read block so
+        # that a pattern that matched nothing is told from one never given
+        if block_type in ("read", "write"):
             _new_entries.append(block_entry)
 
         return _new_entries
@@ -758,6 +764,8 @@ class JobConfiguration(MutableMapping):
         _environment["FDP_DATA_STORE"] = self.default_data_store
         _environment["FDP_SCRIPT"] = self.script
         _environment["FDP_LOCAL_TOKEN"] = fdp_req.local_token()
+        if self.session_id:
+            _environment["FDP_SESSION"] = self.session_id
         return _environment
 
     def set_script(self, command_script: str) -> None:
@@ -858,6 +866,7 @@ class JobConfiguration(MutableMapping):
 
         if "read" in self:
             self["read"] = self._update_use_sections(self["read"])
+            self["read"] = self._resolve_registered_reads(self["read"])
 
         self._config = self._clean()
 
@@ -1001,6 +1010,71 @@ class JobConfiguration(MutableMapping):
             _read_block.append(_readable)
         return _read_block
 
+    def _resolve_registered_reads(
+        self, read_block: typing.List[typing.Dict]
+    ) -> typing.List[typing.Dict]:
+        """Resolve the reads made from 'register' entries in the local registry
+
+        'fair pull' registers what a 'register' entry names, so a read of it
+        is of what the local registry holds: a version given by a token is
+        the highest version there, and one given outright must be there.
+
+        Parameters
+        ----------
+        read_block : typing.List[typing.Dict]
+            the 'read' entries, those made from 'register' entries tagged
+            'registered'
+
+        Returns
+        -------
+        typing.List[typing.Dict]
+            the entries, each 'registered' one at a version it can read
+
+        Raises
+        ------
+        fdp_exc.UserConfigError
+            if what a 'register' entry names is not in the local registry
+        """
+        _token = fdp_req.local_token()
+        _resolved: typing.List[typing.Dict] = []
+        for entry in read_block:
+            if "registered" not in entry or "data_product" not in entry:
+                _resolved.append(entry)
+                continue
+            _name = entry["use"]["data_product"]
+            _namespace = entry["use"]["namespace"]
+            _version = entry["use"]["version"]
+            try:
+                _search = {
+                    "name": _name,
+                    "namespace": fdp_reg.convert_key_value_to_id(
+                        self.local_uri, "namespace", _namespace, _token
+                    ),
+                }
+                if "${{" not in _version:
+                    _search["version"] = _version
+                _results = fdp_req.get(
+                    self.local_uri, "data_product", _token, params=_search
+                )
+            except fdp_exc.RegistryError:
+                _results = []
+            if not _results:
+                _wanted = f"version '{_version}'"
+                if "${{" in _version:
+                    _wanted = "any version"
+                raise fdp_exc.UserConfigError(
+                    f"Cannot read data product '{_name}', named in the "
+                    f"'register' block: {_wanted} of it was not found in "
+                    f"namespace '{_namespace}' on registry '{self.local_uri}'",
+                    hint="Has 'fair pull' registered it?",
+                )
+            _new_entry = copy.deepcopy(entry)
+            _new_entry["use"]["version"] = str(
+                fdp_ver.get_latest_version(_results)
+            )
+            _resolved.append(_new_entry)
+        return _resolved
+
     def _update_use_sections(
         self, read_block: typing.List[typing.Dict]
     ) -> typing.List[typing.Dict]:
@@ -1102,10 +1176,15 @@ class JobConfiguration(MutableMapping):
             else:
                 self._logger.warning(f"Missing use:data_product in {item}")
                 continue
-            # Only a wildcard entry lacks this: kept in the write block as the
-            # template for names the model writes that match it
+            # Only a wildcard's own entry lacks this
             _new_item["use"]["data_product"] = _name
             _namespace = item["use"]["namespace"]
+
+            # A 'register' entry's token is resolved by 'fair pull' once its
+            # file is known: the version stays the highest while the file does
+            if block_type == "register" and "${{" in _version:
+                _entries.append(_new_item)
+                continue
 
             # A read to be fetched is looked for where it will come from,
             # and only then in the local registry
@@ -1227,6 +1306,10 @@ class JobConfiguration(MutableMapping):
         return _new_item
 
     def _fill_block_item(self, block_type: str, item: typing.Dict) -> typing.Dict:
+        # An entry with no file is checked as written, before any default
+        if block_type == "register":
+            fdp_reg.check_no_file_entry(item)
+
         _new_item = copy.deepcopy(item)
         _new_item["use"] = item.get("use", {})
 
@@ -1243,7 +1326,11 @@ class JobConfiguration(MutableMapping):
         if "data_product" in item:
             _new_item = self._fill_block_data_product(block_type, _new_item)
 
-        if block_type in {"write", "register"} and "public" not in item:
+        if (
+            block_type in {"write", "register"}
+            and "public" not in item
+            and not item.get("no_file")
+        ):
             _new_item["public"] = self.is_public_global
 
         return _new_item
@@ -1356,7 +1443,13 @@ class JobConfiguration(MutableMapping):
     def git_branch(self) -> str:
         """Retrieves the current git repository branch"""
         _git_loc = fdp_conf.local_git_repo(self.local_repository)
-        return git.Repo(_git_loc).active_branch.name
+        _repo = git.Repo(_git_loc)
+        if _repo.head.is_detached:
+            raise fdp_exc.UserConfigError(
+                "Cannot use GIT_BRANCH variable, the git repository is on no "
+                "branch: its checkout is detached, at a tag or a commit."
+            )
+        return _repo.active_branch.name
 
     @property
     def command(self) -> typing.Optional[str]:
@@ -1483,6 +1576,9 @@ class JobConfiguration(MutableMapping):
                 continue
 
             if "data_product" not in readable:
+                continue
+            # A wildcard's own entry names nothing to fetch: its matches do
+            if "*" in readable["data_product"]:
                 continue
             if "use" not in readable:
                 self._logger.error(

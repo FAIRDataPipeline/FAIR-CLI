@@ -46,7 +46,6 @@ __date__ = "2021-07-02"
 import copy
 import logging
 import os
-import pathlib
 import typing
 import uuid
 import time
@@ -59,6 +58,7 @@ import yaml
 import fair.common as fdp_com
 import fair.exceptions as fdp_exc
 import fair.identifiers as fdp_id
+import fair.registry.lifecycle as fdp_life
 import fair.registry.requests as fdp_req
 import fair.registry.server as fdp_serv
 
@@ -636,11 +636,17 @@ def _handle_uuid() -> typing.Tuple[typing.Dict, str]:
     return _user_info, _def_ospace
 
 
+# The email address an identifier's public record gives, to offer as the default:
+# an ORCID's, or a GitHub account's, where its holder has made one public
+def _public_email(user_info: typing.Dict) -> str:
+    if user_info.get("orcid"):
+        return fdp_id.check_orcid_email(user_info["orcid"]) or ""
+    return user_info.get("email") or ""
+
+
 def _get_user_info_and_namespaces(
     local: bool = False, remote_url: str = None, remote_token: str = None
 ) -> typing.Dict[str, typing.Dict]:
-    _user_email = click.prompt("Email (optional)", default="")
-
     _invalid_input = True
     # if not local:
     # _remote_auth_provider = fdp_req.get_auth_provider(remote_url)
@@ -693,6 +699,9 @@ def _get_user_info_and_namespaces(
             _invalid_input = False
         else:
             click.echo("Type a valid ID system: GITHUB/ORCID/ROR/GRID/None")
+
+    # Asked once the identifier is known, offering the address its record gives
+    _user_email = click.prompt("Email (optional)", default=_public_email(_user_info))
 
     _def_ospace = _def_ospace.lower().replace(" ", "").strip()
     _def_ospace = click.prompt("Default output namespace", default=_def_ospace)
@@ -805,21 +814,18 @@ def global_config_query(
                 f"Token could not be written to {_rem_key_file}"
             )
 
-    if not fdp_serv.check_server_running():
+    if not fdp_serv.check_server_running(_local_uri):
         if _ := click.confirm(
             "Local registry is offline, would you like to start it and for it to remain running?",
             default=False,
         ):
-            fdp_serv.launch_server(registry_dir=registry)
-
-            # Keep server running by creating user run cache file
-            _cache_addr = os.path.join(fdp_com.session_cache_dir(), "user.run")
-            pathlib.Path(_cache_addr).touch()
-
+            fdp_life.start_for_user(
+                port=get_local_port(_local_uri), registry_dir=registry
+            )
         else:
             click.echo("Temporarily launching local registry to retrieve API token.")
-            fdp_serv.launch_server(registry_dir=registry)
-            fdp_serv.stop_server(registry_dir=registry, local_uri=_local_uri)
+            with fdp_life.session(registry, _local_uri):
+                pass
             try:
                 fdp_req.local_token(registry_dir=registry)
             except fdp_exc.FileNotFoundError as e:

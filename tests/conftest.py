@@ -154,6 +154,10 @@ class VirtualEnv:
 
 def test_can_be_run(url):
     _header = {"Accept": "application/json"}
+    # With the token the CLI's own GitHub lookups would send
+    _token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GITHUB_PAT")
+    if _token and url.startswith("https://api.github.com/"):
+        _header["Authorization"] = f"Bearer {_token}"
     requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
     _response = requests.get(url, verify=False, headers=_header, allow_redirects=True)
     if _response.status_code == 200:

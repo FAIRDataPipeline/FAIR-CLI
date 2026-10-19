@@ -1,3 +1,4 @@
+import glob
 import os
 
 import click.testing
@@ -10,6 +11,7 @@ import fair.exceptions as fdp_exc
 import fair.register as fdp_reg
 import fair.registry.requests as fdp_req
 import fair.registry.storage as fdp_store
+import fair.registry.sync as fdp_sync
 import fair.testing as fdp_test
 
 TEST_DATA_DIR = f"file://{os.path.dirname(__file__)}{os.path.sep}data{os.path.sep}"
@@ -92,13 +94,171 @@ def test_register_refused_leaves_no_download(mocker, tmp_path, cached):
     assert os.listdir(tmp_path) == (["data.csv"] if cached else [])
 
 
+# A 'register' entry for a source with no file of its own, as written
+_NO_FILE_ENTRY = {
+    "external_object": "deposit/whole",
+    "namespace_name": "ECMWF",
+    "identifier": "https://doi.org/10.24381/cds.f17050d7",
+    "title": "A deposit of files",
+    "release_date": "2021-09-20T12:00",
+    "primary": True,
+    "version": "1.0.0",
+    "no_file": True,
+}
+
+
 @pytest.mark.faircli_register
+@pytest.mark.parametrize(
+    "change, refused",
+    [
+        ({}, None),
+        ({"root": "https://example.com/"}, "Unexpected key 'root'"),
+        ({"path": "a.nc"}, "Unexpected key 'path'"),
+        ({"file_type": "nc"}, "Unexpected key 'file_type'"),
+        ({"cache": "a.nc"}, "Unexpected key 'cache'"),
+        ({"use": {"cache": "a.nc"}}, "Unexpected key 'cache'"),
+        ({"public": True}, "Unexpected key 'public'"),
+        ({"version": None}, "Expected a version"),
+        ({"version": "${{PATCH}}"}, "Expected a version"),
+        ({"no_file": "yes"}, "Expected true or false"),
+        ({"no_file": False}, None),
+    ],
+)
+def test_check_no_file_entry(change, refused):
+    _entry = {k: v for k, v in {**_NO_FILE_ENTRY, **change}.items() if v is not None}
+    if refused:
+        with pytest.raises(fdp_exc.UserConfigError, match=refused):
+            fdp_reg.check_no_file_entry(_entry)
+    else:
+        fdp_reg.check_no_file_entry(_entry)
+
+
+@pytest.mark.faircli_register
+def test_check_no_file_entry_of_a_data_product():
+    _entry = dict(_NO_FILE_ENTRY, data_product="deposit/whole")
+    del _entry["external_object"]
+    with pytest.raises(fdp_exc.UserConfigError, match="Only an 'external_object'"):
+        fdp_reg.check_no_file_entry(_entry)
+
+
+@pytest.mark.faircli_register
+@pytest.mark.parametrize("registered", [False, True])
+def test_register_no_file_fetches_nothing(mocker, tmp_path, registered):
+    # Nothing is fetched or copied; the entry is registered unless it is there
+    mocker.patch(
+        "fair.registry.sync.download_from_registry",
+        side_effect=AssertionError("a file was fetched"),
+    )
+    mocker.patch(
+        "fair.registry.storage.check_source_is_one_file",
+        side_effect=AssertionError("a file was compared"),
+    )
+    mocker.patch("fair.registry.requests.local_token", return_value="")
+    mocker.patch("fair.register.convert_key_value_to_id", return_value=3)
+    mocker.patch(
+        "fair.registry.storage.check_registered_without_file",
+        return_value=registered,
+    )
+    _store = mocker.patch(
+        "fair.registry.storage.store_registration_without_file",
+        return_value={"url": "external_object_url"},
+    )
+    _entry = dict(_NO_FILE_ENTRY)
+    _entry["use"] = {
+        "data_product": "deposit/whole",
+        "namespace": "ECMWF",
+        "version": _entry.pop("version"),
+    }
+
+    _stored = fdp_reg.fetch_registrations(
+        "http://127.0.0.1:8000/api/", "", str(tmp_path), [_entry]
+    )
+
+    assert os.listdir(tmp_path) == []
+    if registered:
+        _store.assert_not_called()
+        assert _stored == []
+    else:
+        assert _store.call_args.kwargs["data"]["namespace_name"] == "ECMWF"
+        assert _stored == [{"url": "external_object_url"}]
+
+
+@pytest.mark.faircli_register
+@pytest.mark.parametrize(
+    "version, present, outcome",
+    [
+        ("${{PATCH}}", "hash_match", "passed over"),
+        ("${{PATCH}}", "results", "0.0.3"),
+        ("${{PATCH}}", "absent", "0.0.1"),
+        ("${{ LATEST }}", "hash_match", "passed over"),
+        ("${{ LATEST }}", "results", "has changed"),
+        ("${{ LATEST }}", "absent", "no version of it"),
+        ("2.0.0", "absent", "2.0.0"),
+        ("2.0.0", "hash_match", "passed over"),
+        ("2.0.0", "results", "with another file"),
+    ],
+)
+def test_register_version_decided_by_the_file(
+    mocker, tmp_path, version, present, outcome
+):
+    # A token keeps the highest version while the file is its file. Otherwise
+    # ${{PATCH}} makes the next version and ${{LATEST}} is refused; the
+    # version decided is the one registered. A version given outright that is
+    # registered with another file is refused
+    _data_file = os.path.join(tmp_path, "data.csv")
+    with open(_data_file, "w") as out_f:
+        out_f.write("a,b\n1,2\n")
+    mocker.patch(
+        "fair.registry.sync.download_from_registry", return_value=_data_file
+    )
+    mocker.patch("fair.registry.requests.local_token", return_value="")
+    mocker.patch("fair.register.convert_key_value_to_id", return_value=3)
+    _results = [{"version": "0.0.1"}, {"version": "0.0.2"}]
+    mocker.patch(
+        "fair.registry.storage.check_if_object_exists",
+        return_value=_results if present == "results" else present,
+    )
+    _store = mocker.patch(
+        "fair.registry.storage.store_data_file", return_value="registered"
+    )
+    _entry = {
+        "data_product": "a/b",
+        "use": {"data_product": "a/b", "namespace": "PSU", "version": version},
+        "root": "https://example.com/",
+        "path": "a/b.csv",
+        "file_type": "csv",
+        "public": True,
+    }
+    _store_dir = os.path.join(tmp_path, "store")
+    if outcome in ("has changed", "no version of it", "with another file"):
+        with pytest.raises(fdp_exc.UserConfigError, match=outcome):
+            fdp_reg.fetch_registrations(
+                "http://127.0.0.1:8000/api/", "", _store_dir, [_entry]
+            )
+        _store.assert_not_called()
+        # Nothing copied into the data store, and the fetched file removed
+        assert not os.path.exists(_store_dir)
+        assert not os.path.exists(_data_file)
+        return
+    fdp_reg.fetch_registrations(
+        "http://127.0.0.1:8000/api/", "", _store_dir, [_entry]
+    )
+    if outcome == "passed over":
+        _store.assert_not_called()
+    else:
+        assert _store.call_args.kwargs["data"]["use"]["version"] == outcome
+        assert _store.call_args.kwargs["local_file"].endswith(f"{outcome}.csv")
+
+
+@pytest.mark.faircli_register
+@pytest.mark.dependency(name="register")
 def test_register(
     global_config,
     local_registry,
     remote_registry,
     pyDataPipeline: str,
     monkeypatch_module,
+    mocker,
     tmp_path,
     capsys,
 ):
@@ -283,6 +443,20 @@ def test_register(
         with open(_working_yaml_path, "w") as f:
             yaml.dump(_cfg, f, sort_keys=False)
 
+        # Its GitHub author is given its record: GitHub's API answers 60
+        # requests an hour from a machine with no token, and the lookup itself
+        # is tested in test_identifiers.py
+        mocker.patch(
+            "fair.identifiers.check_github",
+            return_value={
+                "name": "FAIR Data Pipeline",
+                "family_name": "Pipeline",
+                "given_names": "FAIR Data",
+                "github": "FAIRDataPipeline",
+                "uri": "https://github.com/FAIRDataPipeline",
+            },
+        )
+
         _res = _cli_runner.invoke(
             cli, ["pull", _working_yaml_path, "--debug"], catch_exceptions=True
         )
@@ -291,3 +465,256 @@ def test_register(
             print(f"exc info: {_res.exc_info}")
             print(f"exception: {_res.exception}")
         assert _res.exit_code == 0
+
+
+@pytest.mark.faircli_register
+@pytest.mark.dependency(depends=["register"])
+def test_register_no_file(
+    local_registry,
+    remote_registry,
+    pyDataPipeline: str,
+    monkeypatch_module,
+    mocker,
+    tmp_path,
+):
+    # A source with no file of its own, such as a deposit a run queries, is
+    # registered by 'fair pull' as a data product with no file, once, and a
+    # run may then read it. The DOI is one the registration test resolves
+    monkeypatch_module.chdir(pyDataPipeline)
+    _download = mocker.spy(fdp_sync, "download_from_registry")
+    _entry = dict(
+        _NO_FILE_ENTRY, identifier="https://doi.org/10.1038/s41592-020-0856-2"
+    )
+    _cfg = {
+        "run_metadata": {
+            "description": "Registering a deposit",
+            "script": "echo done",
+        },
+        "register": [
+            {"namespace": "ECMWF", "full_name": "A namespace for a deposit"},
+            _entry,
+        ],
+    }
+    _cfg_path = os.path.join(tmp_path, "deposit.yaml")
+
+    def _write(entry):
+        _cfg["register"][1] = entry
+        with open(_cfg_path, "w") as f:
+            yaml.dump(_cfg, f, sort_keys=False)
+
+    _cli_runner = click.testing.CliRunner()
+    with local_registry, remote_registry:
+        _token = local_registry._token
+
+        def _deposits():
+            return fdp_req.get(
+                local_registry._url,
+                "data_product",
+                _token,
+                params={"name": "deposit/whole"},
+            )
+
+        _write(_entry)
+        for _ in range(2):
+            _res = _cli_runner.invoke(
+                cli, ["pull", _cfg_path, "--debug"], catch_exceptions=True
+            )
+            assert _res.exit_code == 0, _res.output
+            assert len(_deposits()) == 1
+        _deposit = _deposits()[0]
+        assert _deposit["version"] == "1.0.0"
+        assert not fdp_req.url_get(_deposit["object"], _token)[
+            "storage_location"
+        ]
+        _source = fdp_req.url_get(_deposit["external_object"], _token)
+        assert (_source["identifier"], _source["title"]) == (
+            _entry["identifier"],
+            _entry["title"],
+        )
+        _download.assert_not_called()
+
+        # Another source at that version is refused
+        _write(dict(_entry, title="Another deposit"))
+        _res = _cli_runner.invoke(
+            cli, ["pull", _cfg_path, "--debug"], catch_exceptions=True
+        )
+        assert _res.exit_code == 1
+        assert "registered already" in _res.output
+        assert len(_deposits()) == 1
+
+        # A run is given it to read
+        _write(_entry)
+        _res = _cli_runner.invoke(
+            cli,
+            ["run", _cfg_path, "--local", "--dirty", "--debug"],
+            catch_exceptions=True,
+        )
+        assert _res.exit_code == 0, _res.output
+
+
+@pytest.mark.faircli_register
+@pytest.mark.dependency(depends=["register"])
+def test_register_without_a_version(
+    local_registry,
+    remote_registry,
+    pyDataPipeline: str,
+    monkeypatch_module,
+    tmp_path,
+):
+    # An entry with no version keeps the highest version while its file is the
+    # same, and has the next when it changes; a run reads the highest. With
+    # ${{LATEST}} a changed file is refused, and a run refused anything that
+    # 'fair pull' has not registered
+    monkeypatch_module.chdir(pyDataPipeline)
+    _file = os.path.join(tmp_path, "unversioned.csv")
+    _entry = {
+        "data_product": "unversioned/data",
+        "namespace_name": "TestNameSpace",
+        "root": f"file://{tmp_path}{os.path.sep}",
+        "path": "unversioned.csv",
+        "file_type": "csv",
+    }
+    _cfg = {
+        "run_metadata": {"description": "No version", "script": "echo done"},
+        "register": [
+            {"namespace": "TestNameSpace", "full_name": "A namespace"},
+            _entry,
+        ],
+    }
+    _cfg_path = os.path.join(tmp_path, "unversioned.yaml")
+
+    def _write(content, entry=_entry):
+        with open(_file, "w") as out_f:
+            out_f.write(content)
+        _cfg["register"][1] = entry
+        with open(_cfg_path, "w") as cfg_f:
+            yaml.dump(_cfg, cfg_f, sort_keys=False)
+
+    _cli_runner = click.testing.CliRunner()
+
+    def _fair(*args):
+        return _cli_runner.invoke(
+            cli, [*args, _cfg_path, "--debug"], catch_exceptions=True
+        )
+
+    with local_registry, remote_registry:
+        _token = local_registry._token
+
+        def _versions(name="unversioned/data"):
+            return sorted(
+                product["version"]
+                for product in fdp_req.get(
+                    local_registry._url,
+                    "data_product",
+                    _token,
+                    params={"name": name},
+                )
+            )
+
+        _write("a,b\n1,2\n")
+        for _ in range(2):
+            assert _fair("pull").exit_code == 0
+            assert _versions() == ["0.0.1"]
+        _write("a,b\n3,4\n")
+        assert _fair("pull").exit_code == 0
+        assert _versions() == ["0.0.1", "0.0.2"]
+
+        _res = _fair("run", "--local", "--dirty")
+        assert _res.exit_code == 0, _res.output
+        _job = max(glob.glob(os.path.join(fdp_com.default_jobs_dir(), "*")))
+        with open(os.path.join(_job, fdp_com.USER_CONFIG_FILE)) as job_f:
+            _read = yaml.safe_load(job_f)["read"]
+        assert [(r["data_product"], r["use"]["version"]) for r in _read] == [
+            ("unversioned/data", "0.0.2")
+        ]
+
+        _latest = dict(_entry, version="${{LATEST}}")
+        _write("a,b\n3,4\n", _latest)
+        assert _fair("pull").exit_code == 0
+        _write("a,b\n5,6\n", _latest)
+        _res = _fair("pull")
+        assert _res.exit_code == 1
+        assert "has changed" in _res.output
+        assert _versions() == ["0.0.1", "0.0.2"]
+
+        _write("a,b\n1,2\n", dict(_entry, data_product="never/pulled"))
+        _res = _fair("run", "--local", "--dirty")
+        assert _res.exit_code == 1
+        assert "was not found" in _res.output
+
+
+@pytest.mark.faircli_register
+@pytest.mark.dependency(depends=["register"])
+def test_register_at_a_version_with_another_file(
+    local_registry,
+    remote_registry,
+    pyDataPipeline: str,
+    monkeypatch_module,
+    tmp_path,
+):
+    # A version given outright that is registered with another file is
+    # refused, and the registered file, which the copy would go over, is kept
+    monkeypatch_module.chdir(pyDataPipeline)
+    _file = os.path.join(tmp_path, "pinned.csv")
+    _entry = {
+        "data_product": "pinned/data",
+        "namespace_name": "TestNameSpace",
+        "root": f"file://{tmp_path}{os.path.sep}",
+        "path": "pinned.csv",
+        "file_type": "csv",
+        "version": "1.0.0",
+        "public": True,
+    }
+    _cfg = {
+        "run_metadata": {"description": "A pinned version", "script": "echo"},
+        "register": [
+            {"namespace": "TestNameSpace", "full_name": "A namespace"},
+            _entry,
+        ],
+    }
+    _cfg_path = os.path.join(tmp_path, "pinned.yaml")
+    with open(_cfg_path, "w") as cfg_f:
+        yaml.dump(_cfg, cfg_f, sort_keys=False)
+    _cli_runner = click.testing.CliRunner()
+
+    def _pull(content):
+        with open(_file, "w") as out_f:
+            out_f.write(content)
+        return _cli_runner.invoke(
+            cli, ["pull", _cfg_path, "--debug"], catch_exceptions=True
+        )
+
+    with local_registry, remote_registry:
+        _token = local_registry._token
+
+        def _registered():
+            _products = fdp_req.get(
+                local_registry._url,
+                "data_product",
+                _token,
+                params={"name": "pinned/data"},
+            )
+            _location = fdp_req.url_get(
+                fdp_req.url_get(_products[0]["object"], _token)["storage_location"],
+                _token,
+            )
+            _root = fdp_req.url_get(_location["storage_root"], _token)["root"]
+            _path = os.path.join(_root.replace("file://", ""), _location["path"])
+            return len(_products), _location["hash"], _path
+
+        assert _pull("a,b\n1,2\n").exit_code == 0
+        _count, _hash, _path = _registered()
+        assert _count == 1
+        assert fdp_store.calculate_file_hash(_path) == _hash
+
+        # The same file again is passed over
+        assert _pull("a,b\n1,2\n").exit_code == 0
+        assert _registered() == (1, _hash, _path)
+
+        _res = _pull("a,b\n3,4\n")
+        assert _res.exit_code == 1
+        assert "registered in namespace 'TestNameSpace' with another file" in (
+            _res.output
+        )
+        assert _registered() == (1, _hash, _path)
+        assert fdp_store.calculate_file_hash(_path) == _hash

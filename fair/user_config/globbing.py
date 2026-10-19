@@ -46,8 +46,9 @@ def matches_wildcard(pattern: str, name: str) -> bool:
     """Return whether a name matches a wildcard pattern
 
     Each '*' matches one segment of the name: one or more characters other
-    than '/'. The pattern is anchored at both ends, and every other character
-    matches itself.
+    than '/' and the four the registry refuses in a name, '[', ']', '?' and
+    '*', so that a pattern never matches itself. The pattern is anchored at
+    both ends, and every other character matches itself.
 
     Parameters
     ----------
@@ -61,7 +62,7 @@ def matches_wildcard(pattern: str, name: str) -> bool:
     bool
         whether the name matches
     """
-    _regex = "[^/]+".join(re.escape(part) for part in pattern.split("*"))
+    _regex = r"[^/\[\]?*]+".join(re.escape(part) for part in pattern.split("*"))
     return re.fullmatch(_regex, name) is not None
 
 

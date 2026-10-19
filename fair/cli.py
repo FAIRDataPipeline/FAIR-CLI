@@ -12,6 +12,7 @@ interact with the synchronisation tool.
 __date__ = "2021-06-24"
 
 import glob
+import json
 import logging
 from multiprocessing import context
 import os
@@ -27,6 +28,7 @@ import fair.common as fdp_com
 import fair.configuration as fdp_conf
 import fair.exceptions as fdp_exc
 import fair.history as fdp_hist
+import fair.registry.lifecycle as fdp_life
 import fair.registry.server as fdp_svr
 import fair.run as fdp_run
 import fair.session as fdp_session
@@ -115,7 +117,7 @@ def identify(file_path: str, remote: str, debug, local: bool) -> None:
                 fair_session.get_details(file_path, remote=remote)
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
-        if e.level.lower() == "error":
+        if e.level.lower() != "warning":
             sys.exit(e.exit_code)
 
 
@@ -148,7 +150,7 @@ def find(data_product: str, remote: str, debug: bool, local: bool) -> None:
                 fair_session.find_data_product(data_product, remote)
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
-        if e.level.lower() == "error":
+        if e.level.lower() != "warning":
             sys.exit(e.exit_code)
 
 
@@ -165,7 +167,7 @@ def status(verbose, debug) -> None:
             fair_session.status_code_runs()
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
-        if e.level.lower() == "error":
+        if e.level.lower() != "warning":
             sys.exit(e.exit_code)
 
 
@@ -197,7 +199,7 @@ def data_products(ctx) -> None:
             fair_session.show_all_data_products(remote=remote)
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
-        if e.level.lower() == "error":
+        if e.level.lower() != "warning":
             sys.exit(e.exit_code)
 
 
@@ -213,7 +215,7 @@ def code_runs(ctx) -> None:
             fair_session.show_all_code_runs(remote=remote)
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
-        if e.level.lower() == "error":
+        if e.level.lower() != "warning":
             sys.exit(e.exit_code)
 
 
@@ -241,7 +243,7 @@ def reset(debug: bool) -> None:
             fair_session.reset_staging()
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
-        if e.level.lower() == "error":
+        if e.level.lower() != "warning":
             sys.exit(e.exit_code)
 
 
@@ -308,7 +310,7 @@ def init(
                 fair_session.make_starter_config(config)
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
-        if e.level.lower() == "error":
+        if e.level.lower() != "warning":
             sys.exit(e.exit_code)
 
 
@@ -338,31 +340,31 @@ def init(
 def purge(glob: bool, debug: bool, yes: bool, data: bool, all: bool) -> None:
     # sourcery skip: avoid-builtin-shadow
     """Resets the repository deleting all local caches"""
-    _purge = yes
-
+    # Answering no to the first question removes nothing; --yes answers every
+    # question
     if all:
-        all = click.confirm(
+        if not yes and not click.confirm(
             "Are you sure you want to remove all FAIR components from this system?\n"
             "WARNING: This will also remove your local registry"
-        )
+        ):
+            return
     else:
-        _purge = click.confirm(
+        if not yes and not click.confirm(
             "Are you sure you want to reset FAIR tracking, this is not reversible?"
-        )
-        if data:
+        ):
+            return
+        if data and not yes:
             data = click.confirm(
                 "Are you sure you want to delete the local data directory?\n"
                 "WARNING: Do not do this if you have a populated local registry"
             )
-        if not _purge:
-            return
 
     try:
         with fdp_session.FAIR(os.getcwd()) as fair_session:
             fair_session.purge(global_cfg=glob, clear_data=data, clear_all=all)
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
-        if e.level.lower() == "error":
+        if e.level.lower() != "warning":
             sys.exit(e.exit_code)
 
 
@@ -388,7 +390,7 @@ def uninstall(debug: bool):
         fdp_svr.uninstall_registry()
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
-        if e.level.lower() == "error":
+        if e.level.lower() != "warning":
             sys.exit(e.exit_code)
 
 
@@ -406,19 +408,26 @@ def install(debug: bool, force: bool, directory: str, version: str):
     try:
         if debug:
             logging.getLogger("FAIRDataPipeline").setLevel(logging.DEBUG)
+        if force:
+            fdp_life.stop_for_removal(directory or fdp_com.DEFAULT_REGISTRY_LOCATION)
         _version = fdp_svr.install_registry(
             install_dir=directory, reference=version, force=force
         )
         click.echo(f"Installed registry version '{_version}'")
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
-        if e.level.lower() == "error":
+        if e.level.lower() != "warning":
             sys.exit(e.exit_code)
 
 
 @registry.command()
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
-@click.option("--port", help="port on which to run registry", default=8000)
+@click.option(
+    "--port",
+    help="port on which to run registry, by default the configured one",
+    type=int,
+    default=None,
+)
 @click.option("--address", help="Address on which to run registry", default="127.0.0.1")
 def start(debug: bool, port: int, address: str) -> None:
     """Start the local registry server"""
@@ -432,7 +441,7 @@ def start(debug: bool, port: int, address: str) -> None:
         )
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
-        if e.level.lower() == "error":
+        if e.level.lower() != "warning":
             sys.exit(e.exit_code)
 
 
@@ -446,7 +455,63 @@ def stop(force: bool, debug: bool) -> None:
         fdp_session.FAIR(os.getcwd(), server_mode=_mode, debug=debug)
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
-        if e.level.lower() == "error":
+        if e.level.lower() != "warning":
+            sys.exit(e.exit_code)
+
+
+@registry.group()
+def session() -> None:
+    """Sessions that hold the local registry while a process uses it"""
+    pass
+
+
+@session.command("open")
+@click.option(
+    "--pid",
+    help="Process holding the session, which ends with it",
+    type=int,
+    required=True,
+)
+@click.option(
+    "--json",
+    "as_json",
+    is_flag=True,
+    default=False,
+    help="Print the session as one JSON object",
+)
+@click.option("--debug/--no-debug", help="Run in debug mode", default=False)
+def session_open(pid: int, as_json: bool, debug: bool) -> None:
+    """Open a session on the local registry, starting it if it is not running"""
+    try:
+        if debug:
+            logging.getLogger("FAIRDataPipeline").setLevel(logging.DEBUG)
+        _session = fdp_life.open_session(pid=pid)
+        if as_json:
+            click.echo(json.dumps(_session))
+        else:
+            click.echo(
+                f"Opened session {_session['session']} on the local registry "
+                f"at {_session['registry_url']}"
+            )
+    except fdp_exc.FAIRCLIException as e:
+        e.err_print(err=True)
+        if e.level.lower() != "warning":
+            sys.exit(e.exit_code)
+
+
+@session.command("close")
+@click.argument("session_id")
+@click.option("--debug/--no-debug", help="Run in debug mode", default=False)
+def session_close(session_id: str, debug: bool) -> None:
+    """Close a session, stopping the registry if a session started it and none remain"""
+    try:
+        if debug:
+            logging.getLogger("FAIRDataPipeline").setLevel(logging.DEBUG)
+        if not fdp_life.close_session(session_id):
+            click.echo(f"Warning: no session '{session_id}' is open", err=True)
+    except fdp_exc.FAIRCLIException as e:
+        e.err_print(err=True)
+        if e.level.lower() != "warning":
             sys.exit(e.exit_code)
 
 
@@ -460,7 +525,7 @@ def status(debug) -> None:
             fair_session.registry_status()
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
-        if e.level.lower() == "error":
+        if e.level.lower() != "warning":
             sys.exit(e.exit_code)
 
 
@@ -472,7 +537,7 @@ def log(debug: bool) -> None:
         fdp_hist.show_history(os.getcwd())
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
-        if e.level.lower() == "error":
+        if e.level.lower() != "warning":
             sys.exit(e.exit_code)
 
 
@@ -485,7 +550,7 @@ def view(job_id: str, debug: bool) -> None:
         fdp_hist.show_job_log(os.getcwd(), job_id)
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
-        if e.level.lower() == "error":
+        if e.level.lower() != "warning":
             sys.exit(e.exit_code)
 
 
@@ -507,7 +572,7 @@ def unstage(identifier: str, debug: bool, job: bool) -> None:
             )
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
-        if e.level.lower() == "error":
+        if e.level.lower() != "warning":
             sys.exit(e.exit_code)
 
 
@@ -536,7 +601,7 @@ def add(identifier: str, debug: bool) -> None:
             fair_session.add_to_staging(identifier)
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
-        if e.level.lower() == "error":
+        if e.level.lower() != "warning":
             sys.exit(e.exit_code)
 
 
@@ -576,10 +641,29 @@ def rm(job_ids: typing.List[str], cached: bool = False, debug: bool = False) -> 
     help="init without a remote registry - useful for closed systems",
     default=False,
 )
-def run(config: str, script: str, debug: bool, ci: bool, dirty: bool, local: bool):
+@click.option(
+    "--rehearse",
+    is_flag=True,
+    default=False,
+    help="Prepare the job as a run would, without running its script, "
+    "and print its files as one JSON object",
+)
+def run(
+    config: str,
+    script: str,
+    debug: bool,
+    ci: bool,
+    dirty: bool,
+    local: bool,
+    rehearse: bool,
+):
     """Initialises a job with the option to specify a bash command"""
+    if rehearse and ci:
+        raise click.UsageError("'--rehearse' and '--ci' cannot be given together")
+    # A rehearsal's stdout is its JSON alone
+    if not rehearse:
+        click.echo("Running run please wait")
     # Allow no config to be specified, if that is the case use default local
-    click.echo("Running run please wait")
     config = config[0] if config else fdp_com.local_user_config(os.getcwd())
     try:
         with fdp_session.FAIR(
@@ -590,12 +674,16 @@ def run(config: str, script: str, debug: bool, ci: bool, dirty: bool, local: boo
             allow_dirty=dirty,
             local=local,
         ) as fair_session:
-            _hash = fair_session.run(script, passive=ci, allow_dirty=dirty, local=local)
+            _hash = fair_session.run(
+                script, passive=ci, allow_dirty=dirty, local=local, rehearse=rehearse
+            )
             if ci:
                 click.echo(fdp_run.get_job_dir(_hash))
+            if rehearse:
+                click.echo(json.dumps(fair_session.rehearsal()))
     except fdp_exc.FAIRCLIException as e:
-        e.err_print()
-        if e.level.lower() == "error":
+        e.err_print(err=rehearse)
+        if e.level.lower() != "warning":
             sys.exit(e.exit_code)
 
 
@@ -611,7 +699,7 @@ def remote(ctx, verbose: bool = False, debug: bool = False):
                 fair_session.list_remotes(verbose)
         except fdp_exc.FAIRCLIException as e:
             e.err_print()
-            if e.level.lower() == "error":
+            if e.level.lower() != "warning":
                 sys.exit(e.exit_code)
 
 
@@ -646,7 +734,7 @@ def add(options: typing.List[str], token_file: str, debug: bool) -> None:
             fair_session.add_remote(_url, token_file, _label)
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
-        if e.level.lower() == "error":
+        if e.level.lower() != "warning":
             sys.exit(e.exit_code)
 
 
@@ -666,7 +754,7 @@ def remove(label: str, debug: bool) -> None:
             fair_session.remove_remote(label)
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
-        if e.level.lower() == "error":
+        if e.level.lower() != "warning":
             sys.exit(e.exit_code)
 
 
@@ -682,7 +770,7 @@ def modify(ctx, label: str, url: str, debug: bool) -> None:
             fair_session.modify_remote(label, url)
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
-        if e.level.lower() == "error":
+        if e.level.lower() != "warning":
             sys.exit(e.exit_code)
 
 
@@ -708,7 +796,7 @@ def push(remote: str, debug: bool, dirty: bool):
             fair_session.push(remote)
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
-        if e.level.lower() == "error":
+        if e.level.lower() != "warning":
             sys.exit(e.exit_code)
 
 
@@ -754,7 +842,7 @@ def pull(config: str, debug: bool, local: bool):
             fair.pull()
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
-        if e.level.lower() == "error":
+        if e.level.lower() != "warning":
             sys.exit(e.exit_code)
 
 

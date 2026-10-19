@@ -8,6 +8,8 @@ all CLI commands run without any errors
 """
 
 import glob
+import inspect
+import json
 import os
 import shutil
 import sys
@@ -26,9 +28,13 @@ import requests
 import yaml
 
 import fair.common as fdp_com
+import fair.exceptions as fdp_exc
+import fair.registry.lifecycle
 import fair.registry.server
 import fair.session
 import fair.staging
+import fair.testing as fdp_test
+import fair.user_config
 from fair.cli import cli
 from tests import conftest as conf
 
@@ -237,10 +243,11 @@ def test_init_full(
             "",  # remote api url
             "",  # remote data url
             "0123456789012345678901234567890123456789",  # remote token
+            "n",  # not to keep the registry running on that port
             "",  # default data store
-            _dummy_email,  # email
             "NONE",  # id system
             _dummy_name,  # Full name
+            _dummy_email,  # email
             "",  # Output namespace
             "",  # Input namespace
             pySimpleModel,  # Repo
@@ -308,9 +315,9 @@ def test_init_local(
         _args = [
             "8000",
             "",
-            _dummy_email,
             "NONE",
             _dummy_name,
+            _dummy_email,
             "",
             "",
             pySimpleModel,
@@ -462,6 +469,82 @@ def test_purge(
 
 
 @pytest.mark.faircli_cli
+@pytest.mark.parametrize("options", [["--all"], ["--data"], []])
+def test_purge_answered_no_removes_nothing(
+    local_config: typing.Tuple[str, str],
+    click_test: click.testing.CliRunner,
+    mocker: pytest_mock.MockerFixture,
+    options: typing.List[str],
+):
+    mocker.patch(
+        "fair.common.global_config_dir", lambda *args: local_config[0]
+    )
+    mocker.patch("fair.common.find_fair_root", lambda *args: local_config[1])
+    _purge = mocker.spy(fair.session.FAIR, "purge")
+
+    _result = click_test.invoke(cli, ["purge", *options], input="n\n")
+    assert _result.exit_code == 0, _result.output
+    assert "Are you sure" in _result.output
+    _purge.assert_not_called()
+    assert os.path.exists(os.path.join(local_config[1], fdp_com.FAIR_FOLDER))
+
+
+@pytest.mark.faircli_cli
+def test_purge_yes_asks_nothing(
+    local_config: typing.Tuple[str, str],
+    click_test: click.testing.CliRunner,
+    mocker: pytest_mock.MockerFixture,
+):
+    mocker.patch(
+        "fair.common.global_config_dir", lambda *args: local_config[0]
+    )
+    mocker.patch("fair.common.find_fair_root", lambda *args: local_config[1])
+
+    _result = click_test.invoke(cli, ["purge", "--yes"])
+    assert _result.exit_code == 0, _result.output
+    assert "Are you sure" not in _result.output
+    assert not os.path.exists(
+        os.path.join(local_config[1], fdp_com.FAIR_FOLDER)
+    )
+    assert os.path.exists(os.path.join(local_config[0], fdp_com.FAIR_FOLDER))
+
+
+@pytest.mark.faircli_cli
+@pytest.mark.parametrize(
+    "options, removes",
+    [
+        (
+            ["--all"],
+            {"global_cfg": False, "clear_data": False, "clear_all": True},
+        ),
+        (
+            ["--data"],
+            {"global_cfg": False, "clear_data": True, "clear_all": False},
+        ),
+    ],
+)
+def test_purge_yes_answers_every_question(
+    local_config: typing.Tuple[str, str],
+    click_test: click.testing.CliRunner,
+    mocker: pytest_mock.MockerFixture,
+    options: typing.List[str],
+    removes: typing.Dict[str, bool],
+):
+    # What would be removed is checked, not removed: with --all that is the
+    # whole FAIR directory
+    mocker.patch(
+        "fair.common.global_config_dir", lambda *args: local_config[0]
+    )
+    mocker.patch("fair.common.find_fair_root", lambda *args: local_config[1])
+    _purge = mocker.patch("fair.session.FAIR.purge")
+
+    _result = click_test.invoke(cli, ["purge", "--yes", *options])
+    assert _result.exit_code == 0, _result.output
+    assert "Are you sure" not in _result.output
+    _purge.assert_called_once_with(**removes)
+
+
+@pytest.mark.faircli_cli
 def test_remote_add(
     local_config: typing.Tuple[str, str],
     click_test: click.testing.CliRunner,
@@ -525,18 +608,17 @@ def test_session_file_removed_from_subdirectory(
 ):
     mocker.patch("fair.common.registry_home", lambda: local_config[0])
     mocker.patch("fair.registry.server.launch_server", lambda **kwargs: None)
+    mocker.patch("fair.registry.lifecycle._server_here", return_value=None)
     mocker.patch("fair.common.find_fair_root", _FIND_FAIR_ROOT)
     _subdir = os.path.join(local_config[1], "subdir")
     os.makedirs(_subdir)
-    _sessions = os.path.join(fdp_com.session_cache_dir(), "*.run")
 
     with fair.session.FAIR(
         _subdir, server_mode=fair.registry.server.SwitchMode.CLI
     ):
-        assert len(glob.glob(_sessions)) == 1
-    # A stale session file would make the next command skip starting the
-    # registry, and 'fair registry stop' refuse without --force
-    assert not glob.glob(_sessions)
+        assert len(fair.registry.lifecycle._session_records(local_config[0])) == 1
+    # A session left open would keep the registry from being stopped
+    assert not fair.registry.lifecycle._session_records(local_config[0])
 
 
 @pytest.mark.faircli_cli
@@ -548,6 +630,7 @@ def test_run_passive_does_not_execute(
     # without __init__ and its collaborators are mocked
     _session = object.__new__(fair.session.FAIR)
     _session._allow_dirty = False
+    _session._session_id = None
     _session._session_config = mocker.MagicMock()
     mocker.patch.object(_session, "_pre_job_setup")
     mocker.patch.object(_session, "check_git_repo_state")
@@ -558,6 +641,279 @@ def test_run_passive_does_not_execute(
     assert _session._session_config.execute.called is not passive
     _session._session_config.write.assert_called_once()
     _breakdown.assert_called_once_with(add_run=True)
+
+
+@pytest.mark.faircli_cli
+@pytest.mark.parametrize(
+    "error, shown, fails",
+    [
+        (fdp_exc.InternalError("a fault"), "InternalError: a fault", True),
+        (
+            fdp_exc.RegistryAPICallError("request forbidden", 403),
+            "Error: [HTTP 403]: request forbidden",
+            True,
+        ),
+        (fdp_exc.FAIRCLIException("a note", level="Warning"), "Warning: a note", False),
+    ],
+)
+def test_what_a_calling_script_sees(
+    click_test: click.testing.CliRunner,
+    mocker: pytest_mock.MockerFixture,
+    error: fdp_exc.FAIRCLIException,
+    shown: str,
+    fails: bool,
+):
+    # Anything but a warning is a failure, a registry's refusal included
+    mocker.patch("fair.session.FAIR", side_effect=error)
+    _result = click_test.invoke(cli, ["status"])
+    assert (_result.exit_code != 0) is fails, _result.output
+    assert shown in _result.output
+
+
+@pytest.mark.faircli_cli
+@pytest.mark.parametrize(
+    "token, answer, expected",
+    [
+        ("a-token", "admin", "admin"),
+        ("a-token", fdp_exc.UnexpectedRegistryServerState("down"), "FAIRDataPipeline"),
+        (None, AssertionError("the remote was asked"), "FAIRDataPipeline"),
+    ],
+    ids=["answers", "unreachable", "no token"],
+)
+def test_ci_remote_user(
+    tmp_path, mocker: pytest_mock.MockerFixture, token, answer, expected
+):
+    _config = fdp_test.create_configurations(
+        str(tmp_path), str(tmp_path), str(tmp_path), str(tmp_path)
+    )
+    if token:
+        with open(_config["registries"]["origin"]["token"], "w") as token_f:
+            token_f.write(f"{token}\n")
+    _asked = mocker.patch(
+        "fair.registry.requests.get_remote_user",
+        side_effect=answer if isinstance(answer, Exception) else None,
+        return_value=None if isinstance(answer, Exception) else answer,
+    )
+    assert fair.session.FAIR._ci_remote_user(_config) == expected
+    if token:
+        assert _asked.call_args.args == (
+            _config["registries"]["origin"]["uri"],
+            token,
+        )
+
+
+# A git remote and what was pushed to it: a branch, an annotated tag, and a
+# pull request's merge commit under refs/pull/1/merge, as GitHub keeps one.
+# A commit may be fetched by its hash, as from GitHub
+@pytest.fixture
+def git_remote(tmp_path, monkeypatch) -> typing.Dict[str, str]:
+    for _key, _value in (
+        ("GIT_AUTHOR_NAME", "Test"),
+        ("GIT_COMMITTER_NAME", "Test"),
+        ("GIT_AUTHOR_EMAIL", "test@noreply"),
+        ("GIT_COMMITTER_EMAIL", "test@noreply"),
+    ):
+        monkeypatch.setenv(_key, _value)
+    _bare = git.Repo.init(os.path.join(tmp_path, "remote.git"), bare=True)
+    _bare.git.config("uploadpack.allowAnySHA1InWant", "true")
+    # Its default branch is the one pushed, whatever git's own default is
+    _bare.git.symbolic_ref("HEAD", "refs/heads/main")
+    _url = Path(_bare.git_dir).as_uri()
+    _work = git.Repo.init(os.path.join(tmp_path, "work"))
+    _work.git.checkout("-b", "main")
+    _work.create_remote("origin", _url)
+    for _name in ("a", "b"):
+        with open(os.path.join(_work.working_dir, _name), "w") as out_f:
+            out_f.write(_name)
+        _work.git.add(_name)
+        _work.git.commit("-m", _name)
+    _work.git.tag("-a", "v1", "-m", "v1")
+    _work.git.push("origin", "main", "v1")
+    _main = _work.head.commit.hexsha
+    _work.git.checkout("-b", "feature")
+    with open(os.path.join(_work.working_dir, "c"), "w") as out_f:
+        out_f.write("c")
+    _work.git.add("c")
+    _work.git.commit("-m", "c")
+    _work.git.push("origin", "feature")
+    _work.git.checkout("main")
+    _work.git.merge("--no-ff", "-m", "Merge pull request", "feature")
+    _work.git.push("origin", "HEAD:refs/pull/1/merge")
+    _merge = _work.head.commit.hexsha
+    return {"url": _url, "main": _main, "merge": _merge, "dir": str(tmp_path)}
+
+
+# A session that checks the git repository at a location, built without
+# __init__ since only the check is under test
+def _session_at(location: str) -> fair.session.FAIR:
+    _session = object.__new__(fair.session.FAIR)
+    _session._session_loc = location
+    return _session
+
+
+def _clone(remote: typing.Dict[str, str], name: str) -> git.Repo:
+    return git.Repo.clone_from(remote["url"], os.path.join(remote["dir"], name))
+
+
+# What actions/checkout does for a pull request or a tag: one commit fetched
+# by its hash, depth 1, into a ref of its own, then checked out
+def _ci_checkout(
+    remote: typing.Dict[str, str], name: str, commit: str, ref: str
+) -> git.Repo:
+    _repo = git.Repo.init(os.path.join(remote["dir"], name))
+    _repo.create_remote("origin", remote["url"])
+    _repo.git.fetch("--no-tags", "--depth=1", "origin", f"+{commit}:{ref}")
+    _repo.git.checkout("--force", ref)
+    return _repo
+
+
+@pytest.mark.faircli_cli
+def test_git_check_on_a_branch(git_remote: typing.Dict[str, str]):
+    _repo = _clone(git_remote, "clone")
+    _session_at(_repo.working_dir).check_git_repo_state()
+
+    with open(os.path.join(_repo.working_dir, "d"), "w") as out_f:
+        out_f.write("d")
+    _repo.git.add("d")
+    _repo.git.commit("-m", "d")
+    with pytest.raises(fdp_exc.FDPRepositoryError, match="not level with remote"):
+        _session_at(_repo.working_dir).check_git_repo_state()
+
+
+@pytest.mark.faircli_cli
+@pytest.mark.parametrize("target", ["v1", "main~1"])
+def test_git_check_detached_at_a_pushed_commit(
+    git_remote: typing.Dict[str, str], target: str
+):
+    _repo = _clone(git_remote, "clone")
+    _repo.git.checkout(target)
+    assert _repo.head.is_detached
+    # Its remote-tracking branches say so: the remote is not asked
+    _repo.remotes.origin.set_url(os.path.join(git_remote["dir"], "nowhere"))
+    _session_at(_repo.working_dir).check_git_repo_state()
+
+
+@pytest.mark.faircli_cli
+def test_git_check_detached_at_a_local_commit(
+    git_remote: typing.Dict[str, str], capsys
+):
+    _repo = _clone(git_remote, "clone")
+    with open(os.path.join(_repo.working_dir, "d"), "w") as out_f:
+        out_f.write("d")
+    _repo.git.add("d")
+    _repo.git.commit("-m", "d")
+    _repo.git.checkout("--detach")
+    with pytest.raises(fdp_exc.FDPRepositoryError, match="on no branch or tag"):
+        _session_at(_repo.working_dir).check_git_repo_state()
+    _session_at(_repo.working_dir).check_git_repo_state(allow_dirty=True)
+    assert "Warning: commit" in capsys.readouterr().out
+
+
+@pytest.mark.faircli_cli
+@pytest.mark.parametrize("checkout", ["pull_request", "tag"])
+def test_git_check_detached_as_ci_checks_out(
+    git_remote: typing.Dict[str, str], checkout: str
+):
+    # Neither leaves a branch of the remote to look at, so the remote is asked
+    if checkout == "pull_request":
+        _commit, _ref = git_remote["merge"], "refs/remotes/pull/1/merge"
+    else:
+        _commit, _ref = git_remote["main"], "refs/tags/v1"
+    _repo = _ci_checkout(git_remote, checkout, _commit, _ref)
+    assert _repo.head.is_detached
+    _session_at(_repo.working_dir).check_git_repo_state()
+
+    _repo.remotes.origin.set_url(os.path.join(git_remote["dir"], "nowhere"))
+    with pytest.raises(fdp_exc.FDPRepositoryError, match="could not be asked"):
+        _session_at(_repo.working_dir).check_git_repo_state()
+
+
+@pytest.mark.faircli_cli
+def test_git_branch_variable_on_a_detached_checkout(
+    git_remote: typing.Dict[str, str], mocker: pytest_mock.MockerFixture
+):
+    _repo = _clone(git_remote, "clone")
+    _config = fair.user_config.JobConfiguration()
+    _config["run_metadata.local_repo"] = _repo.working_dir
+    mocker.patch("fair.configuration.local_git_repo", lambda *args: _repo.working_dir)
+    assert _config.git_branch == "main"
+    _repo.git.checkout("v1")
+    with pytest.raises(fdp_exc.UserConfigError, match="on no branch"):
+        _config.git_branch
+
+
+@pytest.mark.faircli_cli
+def test_run_rehearsal_runs_checks_and_stages_nothing(
+    mocker: pytest_mock.MockerFixture,
+):
+    # As above: run()'s own control flow alone
+    _session = object.__new__(fair.session.FAIR)
+    _session._allow_dirty = False
+    _session._session_id = None
+    _session._session_config = mocker.MagicMock()
+    mocker.patch.object(_session, "_pre_job_setup")
+    _check = mocker.patch.object(_session, "check_git_repo_state")
+    _breakdown = mocker.patch.object(_session, "_post_job_breakdown")
+
+    _session.run(rehearse=True)
+
+    # The commit is recorded as it is, uncommitted changes and all
+    assert _session._session_config.prepare.call_args.kwargs["allow_dirty"]
+    _check.assert_not_called()
+    _session._session_config.write.assert_called_once()
+    _session._session_config.execute.assert_not_called()
+    _breakdown.assert_not_called()
+    _session._session_config.close_log.assert_called_once()
+
+
+# A command line runner that keeps what a command writes to stderr apart from
+# its stdout, which click before 8.2 does only when asked
+def _runner() -> click.testing.CliRunner:
+    if "mix_stderr" in inspect.signature(click.testing.CliRunner).parameters:
+        return click.testing.CliRunner(mix_stderr=False)
+    return click.testing.CliRunner()
+
+
+@pytest.mark.faircli_cli
+def test_cli_run_rehearse(
+    local_config: typing.Tuple[str, str],
+    local_registry: conf.RegistryTest,
+    click_test: click.testing.CliRunner,
+    mocker: pytest_mock.MockerFixture,
+    tmp_path,
+):
+    _staging = os.path.join(local_config[1], fdp_com.FAIR_FOLDER, "staging")
+    _ran = os.path.join(tmp_path, "ran")
+    with local_registry:
+        mocker.patch("fair.common.registry_home", lambda: local_registry._install)
+        mocker.patch(
+            "fair.registry.requests.local_token",
+            lambda *args: local_registry._token,
+        )
+        with open(_staging, "w") as staged:
+            yaml.dump({"job": {}, "data_product": {}, "code_run": {}}, staged)
+        _result = _runner().invoke(
+            cli, ["run", "--rehearse", "--script", f'touch "{_ran}"']
+        )
+    assert _result.exit_code == 0, _result.output
+    _job = json.loads(_result.stdout)
+    assert sorted(_job) == ["config", "data_store", "job_dir", "script", "token_file"]
+    assert os.path.dirname(_job["config"]) == _job["job_dir"]
+    assert os.path.dirname(_job["script"]) == _job["job_dir"]
+    assert os.path.isfile(_job["config"])
+    assert os.path.isfile(_job["script"])
+    assert _job["token_file"] == os.path.join(local_registry._install, "token")
+    assert not os.path.exists(_ran)
+    with open(_staging) as staged:
+        assert not yaml.safe_load(staged)["job"]
+
+
+@pytest.mark.faircli_cli
+def test_cli_run_rehearse_with_ci_is_refused(click_test: click.testing.CliRunner):
+    _result = _runner().invoke(cli, ["run", "--rehearse", "--ci"])
+    assert _result.exit_code == 2
+    assert not _result.stdout
+    assert "cannot be given together" in _result.stderr
 
 
 @pytest.mark.faircli_cli

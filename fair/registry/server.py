@@ -19,6 +19,7 @@ Functions
 
 __date__ = "2021-06-28"
 
+import contextlib
 import enum
 import glob
 import logging
@@ -27,6 +28,8 @@ import platform
 import shutil
 import subprocess
 import sys
+import tempfile
+import time
 import typing
 
 import git
@@ -36,10 +39,16 @@ import yaml
 import fair.common as fdp_com
 import fair.configuration as fdp_conf
 import fair.exceptions as fdp_exc
+import fair.registry.lifecycle as fdp_life
 import fair.registry.requests as fdp_req
 import fair.registry.storage as fdp_store
 import fair.utilities as fdp_util
 import fair.virtualenv as fdp_env
+
+
+# How long a check of the registry waits for an answer, so that a port held by
+# something that never answers is not waited on for ever
+REQUEST_SECONDS = 10
 
 
 def django_environ(environ: typing.Dict = os.environ):
@@ -87,10 +96,14 @@ def check_server_running(local_uri: str = None) -> bool:
     logger.debug("Checking if server is running on '%s'", local_uri)
 
     try:
-        _status_code = requests.get(local_uri).status_code
+        _status_code = requests.get(local_uri, timeout=REQUEST_SECONDS).status_code
         assert _status_code == 200
         return True
-    except (requests.exceptions.ConnectionError, AssertionError):
+    except (
+        requests.exceptions.ConnectionError,
+        requests.exceptions.Timeout,
+        AssertionError,
+    ):
         return False
 
 
@@ -98,9 +111,47 @@ def check_server_running(local_uri: str = None) -> bool:
 # to: a registry refuses a token that is not its own
 def _accepts_token(uri: str, token: str) -> bool:
     _response = requests.get(
-        f"{uri}users/", headers={"Authorization": f"token {token}"}
+        f"{uri}users/",
+        headers={"Authorization": f"token {token}"},
+        timeout=REQUEST_SECONDS,
     )
     return _response.status_code not in (401, 403)
+
+
+# Whether the server at a registry endpoint answers within the time given,
+# asked once a second
+def _wait_for_server(uri: str, seconds: int = 30) -> bool:
+    for _ in range(seconds):
+        if check_server_running(uri):
+            return True
+        time.sleep(1)
+    return False
+
+
+# Write a registry's token where its start script did not, by the registry's
+# own command, as the script runs it
+def _write_missing_token(registry_dir: str) -> None:
+    try:
+        fdp_req.local_token(registry_dir)
+        return
+    except fdp_exc.FileNotFoundError:
+        pass
+    _token_file = os.path.join(registry_dir, "token")
+    _bin, _exe = ("bin", "python")
+    if platform.system() == "Windows":
+        _bin, _exe = ("Scripts", "python.exe")
+    _token = subprocess.check_output(
+        [
+            os.path.join(registry_dir, "venv", _bin, _exe),
+            os.path.join(registry_dir, "manage.py"),
+            "get_token",
+        ],
+        env=django_environ(),
+        cwd=registry_dir,
+        text=True,
+    )
+    with open(_token_file, "w", encoding="utf-8") as token_f:
+        token_f.write(f"{_token.strip()}\n")
 
 
 def launch_server(
@@ -157,10 +208,14 @@ def launch_server(
 
     local_uri = fdp_conf.update_local_port(registry_dir)
 
-    if not check_server_running(local_uri):
+    # The start script waits for the server and writes its token, but on
+    # Windows with no console its waits return at once, and it can give up
+    # before either: both are waited for here
+    if not _wait_for_server(local_uri):
         raise fdp_exc.RegistryError(
             "Failed to start local registry, no response from server"
         )
+    _write_missing_token(registry_dir)
 
     # A response does not show that this registry started: another one that
     # holds the port answers too, while this one stops for want of it, and
@@ -199,9 +254,7 @@ def stop_server(
             f"'{_session_port_file}', file does not exist"
         )
 
-    # If there are no session cache files shut down server
-    _run_files = glob.glob(os.path.join(fdp_com.session_cache_dir(), "*.run"))
-    if not force and _run_files:
+    if not force and fdp_life.live_sessions(registry_dir):
         raise fdp_exc.RegistryError(
             "Could not stop registry server, processes still running."
         )
@@ -314,6 +367,65 @@ def rebuild_local(python: str, install_dir: str = None, silent: bool = False):
         )
 
 
+def _remove_directory(directory: str) -> None:
+    """Remove a directory and everything in it"""
+    if platform.system() == "Windows":
+        fdp_com.set_file_permissions(directory)
+    shutil.rmtree(directory, onerror=fdp_com.remove_readonly)
+
+
+@contextlib.contextmanager
+def _replacing_directory(directory: str) -> typing.Iterator[None]:
+    """Make a directory afresh in the block, keeping any old one until it works
+
+    The old directory is moved aside beside it, so the move is a rename. On
+    any failure, Ctrl-C included, what the block made is removed and the old
+    one put back; on success the old one is deleted.
+    """
+    logger = logging.getLogger("FAIRDataPipeline.Server")
+    directory = os.path.abspath(directory)
+    _aside = None
+    if os.path.exists(directory):
+        _aside = tempfile.mkdtemp(
+            prefix=f".{os.path.basename(directory)}-replaced-",
+            dir=os.path.dirname(directory),
+        )
+        _old = os.path.join(_aside, os.path.basename(directory))
+        try:
+            os.rename(directory, _old)
+        except OSError as e:
+            os.rmdir(_aside)
+            raise fdp_exc.RegistryError(
+                f"Cannot move the registry at '{directory}' aside to "
+                f"replace it: {e}",
+                hint="If the registry is running, stop it with "
+                "'fair registry stop' and try again",
+            ) from e
+        logger.debug("Moved the existing installation to '%s'", _old)
+    try:
+        yield
+    except BaseException:
+        if os.path.exists(directory):
+            _remove_directory(directory)
+        if _aside:
+            try:
+                os.rename(_old, directory)
+                os.rmdir(_aside)
+                logger.debug(
+                    "Restored the existing installation at '%s'", directory
+                )
+            except OSError:
+                logger.error(
+                    "The registry that was installed at '%s' could not be "
+                    "put back, and is at '%s'",
+                    directory,
+                    _old,
+                )
+        raise
+    if _aside:
+        _remove_directory(_aside)
+
+
 def install_registry(
     repository: str = fdp_com.FAIR_REGISTRY_REPO,
     reference: str = None,
@@ -344,6 +456,15 @@ def install_registry(
     # In case registry installation occurs before setup
     os.makedirs(fdp_com.global_config_dir(), exist_ok=True)
 
+    logger.debug("Creating directories for installation if they do not exist")
+
+    os.makedirs(os.path.dirname(install_dir), exist_ok=True)
+
+    with _replacing_directory(install_dir):
+        reference = _build_registry(
+            repository, reference, install_dir, silent, venv_dir, _venv_cmd
+        )
+
     logger.debug("Updating registry path in global CLI configuration")
     if os.path.exists(fdp_com.global_fdpconfig()):
         _glob_conf = fdp_util.flatten_dict(fdp_conf.read_global_fdpconfig())
@@ -352,15 +473,22 @@ def install_registry(
         with open(fdp_com.global_fdpconfig(), encoding="utf-8", mode="w") as out_conf:
             yaml.dump(fdp_util.expand_dict(_glob_conf), out_conf)
 
-    if force:
-        logger.debug("Removing existing installation at '%s'", install_dir)
-        if platform.system() == "Windows":
-            fdp_com.set_file_permissions(install_dir)
-        shutil.rmtree(install_dir, onerror=fdp_com.remove_readonly)
+    return reference
 
-    logger.debug("Creating directories for installation if they do not exist")
 
-    os.makedirs(os.path.dirname(install_dir), exist_ok=True)
+def _build_registry(
+    repository: str,
+    reference: typing.Optional[str],
+    install_dir: str,
+    silent: bool,
+    venv_dir: str,
+    venv_cmd: typing.Optional[typing.List[str]],
+) -> str:
+    """Clone the registry at a reference, build its environment and database
+
+    Returns the reference checked out: the one given, else the newest tag.
+    """
+    logger = logging.getLogger("FAIRDataPipeline.Server")
 
     _repo = git.Repo.clone_from(repository, install_dir)
 
@@ -382,15 +510,15 @@ def install_registry(
 
     if reference not in _candidates:
         raise fdp_exc.RegistryError(
-            f"No such head or tag '{reference}' in registry repository"
+            f"No such head or tag '{reference}' in registry repository. "
             f"Candidates are {_candidates}"
         )
     else:
         _repo.git.checkout(reference)
 
-    if _venv_cmd:
-        logger.debug("Creating virtual environment: %s", _venv_cmd)
-        subprocess.check_call(_venv_cmd)
+    if venv_cmd:
+        logger.debug("Creating virtual environment: %s", venv_cmd)
+        subprocess.check_call(venv_cmd)
 
     _python_exe = "python.exe" if platform.system() == "Windows" else "python"
     _binary_loc = "Scripts" if platform.system() == "Windows" else "bin"
@@ -440,12 +568,14 @@ def uninstall_registry() -> None:
     if os.path.exists(fdp_com.global_fdpconfig()) and os.path.exists(
         fdp_com.registry_home()
     ):
+        fdp_life.stop_for_removal(fdp_com.registry_home())
         logger.debug("Uninstalling registry, removing '%s'", fdp_com.registry_home())
         # On windows file permisions need to be set prior to removing the directory
         if platform.system() == "Windows":
             fdp_com.set_file_permissions(fdp_com.registry_home())
         shutil.rmtree(fdp_com.registry_home(), onerror=fdp_com.remove_readonly)
     elif os.path.exists(fdp_com.DEFAULT_REGISTRY_LOCATION):
+        fdp_life.stop_for_removal(fdp_com.DEFAULT_REGISTRY_LOCATION)
         logger.debug(
             "Uninstalling registry, removing '%s'",
             fdp_com.DEFAULT_REGISTRY_LOCATION,
@@ -478,42 +608,35 @@ def update_registry_post_setup(
 
     logger.debug("Updating registry from latest setup")
 
-    _is_running = check_server_running(fdp_conf.get_local_uri())
+    # Held for the updates: a registry started for them is stopped after
+    with fdp_life.session(registry_dir):
+        if global_setup:
+            logger.debug("Populating file types")
+            fdp_store.populate_file_type(
+                fdp_conf.get_local_uri(), fdp_req.local_token(registry_dir)
+            )
 
-    if not _is_running:
-        launch_server(registry_dir=registry_dir)
-
-    if global_setup:
-        logger.debug("Populating file types")
-        fdp_store.populate_file_type(
-            fdp_conf.get_local_uri(), fdp_req.local_token(registry_dir)
+        logger.debug("Adding 'author' and 'UserAuthor' entries if not present")
+        # Add author and UserAuthor
+        _author_url = fdp_store.store_user(
+            repo_dir, fdp_conf.get_local_uri(), fdp_req.local_token(registry_dir)
         )
 
-    logger.debug("Adding 'author' and 'UserAuthor' entries if not present")
-    # Add author and UserAuthor
-    _author_url = fdp_store.store_user(
-        repo_dir, fdp_conf.get_local_uri(), fdp_req.local_token(registry_dir)
-    )
+        try:
+            _admin_url = fdp_req.get(
+                fdp_conf.get_local_uri(),
+                "users",
+                fdp_req.local_token(registry_dir),
+                params={"username": "admin"},
+            )[0]["url"]
+        except (KeyError, IndexError) as e:
+            raise fdp_exc.RegistryError(
+                "Failed to retrieve 'admin' user from registry database"
+            ) from e
 
-    try:
-        _admin_url = fdp_req.get(
+        fdp_req.post_else_get(
             fdp_conf.get_local_uri(),
-            "users",
+            "user_author",
             fdp_req.local_token(registry_dir),
-            params={"username": "admin"},
-        )[0]["url"]
-    except (KeyError, IndexError) as e:
-        raise fdp_exc.RegistryError(
-            "Failed to retrieve 'admin' user from registry database"
-        ) from e
-
-    fdp_req.post_else_get(
-        fdp_conf.get_local_uri(),
-        "user_author",
-        fdp_req.local_token(registry_dir),
-        data={"user": _admin_url, "author": _author_url},
-    )
-
-    # Only stop the server if it was not running initially
-    if not _is_running:
-        stop_server(registry_dir)
+            data={"user": _admin_url, "author": _author_url},
+        )
