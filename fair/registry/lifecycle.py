@@ -398,12 +398,17 @@ def open_session(
     pid = pid or os.getpid()
     _started = _process_start(pid)
     with _locked(registry_dir):
+        # A registry found running may fail, where one started here was
+        # checked as it started
         _server = _current_server(registry_dir)
-        if not _server:
+        if _server:
+            fdp_serv._refuse_failing(_server["uri"], registry_dir)
+        else:
             _here = _server_here(registry_dir, uri)
             if _here is False:
                 raise _not_this_install(registry_dir, uri)
             if _here:
+                fdp_serv._refuse_failing(uri, registry_dir)
                 _server = _record_server(registry_dir, uri, HELD_BY_NOBODY)
             else:
                 _address, _port = _address_and_port(uri)

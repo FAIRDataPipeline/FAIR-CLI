@@ -229,6 +229,7 @@ def test_launch_server_waits_and_writes_its_token(
     _accepts = mocker.patch(
         "fair.registry.server._accepts_token", return_value=True
     )
+    mocker.patch("fair.registry.server._refuse_failing")
 
     fdp_serv.launch_server(registry_dir=reg_dir)
 
@@ -302,6 +303,28 @@ def test_launch_server_with_another_on_its_port(
         headers={"Authorization": "token this-registrys-token"},
         timeout=fdp_serv.REQUEST_SECONDS,
     )
+
+
+@pytest.mark.faircli_server
+def test_launch_server_that_answers_and_fails(
+    local_config: typing.Tuple[str, str],
+    mocker: pytest_mock.MockerFixture,
+    tmp_path,
+):
+    # This install's registry starts, and fails every request with a token, as
+    # one whose database is broken does
+    reg_dir = _registry_files(tmp_path, "this-registrys-token")
+    mocker.patch.dict(os.environ)
+    mocker.patch("subprocess.Popen")
+    mocker.patch(
+        "requests.get",
+        side_effect=lambda url, **kwargs: mocker.Mock(
+            status_code=500 if kwargs.get("headers") else 200
+        ),
+    )
+    with pytest.raises(fdp_exc.RegistryError, match="HTTP 500") as e:
+        fdp_serv.launch_server(registry_dir=reg_dir)
+    assert os.path.join(reg_dir, "output.log") in e.value.hint
 
 
 @pytest.mark.faircli_server

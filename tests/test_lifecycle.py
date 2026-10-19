@@ -38,6 +38,7 @@ class _Server:
             "fair.registry.lifecycle._server_here",
             side_effect=lambda *args: True if self.running else None,
         )
+        mocker.patch("fair.registry.server._refuse_failing")
 
     def _launch(self, **kwargs):
         self.running = True
@@ -301,6 +302,41 @@ def test_a_check_of_the_registry_has_a_time_limit(
     )
     assert fdp_life._server_here(registry_dir, URI) is None
     assert _get.call_args.kwargs["timeout"] == fdp_serv.REQUEST_SECONDS
+
+
+@pytest.mark.faircli_lifecycle
+@pytest.mark.parametrize(
+    "recorded", [True, False], ids=["recorded", "unrecorded"]
+)
+def test_a_failing_registry_refuses_a_session_and_can_be_stopped(
+    registry_dir: str, mocker: pytest_mock.MockerFixture, recorded: bool
+):
+    # This install's registry, running, fails every request with a token, as
+    # one whose database is broken does
+    with open(os.path.join(registry_dir, "token"), "w") as out_f:
+        out_f.write("0" * 40)
+    mocker.patch(
+        "requests.get",
+        side_effect=lambda url, **kwargs: mocker.Mock(
+            status_code=500 if kwargs.get("headers") else 200
+        ),
+    )
+    _stop = mocker.patch("fair.registry.server.stop_server")
+    _launch = mocker.patch("fair.registry.server.launch_server")
+    if recorded:
+        fdp_life.start_for_user(port=8000)
+
+    with pytest.raises(fdp_exc.RegistryError, match="HTTP 500") as e:
+        fdp_life.open_session()
+    assert os.path.join(registry_dir, "output.log") in e.value.hint
+    assert not _sessions(registry_dir)
+    _holder = fdp_life.HELD_BY_USER if recorded else None
+    assert (fdp_life.status()["server"] or {}).get("holder") == _holder
+
+    fdp_life.stop_for_user()
+    _stop.assert_called_once()
+    _launch.assert_not_called()
+    assert not _server_record(registry_dir)
 
 
 @pytest.mark.faircli_lifecycle

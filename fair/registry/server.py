@@ -118,6 +118,25 @@ def _accepts_token(uri: str, token: str) -> bool:
     return _response.status_code not in (401, 403)
 
 
+# Refuse a registry that answers and fails: one whose list of users is an
+# internal error (HTTP 500) cannot serve a command, and its log says why
+def _refuse_failing(uri: str, registry_dir: str) -> None:
+    _token = fdp_req.local_token(registry_dir)
+    _response = requests.get(
+        f"{uri}users/",
+        headers={"Authorization": f"token {_token}"},
+        timeout=REQUEST_SECONDS,
+    )
+    if _response.status_code == 500:
+        raise fdp_exc.RegistryError(
+            f"The local registry at '{uri}' answers with an internal error "
+            "(HTTP 500)",
+            hint=f"Its log, '{os.path.join(registry_dir, 'output.log')}', "
+            "says why; 'fair registry stop' and 'fair registry start' start "
+            "it again",
+        )
+
+
 # Whether the server at a registry endpoint answers within the time given,
 # asked once a second
 def _wait_for_server(uri: str, seconds: int = 30) -> bool:
@@ -228,6 +247,7 @@ def launch_server(
             hint="Another server may hold the port: stop it, or start this "
             "registry on another port with 'fair registry start --port'",
         )
+    _refuse_failing(local_uri, registry_dir)
 
 
 def stop_server(

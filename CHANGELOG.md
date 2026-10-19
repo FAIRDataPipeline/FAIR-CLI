@@ -79,6 +79,9 @@
   the project's is now left as it was.
 - `fair init` in a subdirectory of a project made the project's staging file and not its own, so a later command
   there that staged something failed; it now makes its own.
+- A local registry that answered every request with an internal error (HTTP 500) was taken for one that works, and a
+  command failed at its first request. Starting it, or a command that finds it running, now says so and names its
+  log; `fair registry stop` still stops it.
 
 # 2026-10-05 [v0.10.2](https://github.com/FAIRDataPipeline/FAIR-CLI/releases/tag/v0.10.2)
 
