@@ -194,3 +194,125 @@ def test_check_github_forbidden_not_rate_limited(mocker: pytest_mock.MockerFixtu
     _get = _fake_github(mocker, _forbidden, _forbidden)
     assert fdp_id.check_github(GITHUB_USER) == {}
     assert _get.call_count == 2
+
+
+@pytest.mark.faircli_ids
+@pytest.mark.parametrize("known", [True, False])
+def test_check_permitted_ror(mocker: pytest_mock.MockerFixture, known):
+    # A ROR identifier is looked up through ROR's API, never its website,
+    # which refuses automated requests that come too often
+    mocker.patch.object(
+        fdp_id.requests,
+        "get",
+        side_effect=AssertionError("ror.org was fetched"),
+    )
+    _check_ror = mocker.patch.object(
+        fdp_id, "check_ror", return_value={"name": "A body"} if known else {}
+    )
+    assert fdp_id.check_id_permitted(f"https://ror.org/{ROR_ID}") is known
+    _check_ror.assert_called_once_with(ROR_ID)
+
+
+@pytest.mark.faircli_ids
+def test_check_permitted_ror_through_the_api():
+    if not conf.test_can_be_run(f'{fdp_id.QUERY_URLS["ror"]}{ROR_ID}'):
+        warnings.warn("ROR API Unavailable")
+        pytest.skip("Cannot Reach ROR API")
+    assert fdp_id.check_id_permitted(f"https://ror.org/{ROR_ID}")
+    assert not fdp_id.check_id_permitted("https://ror.org/0000notaror")
+
+
+@pytest.mark.faircli_ids
+def test_check_github_gives_a_public_email(mocker: pytest_mock.MockerFixture):
+    mocker.patch.dict(fdp_id.os.environ, {}, clear=True)
+    _response = _GitHubResponse(200)
+    _response.json = lambda: {
+        "login": GITHUB_USER,
+        "name": "FAIR Data Pipeline",
+        "email": "pipeline@example.org",
+    }
+    _fake_github(mocker, _response)
+    assert fdp_id.check_github(GITHUB_USER)["email"] == "pipeline@example.org"
+    # None where its holder made none public
+    _fake_github(mocker, _GitHubResponse(200))
+    assert fdp_id.check_github(GITHUB_USER)["email"] is None
+
+
+@pytest.mark.faircli_ids
+@pytest.mark.parametrize(
+    "status, found, expected",
+    [
+        (
+            200,
+            {"expanded-result": [{"email": ["a@example.org", "b@example.org"]}]},
+            "a@example.org",
+        ),
+        (200, {"expanded-result": [{"email": []}]}, None),
+        (200, {"expanded-result": None}, None),
+        (500, {}, None),
+    ],
+    ids=["public", "none public", "no such record", "refused"],
+)
+def test_check_orcid_email(
+    mocker: pytest_mock.MockerFixture, status, found, expected
+):
+    _get = mocker.patch.object(
+        fdp_id.requests,
+        "get",
+        return_value=mocker.Mock(status_code=status, json=lambda: found),
+    )
+    assert fdp_id.check_orcid_email(f"https://orcid.org/{ORCID_ID}") == expected
+    assert _get.call_args.kwargs["params"] == {"q": f"orcid:{ORCID_ID}"}
+
+
+@pytest.mark.faircli_ids
+def test_check_orcid_email_unreachable(mocker: pytest_mock.MockerFixture):
+    mocker.patch.object(
+        fdp_id.requests,
+        "get",
+        side_effect=fdp_id.requests.exceptions.ConnectionError("down"),
+    )
+    assert fdp_id.check_orcid_email(ORCID_ID) is None
+
+
+@pytest.mark.faircli_ids
+def test_check_orcid_email_not_json(mocker: pytest_mock.MockerFixture):
+    # A page served in place of the API's answer, as during maintenance
+    _page = fdp_id.requests.models.Response()
+    _page.status_code = 200
+    _page._content = b"<html>ORCID is down for maintenance</html>"
+    mocker.patch.object(fdp_id.requests, "get", return_value=_page)
+    assert fdp_id.check_orcid_email(ORCID_ID) is None
+
+
+@pytest.mark.faircli_ids
+@pytest.mark.parametrize(
+    "names, expected",
+    [
+        (
+            {"given-names": {"value": "Ann"}, "family-name": {"value": "Lee"}},
+            ("Ann", "Lee", "Ann Lee"),
+        ),
+        (
+            {"given-names": {"value": "Ann"}, "family-name": None},
+            ("Ann", None, "Ann"),
+        ),
+        (None, (None, None, "")),
+    ],
+    ids=["both public", "no family name", "kept private"],
+)
+def test_check_orcid_names(mocker: pytest_mock.MockerFixture, names, expected):
+    mocker.patch.object(
+        fdp_id.requests,
+        "get",
+        return_value=mocker.Mock(
+            status_code=200, json=lambda: {"person": {"name": names}}
+        ),
+    )
+    _data = fdp_id.check_orcid(ORCID_ID)
+    assert (
+        _data["given_names"],
+        _data["family_name"],
+        _data["name"],
+    ) == expected
+    assert _data["uri"] == f"https://orcid.org/{ORCID_ID}"

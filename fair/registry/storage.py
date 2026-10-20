@@ -487,6 +487,61 @@ def store_data_file(
     )
 
 
+def store_registration_without_file(
+    uri: str, repo_dir: str, token: str, data: typing.Dict
+) -> typing.Dict:
+    """Register a source as a data product with no file
+
+    The data product's object has no storage location and no file type, and
+    the source has no original store.
+
+    Parameters
+    ----------
+    uri : str
+        local registry endpoint
+    repo_dir : str
+        FAIR project repository, whose user is the object's author by default
+    token : str
+        token for registry
+    data : typing.Dict
+        'register' entry of the external object, with its 'use' block and
+        'namespace_name'
+
+    Returns
+    -------
+    typing.Dict
+        the external object's record
+    """
+    _label = data["use"]["data_product"]
+    _user = store_user(repo_dir, uri, token)
+    _namespace_url = _get_url_from_namespace(
+        data=data, label=_label, registry_uri=uri, registry_token=token
+    )
+    _obj_url = _get_url_from_object(
+        data=data,
+        registry_uri=uri,
+        registry_token=token,
+        user=_user,
+        storage_loc_url=None,
+        file_type_url=None,
+    )
+    _data_prod_url = _get_url_from_data_product(
+        data=data,
+        label=_label,
+        registry_uri=uri,
+        registry_token=token,
+        namespace_url=_namespace_url,
+        object_url=_obj_url,
+    )
+    return _get_url_from_external_obj(
+        data=data,
+        local_file=_label,
+        registry_uri=uri,
+        registry_token=token,
+        data_product_url=_data_prod_url,
+    )
+
+
 # A registry records a file once under a root. One that is in the data store
 # already, under another data product's name, is the file of every data
 # product registered with the same bytes, so the copy brought in for this one
@@ -901,8 +956,9 @@ def check_if_object_exists(
     Returns
     -------
     str
-        whether object is present with matching hash, present or absent
-        if present but not hash matched return the latest version identifier
+        "hash_match" if the file is that of the version asked for - for a
+        version given by a token, the highest - "absent" if there is no such
+        data product, and otherwise the data products found
     """
     _version = None
 
@@ -914,17 +970,17 @@ def check_if_object_exists(
     # Obtain list of storage_locations for the given data_product
     _results = fdp_req.get(local_uri, obj_type, params=search_data, token=token)
 
-    try:
-        fdp_ver.get_correct_version(
-            version=_version, results_list=_results, free_write=True
-        )
-    except fdp_exc.UserConfigError:
-        return "absent"
-
     if not _results:
         return "absent"
 
-    _object_urls = [res["object"] for res in _results]
+    # A version given by a token keeps the highest version while its file is
+    # the same: the file is compared with that version's alone
+    _compared = _results
+    if _version and "${{" in _version:
+        _highest = str(fdp_ver.get_latest_version(_results))
+        _compared = [res for res in _results if res["version"] == _highest]
+
+    _object_urls = [res["object"] for res in _compared]
 
     _storage_urls = [
         fdp_req.url_get(obj_url, token=token)["storage_location"]
@@ -939,6 +995,89 @@ def check_if_object_exists(
     ]
 
     return "hash_match" if check_match(file_loc, _storage_objs) else _results
+
+
+# The identity of the source a 'register' entry names, as the fields of its
+# external object row: an identifier, or a unique name and its type, with a
+# title and a release version
+def _source_identity(data: typing.Dict) -> typing.Dict[str, str]:
+    if data.get("identifier", None):
+        _identity = {"identifier": data["identifier"]}
+    else:
+        _identity = {
+            "alternate_identifier": data.get("unique_name"),
+            "alternate_identifier_type": data.get(
+                "alternate_identifier_type", "local source descriptor"
+            ),
+        }
+    _identity["title"] = data["title"]
+    # A source given no release version has the registry's default
+    _identity["version"] = f'{data.get("release_version", "1.0.0")}'
+    return _identity
+
+
+def check_registered_without_file(
+    local_uri: str,
+    token: str,
+    data: typing.Dict,
+    search_data: typing.Dict,
+    name: str,
+) -> bool:
+    """Return whether a data product with no file is registered as described
+
+    A 'register' entry with 'no_file' is registered already if the data
+    product it names, at its version, has no file and the entry's source.
+
+    Parameters
+    ----------
+    local_uri : str
+        local registry endpoint
+    token : str
+        token for registry
+    data : typing.Dict
+        'register' entry of the external object
+    search_data : typing.Dict
+        the data product's name, version and namespace id, to look it up by
+    name : str
+        name of the entry, for the message
+
+    Returns
+    -------
+    bool
+        whether it is registered already
+
+    Raises
+    ------
+    fdp_exc.UserConfigError
+        if that version of the data product is registered otherwise
+    """
+    _results = fdp_req.get(
+        local_uri, "data_product", token, params=search_data
+    )
+    if not _results:
+        return False
+    _data_product = _results[0]
+    _object = fdp_req.url_get(_data_product["object"], token)
+    _source = None
+    if _data_product.get("external_object"):
+        _source = fdp_req.url_get(_data_product["external_object"], token)
+    _wanted = _source_identity(data)
+    # A registry before data-registry v1.4.0 gives a source the version of its
+    # data product, and lists no data products on it
+    if _source is not None and "data_products" not in _source:
+        _wanted.pop("version")
+    if (
+        not _object["storage_location"]
+        and _source is not None
+        and all(f"{_source.get(k)}" == v for k, v in _wanted.items())
+    ):
+        return True
+    raise fdp_exc.UserConfigError(
+        f"Cannot register '{name}' with no file: version "
+        f"{search_data['version']} of it is registered already, with a file "
+        "or another source",
+        hint="Give the entry another 'version'",
+    )
 
 
 def check_source_is_one_file(
@@ -972,21 +1111,8 @@ def check_source_is_one_file(
     if "title" not in data:
         return
 
-    if data.get("identifier", None):
-        _search_data = {"identifier": data["identifier"]}
-    else:
-        _search_data = {
-            "alternate_identifier": data.get("unique_name"),
-            "alternate_identifier_type": data.get(
-                "alternate_identifier_type", "local source descriptor"
-            ),
-        }
-    _search_data["title"] = data["title"]
-    # A source given no release version has the registry's default
-    _search_data["version"] = f'{data.get("release_version", "1.0.0")}'
-
     _sources = fdp_req.get(
-        local_uri, "external_object", token, params=_search_data
+        local_uri, "external_object", token, params=_source_identity(data)
     )
 
     _hash = None

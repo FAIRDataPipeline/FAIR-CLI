@@ -1,3 +1,102 @@
+# 2026-10-19 [v0.11.0](https://github.com/FAIRDataPipeline/FAIR-CLI/releases/tag/v0.11.0)
+
+## Changed behaviour
+- A command that starts the local registry stops it again when the last command using it finishes; it used to leave
+  it running. Each command holds a session on the registry while it runs. `fair registry start` keeps it running
+  until `fair registry stop`, and run while a command has it running keeps that registry rather than refusing.
+- `fair registry start` with no `--port`, and a command that starts the registry, use the configured port, where
+  they used 8000 whatever the configuration said.
+- An install's registry runs on one host at a time: where its directory is shared between machines, starting,
+  stopping or using it from another machine is refused, naming the machine running it and the file that records it.
+- `fair purge --all`, `fair registry uninstall` and `fair registry install --force` stop the registry first, and
+  remove nothing while a command is using it or it runs on another machine.
+- Two versions of the CLI sharing one registry install are not supported: one of an earlier version neither records
+  its sessions nor respects this one's.
+- Records left behind when the registry or a session ends outside `fair` - a restart, a crash, a killed process - are
+  removed with a line saying what was removed and why, naming `fair registry start` where that had started the
+  registry. A record left half-written is removed the same way. One that cannot be removed - on Windows, a file
+  another program has open - is waited for briefly, then named and left, and the command carries on; one that
+  cannot be written is waited for the same way, then is an error naming it. A session whose process cannot be
+  checked is taken to be running, and says so where it stops the registry being stopped.
+- `fair init` asks for the user's identifier before their email, and offers as the email the address the
+  identifier's record makes public - an ORCID's or a GitHub account's. Anything answering its questions in order
+  must put the email after the identifier.
+- A `read:` wildcard's own entry is kept in the working config beside the entries it expands to, as a `write:`
+  wildcard's is, so that an API can tell a pattern that matched nothing from one never given. `fair pull` fetches
+  nothing for it. Its version - its matches' highest, the version it names, or 0.0.0 - means nothing.
+- A `*` in a wildcard no longer matches `[`, `]`, `?` or `*`, which the registry refuses in a name, so a pattern
+  never matches itself.
+
+## Added
+- `fair registry session open --pid <pid> --json` and `fair registry session close <id>`, for a program using the
+  registry outside a `fair` command, such as a language API. A script run by `fair run` is told the run's session
+  in `FDP_SESSION`.
+- `fair registry status` says who holds the registry and which processes are using it.
+- `fair run --rehearse` prepares a job as a run would without running it - no git check, nothing staged - and prints
+  its files as one JSON object, `{"job_dir", "config", "script", "data_store", "token_file"}`, for a language API's
+  rehearsal of a run.
+- The README says which parts of the CLI's configuration a program such as a language API may read.
+- A `register:` entry for an external object may have `no_file: true` in place of `root`, `path` and `file_type`,
+  for a source with no file of its own, such as a data store a run queries: `fair pull` registers it as a data
+  product with no file, which a run may read. Its `version` must be given.
+- `run_metadata.shell` may give flags for the shell's program after its name: `shell: julia --project=@.` runs a
+  Julia script in the repository's project. A shell the CLI does not know - an empty `shell:` included - is
+  refused, naming those it does, where it stopped with a `KeyError` or a `TypeError`.
+
+## Fixed
+- `fair purge --all` answered "no" removed the project's `.fair` folder, and with it a data store kept there; it now
+  removes nothing. `fair purge --yes` asked its question anyway, and now answers every question as the README says.
+- `fair registry install --force` removed the old registry before it had the new one, so a `--version` that does not
+  exist left no working registry. The old one is now kept until the new one is built, and put back if the install
+  fails; a first install that fails leaves nothing behind.
+- `fair push` and `fair pull` left out a code repository's release (`CodeRepoRelease`), so the remote's record of a
+  run or a data product lost it. The release now goes with its repository's object.
+- A data product on a code repository's object, such as a release of the code registered with its DOI, was pushed
+  with the repository's web page as its file, and could not then be pulled. Its location is the repository at a
+  commit, and it is now pushed and pulled as that, with nothing downloaded.
+- A `register:` entry with no version was registered again at the next patch version on every `fair pull`, whether
+  or not its file had changed, and `fair run` then read a version that did not exist (#317). The highest version is
+  now kept while the file is the same, and `fair run` reads it. `${{LATEST}}` on such an entry keeps the highest
+  version and refuses a changed file.
+- `fair run` did not check that `fair pull` had registered what a `register:` entry names, so the model found out;
+  it now refuses to start.
+- A ROR identifier (`https://ror.org/...`) of an author or a source was checked by fetching ROR's website, which
+  refuses automated requests that come too often (429), and was then rejected. It is now checked through ROR's API.
+- On Windows, `fair registry start` could fail - no response, or no token - when the registry's start script gave up
+  waiting for the server, leaving the server running. The CLI now waits for the server itself, up to 30 seconds, and
+  writes the registry's token if the script did not.
+- A command that crashed, or a reboot after `fair registry start`, left a session file behind that made every later
+  command skip starting the registry and `fair registry stop` refuse. A session now names its process, and one whose
+  process has gone is removed. This needs a new dependency, `psutil`.
+- A failed `fair registry start` left a session file behind, and a server on the port that never answered was waited
+  on for ever; neither now happens. Another install's registry on the port is named as such.
+- An internal error, and a registry's refusal of a request (HTTP 403), printed their message and exited 0, so a
+  script or a CI step saw success. Both now exit non-zero, the refusal shown as an error.
+- `fair pull` of a `register:` entry at a version given outright, registered already with another file, copied the
+  new file over the registered one before the registry refused it, so the registered file no longer matched its
+  record. It is now refused before anything is copied; the same file is passed over, as before.
+- `fair init --ci` named the remote user `FAIRDataPipeline`, which a freshly built remote registry does not have, so
+  `fair push` stopped. It now takes the user the remote's token belongs to, where the remote answers.
+- `fair run` refused a detached checkout - a tag, a commit, a pull request on CI - unless given `--dirty`. It now runs
+  where the commit is one the remote has, on a branch or a tag, and refuses one the remote does not have.
+  `${{GIT_BRANCH}}` there is an error saying there is no branch.
+- A `fair init` that failed - a token the remote refused, a registry that would not start, Ctrl-C other than at a
+  question, a `--using` file it refused - left `.fair` and an empty global configuration behind, so `fair init` again
+  failed too (#272). It now puts back what it changed, and `fair init` starts afresh where an earlier one left `.fair`
+  unfinished, or the global configuration empty.
+- `fair init` failing in a subdirectory of a project could write the configuration it had refused over the project's;
+  the project's is now left as it was.
+- `fair init` in a subdirectory of a project made the project's staging file and not its own, so a later command
+  there that staged something failed; it now makes its own.
+- A local registry that answered every request with an internal error (HTTP 500) was taken for one that works, and a
+  command failed at its first request. Starting it, or a command that finds it running, now says so and names its
+  log; `fair registry stop` still stops it.
+- `fair init` with an ORCID whose record keeps its holder's name private, or gives no family name, stopped with a
+  `TypeError`. It now asks for a name the record does not give, and takes a missing family name as empty. An author
+  in a `register:` entry whose ORCID keeps its name private is registered by its identifier. A one-word name - given
+  with no identifier, or to `fair config user.name` - failed the configuration's validation and broke the job logs;
+  its family name is now empty too.
+
 # 2026-10-05 [v0.10.2](https://github.com/FAIRDataPipeline/FAIR-CLI/releases/tag/v0.10.2)
 
 ## Changed behaviour

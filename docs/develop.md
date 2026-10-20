@@ -74,11 +74,11 @@ The layout of FAIR-CLI on a simplified system looks like this:
 $HOME
 ├── .fair
 │   ├── cli
-│   │   ├── cli-config.yaml
-│   │   └── sessions
+│   │   └── cli-config.yaml
 │   ├── data
 │   │   └── jobs
 │   └── $REGISTRY_HOME
+│       └── sessions
 │
 └─ Documents
    └─ my_project
@@ -101,7 +101,7 @@ The directory `$HOME/.fair/data` is the default data store initialised by FAIR-C
 
 ### Sessions Directory
 
-The directory `$HOME/.fair/sessions` is used to keep track of ongoing queries to the registry as a safety mechanism to ensure the registry is not shutdown whilst processes are still occuring.
+The directory `sessions` in the registry's own directory records the registry's server - the host it runs on, its address, and whether `fair registry start` or a command started it - and a session for each process using it, naming the process. The registry is not stopped while a session is open, and one a command started is stopped when the last session closes. A file `lock` there lets one process at a time start or stop the registry.
 
 ### Logs Directory
 
@@ -122,7 +122,7 @@ This is the main file the user will interact with to customise their run. FAIR-C
 | **`script_path`**                                                                                                                                    |
 | This is a direct path to an existing script to use for submission.                                                                                   |
 
-By default the shell used will be `sh` or `pwsh` for UNIX and Windows systems respectively, however this can be overwritten with the optional `shell` key which recognises the following values (where `{0}` is the script file):
+By default the shell used will be `sh` or `batch` for UNIX and Windows systems respectively, however this can be overwritten with the optional `shell` key which recognises the following values (where `{0}` is the script file):
 
 | **Shell**    | **Command**                     |
 | ------------ | ------------------------------- |
@@ -136,6 +136,8 @@ By default the shell used will be `sh` or `pwsh` for UNIX and Windows systems re
 | `python`     | `python {0}`                    |
 | `R`          | `R -f {0}`                      |
 | `sh`         | `sh -e {0}`                     |
+
+Flags for a shell's program follow its name, separated by spaces, and go straight after the program: `shell: julia --project=@.` runs `julia --project=@. {0}`, starting Julia in the repository's project. A flag cannot contain a space, and `batch`, which has no program, takes none.
 
 | **NOTE**                                                                                                                                                                                                                                            |
 | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -348,6 +350,24 @@ if run on `10/10/2021` would download the data from the given `root`/`path` URL 
 
 and register all required objects into the local registry.
 
+An entry's `version` may instead be a placeholder, which is resolved once the file has been fetched. With `${{PATCH}}` - the default, when no version is given - or `${{MINOR}}` or `${{MAJOR}}`, the highest version registered is kept while the file is that version's, and a changed file is registered at the next version. With `${{LATEST}}` the highest version is kept, and a changed file, or a name with no version yet, is refused: a way of pinning an input that is expected not to change. `fair run` reads the version that `fair pull` registered, and refuses an entry it has not.
+
+A source with no file of its own - such as a data store that a run queries for the files it needs, named by its DOI - is registered with `no_file: true` in place of `root`, `path` and `file_type`. It becomes a data product with no file, whose source is the external object, and a run may then name it in its `read` block. Its `version` must be given, and stays as it is: with no file, nothing else says when it changes. `cache` and `public` describe a file, and are refused with `no_file`:
+
+```yaml
+register:
+- namespace: provider
+  full_name: The data store's provider
+- external_object: provider/store
+  namespace_name: provider
+  identifier: https://doi.org/<the data store's DOI>
+  title: <the data store's title>
+  release_date: <the data store's release date>
+  primary: True
+  version: 1.0.0
+  no_file: true
+```
+
 ### `purge`
 
 Removes the local `.fair` (FAIR repository) folder by default so the user can reinitialise:
@@ -378,23 +398,7 @@ fair purge --yes
 
 ### `registry`
 
-By default the CLI will launch the registry whenever a synchronisation or run is called. The server will only be halted once all ongoing CLI processes (in the case of multiple parallel calls) have been completed.
-
-However the user may also specify a manual launch that will override this behaviour, instead leaving the server running constantly allowing them to view the registry in the browser.
-
-The commands:
-
-```sh
-fair registry start
-```
-
-and
-
-```sh
-fair registry stop
-```
-
-will launch and halt the server respectively.
+A command that uses the local registry starts it, on the configured port, if it is not running, and a registry started that way is stopped when the last command using it finishes. `fair registry start` starts it - or keeps the one a command started - until `fair registry stop`. The [README](https://github.com/FAIRDataPipeline/FAIR-CLI#registry) says more, including the session commands for programs that use the registry outside a `fair` command.
 
 ### `log`
 

@@ -89,7 +89,7 @@ fair registry install --force --version <branch>
 
 Without `--force` an existing registry is left as it is and the command stops. `fair registry uninstall`, which asks first, followed by `fair registry install` does the same in two steps, and is the way with `fair-cli` 0.10.1 or earlier, where `--force` is refused.
 
-Check the name given to `--version` before using it with `--force`: the old registry is removed before the name is looked for, so one that does not exist leaves no working registry until the command is run again with one that does.
+With `--force` the old registry is kept until the new one is built. If the install fails - a `--version` that does not exist, no network, a build that fails - the old registry is put back as it was, and the configuration still names it. A running registry is stopped first, and nothing is replaced while a command is using it.
 
 The registry is installed in `~/.fair/registry`, or in the directory given with `--directory`, which has to be given again to replace a registry that was installed elsewhere. A reinstall replaces that directory:
 
@@ -131,6 +131,8 @@ By default the shell used to execute a process is `sh` or `batch` for UNIX and W
 | `sh`         | `sh -e {0}`                     |
 | `batch`      | `{0}`                           |
 
+Flags for a shell's program follow its name, separated by spaces, and go straight after the program: `shell: julia --project=@.` runs `julia --project=@. {0}`, starting Julia in the repository's project, and `shell: bash -x` runs `bash -x -eo pipefail {0}`. A flag cannot contain a space, and `batch`, which has no program, takes none.
+
 A full description of `config.yaml` files can be found [here](https://www.fairdatapipeline.org/docs/interface/config/).
 
 ## Available Commands
@@ -139,7 +141,11 @@ A full description of `config.yaml` files can be found [here](https://www.fairda
 
 Initialises a new FAIR repository within the given directory. This should ideally be the same location as the `.git` folder for the current project, however during setup an option is given to specify an alternative. The command will ask the user a series of questions which will provide metadata for tracking run authors, and also allow for the creation of a starter `config.yaml` file. Initialisation will also configure the CLI itself.
 
+The user's identifier is asked for before their email: where the identifier's record makes an address public - an ORCID's, or a GitHub account's - that address is offered as the email, and with none given a GitHub no-reply address is used.
+
 In a repository that is already initialised the command asks nothing and leaves the repository as it is. It registers the repository's user in the local registry, which a registry [reinstalled](#upgrading-and-reinstalling) since the repository was initialised no longer holds.
+
+An initialisation that fails, or is interrupted, before the repository's configuration is written leaves things as they were: no `.fair` folder, and the global configuration unchanged. One that fails after it - registering the user in a local registry that is not running, say - leaves the repository initialised, and running `fair init` again completes it. A `.fair` folder with no configuration in it, as a process killed during `fair init` leaves, is removed and the repository initialised afresh, unless it holds more than that, when it is named and left for you to look through.
 
 #### Custom CLI Configuration
 After setup is complete, the current CLI configuration can also be saved using the command:
@@ -184,7 +190,7 @@ For integration into a CI workflow, the setup can be skipped by running:
 fair init --ci
 ```
 
-which will create temporary directories for some of the required location paths.
+which will create temporary directories for some of the required location paths. The remote registry is expected at `http://127.0.0.1:8001/api/`, with its token in the file `token` in the directory the command is run from; the user it records for the remote is the one that token belongs to, or `FAIRDataPipeline` where the remote cannot be asked.
 
 
 ### `run`
@@ -211,9 +217,25 @@ note the command itself must be quoted as it is a single argument.
 
 By default the CLI will not allow the user to perform a run if the state of the analysis repository is such that it is behind the git remote, or contains uncommitted changes. To override this behaviour use the `--dirty` flag.
 
+A detached checkout - a tag or a commit checked out, or a pull request on a CI system - has no branch to compare, so there the commit has to be one the remote has, on a branch or a tag; `--dirty` lets one the remote does not have through.
+
+To prepare a job without running it, as a language API's rehearsal of a run does, use `--rehearse`:
+
+```sh
+fair run --rehearse
+```
+
+It writes the job's folder, its working config and its script exactly as a run would, and runs nothing. It makes no git check - the commit is recorded as it is, marked `-dirty` where there are uncommitted changes - and stages nothing. Its only output on stdout is one JSON object naming the job's files, its log going to stderr:
+
+```json
+{"job_dir": "...", "config": "...", "script": "...", "data_store": "...", "token_file": "..."}
+```
+
+`token_file` is the file holding the local registry's token; the token itself is never printed. Like every command, a rehearsal holds the local registry only while it runs, so a program that goes on to run the job's script holds a [session](#registry) of its own around both. `fair run --ci` also prepares a job without running it, but stages it, warns about the repository's state, and prints the job's folder as its last line.
+
 ### `pull`
 
-The command `pull` will update any entries within the `config.yaml` under the `register` heading creating `external_object` and `data_product` objects on the registry and downloading the data to the local data storage. Any data required for a run is downloaded and stored within the local registry. In addition any data products requested that are available on the remote registry are pulled locally.
+The command `pull` will update any entries within the `config.yaml` under the `register` heading creating `external_object` and `data_product` objects on the registry and downloading the data to the local data storage. An `external_object` entry with `no_file: true`, and no `root`, `path` or `file_type`, registers a source that has no file of its own, such as a data store that a run queries to extract data, as a data product with no file; it must give its `version`. Any data required for a run is downloaded and stored within the local registry. In addition any data products requested that are available on the remote registry are pulled locally.
 
 ```sh
 fair pull /path/to/config.yaml
@@ -277,23 +299,34 @@ fair purge --yes
 
 ### `registry`
 
-By default the CLI will launch the registry whenever a synchronisation or run is called. The server will only be halted once all ongoing CLI processes (in the case of multiple parallel calls) have been completed.
+A command that uses the local registry - `run`, `pull`, `push`, `status`, `list`, `find`, `identify`, `reset` - starts it, on the port the configuration names, if it is not running, and a registry started that way is stopped when the last command using it finishes. Each command holds a *session* on the registry while it runs, and the registry is not stopped while any session is open.
 
-However the user may also specify a manual launch that will override this behaviour, instead leaving the server running constantly allowing them to view the registry in the browser.
-
-The commands:
+To keep the registry running - to look at it in the browser, or to save each command the few seconds a start takes - start it yourself:
 
 ```sh
 fair registry start
 ```
 
-and
+It then runs until
 
 ```sh
 fair registry stop
 ```
 
-will launch and halt the server respectively.
+`fair registry start` takes the port in the configuration (`registries.local.uri` in `~/.fair/cli/cli-config.yaml`), or the one given with `--port`, which becomes the configured one when the registry starts there. Run while a command has the registry running, it keeps that registry running from then on rather than starting another. `fair registry stop` refuses while a command is using the registry; `--force` stops it anyway. `fair registry status` says where the registry is running, whether it was started by `fair registry start` or by a command, and which processes are using it.
+
+An install's registry runs on one host at a time, since its database is a file in its directory: where that directory is shared between machines, as a home directory on a cluster may be, the registry cannot be started, stopped or used from a machine other than the one running it. The refusal names that machine, and the file in the registry's directory that records it. If that machine no longer runs the registry - it has shut down or restarted - delete the file and try again.
+
+`fair purge --all`, `fair registry uninstall` and `fair registry install --force` stop the registry before removing it, and remove nothing while a command is using it or while it is running on another machine.
+
+A program that uses the registry outside a `fair` command, such as a language API, can hold a session of its own:
+
+```sh
+fair registry session open --pid <process id> --json
+fair registry session close <session id>
+```
+
+`session open` starts the registry if it is not running, and prints the session's id, the registry's address and the file holding its token, as one JSON object (`{"session": ..., "registry_url": ..., "token_file": ...}`). The session ends when it is closed or when the process it names ends. A script run by `fair run` is told the run's session in `FDP_SESSION`, and needs none of its own.
 
 The registry can be installed using the CLI as well by running:
 ```sh
@@ -353,3 +386,15 @@ Within the `config.yaml` file, template variables can be specified by using the 
 | `GIT_BRANCH`        | Current branch of the `git` repository                                           |
 | `GIT_REMOTE`        | The URI of the git repository specified during setup                             |
 | `GIT_TAG`           | The latest tag on `git`                                                          |
+
+## What a program may read of the CLI's configuration
+
+A language API, or any other program working with the pipeline, may rely on these parts of the CLI's configuration files:
+
+- `registries.local.uri` and `registries.local.token` in `~/.fair/cli/cli-config.yaml`: the local registry's API address, and the file holding its token.
+- `registries.<name>.uri` and `registries.<name>.token` in a project's `.fair/cli-config.yaml`: the same for each remote registry, by its name - `origin`, or one added with `fair remote add`.
+- A token file holds that registry's token alone, read as it is with surrounding white space stripped. Use it only for the registry whose entry names it.
+- `git.remote` in a project's `.fair/cli-config.yaml`: the name of the project's git remote. Its URL is the git repository's to give (`git remote get-url <name>`); `git.remote_repo` beside it is a copy taken by `fair init`, and goes out of date when the remote moves.
+- A directory with a `.fair` folder is a FAIR project, found by searching upwards from the working directory, as every `fair` command does.
+
+Within a run the working config holds what a script needs - among it `run_metadata.local_data_registry_url` and `run_metadata.remote_repo`, the git remote's URL - and the script's environment holds `FDP_CONFIG_DIR`, `FDP_LOCAL_TOKEN` and `FDP_SESSION`.

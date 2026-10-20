@@ -33,11 +33,9 @@ import copy
 import glob
 import logging
 import os
-import pathlib
 import re
 import shutil
 import typing
-import uuid
 import platform
 import traceback
 
@@ -54,6 +52,7 @@ import fair.configuration as fdp_conf
 import fair.configuration.validation as fdp_clivalid
 import fair.exceptions as fdp_exc
 import fair.history as fdp_hist
+import fair.registry.lifecycle as fdp_life
 import fair.registry.requests as fdp_req
 import fair.registry.server as fdp_serv
 import fair.registry.sync as fdp_sync
@@ -90,7 +89,7 @@ class FAIR:
         user_config: str = None,
         debug: bool = False,
         server_mode: fdp_serv.SwitchMode = fdp_serv.SwitchMode.NO_SERVER,
-        server_port: int = 8000,
+        server_port: int = None,
         server_address: str = "127.0.0.1",
         allow_dirty: bool = False,
         testing: bool = False,
@@ -101,9 +100,9 @@ class FAIR:
         All actions are performed relative to the specified folder after the
         local '.fair' directory for the repository has been located.
 
-        A session is usually cached to ensure that the server is not shut down
-        when a process is taking place. The exception is where the user
-        explicitly requests for it to be started.
+        In the CLI's own mode the session holds the local registry, starting
+        it where none runs, so that it is not stopped while the command uses
+        it.
 
         Parameters
         ----------
@@ -116,7 +115,8 @@ class FAIR:
         server_mode : fair.registry.server.SwitchMode, optional
             stop/start server mode during session
         server_port : int, optional
-            port to run local registry on, default is 8000
+            port on which 'fair registry start' starts the local registry, by
+            default the configured one
         allow_dirty : bool, optional
             allow runs with uncommitted changes, default is False
         testing : bool
@@ -136,9 +136,8 @@ class FAIR:
         self._logger.debug(f"Session location: {self._session_loc}")
         self._run_mode = server_mode
         self._stager: fdp_stage.Stager = fdp_stage.Stager(self._session_loc)
-        self._session_id = (
-            uuid.uuid4() if server_mode == fdp_serv.SwitchMode.CLI else None
-        )
+        self._session_id = None
+        self._session_registry = None
         self._session_config = None
 
         if user_config and not os.path.exists(user_config):
@@ -211,6 +210,15 @@ class FAIR:
         _root_dir = os.path.join(
             fdp_com.find_fair_root(self._session_loc), fdp_com.FAIR_FOLDER
         )
+        # Nothing is removed if the registry cannot be stopped first
+        if clear_all:
+            try:
+                fdp_life.stop_for_removal(fdp_com.registry_home())
+            except (fdp_exc.FileNotFoundError, fdp_exc.CLIConfigurationError):
+                click.echo(
+                    "Warning: Unable to check if server is running, "
+                    "you may need to manually terminate the Django process"
+                )
         if os.path.exists(_root_dir):
             if verbose:
                 click.echo(f"Removing directory '{_root_dir}'")
@@ -218,14 +226,6 @@ class FAIR:
                 fdp_com.set_file_permissions(_root_dir)
             shutil.rmtree(_root_dir, onerror=fdp_com.remove_readonly)
         if clear_all:
-            try:
-                if fdp_serv.check_server_running():
-                    fdp_serv.stop_server()
-            except (fdp_exc.FileNotFoundError, fdp_exc.CLIConfigurationError):
-                click.echo(
-                    "Warning: Unable to check if server is running, "
-                    "you may need to manually terminate the Django process"
-                )
             if verbose and os.path.exists(fdp_com.USER_FAIR_DIR):
                 click.echo(f"Removing directory '{fdp_com.USER_FAIR_DIR}'")
             if platform.system() == "Windows":
@@ -271,64 +271,40 @@ class FAIR:
             self._stop_server()
 
     def _stop_server(self) -> None:
-        _cache_addr = os.path.join(fdp_com.session_cache_dir(), "user.run")
-        if not fdp_serv.check_server_running():
-            raise fdp_exc.UnexpectedRegistryServerState("Server is not running.")
-        if os.path.exists(_cache_addr):
-            os.remove(_cache_addr)
-        click.echo("Stopping local registry server.")
-        if (
-            os.listdir(fdp_com.session_cache_dir())
-            and self._run_mode != fdp_serv.SwitchMode.FORCE_STOP
-        ):
-            raise fdp_exc.UnexpectedRegistryServerState(
-                "Cannot stop registry, a process may still be running",
-                hint="You can force stop using '--force'",
-            )
-        fdp_serv.stop_server(
-            force=self._run_mode == fdp_serv.SwitchMode.FORCE_STOP,
+        fdp_life.stop_for_user(
+            force=self._run_mode == fdp_serv.SwitchMode.FORCE_STOP
         )
+        click.echo("Stopped the local registry server.")
 
     def _setup_server_cli_mode(self, port: int, address: str) -> None:
         self.check_is_repo()
-        _cache_addr = os.path.join(
-            fdp_com.session_cache_dir(), f"{self._session_id}.run"
-        )
+        self._session_registry = fdp_com.registry_home()
+        _session = fdp_life.open_session(self._session_registry)
+        self._session_id = _session["session"]
+        self._logger.debug(f"Opened session #{self._session_id}")
 
-        self._logger.debug("Checking for existing sessions")
-        # If there are no session cache files start the server
-        if not glob.glob(os.path.join(fdp_com.session_cache_dir(), "*.run")):
-            self._logger.debug("No sessions found, launching server")
-            fdp_serv.launch_server(port=port, address=address)
-
-        self._logger.debug(f"Creating new session #{self._session_id}")
-
-        if not os.path.exists(fdp_com.session_cache_dir()):
-            raise fdp_exc.InternalError(
-                "Failed to create session cache file, "
-                f"expected cache directory '{fdp_com.session_cache_dir()}' to exist"
-            )
-
-        # Create new session cache file
-        pathlib.Path(_cache_addr).touch()
+        # The registry runs where its record says, which a configuration
+        # changed while it ran no longer names: the configuration this session
+        # read is written back as it closes
+        if _session["registry_url"] != fdp_conf.get_local_uri():
+            fdp_conf.set_local_uri(_session["registry_url"])
 
     def _setup_server_user_start(self, port: int, address: str) -> None:
-        if not os.path.exists(fdp_com.session_cache_dir()):
-            os.makedirs(fdp_com.session_cache_dir())
-
-        _cache_addr = os.path.join(fdp_com.session_cache_dir(), "user.run")
-
         if self._global_config and "registries" not in self._global_config:
             raise fdp_exc.CLIConfigurationError(
                 "Cannot find server address in current configuration",
                 hint="Is the current location a FAIR repository?",
             )
 
-        if fdp_serv.check_server_running():
-            raise fdp_exc.UnexpectedRegistryServerState("Server already running.")
-        click.echo("Starting local registry server")
-        pathlib.Path(_cache_addr).touch()
-        fdp_serv.launch_server(port=port, verbose=True, address=address)
+        if not port:
+            try:
+                port = fdp_conf.get_local_port()
+            except fdp_exc.InternalError:
+                port = 8000
+        _uri = fdp_life.start_for_user(port=port, address=address, verbose=True)
+        click.echo(
+            f"Local registry running at {_uri}, until 'fair registry stop'"
+        )
 
     def _pre_job_setup(self, remote: str = None) -> None:
         self._logger.debug("Running pre-job setup")
@@ -352,10 +328,47 @@ class FAIR:
         self._session_config.close_log()
 
     def registry_status(self):
-        if fdp_serv.check_server_running():
+        if not os.path.isdir(fdp_com.registry_home()):
+            click.echo("Server is not running")
+            return
+        _status = fdp_life.status()
+        _server = _status["server"]
+        if _status["elsewhere"]:
+            click.echo(
+                f"Server recorded as running on the host '{_server['host']}' "
+                f"at: {_server['uri']}, which this host cannot check"
+            )
+        elif _server:
+            click.echo(f"Server running at: {_server['uri']}")
+        elif fdp_serv.check_server_running():
             click.echo(f"Server running at: {fdp_conf.get_local_uri()}")
         else:
             click.echo("Server is not running")
+            return
+        if _server:
+            click.echo(
+                {
+                    fdp_life.HELD_BY_USER: "Held by the user: it runs until "
+                    "'fair registry stop'",
+                    fdp_life.HELD_BY_SESSIONS: "Started by a session: it stops "
+                    "when the last session closes",
+                    fdp_life.HELD_BY_NOBODY: "Not started by the CLI: no "
+                    "session stops it",
+                }.get(_server.get("holder"), "")
+                + f" (since {_server.get('started')}, recorded in "
+                f"'{_status['record_file']}')"
+            )
+        for _session in _status["sessions"]:
+            _unreadable = (
+                f"; {fdp_life.START_UNREADABLE}"
+                if _session.get("start_unreadable")
+                else ""
+            )
+            click.echo(
+                f"Session {_session.get('id')}: process {_session.get('pid')} "
+                f"on '{_session.get('host')}' since {_session.get('opened')}"
+                f" ({_session['command']}{_unreadable})"
+            )
 
     def push(self, remote: str = "origin"):
         self._pre_job_setup(remote)
@@ -515,13 +528,19 @@ class FAIR:
         passive: bool = False,
         allow_dirty: bool = False,
         local: bool = False,
+        rehearse: bool = False,
     ) -> str:
-        """Execute a run using the given user configuration file"""
+        """Execute a run using the given user configuration file
+
+        A rehearsal prepares the job as a run does and runs nothing: the git
+        checks are skipped, the commit recorded as it is, and nothing of the
+        job is staged.
+        """
         self._pre_job_setup()
 
         self._session_config.prepare(
-            fdp_com.CMD_MODE.PASS if passive else fdp_com.CMD_MODE.RUN,
-            allow_dirty=self._allow_dirty,
+            fdp_com.CMD_MODE.PASS if passive or rehearse else fdp_com.CMD_MODE.RUN,
+            allow_dirty=self._allow_dirty or rehearse,
             local=local,
         )
 
@@ -537,19 +556,46 @@ class FAIR:
         # Only apply constraint for clean repository when executing a run
         if passive:
             allow_dirty = True
-        if not local:
+        if not local and not rehearse:
             self.check_git_repo_state(allow_dirty=allow_dirty)
 
+        # Named to the script, which then needs no session of its own
+        self._session_config.session_id = self._session_id
         self._session_config.write()
 
         # A passive run only prepares the job directory, for the model to be
         # run from it separately
-        if not passive:
+        if not passive and not rehearse:
             self._session_config.execute()
 
-        self._post_job_breakdown(add_run=True)
+        if rehearse:
+            self._session_config.close_log()
+        else:
+            self._post_job_breakdown(add_run=True)
 
         return self._session_config.hash
+
+    def rehearsal(self) -> typing.Dict[str, str]:
+        """Return the files of a job that a rehearsal prepared
+
+        Returns
+        -------
+        typing.Dict[str, str]
+            the job's directory ("job_dir"), its working configuration
+            ("config"), its script ("script"), the data store it writes to
+            ("data_store"), and the file holding the local registry's token
+            ("token_file")
+        """
+        _environment = self._session_config.environment
+        return {
+            "job_dir": _environment["FDP_CONFIG_DIR"],
+            "config": os.path.join(
+                _environment["FDP_CONFIG_DIR"], _environment["FDP_CONFIG_NAME"]
+            ),
+            "script": _environment["FDP_SCRIPT"],
+            "data_store": _environment["FDP_DATA_STORE"],
+            "token_file": os.path.join(fdp_com.registry_home(), "token"),
+        }
 
     def check_is_repo(self, location: str = None) -> None:
         """Check that the current location is a FAIR repository"""
@@ -564,12 +610,27 @@ class FAIR:
     def check_git_repo_state(
         self, remote_label: str = "origin", allow_dirty: bool = False
     ) -> bool:
-        """Checks the git repository is clean and that local matches remote"""
+        """Checks the git repository is clean and that local matches remote
+
+        A detached checkout - a tag, a commit, a pull request's merge on CI -
+        has no branch to compare, so its commit must be one the remote has.
+        """
         _repo_root = fdp_com.find_git_root(self._session_loc)
         _repo = git.Repo(_repo_root)
         _rem_commit = None
         _loc_commit = None
         _current_branch = None
+
+        if _repo.head.is_detached:
+            _com_match = self._check_detached_commit(_repo, remote_label, allow_dirty)
+            if _repo.is_dirty():
+                if allow_dirty:
+                    click.echo("Warning: running with uncommitted changes")
+                else:
+                    raise fdp_exc.FDPRepositoryError(
+                        "Cannot run job, git repository contains uncommitted changes"
+                    )
+            return _repo.is_dirty() and _com_match
 
         # Firstly get the current branch
         try:
@@ -627,6 +688,51 @@ class FAIR:
                 )
 
         return _repo.is_dirty() and _com_match
+
+    # Whether the remote has the commit of a detached checkout: on one of its
+    # branches, as its remote-tracking branches say, else among the refs it
+    # lists itself - a pull request's merge commit, or a tag that a CI checkout
+    # fetched alone, leave no remote-tracking branch. A failure is refused, or
+    # with allow_dirty a warning
+    @staticmethod
+    def _check_detached_commit(
+        repo: git.Repo, remote_label: str, allow_dirty: bool
+    ) -> bool:
+        _sha = repo.head.commit.hexsha
+        _problem = None
+        _tracking = repo.git.for_each_ref(
+            "--contains", _sha, "--format=%(refname)", f"refs/remotes/{remote_label}/"
+        )
+        if _tracking:
+            return True
+        try:
+            # Not GitPython's kill_after_timeout, which raises on Windows
+            _listing = repo.git.ls_remote(
+                remote_label, env={"GIT_TERMINAL_PROMPT": "0"}
+            )
+            if any(
+                _line.split()[0] == _sha
+                for _line in _listing.splitlines()
+                if _line.strip()
+            ):
+                return True
+            _problem = (
+                f"commit {_sha[:7]} of the detached checkout is on no branch or "
+                f"tag of remote '{remote_label}'"
+            )
+        except git.GitCommandError as e:
+            _problem = (
+                f"commit {_sha[:7]} of the detached checkout is on no branch of "
+                f"remote '{remote_label}' known here, and the remote could not be "
+                f"asked for its other refs: {(e.stderr or '').strip()}"
+            )
+        if not allow_dirty:
+            raise fdp_exc.FDPRepositoryError(
+                f"Cannot run job, {_problem}",
+                hint="Push the commit, or give '--dirty' to run it anyway",
+            )
+        click.echo(f"Warning: {_problem}")
+        return False
 
     def __enter__(self) -> None:
         """Method called when using 'with' statement."""
@@ -1137,7 +1243,16 @@ class FAIR:
             os.path.join(self._session_loc, fdp_com.FAIR_FOLDER)
         )
 
-        _first_time = not os.path.exists(fdp_com.global_fdpconfig())
+        # What an initialisation that did not finish left is taken away, and
+        # the repository initialised afresh
+        if os.path.exists(_fair_dir) and self._unfinished(_fair_dir):
+            click.echo(
+                f"Removing '{_fair_dir}', left by an initialisation that "
+                "did not finish."
+            )
+            self._remove_fair_folder(_fair_dir)
+
+        _first_time = not self._global_config_present()
 
         # Also with --ci: the data store lives in .fair/, and the registry
         # still holds records pointing into it. 'fair purge' starts afresh.
@@ -1162,6 +1277,8 @@ class FAIR:
                 os.getcwd(),
                 os.path.join(os.getcwd(), ".fair"),
             )
+            if not local:
+                using["user"]["remote_user"] = self._ci_remote_user(using)
 
         if (
             _existing := fdp_com.find_fair_root(self._session_loc)
@@ -1180,21 +1297,22 @@ class FAIR:
                 "Initialising FAIR repository, setup will now ask for basic info (leave blank for default value):\n"
             )
 
-        if not os.path.exists(_fair_dir) or self._testing:
-            os.makedirs(_fair_dir, exist_ok=True)
-            os.makedirs(fdp_com.session_cache_dir(), exist_ok=True)
-            if using:
-                self._validate_and_load_cli_config(using)
-            self._stager.initialise()
+        # From here until the configuration is complete, a failure of any kind,
+        # an interruption included, undoes what this has made
+        _global_files = self._global_files()
+        try:
+            if not os.path.exists(_fair_dir) or self._testing:
+                os.makedirs(_fair_dir, exist_ok=True)
+                if using:
+                    self._validate_and_load_cli_config(using)
+                # One made before this '.fair' existed holds a parent's staging
+                self._stager = fdp_stage.Stager(self._session_loc)
+                self._stager.initialise()
 
-        if not os.path.exists(fdp_com.global_fdpconfig()):
-            try:
+            if not self._global_config_present():
                 if not self._testing:
                     click.echo(GLOBAL_CONFIG_MESSAGE)
                 self._global_config = fdp_conf.global_config_query(registry, local)
-            except (fdp_exc.CLIConfigurationError, click.Abort) as e:
-                self._clean_reset(_fair_dir, e)
-            try:
                 if not self._testing:
                     click.echo(REPO_CONFIG_MESSAGE)
                 self._local_config = fdp_conf.local_config_query(
@@ -1202,82 +1320,172 @@ class FAIR:
                     first_time_setup=_first_time,
                     local=local,
                 )
-            except (fdp_exc.CLIConfigurationError, click.Abort) as e:
-                self._clean_reset(_fair_dir, e, True)
-        elif not using:
-            try:
+            elif not using:
                 if not self._testing:
                     click.echo(REPO_CONFIG_MESSAGE)
                 self._local_config = fdp_conf.local_config_query(
                     self._global_config, local=local
                 )
-            except (fdp_exc.CLIConfigurationError, click.Abort) as e:
-                self._clean_reset(_fair_dir, e, True)
-        if not using:
-            with open(
-                fdp_com.local_fdpconfig(self._session_loc), encoding="utf-8", mode="w"
-            ) as f:
-                yaml.dump(self._local_config, f)
-            with open(fdp_com.global_fdpconfig(), encoding="utf-8", mode="w") as f:
-                yaml.dump(self._global_config, f)
-        else:
-            if not self._testing:
-                click.echo(GLOBAL_CONFIG_MESSAGE)
-            self._global_config = fdp_conf.read_global_fdpconfig()
-            if not self._testing:
-                click.echo(REPO_CONFIG_MESSAGE)
-            self._local_config = fdp_conf.read_local_fdpconfig(self._session_loc)
+            if not using:
+                with open(
+                    fdp_com.local_fdpconfig(self._session_loc),
+                    encoding="utf-8",
+                    mode="w",
+                ) as f:
+                    yaml.dump(self._local_config, f)
+                with open(
+                    fdp_com.global_fdpconfig(), encoding="utf-8", mode="w"
+                ) as f:
+                    yaml.dump(self._global_config, f)
+            else:
+                if not self._testing:
+                    click.echo(GLOBAL_CONFIG_MESSAGE)
+                self._global_config = fdp_conf.read_global_fdpconfig()
+                if not self._testing:
+                    click.echo(REPO_CONFIG_MESSAGE)
+                self._local_config = fdp_conf.read_local_fdpconfig(
+                    self._session_loc
+                )
 
+            try:
+                fdp_clivalid.LocalCLIConfig(**self._local_config)
+            except pydantic.ValidationError as e:
+                self._logger.debug(f"Local CLI validator returned: {e.json()}")
+                raise fdp_exc.InternalError(
+                    "Initialisation failed, validation of local CLI config "
+                    "file did not pass"
+                ) from e
+
+            try:
+                fdp_clivalid.GlobalCLIConfig(**self._global_config)
+            except pydantic.ValidationError as e:
+                self._logger.debug(
+                    f"Global CLI validator returned: {e.json()}"
+                )
+                raise fdp_exc.InternalError(
+                    "Initialisation failed, validation of global CLI config "
+                    "file did not pass"
+                ) from e
+
+            os.makedirs(
+                fdp_hist.history_directory(self._session_loc), exist_ok=True
+            )
+        except BaseException:
+            self._undo_initialise(_fair_dir, _global_files)
+            raise
+
+        # The repository is initialised: should registering its user fail,
+        # 'fair init' again completes it
         if export_as:
             self._export_cli_configuration(export_as)
 
         fdp_serv.update_registry_post_setup(self._session_loc, _first_time, registry)
-        try:
-            fdp_clivalid.LocalCLIConfig(**self._local_config)
-        except pydantic.ValidationError as e:
-            self._logger.debug(f"Local CLI validator returned: {e.json()}")
-            self._clean_reset(_fair_dir, local_only=True)
-            raise fdp_exc.InternalError(
-                "Initialisation failed, validation of local CLI config file did not pass"
-            ) from e
-
-        try:
-            fdp_clivalid.GlobalCLIConfig(**self._global_config)
-        except pydantic.ValidationError as e:
-            self._logger.debug(f"Global CLI validator returned: {e.json()}")
-            self._clean_reset(_fair_dir, local_only=False)
-            raise fdp_exc.InternalError(
-                "Initialisation failed, validation of global CLI config file did not pass"
-            ) from e
-
-        os.makedirs(fdp_hist.history_directory(self._session_loc), exist_ok=True)
 
         click.echo(f"Initialised empty fair repository in {_fair_dir}")
 
-    def _clean_reset(self, _fair_dir, e: Exception = None, local_only: bool = False):
-        if not local_only:
-            if platform.system() == "Windows":
-                fdp_com.set_file_permissions(fdp_com.session_cache_dir())
-                fdp_com.set_file_permissions(fdp_com.global_config_dir())
-            shutil.rmtree(fdp_com.session_cache_dir(), onerror=fdp_com.remove_readonly)
-            shutil.rmtree(fdp_com.global_config_dir(), onerror=fdp_com.remove_readonly)
+    # The remote user of a configuration 'fair init --ci' made: the user the
+    # remote registry's token belongs to, as a fresh remote has none called
+    # 'FAIRDataPipeline'; that name is kept where the remote cannot be asked
+    @staticmethod
+    def _ci_remote_user(cli_config: typing.Dict) -> str:
+        _origin = cli_config["registries"]["origin"]
+        try:
+            with open(_origin["token"], encoding="utf-8") as token_f:
+                _token = token_f.read().strip()
+            return fdp_req.get_remote_user(_origin["uri"], _token)
+        except (OSError, fdp_exc.FAIRCLIException):
+            return cli_config["user"]["remote_user"]
+
+    # Whether a '.fair' was left by an initialisation that did not finish: no
+    # configuration, or an empty one, and besides it nothing but a staging file
+    # with nothing staged. One with no configuration that holds anything more
+    # is not init's to remove, and is refused
+    @staticmethod
+    def _unfinished(fair_dir: str) -> bool:
+        _config = os.path.join(fair_dir, fdp_com.FAIR_CLI_CONFIG)
+        _staging = os.path.join(fair_dir, "staging")
+        try:
+            with open(_config, encoding="utf-8") as in_f:
+                if yaml.safe_load(in_f):
+                    return False
+        except FileNotFoundError:
+            pass
+        except yaml.YAMLError:
+            return False
+        try:
+            with open(_staging, encoding="utf-8") as in_f:
+                _staged = any((yaml.safe_load(in_f) or {}).values())
+        except FileNotFoundError:
+            _staged = False
+        except (yaml.YAMLError, AttributeError):
+            _staged = True
+        _known = {fdp_com.FAIR_CLI_CONFIG, "staging"}
+        if _staged or set(os.listdir(fair_dir)) - _known:
+            raise fdp_exc.CLIConfigurationError(
+                f"'{fair_dir}' holds no configuration, and more than an "
+                "initialisation that did not finish leaves",
+                hint=f"Keep what you need from '{fair_dir}', delete it, and "
+                "run 'fair init' again",
+            )
+        return True
+
+    # Whether a global configuration is in place: a file holding nothing, as an
+    # initialisation that failed could leave, counts as none
+    @staticmethod
+    def _global_config_present() -> bool:
+        return bool(fdp_conf.read_global_fdpconfig())
+
+    # The files in the global configuration's directory, each with what it
+    # holds, to put back should an initialisation fail
+    @staticmethod
+    def _global_files() -> typing.Dict[str, bytes]:
+        _dir = fdp_com.global_config_dir()
+        _files = {}
+        if os.path.isdir(_dir):
+            for _name in os.listdir(_dir):
+                _path = os.path.join(_dir, _name)
+                if os.path.isfile(_path):
+                    with open(_path, "rb") as in_f:
+                        _files[_path] = in_f.read()
+        return _files
+
+    # Take away what an initialisation that failed made: the repository's
+    # '.fair', and every file it wrote in the global configuration's directory,
+    # put back as it was. The session's configurations are read again, as the
+    # session writes them to disk on closing
+    def _undo_initialise(
+        self, fair_dir: str, global_files: typing.Dict[str, bytes]
+    ):
+        if os.path.exists(fair_dir):
+            self._remove_fair_folder(fair_dir)
+        _now = self._global_files()
+        for _path in _now.keys() | global_files.keys():
+            if _path not in global_files:
+                os.remove(_path)
+            elif _now.get(_path) != global_files[_path]:
+                with open(_path, "wb") as out_f:
+                    out_f.write(global_files[_path])
+        _dir = fdp_com.global_config_dir()
+        if os.path.isdir(_dir) and not os.listdir(_dir):
+            os.rmdir(_dir)
+        self._global_config, self._local_config = {}, {}
+        self._load_configurations()
+
+    # Remove a repository's '.fair', read-only files included
+    @staticmethod
+    def _remove_fair_folder(fair_dir: str) -> None:
         if platform.system() == "Windows":
-            fdp_com.set_file_permissions(_fair_dir)
-        shutil.rmtree(_fair_dir, onerror=fdp_com.remove_readonly)
-        if e:
-            raise e
+            fdp_com.set_file_permissions(fair_dir)
+        shutil.rmtree(fair_dir, onerror=fdp_com.remove_readonly)
 
     def close_session(self) -> None:
-        """Upon exiting, dump all configurations to file"""
+        """Upon exiting, release the registry and dump all configurations to file"""
+        if self._session_id:
+            fdp_life.close_session(self._session_id, self._session_registry)
+            self._session_id = None
+
         if not fdp_com.find_fair_root(self._session_loc):
             return
-
-        if self._session_id:
-            # Remove the session cache file
-            _cache_addr = os.path.join(
-                fdp_com.session_cache_dir(), f"{self._session_id}.run"
-            )
-            os.remove(_cache_addr)
 
         if os.path.exists(os.path.dirname(fdp_com.global_fdpconfig())):
             with open(fdp_com.global_fdpconfig(), encoding="utf-8", mode="w") as f:
@@ -1295,14 +1503,12 @@ class FAIR:
 
         for key in _exp_keys:
             if key not in cli_config:
-                self.purge(verbose=False)
                 raise fdp_exc.CLIConfigurationError(
                     f"Expected key '{key}' in CLI configuration file"
                 )
 
         for exp_reg in ["local", "origin"]:
             if exp_reg not in cli_config["registries"]:
-                self.purge(verbose=False)
                 raise fdp_exc.CLIConfigurationError(
                     f"Expected key 'registries:{exp_reg}' in CLI configuration file"
                 )
@@ -1329,7 +1535,6 @@ class FAIR:
 
         for key in _user_keys:
             if key not in cli_config["user"]:
-                self.purge(verbose=False)
                 raise fdp_exc.CLIConfigurationError(
                     f"Expected key 'user:{key}' in CLI configuration file"
                 )
@@ -1342,7 +1547,6 @@ class FAIR:
 
         for key in ["local_repo", "remote"]:
             if key not in cli_config["git"]:
-                self.purge(verbose=False)
                 raise fdp_exc.CLIConfigurationError(
                     f"Expected key 'git:{key}' in CLI configuration"
                 )

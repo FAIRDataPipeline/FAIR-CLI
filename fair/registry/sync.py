@@ -193,8 +193,9 @@ def sync_dependency_chain(
 
     # For every object (and the order) in the dependency chain
     # post the object then store the URL so it can be used to assemble those
-    # further down the chain
-    for object_url in _dependency_chain:
+    # further down the chain. The list grows as it is walked (see below)
+    _to_sync = list(_dependency_chain)
+    for object_url in _to_sync:
         if object_url in (placed or {}):
             _new_urls[object_url] = placed[object_url]
             continue
@@ -205,6 +206,15 @@ def sync_dependency_chain(
 
         # Deduce the object type from its URL
         _obj_type = fdp_req.get_obj_type_from_url(object_url, token=origin_token)
+
+        # A code repository's release points at its object, so nothing in the
+        # chain leads to it: it is synchronised after the object
+        _release = None
+        if _obj_type == "object":
+            _release = _obj_data.get("code_repo_release")
+        if _release and _release not in _new_urls:
+            _to_sync.append(_release)
+            _new_urls[_release] = ""
 
         if _obj_type not in _writable_fields:
             _writable_fields[_obj_type] = fdp_req.get_writable_fields(
@@ -246,6 +256,24 @@ def sync_dependency_chain(
 # Whether a storage_root record is on the pushing machine's file system
 def _is_local_root(storage_root: typing.Dict) -> bool:
     return storage_root.get("root", "").startswith("file://")
+
+
+# Whether an object record has a file to move between registries. One with no
+# storage location has none; nor has a code repository, whose location is the
+# repository and whose hash is a commit. The registry says an object is a code
+# repository only by its role: a release of it, or a code run naming it
+def _has_file(object_data: typing.Dict, token: str) -> bool:
+    if not object_data.get("storage_location"):
+        return False
+    if object_data.get("code_repo_release"):
+        return False
+    _registry_uri, _ = fdp_req.split_api_url(object_data["url"])
+    return not fdp_req.get(
+        _registry_uri,
+        "code_run",
+        token,
+        params={"code_repo": fdp_req.get_obj_id_from_url(object_data["url"])},
+    )
 
 
 # URL of a registry's own data store: the storage_root whose root is the
@@ -575,10 +603,12 @@ def sync_data_products(
         _data_product = result
 
         result_object = fdp_req.url_get(result["object"], token=origin_token)
-        # A data product may have no file, its object having no storage
-        # location: there are then only its records to synchronise
+        # A data product may have no file to move - no storage location, or a
+        # code repository's: there are then only its records to synchronise,
+        # its location as it is
+        _moves_file = _has_file(result_object, origin_token)
         _is_public = False
-        if result_object["storage_location"]:
+        if _moves_file:
             _is_public = fdp_req.url_get(
                 result_object["storage_location"], token=origin_token
             )["public"]
@@ -600,7 +630,9 @@ def sync_data_products(
         # syncing from remote to local, else a public file is uploaded to
         # object storage
         _placed = {}
-        if local_data_store:
+        if not _moves_file:
+            pass
+        elif local_data_store:
             logger.debug("Retrieving files from remote registry data storage")
             _placed = _place_pulled_file(
                 dest_uri,
@@ -1044,7 +1076,8 @@ def sync_code_run(
         _dest_code_run_model_config = get_dest_object_url(
             code_run["model_config"], dest_uri, dest_token, origin_token
         )
-        # If theres a code_repo sync it
+        # If theres a code_repo sync it. Its location is the repository, so it
+        # is pushed as it is, never moved into the remote's data store
         _dest_code_run_code_repo = None
         if code_run["code_repo"]:
             sync_dependency_chain(
@@ -1053,7 +1086,7 @@ def sync_code_run(
                 origin_uri=origin_uri,
                 dest_token=dest_token,
                 origin_token=origin_token,
-                public=True,
+                public=False,
             )
             _dest_code_run_code_repo = get_dest_object_url(
                 code_run["code_repo"], dest_uri, dest_token, origin_token
