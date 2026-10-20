@@ -40,8 +40,8 @@
   for a source with no file of its own, such as a data store a run queries: `fair pull` registers it as a data
   product with no file, which a run may read. Its `version` must be given.
 - `run_metadata.shell` may give flags for the shell's program after its name: `shell: julia --project=@.` runs a
-  Julia script in the repository's project. A shell the CLI does not know is refused, naming those it does, where
-  it stopped with a `KeyError`.
+  Julia script in the repository's project. A shell the CLI does not know - an empty `shell:` included - is
+  refused, naming those it does, where it stopped with a `KeyError` or a `TypeError`.
 
 ## Fixed
 - `fair purge --all` answered "no" removed the project's `.fair` folder, and with it a data store kept there; it now

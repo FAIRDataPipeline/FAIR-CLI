@@ -96,9 +96,12 @@ SHELLS: typing.Dict[str, str] = {
 
 
 # A configuration's shell, a name in SHELLS then any flags for its program,
-# split on whitespace, so that a flag cannot hold a space
-def _shell_name_and_flags(shell: str) -> typing.Tuple[str, typing.List[str]]:
-    _words = shell.split()
+# split on whitespace, so that a flag cannot hold a space. A value that is not
+# text, such as 'shell:' left empty, names no shell
+def _shell_name_and_flags(
+    shell: typing.Any,
+) -> typing.Tuple[str, typing.List[str]]:
+    _words = shell.split() if isinstance(shell, str) else []
     if not _words or _words[0] not in SHELLS:
         raise fdp_exc.UserConfigError(
             f"Unknown shell '{shell}' in 'run_metadata'",
@@ -637,7 +640,9 @@ class JobConfiguration(MutableMapping):
 
             if "extension" not in SHELLS[_name]:
                 raise fdp_exc.InternalError(
-                    f"Failed to retrieve an extension for shell '{_name}'"
+                    f"Failed to retrieve an extension for shell '{_name}', "
+                    f"from 'run_metadata: shell: {_shell}': the CLI's table "
+                    "of shells, SHELLS in fair.user_config, gives it none"
                 )
             _ext = SHELLS[_name]["extension"]
             _out_file = os.path.join(self._job_dir, f"script.{_ext}")

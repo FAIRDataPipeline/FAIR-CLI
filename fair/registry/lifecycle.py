@@ -222,7 +222,8 @@ def _read_record(path: str) -> typing.Optional[typing.Dict]:
 
 # Apply an operation to files, trying again briefly on Windows, where a file
 # another process has open - a virus scanner, an indexer - cannot be removed
-# or replaced until it is closed. A file that is not there is not waited for
+# or replaced until it is closed. A file that is not there is not waited for.
+# The last failure is raised as it is, for the caller to say what it means
 def _retried(operation: typing.Callable[..., None], *paths: str) -> None:
     _tries = 5 if platform.system() == "Windows" else 1
     for _try in range(_tries):

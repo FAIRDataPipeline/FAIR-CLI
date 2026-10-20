@@ -508,11 +508,15 @@ def test_execute_puts_a_shells_flags_after_its_program(
         ("jula", "Unknown shell 'jula'"),
         ("", "Unknown shell ''"),
         ("batch -x", "The shell 'batch' takes no flags"),
+        # What YAML makes of 'shell:' left empty, a number and a list
+        (None, "Unknown shell 'None'"),
+        (3, "Unknown shell '3'"),
+        (["julia", "--project=@."], "Unknown shell"),
     ],
-    ids=["unknown", "empty", "batch"],
+    ids=["unknown", "empty", "batch", "null", "number", "list"],
 )
 def test_a_shell_that_cannot_run_the_script_is_refused(
-    shell: str, said: str, tmp_path
+    shell: typing.Any, said: str, tmp_path
 ):
     _config = fdp_user.JobConfiguration()
     _config._config = {
@@ -542,6 +546,34 @@ def test_a_script_takes_its_extension_from_the_shells_name(tmp_path):
     _job = _config.setup_job_script()
     assert _job["script"] == os.path.join(tmp_path, "script.jl")
     assert _config.shell == "julia --project=@."
+
+
+@pytest.mark.faircli_user_config
+@pytest.mark.parametrize("shell", sorted(fdp_user.SHELLS))
+def test_each_shell_has_a_command_and_an_extension(shell: str):
+    assert set(fdp_user.SHELLS[shell]) == {"exec", "extension"}
+    assert any("{0}" in arg for arg in fdp_user.SHELLS[shell]["exec"])
+    assert shell in {s.value for s in fdp_valid.SupportedShells}
+
+
+@pytest.mark.faircli_user_config
+def test_a_shell_with_no_extension_names_its_value(
+    mocker: pytest_mock.MockerFixture, tmp_path
+):
+    mocker.patch.dict(fdp_user.SHELLS, {"noext": {"exec": ["noext", "{0}"]}})
+    _config = fdp_user.JobConfiguration()
+    _config._config = {
+        "run_metadata": {
+            "local_repo": str(tmp_path),
+            "script": "echo",
+            "shell": "noext -x",
+        }
+    }
+    _config._job_dir = str(tmp_path)
+    with pytest.raises(fdp_exc.InternalError) as e:
+        _config.setup_job_script()
+    assert "'run_metadata: shell: noext -x'" in e.value.msg
+    assert "SHELLS" in e.value.msg
 
 
 @pytest.mark.faircli_user_config
