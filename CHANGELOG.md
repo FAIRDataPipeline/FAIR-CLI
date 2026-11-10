@@ -1,3 +1,15 @@
+# Unreleased
+
+## Fixed
+- `fair log` stopped with "Cannot open log for job" at the first job another repository had run with the same data
+  store, which every project on a machine shares by default. It now lists this repository's jobs, then says how many
+  others it passed over and which repository ran them. It lists at most 10, where it listed 11, and says so when this
+  repository has run none.
+- `fair view` given a job another repository ran stopped with a Python traceback; it now says it found no such job,
+  naming `fair log`.
+- `fair log` and `fair remote` printed in white and yellow, which cannot be seen, or barely, on a light background:
+  a job's id and date, and a remote's name, are now bold in the terminal's own colour, and a remote's address plain.
+
 # 2026-10-19 [v0.11.0](https://github.com/FAIRDataPipeline/FAIR-CLI/releases/tag/v0.11.0)
 
 ## Changed behaviour

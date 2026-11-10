@@ -902,11 +902,13 @@ class FAIR:
             return []
         _remote_print = []
         for remote, data in self._local_config["registries"].items():
-            _out_str = f"[bold white]{remote}[/bold white]"
+            _out_str = f"[bold]{remote}[/bold]"
             if verbose:
-                _out_str += f"\t[yellow]{data['uri']}[/yellow]"
+                _out_str += f"\t{data['uri']}"
             _remote_print.append(_out_str)
-        rich.print("\n".join(_remote_print))
+        # Unhighlighted, as rich colours parts of an address in shades that
+        # some terminal backgrounds hide
+        rich.get_console().print("\n".join(_remote_print), highlight=False)
         return _remote_print
 
     def status_data_products(self) -> None:
