@@ -599,6 +599,7 @@ def test_external_object_release_version(
     # The version of the source is sent when the entry gives one; without it
     # none is, and the registry applies its own
     _access = mocker.patch("fair.registry.requests._access")
+    mocker.patch("fair.identifiers.check_id_permitted", return_value=True)
     _data = {
         "title": "A year of ERA5",
         "primary": False,

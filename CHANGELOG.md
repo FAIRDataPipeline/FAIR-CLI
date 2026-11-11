@@ -85,6 +85,8 @@
 - The implementations workflow no longer installs `libmemcached-dev`, which the registry has not needed since before
   v1.0.0. So the Python, Java and Julia jobs no longer need Ubuntu's package archive, which GitHub's runners could
   not reach for a time.
+- The C++ job of the implementations workflow no longer upgrades the runner's own packages, which it does not use.
+- A storage test no longer checks its DOI online. It failed when the site the DOI leads to closed the connection.
 
 # 2026-10-19 [v0.11.0](https://github.com/FAIRDataPipeline/FAIR-CLI/releases/tag/v0.11.0)
 
