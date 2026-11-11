@@ -8,6 +8,7 @@ import time
 import typing
 
 import click.testing
+import psutil
 import pytest
 import pytest_mock
 import requests
@@ -883,17 +884,40 @@ def test_closing_a_session_removes_nothing_else(registry_dir: str):
     assert os.path.exists(_outside)
 
 
-# A child process that holds the install for a command until it is killed
+class _Holder:
+    """A child process that holds the install for a command until it is killed
+
+    It is known by the id it gives itself: on Windows a virtual environment's
+    python.exe runs the interpreter as a process of its own, so the id of the
+    process started is not the one that holds the install.
+    """
+
+    def __init__(self, child: subprocess.Popen, pid: int):
+        self._child = child
+        self.pid = pid
+
+    def kill(self) -> None:
+        """Kill the process holding the install, and the one started for it"""
+        try:
+            _process = psutil.Process(self.pid)
+            _process.kill()
+            _process.wait(timeout=30)
+        except psutil.NoSuchProcess:
+            pass
+        self._child.kill()
+        self._child.wait()
+
+
 @pytest.fixture
-def holder(registry_dir: str) -> typing.Iterator[subprocess.Popen]:
+def holder(registry_dir: str) -> typing.Iterator[_Holder]:
     _child = subprocess.Popen(
         [
             sys.executable,
             "-c",
-            "import sys, time\n"
+            "import os, sys, time\n"
             "import fair.registry.lifecycle as fdp_life\n"
             "with fdp_life.held(sys.argv[1], 'fair registry reset'):\n"
-            "    print('held', flush=True)\n"
+            "    print(os.getpid(), flush=True)\n"
             "    time.sleep(300)\n",
             registry_dir,
         ],
@@ -901,16 +925,15 @@ def holder(registry_dir: str) -> typing.Iterator[subprocess.Popen]:
         text=True,
         cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
     )
-    assert _child.stdout.readline().strip() == "held"
-    yield _child
-    _child.kill()
-    _child.wait()
+    _holder = _Holder(_child, int(_child.stdout.readline()))
+    yield _holder
+    _holder.kill()
 
 
 @pytest.mark.faircli_lifecycle
 def test_a_hold_refuses_every_other_process(
     registry_dir: str,
-    holder: subprocess.Popen,
+    holder: _Holder,
     mocker: pytest_mock.MockerFixture,
 ):
     _server = _Server(mocker)
@@ -957,13 +980,12 @@ def test_the_holder_uses_the_registry_and_the_hold_goes_after(
 @pytest.mark.faircli_lifecycle
 def test_a_hold_whose_process_has_ended_is_removed(
     registry_dir: str,
-    holder: subprocess.Popen,
+    holder: _Holder,
     mocker: pytest_mock.MockerFixture,
     capsys: pytest.CaptureFixture,
 ):
     _Server(mocker)
     holder.kill()
-    holder.wait()
     fdp_life.open_session()
     assert "which has ended, is removed" in capsys.readouterr().err
     assert not os.path.exists(fdp_life.hold_file(registry_dir))
@@ -1003,7 +1025,7 @@ def test_a_hold_on_another_host_names_its_file(
 def test_registry_status_names_the_hold(
     local_config: typing.Tuple[str, str],
     registry_dir: str,
-    holder: subprocess.Popen,
+    holder: _Holder,
 ):
     _result = click.testing.CliRunner().invoke(cli, ["registry", "status"])
     assert _result.exit_code == 0, _result.output

@@ -72,26 +72,33 @@ pip install --force-reinstall --no-deps git+https://github.com/FAIRDataPipeline/
 
 ### The local registry
 
-To replace the local registry with the newest release of it, stop it if it is running, install with `--force`, and start it again:
+To move the local registry to the newest release of it, keeping its records:
 
 ```sh
-fair registry stop
+fair registry upgrade
+```
+
+`--version` gives a tag or a branch of the [registry's repository](https://github.com/FAIRDataPipeline/data-registry) in place of the newest release:
+
+```sh
+fair registry upgrade --version v1.5.0
+fair registry upgrade --version <branch>
+```
+
+The version is built in the registry's place, and the registry's records are kept where the version's tables are the same as the installed one's, as they are between most releases. Where they are not, the registry is left as it was, and the refusal says how to install that version with an empty registry. A running registry is stopped while it is rebuilt and started again after, and nothing is changed while a command is using it. At the version installed, `upgrade` builds the registry again, keeping its records: the way to mend a registry whose Python has gone, as after an upgrade of the Python it was built with.
+
+To replace the local registry with an empty one instead, at its newest release or at a version:
+
+```sh
 fair registry install --force
-fair registry start
+fair registry install --force --version <tag or branch>
 ```
 
-`--version` installs a tag or a branch of the [registry's repository](https://github.com/FAIRDataPipeline/data-registry) in place of the newest release:
+Without `--force` an existing registry is left as it is and the command stops. `fair registry uninstall`, which asks first, followed by `fair registry install` does the same in two steps, and is the way with `fair-cli` 0.10.1 or earlier, where `--force` is refused. To empty the registry and keep its install, see `fair registry reset` under [`registry`](#registry).
 
-```sh
-fair registry install --force --version v1.3.0
-fair registry install --force --version <branch>
-```
+A version the registry's repository does not have is refused before anything is stopped or replaced. With `--force` the old registry is kept until the new one is built. If the install fails - no network, a build that fails - the old registry is put back as it was, and the configuration still names it. A running registry is stopped first, and nothing is replaced while a command is using it.
 
-Without `--force` an existing registry is left as it is and the command stops. `fair registry uninstall`, which asks first, followed by `fair registry install` does the same in two steps, and is the way with `fair-cli` 0.10.1 or earlier, where `--force` is refused.
-
-With `--force` the old registry is kept until the new one is built. If the install fails - a `--version` that does not exist, no network, a build that fails - the old registry is put back as it was, and the configuration still names it. A running registry is stopped first, and nothing is replaced while a command is using it.
-
-The registry is installed in `~/.fair/registry`, or in the directory given with `--directory`, which has to be given again to replace a registry that was installed elsewhere. A reinstall replaces that directory:
+The registry is installed in `~/.fair/registry`, or in the directory given with `--directory`; without it, a reinstall replaces the registry the configuration names, wherever it is. A reinstall replaces that directory:
 
 - every record in the local registry goes with its database: the data products, the code runs, and what `fair init` put there;
 - the local registry has a new token, written to `token` in its directory when it is next started, and anything else that was kept in that directory is gone;

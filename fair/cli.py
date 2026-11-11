@@ -401,7 +401,7 @@ def uninstall(debug: bool):
 @click.option("--directory", help="Installation location", default=None)
 @click.option(
     "--version",
-    help="Specify version tag of registry to install, else latest repo tag",
+    help="A tag or branch of the registry's repository to install, else its newest tag",
     default=None,
 )
 def install(debug: bool, force: bool, directory: str, version: str):
@@ -409,12 +409,57 @@ def install(debug: bool, force: bool, directory: str, version: str):
     try:
         if debug:
             logging.getLogger("FAIRDataPipeline").setLevel(logging.DEBUG)
+        # The version is found before anything is stopped or replaced
+        if version:
+            version = fdp_svr.resolve_reference(version)
+        _directory = directory or fdp_com.registry_home()
         if force:
-            fdp_life.stop_for_removal(directory or fdp_com.DEFAULT_REGISTRY_LOCATION)
-        _version = fdp_svr.install_registry(
-            install_dir=directory, reference=version, force=force
-        )
+            with fdp_life.held(_directory, "fair registry install --force"):
+                fdp_life.stop_for_removal(_directory)
+                _version = fdp_svr.install_registry(
+                    install_dir=_directory, reference=version, force=True
+                )
+        else:
+            _version = fdp_svr.install_registry(
+                install_dir=_directory, reference=version
+            )
         click.echo(f"Installed registry version '{_version}'")
+    except fdp_exc.FAIRCLIException as e:
+        e.err_print()
+        if e.level.lower() != "warning":
+            sys.exit(e.exit_code)
+
+
+@registry.command()
+@click.option(
+    "--version",
+    help="A tag or branch of the registry's repository to install, else its newest tag",
+    default=None,
+)
+@click.option("--debug/--no-debug", help="Run in debug mode", default=False)
+def upgrade(version: str, debug: bool) -> None:
+    """Install another version of the local registry, keeping its records"""
+    try:
+        if debug:
+            logging.getLogger("FAIRDataPipeline").setLevel(logging.DEBUG)
+        _registry_dir = fdp_com.registry_home()
+        _result = fdp_svr.upgrade_registry(
+            reference=version, registry_dir=_registry_dir
+        )
+        click.echo(
+            f"Installed registry version '{_result['version']}' in "
+            f"'{_registry_dir}', "
+            + (
+                "keeping its records"
+                if _result["kept"]
+                else "which had no database to keep"
+            )
+        )
+        if _result["restarted"]:
+            click.echo(
+                f"It is running again at {_result['restarted']}, until "
+                "'fair registry stop'"
+            )
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
         if e.level.lower() != "warning":
