@@ -934,6 +934,9 @@ def test_init(
         True,
     )
     yaml.dump(_config, open(config_path, "w"))
+    # The machine's first initialisation, so the file's settings become its
+    # global ones: the fixture's placeholder is emptied, which counts as none
+    open(fdp_com.global_fdpconfig(), "w").close()
     with capsys.disabled():
         print(_config)
         print("\tRUNNING: fair init --debug")

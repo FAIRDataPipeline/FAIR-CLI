@@ -11,6 +11,10 @@
 - `fair registry install` without `--directory` now looks for the registry in the directory the configuration names.
   With `--force` it replaces the registry there. Before, it installed in `~/.fair/registry` whatever the
   configuration said. When a registry is installed already, the refusal names `fair registry upgrade`.
+- `fair init --using <file>` and `fair init --ci` keep a machine's global configuration where there is one. Before,
+  they replaced its user, namespaces, remote, local registry and data store for every project on the machine. Their
+  settings are now the project's alone, and the project uses the machine's local registry. A file naming another
+  local registry, port or data store is refused; a project's own store is `run_metadata: write_data_store`.
 
 ## Added
 - `fair registry clean` deletes the files in the local registry's data stores that the registry does not hold. It runs
@@ -71,6 +75,8 @@
 - `fair log` and `fair remote` printed some text in white or yellow, which is hard or impossible to read on a light
   background. A job's id and date, and a remote's name, are now bold in the terminal's own colour. A remote's address
   is plain.
+- `fair init --using` failed on a file with a top-level `description`, as earlier documented examples had. It now
+  ignores the key. A registry in the file with no `data_store` is now refused naming that key, not another.
 
 # 2026-10-19 [v0.11.0](https://github.com/FAIRDataPipeline/FAIR-CLI/releases/tag/v0.11.0)
 

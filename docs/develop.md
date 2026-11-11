@@ -242,7 +242,7 @@ The user then replaces the `description`, and the `script` with what the project
 
 #### Advanced usage
 
-`fair init --using <file>` reads the CLI configuration from a file. `fair init --export <file>` writes one. Each key below is required, except `orcid` and `uri` under `user`:
+`fair init --using <file>` reads the CLI configuration from a file. `fair init --export <file>` writes one. On a machine with no CLI configuration yet, the file's settings become the machine's as well as the project's. On a machine set up already, they are the project's alone. One local registry, with its data store, serves every project on a machine, so a file naming another one is refused. Each key below is required, except `orcid` and `uri` under `user`, and `registries: local` on a machine set up already:
 
 ```yaml
 namespaces:
@@ -282,7 +282,7 @@ For CI runs, `fair init --ci` skips the questions:
 fair init --ci
 ```
 
-It sets both namespaces to `testing`, and puts the data store in the project's `.fair/data_store` folder. It expects the remote registry at `http://127.0.0.1:8001/api/`.
+It gives the project the user "Interface Test" and both namespaces `testing`, and expects the remote registry at `http://127.0.0.1:8001/api/`. On a machine with no CLI configuration yet, such as a CI runner, these settings become the machine's too, with the local registry on port 8000 and its data store in the project's `.fair/data_store` folder. On a machine set up already, the project uses the machine's local registry and data store.
 
 ### `run`
 

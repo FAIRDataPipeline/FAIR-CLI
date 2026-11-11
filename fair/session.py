@@ -1338,6 +1338,14 @@ class FAIR:
             )
             if not local:
                 using["user"]["remote_user"] = self._ci_remote_user(using)
+            # A machine set up already keeps its own local registry: the one
+            # made here is dropped, but for a registry directory given outright
+            if self._global_config_present():
+                using["registries"]["local"] = (
+                    {"directory": using["registries"]["local"]["directory"]}
+                    if registry
+                    else {}
+                )
 
         if (
             _existing := fdp_com.find_fair_root(self._session_loc)
@@ -1557,8 +1565,14 @@ class FAIR:
             ) as f:
                 yaml.dump(self._local_config, f)
 
+    # Write a CLI configuration file's settings as the project's. One local
+    # registry, with its data store, serves every project on a machine, so
+    # where a global configuration is in place it is kept as it is: the file
+    # may leave 'registries: local' out, and what it gives of it must be the
+    # machine's. With none, the file's settings become the global ones too
     def _validate_and_load_cli_config(self, cli_config: typing.Dict):
         _exp_keys = ["registries", "namespaces", "user", "git"]
+        _global_present = self._global_config_present()
 
         for key in _exp_keys:
             if key not in cli_config:
@@ -1566,16 +1580,19 @@ class FAIR:
                     f"Expected key '{key}' in CLI configuration file"
                 )
 
-        for exp_reg in ["local", "origin"]:
+        for exp_reg in ["origin"] if _global_present else ["local", "origin"]:
             if exp_reg not in cli_config["registries"]:
                 raise fdp_exc.CLIConfigurationError(
                     f"Expected key 'registries:{exp_reg}' in CLI configuration file"
                 )
 
         for name, reg in cli_config["registries"].items():
+            if name == "local" and _global_present:
+                continue
             if "data_store" not in reg:
                 raise fdp_exc.CLIConfigurationError(
-                    f"Expected key '{key}' for remote '{name}' " "in CLI configuration"
+                    f"Expected key 'data_store' for remote '{name}' "
+                    "in CLI configuration"
                 )
             if name != "local" and "uri" not in reg:
                 raise fdp_exc.CLIConfigurationError(
@@ -1613,17 +1630,59 @@ class FAIR:
         _glob_cfg = copy.deepcopy(cli_config)
         _loc_cfg = copy.deepcopy(cli_config)
         del _glob_cfg["git"]
-        if "description" in _glob_cfg:
-            del _glob_cfg["description"]
-        del _loc_cfg["registries"]["local"]
+        # A project's description, which neither configuration holds
+        for _cfg in (_glob_cfg, _loc_cfg):
+            _cfg.pop("description", None)
+        _loc_cfg["registries"].pop("local", None)
 
-        with open(fdp_com.global_fdpconfig(), encoding="utf-8", mode="w") as f:
-            yaml.dump(_glob_cfg, f)
+        if _global_present:
+            self._check_machine_registry(cli_config["registries"].get("local") or {})
+        else:
+            with open(fdp_com.global_fdpconfig(), encoding="utf-8", mode="w") as f:
+                yaml.dump(_glob_cfg, f)
 
         with open(
             fdp_com.local_fdpconfig(self._session_loc), encoding="utf-8", mode="w"
         ) as f:
             yaml.dump(_loc_cfg, f)
+
+    # Refuse a local registry, or a data store, that a CLI configuration file
+    # names other than the machine's, as the global configuration records them
+    @staticmethod
+    def _check_machine_registry(given: typing.Dict) -> None:
+        _machine = fdp_conf.read_global_fdpconfig()["registries"]["local"]
+
+        def _path(path) -> str:
+            return os.path.normcase(os.path.realpath(os.path.expanduser(str(path))))
+
+        def _uri(uri) -> str:
+            return str(uri).rstrip("/")
+
+        if any(
+            key in given and same(given[key]) != same(_machine.get(key, ""))
+            for key, same in (("directory", _path), ("uri", _uri))
+        ):
+            raise fdp_exc.CLIConfigurationError(
+                "The configuration names the local registry "
+                f"'{given.get('directory', _machine.get('directory'))}' at "
+                f"{given.get('uri', _machine.get('uri'))}, but this machine's is "
+                f"'{_machine.get('directory')}' at {_machine.get('uri')}. One local "
+                "registry serves every project on a machine.",
+                hint="Leave 'registries: local' out of the configuration to use "
+                "this machine's registry, or change it for every project in "
+                f"'{fdp_com.global_fdpconfig()}'",
+            )
+        if "data_store" in given and _path(given["data_store"]) != _path(
+            _machine.get("data_store", "")
+        ):
+            raise fdp_exc.CLIConfigurationError(
+                f"The configuration names the data store '{given['data_store']}', "
+                f"but this machine's is '{_machine.get('data_store')}'. Every "
+                "project on a machine shares its data store.",
+                hint="Leave 'data_store' out of the configuration's 'registries: "
+                "local', and give the project a store of its own as "
+                "'run_metadata: write_data_store' in its config.yaml",
+            )
 
     def get_details(self, file_path: str, remote="origin"):
         if self._local:

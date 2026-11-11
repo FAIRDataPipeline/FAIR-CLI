@@ -16,6 +16,12 @@ pip install fair-cli
 
 It needs Python 3.10 or later. A virtual environment is recommended. The CLI installs the local registry in an environment of its own, made with the CLI's Python.
 
+On an older Python, `pip install fair-cli` gives no error. Instead it installs the last release that Python allows: 0.9.8 on Python 3.9, such as the `python3` that comes with macOS. The registry needs Python 3.10 as well, so that release cannot install the current registry. Check what you have with `fair --version`. Or ask `pip` for a recent release, which it refuses on an older Python:
+
+```sh
+pip install "fair-cli>=0.11"
+```
+
 To enable tab completion, add a completion script to your shell's start-up.
 
 ### Bash
@@ -186,7 +192,7 @@ After setup, `fair init --export <file>` saves the CLI configuration to a file. 
 fair init --using <file>
 ```
 
-To write such a file from scratch, give it these keys. Each is required, except `orcid` and `uri` under `user`:
+To write such a file from scratch, give it these keys. Each is required, except `orcid` and `uri` under `user`, and `registries: local` on a machine set up already:
 
 ```yaml
 namespaces:
@@ -216,7 +222,11 @@ git:
   remote_repo: https://github.com/jbloggs/project
 ```
 
-In a CI workflow, `fair init --ci` skips the questions. It sets both namespaces to `testing`, and puts the data store in the project's `.fair/data_store` folder. It expects the remote registry at `http://127.0.0.1:8001/api/`, with its token in a file `token` in the directory the command runs from. The user it records for the remote is the one that token belongs to. If the remote cannot be asked, that user is `FAIRDataPipeline`.
+On a machine with no CLI configuration yet, the file's settings become the machine's as well as the project's. On a machine set up already, they are the project's alone, and the machine's configuration stays as it is. One local registry, with its data store, serves every project on a machine. So the file may leave `registries: local` out, and anything it gives there must be the machine's. A file naming another local registry, port or data store is refused. A project can still keep its outputs apart: `run_metadata: write_data_store` in its `config.yaml` names a data store of its own.
+
+In a CI workflow, `fair init --ci` skips the questions. It gives the project the user "Interface Test" and both namespaces `testing`. It expects the remote registry at `http://127.0.0.1:8001/api/`, with its token in a file `token` in the directory the command runs from. The user it records for the remote is the one that token belongs to. If the remote cannot be asked, that user is `FAIRDataPipeline`.
+
+On a machine with no CLI configuration yet, such as a CI runner, `--ci`'s settings become the machine's too. The local registry is then on port 8000, with its data store in the project's `.fair/data_store` folder. On a machine set up already, the project uses the machine's local registry and data store, and the machine's configuration stays as it is. `--registry` may then name only the machine's registry.
 
 ### `run`
 
