@@ -21,6 +21,7 @@ import logging
 import os
 import re
 import shutil
+import tempfile
 import typing
 import urllib.parse
 import traceback
@@ -580,6 +581,7 @@ def sync_data_products(
     data_products: typing.List[str],
     local_data_store: str = None,
     force: bool = False,
+    caches: typing.Dict[str, str] = None,
 ) -> None:
     """Transfer data products from one registry to another
 
@@ -601,6 +603,9 @@ def sync_data_products(
         specified when pulling from remote registry to local
     force : optional, str
         whether or not to force pusing of a data product if it already exists on the registry, useful if a previous push failed
+    caches : optional, typing.Dict[str, str]
+        when pulling, a copy of a data product's file that the user holds,
+        taken in place of the download, by data product as in data_products
     """
     for data_product in data_products:
         namespace, name, version = re.split("[:@]", data_product)
@@ -727,6 +732,7 @@ def sync_data_products(
                 origin_token,
                 local_data_store,
                 _data_product,
+                (caches or {}).get(data_product),
             )
         elif _is_public:
             upload_object(
@@ -1850,6 +1856,7 @@ def fetch_data_product(
     local_data_store: str,
     data_product: typing.Dict,
     out_file: str = None,
+    cache: str = None,
 ) -> typing.Optional[str]:
     """
     Retrieve a file using the given user configuration metadata
@@ -1866,6 +1873,9 @@ def fetch_data_product(
     out_file : optional, str
         where to put the file, by default under the data product's namespace
         and name in the data store, named by its version
+    cache : optional, str
+        a copy of the file that the user holds, copied into place in place of
+        the download, and left as it is
 
     Returns
     -------
@@ -1915,6 +1925,16 @@ def fetch_data_product(
         logger.debug("File '%s' already exists skipping download", _out_file)
         return _out_file
 
+    if cache:
+        _place_cached_file(
+            cache,
+            _out_file,
+            _storage_loc["hash"],
+            f"{_namespace['name']}:{data_product['name']}"
+            f"@v{data_product['version']}",
+        )
+        return _out_file
+
     _path = _storage_loc["path"]
     _path = urllib.parse.quote(_path)
     _root = fdp_req.url_get(_storage_loc["storage_root"], remote_token)
@@ -1943,20 +1963,54 @@ def fetch_data_product(
     return _out_file
 
 
+# Copy the user's own copy of a data product's file to its place in the data
+# store, if it is the file the registry describes. It is copied beside that
+# place and renamed into it, so that a copy cut short never stands there as
+# the data product's file
+def _place_cached_file(
+    cache: str, out_file: str, registered_hash: str, data_product: str
+) -> None:
+    if not os.path.isfile(cache):
+        raise fdp_exc.SynchronisationError(
+            f"Data product '{data_product}' was not fetched: its 'cache', "
+            f"'{cache}', is not a file",
+            error_code=1,
+        )
+    _hash = fdp_store.calculate_file_hash(cache)
+    if _hash != registered_hash:
+        raise fdp_exc.SynchronisationError(
+            f"Data product '{data_product}' was not fetched: its 'cache', "
+            f"'{cache}', has hash '{_hash}', and the registry records "
+            f"'{registered_hash}'",
+            error_code=1,
+        )
+    os.makedirs(os.path.dirname(out_file), exist_ok=True)
+    _handle, _copy = tempfile.mkstemp(dir=os.path.dirname(out_file))
+    os.close(_handle)
+    try:
+        shutil.copyfile(cache, _copy)
+        os.replace(_copy, out_file)
+    except BaseException:
+        os.remove(_copy)
+        raise
+
+
 # Fetch a pulled data product's file into the local data store and record it
 # there, in the destination registry: the storage location of the file on
 # this machine, keyed by the origin's storage location that it stands for,
 # whose own record says where the file is on the remote. A registry records a
 # file once under a root, so a file the data store holds already - registered
 # there, or pulled under another name - is the one recorded, and it is
-# fetched to that place only if it has gone. Nothing for a data product that
-# has no file
+# fetched to that place only if it has gone: copied from 'cache', the
+# user's own copy, where that is given. Nothing for a data product that has
+# no file
 def _place_pulled_file(
     dest_uri: str,
     dest_token: str,
     origin_token: str,
     local_data_store: str,
     data_product: typing.Dict,
+    cache: str = None,
 ) -> typing.Dict[str, str]:
     _location_url = fdp_req.url_get(data_product["object"], origin_token)[
         "storage_location"
@@ -1987,6 +2041,7 @@ def _place_pulled_file(
         local_data_store,
         data_product,
         os.path.join(local_data_store, _held[0]["path"]) if _held else None,
+        cache=cache,
     )
     if _held:
         return {_location_url: _held[0]["url"]}

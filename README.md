@@ -280,6 +280,13 @@ fair pull /path/to/config.yaml
 
 An `external_object` entry with `no_file: true` registers a source that has no file of its own, such as a data store that a run queries. The source becomes a data product with no file. Such an entry gives no `root`, `path` or `file_type`, and must give its `version`.
 
+A file you already hold can stand in for a download, as `cache: <file>`:
+
+- In a `register:` entry, `cache` registers your file in place of the download. `root` and `path` still record where the file came from.
+- In a `read:` entry, `use: cache` is for a data product that the remote registry holds but cannot send, such as a private one. A private file is not uploaded, so the remote records it on the machine that made it. `fair pull` pulls the entry as any other read, and copies your file into the local data store in place of the download. It refuses a file without the hash that the remote records, and registers nothing for it. A wildcard entry cannot give `cache`, since one file cannot stand for several data products.
+
+Your file is left as it was. A relative path is taken from the current directory, and `${{REPO_DIR}}` starts one at the project's root.
+
 ### `status`
 
 `fair status` lists what is staged and what is not, much as `git status` does:

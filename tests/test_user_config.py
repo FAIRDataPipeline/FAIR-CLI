@@ -1112,6 +1112,41 @@ def test_readables_leave_out_a_patterns_own_entry():
 
 
 @pytest.mark.faircli_user_config
+def test_a_cached_read_is_retrieved_from_its_cache():
+    # A read from a copy the user holds is retrieved as any other read, the
+    # copy standing in for the download
+    _config = fdp_user.JobConfiguration()
+    _config["read"] = [
+        {
+            "data_product": "fetched/era5/1940",
+            "use": {"namespace": "testing", "version": "0.0.2"},
+        },
+        {
+            "data_product": "fetched/era5/1941",
+            "use": {"namespace": "testing", "version": "0.0.1", "cache": "1941.nc"},
+        },
+    ]
+    assert _config.get_readables() == [
+        "testing:fetched/era5/1940@v0.0.2",
+        "testing:fetched/era5/1941@v0.0.1",
+    ]
+    assert _config.get_read_caches() == {"testing:fetched/era5/1941@v0.0.1": "1941.nc"}
+
+
+@pytest.mark.faircli_user_config
+def test_a_pattern_with_a_cache_is_refused():
+    # A cache is one file, and a pattern may stand for several data products
+    _config = fdp_user.JobConfiguration()
+    _config["read"] = [
+        {"data_product": "fetched/era5/*", "use": {"cache": "era5.nc"}},
+    ]
+    with pytest.raises(fdp_exc.UserConfigError) as _error:
+        _config._check_read_caches()
+    assert "'fetched/era5/*' gives a 'cache'" in _error.value.msg
+    assert "an entry of its own" in _error.value.hint
+
+
+@pytest.mark.faircli_user_config
 @pytest.mark.parametrize(
     "use,expected",
     [
@@ -1185,6 +1220,9 @@ def test_read_of_a_name(mocker: pytest_mock.MockerFixture, use, expected):
         ("fetched/era5/1940", {"namespace": "unregistered"}, "any version"),
         # No such version
         ("fetched/era5/1940", {"version": "9.9.9"}, "version '9.9.9'"),
+        # A copy of the file the user holds is not what is read: the data
+        # product must be registered, as any other read
+        ("fetched/era5/1850", {"cache": "1850.nc"}, "any version"),
     ],
 )
 def test_read_of_nothing(mocker: pytest_mock.MockerFixture, name, use, wanted):

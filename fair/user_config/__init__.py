@@ -437,6 +437,21 @@ class JobConfiguration(MutableMapping):
                 if "namespace" in _use:
                     fdp_valid.check_namespace_name(_use["namespace"], _entry)
 
+    # Refuse a 'cache' on a 'read:' pattern: a cache is one file, and a
+    # pattern stands for any number of data products
+    def _check_read_caches(self) -> None:
+        for item in self["read"] if "read" in self else []:
+            if "*" in item.get("data_product", "") and "cache" in (
+                item.get("use") or {}
+            ):
+                raise fdp_exc.UserConfigError(
+                    f"The 'read:' entry '{item['data_product']}' gives a "
+                    "'cache', which is one file, and its name is a pattern "
+                    "that may match several data products",
+                    hint="Give each data product read from a copy of your own "
+                    "an entry of its own, with its 'use: cache'",
+                )
+
     def _update_namespaces(self) -> None:
         self._logger.debug("Updating namespace list")
 
@@ -882,6 +897,7 @@ class JobConfiguration(MutableMapping):
         self._create_log()
         self._subst_cli_vars(self._now)
         self._check_new_names()
+        self._check_read_caches()
 
         self._fill_all_block_types()
 
@@ -1295,12 +1311,7 @@ class JobConfiguration(MutableMapping):
             # A read of one name must be of something. With nothing found,
             # the latest version would be 0.0.0, and a version given would
             # stand unchecked
-            if (
-                block_type == "read"
-                and "*" not in _name
-                and "cache" not in item["use"]
-                and not _results
-            ):
+            if block_type == "read" and "*" not in _name and not _results:
                 _wanted = f"version '{_version}'"
                 if "${{" in _version:
                     _wanted = "any version"
@@ -1675,12 +1686,27 @@ class JobConfiguration(MutableMapping):
             _namespace = readable["use"]["namespace"]
             _name = readable["data_product"]
 
-            # If the user has requested to use a cached version, do not
-            # add to the list of items to read externally
-            if "cache" not in readable["use"]:
-                _readables.append(f"{_namespace}:{_name}@v{_version}")
+            _readables.append(f"{_namespace}:{_name}@v{_version}")
 
         return _readables
+
+    def get_read_caches(self) -> typing.Dict[str, str]:
+        """Return the copy of each item to retrieve that the user holds
+
+        Returns
+        -------
+        typing.Dict[str, str]
+            the path a 'read' entry gives as its 'use: cache', by data product
+            as get_readables names it, for each entry that gives one
+        """
+        return {
+            f'{_read["use"]["namespace"]}:{_read["data_product"]}'
+            f'@v{_read["use"]["version"]}': _read["use"]["cache"]
+            for _read in (self["read"] if "read" in self else [])
+            if "cache" in (_read.get("use") or {})
+            and "registered" not in _read
+            and "*" not in _read.get("data_product", "*")
+        }
 
     @property
     def hash(self) -> str:

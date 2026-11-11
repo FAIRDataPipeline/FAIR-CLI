@@ -109,10 +109,21 @@ def test_fetch_data_product(
 
 
 @pytest.mark.faircli_sync
+@pytest.mark.parametrize(
+    "caches,cache",
+    [
+        (None, None),
+        (
+            {"testing:test@v1.0.0": "mine.csv", "testing:other@v1.0.0": "no.csv"},
+            "mine.csv",
+        ),
+    ],
+)
 def test_sync_data_products_fetches_the_data_product(
-    mocker: pytest_mock.MockerFixture,
+    mocker: pytest_mock.MockerFixture, caches, cache
 ):
-    """Pulling passes the data product itself, not the external object"""
+    """Pulling passes the data product itself, not the external object, and
+    the user's copy of its file where there is one"""
     _data_product = {
         "url": "data_product_url",
         "name": "test",
@@ -159,11 +170,10 @@ def test_sync_data_products_fetches_the_data_product(
         remote_label="origin",
         data_products=["testing:test@v1.0.0"],
         local_data_store="/data/store",
+        caches=caches,
     )
 
-    _fetch.assert_called_once_with(
-        "dest", "", "", "/data/store", _data_product
-    )
+    _fetch.assert_called_once_with("dest", "", "", "/data/store", _data_product, cache)
 
 
 @pytest.mark.faircli_sync
@@ -282,6 +292,70 @@ def test_fetch_data_product_to_a_place(
 
 
 @pytest.mark.faircli_sync
+@pytest.mark.parametrize("cache", ["the file", "another file", "missing", "held"])
+def test_fetch_data_product_from_a_cache(
+    mocker: pytest_mock.MockerFixture, tmp_path, cache
+):
+    # The user's copy of the file stands in for the download, if it is the
+    # file the registry describes, and is left as it is. A file the data
+    # store holds already is the data product's, the copy not read
+    _made = b"made,elsewhere\n1,2\n"
+    _records = {
+        "object": {"storage_location": "storage_location"},
+        "storage_location": {
+            "path": "data.csv",
+            "hash": hashlib.sha1(_made).hexdigest(),
+            "storage_root": "storage_root",
+        },
+        "storage_root": {"root": "file:///elsewhere/"},
+        "namespace": {"name": "testing"},
+    }
+    mocker.patch(
+        "fair.registry.requests.url_get",
+        lambda url, *args, **kwargs: _records[url],
+    )
+    mocker.patch(
+        "fair.registry.sync.download_from_registry",
+        side_effect=AssertionError("the file was downloaded"),
+    )
+    _data_product = {
+        "version": "2.3.0",
+        "namespace": "namespace",
+        "name": "test",
+        "object": "object",
+    }
+    _copy = os.path.join(tmp_path, "copy.csv")
+    _copied = b"another,file\n" if cache == "another file" else _made
+    if cache != "missing":
+        with open(_copy, "wb") as out_f:
+            out_f.write(_copied)
+    _store = os.path.join(tmp_path, "store")
+    _out_file = os.path.join(_store, "testing", "test", "2.3.0")
+    if cache == "held":
+        os.remove(_copy)
+        os.makedirs(os.path.dirname(_out_file))
+        with open(_out_file, "wb") as out_f:
+            out_f.write(_made)
+
+    def _fetch():
+        return fdp_sync.fetch_data_product("", _store, _data_product, cache=_copy)
+
+    if cache in ("another file", "missing"):
+        with pytest.raises(
+            fdp_exc.SynchronisationError,
+            match="has hash" if cache == "another file" else "is not a file",
+        ):
+            _fetch()
+        assert not os.path.exists(_store)
+    else:
+        assert _fetch() == _out_file
+        assert open(_out_file, "rb").read() == _made
+        assert os.listdir(os.path.dirname(_out_file)) == ["2.3.0"]
+    if cache in ("the file", "another file"):
+        assert open(_copy, "rb").read() == _copied
+
+
+@pytest.mark.faircli_sync
 @pytest.mark.parametrize("held", [None, "the file", "as private"])
 def test_pulled_file_is_recorded_where_it_is_put(
     mocker: pytest_mock.MockerFixture, tmp_path, held
@@ -321,14 +395,14 @@ def test_pulled_file_is_recorded_where_it_is_put(
     )
     _fetch = mocker.patch(
         "fair.registry.sync.fetch_data_product",
-        side_effect=lambda token, store, data_product, out_file: (
+        side_effect=lambda token, store, data_product, out_file, cache=None: (
             out_file or _fetched
         ),
     )
     _data_product = {"object": "object"}
 
     _placed = fdp_sync._place_pulled_file(
-        _local, "", "", _store, _data_product
+        _local, "", "", _store, _data_product, cache="mine.csv"
     )
 
     assert _get.call_args.args[:2] == (_local, "storage_location")
@@ -338,11 +412,15 @@ def test_pulled_file_is_recorded_where_it_is_put(
     }
     if held == "the file":
         _held_file = os.path.join(_store, _held_location["path"])
-        _fetch.assert_called_once_with("", _store, _data_product, _held_file)
+        _fetch.assert_called_once_with(
+            "", _store, _data_product, _held_file, cache="mine.csv"
+        )
         _post.assert_not_called()
         assert _placed == {"location": _held_location["url"]}
     else:
-        _fetch.assert_called_once_with("", _store, _data_product, None)
+        _fetch.assert_called_once_with(
+            "", _store, _data_product, None, cache="mine.csv"
+        )
         assert _post.call_args.kwargs["data"] == {
             "path": os.path.join("testing", "second", "1.0.0.csv"),
             "storage_root": _root_url,
@@ -2244,6 +2322,126 @@ def test_push_and_pull_refuse_a_name_held_with_another_file(
             fdp_req.url_get(_held_object["storage_location"], _token)["hash"]
             == _their_hash
         )
+
+
+@pytest.mark.faircli_sync
+@pytest.mark.dependency(depends=["init"])
+@pytest.mark.parametrize("cache", [None, "the file", "another file"])
+def test_pull_a_private_data_product_from_a_copy_of_its_file(
+    global_config: str,
+    local_registry: RegistryTest,
+    remote_registry: RegistryTest,
+    pyDataPipeline: str,
+    fair_bucket: MotoTestServer,
+    mocker: pytest_mock.MockerFixture,
+    tmp_path,
+    cache,
+):
+    # A private data product's file is not sent to the remote, which records
+    # it where it was made, on another machine, so a plain read cannot fetch
+    # it. Read from the user's own copy, its 'cache', it is pulled as any
+    # other read, if the copy is the file the remote describes
+    _name = f"private/{uuid.uuid4().hex[:8]}"
+    _made = f"made,elsewhere\n{_name},2\n".encode()
+    _hash = hashlib.sha1(_made).hexdigest()
+    _copy = os.path.join(tmp_path, "copy.csv")
+    _copied = b"another,file\n" if cache == "another file" else _made
+    with open(_copy, "wb") as out_f:
+        out_f.write(_copied)
+    _use = {"namespace": "testing", "version": "1.0.0"}
+    if cache:
+        _use["cache"] = _copy
+    _cfg_path = os.path.join(tmp_path, "private.yaml")
+    with open(_cfg_path, "w") as f:
+        yaml.dump(
+            {
+                "run_metadata": {"description": "Reads it", "script": "echo"},
+                "read": [{"data_product": _name, "use": _use}],
+            },
+            f,
+        )
+
+    _cli_runner = click.testing.CliRunner()
+    with remote_registry, local_registry, fair_bucket:
+        mocker.patch(
+            "fair.configuration.get_current_user_remote_user",
+            lambda *args, **kwargs: "admin",
+        )
+        _token = remote_registry._token
+        _root = fdp_req.post_else_get(
+            _DEST,
+            "storage_root",
+            _token,
+            data={"root": "file:///elsewhere/data_store/", "local": False},
+        )
+        _location = fdp_req.post(
+            _DEST,
+            "storage_location",
+            _token,
+            data={
+                "path": f"{_name}.csv",
+                "hash": _hash,
+                "public": False,
+                "storage_root": _root,
+            },
+        )
+        _object = fdp_req.post(
+            _DEST,
+            "object",
+            _token,
+            data={
+                "description": "Made elsewhere",
+                "storage_location": _location["url"],
+            },
+        )
+        _namespace = fdp_req.post_else_get(
+            _DEST,
+            "namespace",
+            _token,
+            data={"name": "testing"},
+            params={"name": "testing"},
+        )
+        fdp_req.post(
+            _DEST,
+            "data_product",
+            _token,
+            data={
+                "name": _name,
+                "version": "1.0.0",
+                "namespace": _namespace,
+                "object": _object["url"],
+            },
+        )
+
+        _res = _cli_runner.invoke(cli, ["pull", _cfg_path])
+
+        _token = local_registry._token
+        _pulled = get(
+            _ORIGIN,
+            "data_product",
+            _token,
+            params={"name": _name, "version": "1.0.0"},
+        )
+        if cache == "the file":
+            assert _res.exit_code == 0, _res.output
+            assert len(_pulled) == 1
+            _object = fdp_req.url_get(_pulled[0]["object"], _token)
+            _location = fdp_req.url_get(_object["storage_location"], _token)
+            assert _location["hash"] == _hash
+            assert _location["public"] is False
+            _root = fdp_req.url_get(_location["storage_root"], _token)["root"]
+            assert _root.startswith("file://")
+            _file = f'{_root}{_location["path"]}'.replace("file://", "")
+            with open(_file, "rb") as in_f:
+                assert in_f.read() == _made
+        else:
+            assert _res.exit_code != 0
+            _why = "has hash" if cache else "Failed to download"
+            assert _why in _res.output, _res.output
+            assert not _pulled
+        # The copy is the user's, and is left as it was
+        with open(_copy, "rb") as in_f:
+            assert in_f.read() == _copied
 
 
 @pytest.mark.faircli_sync

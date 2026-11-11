@@ -561,6 +561,7 @@ class FAIR:
                 remote_label=remote,
                 data_products=_readables,
                 local_data_store=self._session_config.default_data_store,
+                caches=self._session_config.get_read_caches(),
             )
 
             self._session_config.write_log_lines(

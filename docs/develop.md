@@ -396,6 +396,19 @@ register:
   no_file: true
 ```
 
+A file you already hold can stand in for a download. In a `register:` entry, `cache: <file>` registers your file, and `root` and `path` still record where it came from. In a `read:` entry, `use: cache: <file>` is for a data product that the remote registry holds but cannot send. A private data product is one: its file is not uploaded, so the remote records it on the machine that made it. `fair pull` pulls such an entry as any other read, and copies your file into the local data store in place of the download. It first checks that the file has the hash the remote records. If not, it refuses the file and registers nothing for it. `fair run` then reads the entry as any other, and refuses it if `fair pull` has not registered it:
+
+```yaml
+read:
+- data_product: survey/responses
+  use:
+    namespace: my_namespace
+    version: 1.0.0
+    cache: ${{REPO_DIR}}/data/responses.csv
+```
+
+Your file is left as it was. A relative path is taken from the current directory. A wildcard entry cannot give `cache`, since one file cannot stand for several data products.
+
 ### `purge`
 
 `fair purge` removes the project's `.fair` folder, so that the project can be initialised again:

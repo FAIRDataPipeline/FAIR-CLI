@@ -15,6 +15,10 @@
   they replaced its user, namespaces, remote, local registry and data store for every project on the machine. Their
   settings are now the project's alone, and the project uses the machine's local registry. A file naming another
   local registry, port or data store is refused; a project's own store is `run_metadata: write_data_store`.
+- A `read:` entry's `use: cache` names your own copy of the data product's file, such as a private one the remote
+  cannot send. `fair pull` now pulls the entry as any other read, and copies that file into the local data store in
+  place of the download. It refuses a file without the hash the remote records. Before, it pulled nothing for the
+  entry, and `fair run` let it through unregistered. A wildcard `read:` entry with `cache` is refused.
 
 ## Added
 - `fair registry clean` deletes the files in the local registry's data stores that the registry does not hold. It runs
