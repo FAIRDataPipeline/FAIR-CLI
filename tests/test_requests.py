@@ -87,7 +87,7 @@ def test_get_follows_pages(mocker: pytest_mock.MockerFixture):
     }
     _requests = []
 
-    def dummy_get(url, headers=None, params=None):
+    def dummy_get(url, headers=None, params=None, proxies=None):
         _requests.append((url, dict(params)))
         _response = mocker.Mock(status_code=200)
         _response.json.return_value = _pages[params.get("cursor")]
@@ -121,7 +121,7 @@ def test_get_fails_on_a_broken_page(mocker: pytest_mock.MockerFixture):
         "p2": {"detail": "Invalid cursor"},
     }
 
-    def dummy_get(url, headers=None, params=None):
+    def dummy_get(url, headers=None, params=None, proxies=None):
         _response = mocker.Mock(
             status_code=404 if params.get("cursor") else 200
         )
