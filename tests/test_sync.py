@@ -524,6 +524,8 @@ def test_sync_data_product_on_a_code_repo(
         assert url == "object"
         return {"url": "object", "components": [], **_AT_LOCATION}
 
+    # The destination holds no object for the repository's commit
+    mocker.patch("fair.registry.sync._dest_repository", return_value=None)
     mocker.patch("fair.registry.requests.get", mock_get)
     mocker.patch("fair.registry.requests.url_get", mock_url_get)
     mocker.patch("fair.registry.sync._has_file", return_value=False)
@@ -562,6 +564,8 @@ def test_sync_code_run_pushes_its_code_repo_as_it_is(
         "submission_script": "script",
         "code_repo": "repo",
     }
+    # The destination holds no object for the repository's commit
+    mocker.patch("fair.registry.sync._repository_placed", return_value={})
     mocker.patch(
         "fair.registry.requests.get",
         lambda uri, obj, *args, **kwargs: [] if uri == "dest" else [_run],
@@ -689,6 +693,8 @@ def test_dest_object_of_a_file_at_two_locations(
         {"url": f"{_DEST}storage_location/2/"},
     ]
     _stored = _locations[1 if fetched_from_first else 0]
+    # A file is not a code repository
+    mocker.patch("fair.registry.sync._dest_repository", return_value=None)
     mocker.patch(
         "fair.registry.requests.url_get",
         lambda *args, **kwargs: {
@@ -736,6 +742,8 @@ def test_dest_object_of_one_of_two_with_the_same_file(
         },
         "namespace": {"name": "testing"},
     }
+    # A file is not a code repository
+    mocker.patch("fair.registry.sync._dest_repository", return_value=None)
     mocker.patch(
         "fair.registry.requests.url_get",
         lambda url, *args, **kwargs: _records[url],
@@ -2243,6 +2251,8 @@ def test_a_file_missing_from_the_destination_is_named(
         "origin_object": {"storage_location": "origin_location"},
         "origin_location": {"hash": "c" * 40},
     }
+    # A file is not a code repository
+    mocker.patch("fair.registry.sync._dest_repository", return_value=None)
     mocker.patch(
         "fair.registry.requests.url_get", lambda url, *args, **kwargs: _urls[url]
     )
@@ -2419,12 +2429,17 @@ def _registered_run(
     return _run
 
 
-# Stage each item and push them
+# Stage each item and push them, leaving none staged, whatever the push did,
+# so that a failed push is not tried again by a later test's
 def _push(cli_runner: click.testing.CliRunner, *items: str) -> click.testing.Result:
     for _item in items:
         _res = cli_runner.invoke(cli, ["add", _item])
         assert _res.exit_code == 0, _res.output
-    return cli_runner.invoke(cli, ["push"])
+    _pushed = cli_runner.invoke(cli, ["push"])
+    for _item in items:
+        _res = cli_runner.invoke(cli, ["unstage", _item])
+        assert _res.exit_code == 0, _res.output
+    return _pushed
 
 
 @pytest.mark.faircli_sync
@@ -2807,9 +2822,13 @@ def test_pull_brings_what_points_at_what_it_pulls(
             "data_product",
             _token,
             {
-                "namespace": get(
-                    _DEST, "namespace", _token, params={"name": "testing"}
-                )[0]["url"],
+                "namespace": fdp_req.post_else_get(
+                    _DEST,
+                    "namespace",
+                    _token,
+                    data={"name": "testing"},
+                    params={"name": "testing"},
+                ),
                 "name": _name,
                 "version": "1.0.0",
                 "object": _object["url"],
@@ -2864,3 +2883,258 @@ def test_push_warns_of_a_run_the_remote_lacks(
         _res = _push(_cli_runner, _writer, _reader)
         assert _res.exit_code == 0, _res.output
         assert "does not hold code run" not in _res.output
+
+
+@pytest.mark.faircli_sync
+@pytest.mark.parametrize(
+    "objects,expected",
+    [([(10, None), (9, None)], 9), ([(9, None), (10, "a release")], 10), ([], None)],
+)
+def test_dest_repository_is_the_released_object_else_the_oldest(
+    mocker: pytest_mock.MockerFixture, objects, expected
+):
+    # The destination's objects at a commit, each as (id, release), one on each
+    # of two locations whose paths differ, under one root
+    _records = {
+        "origin_location": {"hash": "c" * 40, "storage_root": "origin_root"},
+        "origin_root": {"root": "https://github.com/"},
+    }
+    mocker.patch(
+        "fair.registry.requests.url_get", lambda url, *args, **kwargs: _records[url]
+    )
+    mocker.patch("fair.registry.sync._has_file", return_value=False)
+    _locations = [f"{_DEST}storage_location/{_n}/" for _n in (1, 2)]
+
+    def mock_get(uri, obj, token, params=None, **kwargs):
+        if obj == "storage_root":
+            assert params == {"root": "https://github.com/"}
+            return [{"url": f"{_DEST}storage_root/3/"}]
+        if obj == "storage_location":
+            assert params == {"hash": "c" * 40, "public": True, "storage_root": "3"}
+            return [{"url": _url} for _url in _locations]
+        _at = _locations.index(f"{_DEST}storage_location/{params['storage_location']}/")
+        return [
+            {
+                "url": f"{_DEST}object/{_id}/",
+                "storage_location": _locations[_at],
+                "code_repo_release": _release,
+            }
+            for _n, (_id, _release) in enumerate(objects)
+            if _n == _at
+        ]
+
+    mocker.patch("fair.registry.requests.get", mock_get)
+    _held = fdp_sync._dest_repository(
+        {"url": "origin_object", "storage_location": "origin_location"}, _DEST, "", ""
+    )
+    assert (_held and int(fdp_req.get_obj_id_from_url(_held["url"]))) == expected
+
+
+@pytest.mark.faircli_sync
+def test_dest_repository_of_an_object_with_a_file_is_none(
+    mocker: pytest_mock.MockerFixture,
+):
+    mocker.patch("fair.registry.sync._has_file", return_value=True)
+    _get = mocker.patch("fair.registry.requests.get")
+    assert (
+        fdp_sync._dest_repository(
+            {"url": "origin_object", "storage_location": "origin_location"},
+            _DEST,
+            "",
+            "",
+        )
+        is None
+    )
+    _get.assert_not_called()
+
+
+# A code repository's object at a commit, as an API registers one, with a
+# release of the given name if one is given; returns the object's record. A
+# registry holds one location for a commit under a host, so a second object at
+# the commit is made on it, whatever path is given
+def _repository(
+    uri: str, token: str, commit: str, path: str, release: str = None
+) -> typing.Dict[str, typing.Any]:
+    _root = fdp_req.post_else_get(
+        uri,
+        "storage_root",
+        token,
+        data={"root": "https://github.com/", "local": False},
+        params={"root": "https://github.com/"},
+    )
+    _location = fdp_req.post_else_get(
+        uri,
+        "storage_location",
+        token,
+        data={"path": path, "hash": commit, "public": True, "storage_root": _root},
+        params={"hash": commit, "storage_root": fdp_req.get_obj_id_from_url(_root)},
+    )
+    _object = fdp_req.post(
+        uri,
+        "object",
+        token,
+        {"description": "Remote code repository.", "storage_location": _location},
+    )
+    if release:
+        fdp_req.post(
+            uri,
+            "code_repo_release",
+            token,
+            {
+                "object": _object["url"],
+                "name": release,
+                "version": "1.0.0",
+                "website": "https://github.com/FAIRDataPipeline",
+            },
+        )
+    return fdp_req.url_get(_object["url"], token)
+
+
+# The objects a registry holds at a commit, by URL
+def _objects_at(uri: str, token: str, commit: str) -> typing.List[str]:
+    return sorted(
+        _object["url"]
+        for _location in get(uri, "storage_location", token, params={"hash": commit})
+        for _object in get(
+            uri,
+            "object",
+            token,
+            params={"storage_location": fdp_req.get_obj_id_from_url(_location["url"])},
+        )
+    )
+
+
+@pytest.mark.faircli_sync
+@pytest.mark.dependency(depends=["run"])
+@pytest.mark.parametrize("there", ["released", "same path", "unreleased", "two"])
+def test_push_gives_a_run_the_remotes_object_for_its_commit(
+    global_config: str,
+    local_registry: RegistryTest,
+    remote_registry: RegistryTest,
+    pyDataPipeline: str,
+    fair_bucket: MotoTestServer,
+    mocker: pytest_mock.MockerFixture,
+    caplog,
+    there: str,
+):
+    # Another machine's push left the remote an object for a commit - with the
+    # release, at this registry's path or another, without the release, or two
+    # objects, the newer with it; a run here of that commit and release is
+    # pushed
+    _release = f"repository-{uuid.uuid4().hex[:8]}"
+    _commit = hashlib.sha1(_release.encode()).hexdigest()
+    _cli_runner = click.testing.CliRunner()
+    with remote_registry, local_registry, fair_bucket:
+        mocker.patch(
+            "fair.configuration.get_current_user_remote_user",
+            lambda *args, **kwargs: "admin",
+        )
+        _remote_token = remote_registry._token
+        _held = []
+        if there == "two":
+            _held.append(
+                _repository(_DEST, _remote_token, _commit, "FAIRDataPipeline/older")
+            )
+        _held.append(
+            _repository(
+                _DEST,
+                _remote_token,
+                _commit,
+                f"FAIRDataPipeline/{'here' if there == 'same path' else 'elsewhere'}",
+                _release if there != "unreleased" else None,
+            )
+        )
+        _token = local_registry._token
+        _repo = _repository(_ORIGIN, _token, _commit, "FAIRDataPipeline/here", _release)
+        _output = _registered_data_product(
+            _token, f"made_at/{_release}", f"made at {_release}".encode()
+        )
+        _run = _registered_run(_token, [], _output["components"], _repo["url"])
+
+        _res = _push(_cli_runner, _run)
+        assert _res.exit_code == 0, _res.output
+        _pushed = get(_DEST, "code_run", _remote_token, params={"uuid": _run})[0]
+        assert _pushed["code_repo"] == _held[-1]["url"]
+        assert _objects_at(_DEST, _remote_token, _commit) == sorted(
+            _object["url"] for _object in _held
+        )
+        _object = fdp_req.url_get(_pushed["code_repo"], _remote_token)
+        assert (
+            fdp_req.url_get(_object["code_repo_release"], _remote_token)["name"]
+            == _release
+        )
+        assert not [
+            _record.getMessage()
+            for _record in caplog.records
+            if _record.levelname == "WARNING"
+            and "code_repo_release" in _record.getMessage()
+        ]
+
+
+@pytest.mark.faircli_sync
+@pytest.mark.dependency(depends=["run"])
+def test_pull_gives_a_data_product_the_local_object_for_its_commit(
+    global_config: str,
+    local_registry: RegistryTest,
+    remote_registry: RegistryTest,
+    pyDataPipeline: str,
+    fair_bucket: MotoTestServer,
+    mocker: pytest_mock.MockerFixture,
+    tmp_path,
+):
+    # A release registered on the remote as a data product on its repository's
+    # object, at a commit the local registry holds an object for at another path
+    _release = f"repository-{uuid.uuid4().hex[:8]}"
+    _commit = hashlib.sha1(_release.encode()).hexdigest()
+    _name = f"release/{_release}"
+    _cfg_path = os.path.join(tmp_path, "release.yaml")
+    with open(_cfg_path, "w") as f:
+        yaml.dump(
+            {
+                "run_metadata": {"description": "Reading a release", "script": "echo"},
+                "read": [
+                    {
+                        "data_product": _name,
+                        "use": {"namespace": "testing", "version": "1.0.0"},
+                    }
+                ],
+            },
+            f,
+        )
+    _cli_runner = click.testing.CliRunner()
+    with remote_registry, local_registry, fair_bucket:
+        mocker.patch(
+            "fair.configuration.get_current_user_remote_user",
+            lambda *args, **kwargs: "admin",
+        )
+        _remote_token = remote_registry._token
+        _theirs = _repository(
+            _DEST, _remote_token, _commit, "FAIRDataPipeline/there", _release
+        )
+        fdp_req.post(
+            _DEST,
+            "data_product",
+            _remote_token,
+            {
+                "namespace": fdp_req.post_else_get(
+                    _DEST,
+                    "namespace",
+                    _remote_token,
+                    data={"name": "testing"},
+                    params={"name": "testing"},
+                ),
+                "name": _name,
+                "version": "1.0.0",
+                "object": _theirs["url"],
+            },
+        )
+        _token = local_registry._token
+        _ours = _repository(_ORIGIN, _token, _commit, "FAIRDataPipeline/here")
+
+        _res = _cli_runner.invoke(cli, ["pull", _cfg_path])
+        assert _res.exit_code == 0, _res.output
+        _pulled = get(_ORIGIN, "data_product", _token, params={"name": _name})
+        assert _pulled[0]["object"] == _ours["url"]
+        assert _objects_at(_ORIGIN, _token, _commit) == [_ours["url"]]
+        _object = fdp_req.url_get(_ours["url"], _token)
+        assert fdp_req.url_get(_object["code_repo_release"], _token)["name"] == _release

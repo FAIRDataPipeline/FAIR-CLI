@@ -276,6 +276,70 @@ def _has_file(object_data: typing.Dict, token: str) -> bool:
     )
 
 
+# The destination's object for a code repository - an object with a location
+# and no file to move - as a local registry keeps one for a commit: under a
+# storage root with the same root, a public location with the commit's hash,
+# whatever its path, and of the objects there the one a release is registered
+# on, else the oldest. None where the destination holds none, or the object is
+# not a code repository
+def _dest_repository(
+    origin_object: typing.Dict, dest_uri: str, dest_token: str, origin_token: str
+) -> typing.Optional[typing.Dict]:
+    if not origin_object.get("storage_location") or _has_file(
+        origin_object, origin_token
+    ):
+        return None
+    _location = fdp_req.url_get(origin_object["storage_location"], origin_token)
+    _root = fdp_req.url_get(_location["storage_root"], origin_token)
+    _objects = []
+    for _dest_root in fdp_req.get(
+        dest_uri, "storage_root", dest_token, params={"root": _root["root"]}
+    ):
+        for _dest_location in fdp_req.get(
+            dest_uri,
+            "storage_location",
+            dest_token,
+            params={
+                "hash": _location["hash"],
+                "public": True,
+                "storage_root": fdp_req.get_obj_id_from_url(_dest_root["url"]),
+            },
+        ):
+            _objects += fdp_req.get(
+                dest_uri,
+                "object",
+                dest_token,
+                params={
+                    "storage_location": fdp_req.get_obj_id_from_url(
+                        _dest_location["url"]
+                    )
+                },
+            )
+    _released = [_object for _object in _objects if _object.get("code_repo_release")]
+    if not _objects:
+        return None
+    return min(
+        _released or _objects,
+        key=lambda _object: int(fdp_req.get_obj_id_from_url(_object["url"])),
+    )
+
+
+# The destination's object and location for a code repository, keyed by the
+# origin's, as sync_dependency_chain takes them to be placed; empty where
+# _dest_repository finds none
+def _repository_placed(
+    origin_object_url: str, dest_uri: str, dest_token: str, origin_token: str
+) -> typing.Dict[str, str]:
+    _origin_object = fdp_req.url_get(origin_object_url, origin_token)
+    _held = _dest_repository(_origin_object, dest_uri, dest_token, origin_token)
+    if not _held:
+        return {}
+    return {
+        origin_object_url: _held["url"],
+        _origin_object["storage_location"]: _held["storage_location"],
+    }
+
+
 # URL of a registry's own data store: the storage_root whose root is the
 # registry's data/ path, beside its api/, from which it serves stored files.
 # A registry whose site URL differs from its API's address records that root
@@ -651,7 +715,10 @@ def sync_data_products(
         # object storage
         _placed = {}
         if not _moves_file:
-            pass
+            # A code repository takes the destination's object for its commit
+            _placed = _repository_placed(
+                result_object["url"], dest_uri, dest_token, origin_token
+            )
         elif local_data_store:
             logger.debug("Retrieving files from remote registry data storage")
             _placed = _place_pulled_file(
@@ -1429,6 +1496,10 @@ def get_dest_object_url(
         str: URL of the destination object
     """
     _origin_object = fdp_req.url_get(origin_object_url, origin_token)
+    if _repository := _dest_repository(
+        _origin_object, dest_uri, dest_token, origin_token
+    ):
+        return _repository["url"]
     _origin_object_storage_location = _origin_object["storage_location"]
     # An object with no file has no hash to be found by
     if not _origin_object_storage_location:
@@ -1560,7 +1631,8 @@ def sync_code_run(
             code_run["model_config"], dest_uri, dest_token, origin_token
         )
         # If theres a code_repo sync it. Its location is the repository, so it
-        # is pushed as it is, never moved into the remote's data store
+        # is pushed as it is, never moved into the remote's data store, and the
+        # destination's object for its commit is taken where there is one
         _dest_code_run_code_repo = None
         if code_run["code_repo"]:
             sync_dependency_chain(
@@ -1570,6 +1642,9 @@ def sync_code_run(
                 dest_token=dest_token,
                 origin_token=origin_token,
                 public=False,
+                placed=_repository_placed(
+                    code_run["code_repo"], dest_uri, dest_token, origin_token
+                ),
             )
             _dest_code_run_code_repo = get_dest_object_url(
                 code_run["code_repo"], dest_uri, dest_token, origin_token

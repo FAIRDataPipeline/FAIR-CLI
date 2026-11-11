@@ -85,20 +85,22 @@ fair registry upgrade --version v1.5.0
 fair registry upgrade --version <branch>
 ```
 
-The version is built in the registry's place, and the registry's records are kept where the version's tables are the same as the installed one's, as they are between most releases. Where they are not, the registry is left as it was, and the refusal says how to install that version with an empty registry. A running registry is stopped while it is rebuilt and started again after, and nothing is changed while a command is using it. At the version installed, `upgrade` builds the registry again, keeping its records: the way to mend a registry whose Python has gone, as after an upgrade of the Python it was built with.
+`upgrade` builds the new version in the registry's place. It keeps the registry's records if the new version's tables are the same as the installed version's, as they are between most releases. If the tables differ, `upgrade` leaves the registry as it was, and its refusal says how to install that version with an empty registry. A running registry is stopped for the rebuild and started again afterwards. Nothing is changed while another command is using the registry.
 
-To replace the local registry with an empty one instead, at its newest release or at a version:
+Given the version already installed, `upgrade` rebuilds the registry and keeps its records. This mends a registry whose Python has gone, for example after an upgrade of the Python it was built with.
+
+To replace the local registry with an empty one instead, at the newest release or at a given version:
 
 ```sh
 fair registry install --force
 fair registry install --force --version <tag or branch>
 ```
 
-Without `--force` an existing registry is left as it is and the command stops. `fair registry uninstall`, which asks first, followed by `fair registry install` does the same in two steps, and is the way with `fair-cli` 0.10.1 or earlier, where `--force` is refused. To empty the registry and keep its install, see `fair registry reset` under [`registry`](#registry).
+Without `--force`, `install` leaves an existing registry as it is and stops. `fair registry uninstall` followed by `fair registry install` does the same as `--force` in two steps, and `uninstall` asks first. `fair-cli` 0.10.1 and earlier refuse `--force`, so with them use the two steps. To empty the registry but keep its install, see `fair registry reset` under [`registry`](#registry).
 
-A version the registry's repository does not have is refused before anything is stopped or replaced. With `--force` the old registry is kept until the new one is built. If the install fails - no network, a build that fails - the old registry is put back as it was, and the configuration still names it. A running registry is stopped first, and nothing is replaced while a command is using it.
+`install` refuses a version that the registry's repository does not have, before it stops or replaces anything. With `--force`, the old registry is kept until the new one is built. If the install fails, for example with no network or a failed build, the old registry is put back as it was. The configuration then still names it. A running registry is stopped first. Nothing is replaced while another command is using the registry.
 
-The registry is installed in `~/.fair/registry`, or in the directory given with `--directory`; without it, a reinstall replaces the registry the configuration names, wherever it is. A reinstall replaces that directory:
+`install` puts the registry in the directory given with `--directory`. Without `--directory`, it uses the directory the configuration names, or `~/.fair/registry` if there is no configuration yet. A reinstall replaces that directory:
 
 - every record in the local registry goes with its database: the data products, the code runs, and what `fair init` put there;
 - the local registry has a new token, written to `token` in its directory when it is next started, and anything else that was kept in that directory is gone;
@@ -140,9 +142,15 @@ By default the shell used to execute a process is `sh` or `batch` for UNIX and W
 
 Flags for a shell's program follow its name, separated by spaces, and go straight after the program: `shell: julia --project=@.` runs `julia --project=@. {0}`, starting Julia in the repository's project, and `shell: bash -x` runs `bash -x -eo pipefail {0}`. A flag cannot contain a space, and `batch`, which has no program, takes none.
 
-A run's configuration describes it in `run_metadata: description:`, which the registry requires of every code run: `fair run` refuses a configuration with no description, or a blank one, before anything is registered.
+A run's configuration describes the run in `run_metadata: description:`. The registry requires a description of every code run. So `fair run` refuses a configuration without one, or with a blank one, before it registers anything.
 
-The names a run or a pull would register - those of `write:` and `register:` entries and their namespaces - keep to a naming convention, and a configuration naming one that does not is refused before anything is registered. A namespace holds ASCII letters, digits, `_` and `-`; a data product's name is one or more parts joined by single `/`, each of those and `.`, which may not start or end a part: `PSU`, `SEIRS_model/parameters` and `DataPipeline.jl/release` are names, `my data` and `results/.hidden` are not. A `*` within a part, for a wildcard, and `${{RUN_ID}}` may stand in a name. A `read:` entry names what is registered already, and is not checked.
+The names that a run or a pull would register must keep to a naming convention. These are the names in `write:` and `register:` entries, and their namespaces. `fair run` and `fair pull` refuse a configuration that breaks the convention, before they register anything.
+
+- A namespace holds ASCII letters, digits, `_` and `-`.
+- A data product's name is one or more parts joined by single `/`. A part holds the same characters as a namespace, and also `.`, but a part may not start or end with `.`.
+- A name may also hold `*` within a part, as a wildcard, and `${{RUN_ID}}`.
+
+So `PSU`, `SEIRS_model/parameters` and `DataPipeline.jl/release` are names, and `my data` and `results/.hidden` are not. A `read:` entry names something already registered, so it is not checked.
 
 A full description of `config.yaml` files can be found [here](https://www.fairdatapipeline.org/docs/interface/config/).
 
@@ -272,11 +280,15 @@ The `push` command will push any staged data products to the remote registry:
 fair push
 ```
 
-A data product is its namespace, name and version: a push refuses one that the remote registry holds already under the same three with another file - or, for one with no file, another source - and so does a pull from it, the other way round. Every data product the command would send, those of the staged code runs included, is looked at first, so a refusal sends nothing; it names each such data product and both files. Register yours under another version and push that.
+A data product is identified by its namespace, name and version. A push refuses a data product if the remote registry holds one with the same three but a different file. For a data product with no file, a different source counts in the same way. A pull refuses the same mismatch in the other direction. The command checks every data product it would send before it sends anything, including those of the staged code runs. So a refusal sends nothing. The refusal names each such data product and both files. To push yours, register it under another version and push that.
 
-With each data product and code run, a push sends the records attached to it: its named components, licences, keywords, key-values, quality-control record and code release, and the issues on its components. A pull brings them the other way. A record added after its data product or run was sent goes with the next push of it. An issue is not sent again where the other registry holds it already, found by its UUID. Nor is it sent where that registry holds one with the same severity and description on the same component, raised there separately. Either way, the issue there is linked to any further components it is on. A record held there with other values is kept as it is, with a warning.
+A push also sends the records attached to each data product and code run that it sends. These are named components, licences, keywords, key-values, quality-control records, code releases, and the issues on components. A pull brings them the other way. A record added after its data product or run was sent goes with the next push.
 
-A push also warns of each code run behind what it sent that the remote does not hold: the run that wrote an input of a pushed run, and so on back. It names the `fair add` that would send it.
+An issue is not sent again if the other registry holds it already. The command looks for it there by its UUID. Failing that, it looks for an issue with the same severity and description on the same component, raised there separately. If it finds one, it links that issue to any further components the issue is on. If the other registry holds any record with different values, the record there is kept as it is, and the command warns.
+
+A push also warns of earlier code runs that the remote does not hold. Each such run wrote a pushed data product, an input of a pushed run, or an input of another such run. The warning names the `fair add` command that would send it.
+
+When a push or pull sends a code run, it gives the run the object that the other registry already holds for the run's commit, if there is one. So runs of one commit from several machines share one object for the code repository. The command finds that object by the repository's host and the commit, whatever path it was registered at. It sends the repository's records, such as its release, onto that object. If there are several such objects, it takes the one with a release, else the oldest.
 
 ### `purge`
 
@@ -355,13 +367,15 @@ fair registry install --directory ~/.fair/my_registry --version v1.4.0
 ```
 To replace a registry that is already installed, see [Upgrading and reinstalling](#upgrading-and-reinstalling).
 
-The data stores can come to hold files that the registry does not - a file put there by hand, or an output of a run that failed before it was registered. To delete them:
+The data stores can hold files that the registry does not know about. One may be a file put there by hand, or the output of a run that failed before registering it. To delete such files:
 
 ```sh
 fair registry clean
 ```
 
-It works only while the registry is stopped and no command is using it, so that no run is writing to a store, and asks before deleting anything (`--yes` answers for you). `--dry-run` lists what it would delete and deletes nothing. It keeps the files a run in progress could still be writing - outputs named `dat-...` or by their hash, and everything under a store's `jobs/` - unless given `--delete-all`. A data store here is every folder on this machine that the registry holds files in; a code repository's folder in one is never touched, and a store that is your home folder, or a folder above it, is not cleaned.
+`clean` runs only while the registry is stopped and no command is using it, so that no run is writing to a store. It asks before deleting anything (`--yes` answers for you). `--dry-run` lists what it would delete and deletes nothing. By default it keeps the files that a run in progress could still be writing: outputs named `dat-...` or by their hash, and everything under a store's `jobs/`. `--delete-all` deletes those too.
+
+The data stores are the folders on this machine where the registry holds files. `clean` never touches a code repository's folder inside one. It does not clean a store that is your home folder, or a folder above it.
 
 To empty the registry instead, deleting every record in it and keeping its install:
 
@@ -369,9 +383,11 @@ To empty the registry instead, deleting every record in it and keeping its insta
 fair registry reset
 ```
 
-It asks first (`--yes` answers for you), refuses while a command is using the registry, and starts the registry again if it was running. It registers the file types again and, run in a project, the project's user, and clears that project's staging; in each other project, `fair reset` unstages what it had staged. With `--delete-files` it deletes every file in the registry's data stores too, but a code repository's folder; without it they stay, and since an emptied registry knows no data stores, `fair registry clean` then finds nothing to delete.
+`reset` asks first (`--yes` answers for you). It refuses while another command is using the registry. If the registry was running, `reset` starts it again afterwards. It registers the file types again. Run in a project, it also registers the project's user again and clears the project's staging. In each other project, run `fair reset` to unstage what that project had staged.
 
-While `fair registry clean` or `fair registry reset` runs, every other command that would start, stop or use the registry is refused, naming it.
+`--delete-files` also deletes every file in the registry's data stores, except code repositories' folders. Without it the files stay. `fair registry clean` cannot delete them later, because an emptied registry knows no data stores.
+
+While `fair registry clean` or `reset` runs, any other command that would start, stop or use the registry is refused. The refusal names the command that is running.
 
 ### `log`
 
