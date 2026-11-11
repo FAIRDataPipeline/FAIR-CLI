@@ -1,4 +1,4 @@
-# Unreleased
+# 2026-11-11 [v0.12.0](https://github.com/FAIRDataPipeline/FAIR-CLI/releases/tag/v0.12.0)
 
 ## Changed behaviour
 - `fair run` refuses a configuration with no `description` in `run_metadata`, or a blank one. So do `fair run --ci`

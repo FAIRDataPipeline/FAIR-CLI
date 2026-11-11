@@ -58,7 +58,7 @@ To move to the newest release, or to a particular one:
 
 ```sh
 pip install --upgrade fair-cli
-pip install fair-cli==0.11.0
+pip install fair-cli==0.12.0
 ```
 
 To install a branch of this repository, give `pip` its name after an `@`. A tag or a commit works the same way:
@@ -80,7 +80,7 @@ A branch keeps its version number from one commit to the next. `pip` does not re
 pip install --force-reinstall --no-deps git+https://github.com/FAIRDataPipeline/FAIR-CLI@<branch>
 ```
 
-`fair --version` gives only the version number, and a branch may share it with a release. `pip freeze` says what is installed: `fair-cli==0.11.0` for a release, and `fair-cli @ git+https://github.com/FAIRDataPipeline/FAIR-CLI@<commit>` for a branch.
+`fair --version` gives only the version number, and a branch may share it with a release. `pip freeze` says what is installed: `fair-cli==0.12.0` for a release, and `fair-cli @ git+https://github.com/FAIRDataPipeline/FAIR-CLI@<commit>` for a branch.
 
 ### The local registry
 

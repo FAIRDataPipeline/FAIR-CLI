@@ -54,7 +54,7 @@ Then `Dev` is merged into `main` by a pull request. The merge closes each issue 
 
 ### Making the release
 
-Make a release on GitHub from `main`, with a new tag `v<version>`, such as `v0.11.0`. The tag must match the version in `pyproject.toml` and `CITATION.cff`. The new tag starts two workflows:
+Make a release on GitHub from `main`, with a new tag `v<version>`, such as `v0.12.0`. The tag must match the version in `pyproject.toml` and `CITATION.cff`. The new tag starts two workflows:
 
 - `.github/workflows/release.yaml` builds the package, checks it with `twine check --strict`, and publishes it to PyPI. It stops if the tag is not the version in `pyproject.toml`. It publishes through PyPI's trusted publishing, so it needs no token or password.
 - `.github/workflows/deploy.yaml` builds a single-file binary with PyInstaller on Linux, macOS (Apple Silicon) and Windows, and checks that each one runs. It then checks that the tag matches the versions in `pyproject.toml` and `CITATION.cff`. Last, it attaches the wheel, the source archive and the three binaries to the GitHub release. If any binary fails its check, nothing is attached.
