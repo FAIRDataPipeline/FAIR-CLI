@@ -21,6 +21,7 @@ import logging
 import os
 import re
 import shutil
+import tempfile
 import typing
 import urllib.parse
 import traceback
@@ -276,6 +277,70 @@ def _has_file(object_data: typing.Dict, token: str) -> bool:
     )
 
 
+# The destination's object for a code repository - an object with a location
+# and no file to move - as a local registry keeps one for a commit: under a
+# storage root with the same root, a public location with the commit's hash,
+# whatever its path, and of the objects there the one a release is registered
+# on, else the oldest. None where the destination holds none, or the object is
+# not a code repository
+def _dest_repository(
+    origin_object: typing.Dict, dest_uri: str, dest_token: str, origin_token: str
+) -> typing.Optional[typing.Dict]:
+    if not origin_object.get("storage_location") or _has_file(
+        origin_object, origin_token
+    ):
+        return None
+    _location = fdp_req.url_get(origin_object["storage_location"], origin_token)
+    _root = fdp_req.url_get(_location["storage_root"], origin_token)
+    _objects = []
+    for _dest_root in fdp_req.get(
+        dest_uri, "storage_root", dest_token, params={"root": _root["root"]}
+    ):
+        for _dest_location in fdp_req.get(
+            dest_uri,
+            "storage_location",
+            dest_token,
+            params={
+                "hash": _location["hash"],
+                "public": True,
+                "storage_root": fdp_req.get_obj_id_from_url(_dest_root["url"]),
+            },
+        ):
+            _objects += fdp_req.get(
+                dest_uri,
+                "object",
+                dest_token,
+                params={
+                    "storage_location": fdp_req.get_obj_id_from_url(
+                        _dest_location["url"]
+                    )
+                },
+            )
+    _released = [_object for _object in _objects if _object.get("code_repo_release")]
+    if not _objects:
+        return None
+    return min(
+        _released or _objects,
+        key=lambda _object: int(fdp_req.get_obj_id_from_url(_object["url"])),
+    )
+
+
+# The destination's object and location for a code repository, keyed by the
+# origin's, as sync_dependency_chain takes them to be placed; empty where
+# _dest_repository finds none
+def _repository_placed(
+    origin_object_url: str, dest_uri: str, dest_token: str, origin_token: str
+) -> typing.Dict[str, str]:
+    _origin_object = fdp_req.url_get(origin_object_url, origin_token)
+    _held = _dest_repository(_origin_object, dest_uri, dest_token, origin_token)
+    if not _held:
+        return {}
+    return {
+        origin_object_url: _held["url"],
+        _origin_object["storage_location"]: _held["storage_location"],
+    }
+
+
 # URL of a registry's own data store: the storage_root whose root is the
 # registry's data/ path, beside its api/, from which it serves stored files.
 # A registry whose site URL differs from its API's address records that root
@@ -516,6 +581,7 @@ def sync_data_products(
     data_products: typing.List[str],
     local_data_store: str = None,
     force: bool = False,
+    caches: typing.Dict[str, str] = None,
 ) -> None:
     """Transfer data products from one registry to another
 
@@ -537,6 +603,9 @@ def sync_data_products(
         specified when pulling from remote registry to local
     force : optional, str
         whether or not to force pusing of a data product if it already exists on the registry, useful if a previous push failed
+    caches : optional, typing.Dict[str, str]
+        when pulling, a copy of a data product's file that the user holds,
+        taken in place of the download, by data product as in data_products
     """
     for data_product in data_products:
         namespace, name, version = re.split("[:@]", data_product)
@@ -548,23 +617,43 @@ def sync_data_products(
             token=dest_token,
         ):
             _namespace_id = fdp_req.get_obj_id_from_url(_existing_namespace[0]["url"])
-            if (
-                _ := fdp_req.get(
-                    dest_uri,
-                    "data_product",
-                    dest_token,
-                    params={
-                        "namespace": _namespace_id,
-                        "name": name,
-                        "version": version.replace("v", ""),
-                    },
-                )
-                and not force
+            if _existing := fdp_req.get(
+                dest_uri,
+                "data_product",
+                dest_token,
+                params={
+                    "namespace": _namespace_id,
+                    "name": name,
+                    "version": version.replace("v", ""),
+                },
             ):
-                logger.debug(
-                    f"Data product '{data_product}' already present on remote '{remote_label}', ignoring."
+                # Refused here too, for a caller that did not look first
+                refuse_conflicts(
+                    origin_uri,
+                    dest_uri,
+                    origin_token,
+                    dest_token,
+                    [data_product],
+                    remote_label,
+                    pulling=bool(local_data_store),
                 )
-                continue
+                if not force:
+                    logger.info(
+                        f"Data product '{data_product}' is on '{remote_label}' "
+                        "already, with the same contents"
+                    )
+                    # Records attached since it was sent go now
+                    sync_attached(
+                        origin_uri,
+                        dest_uri,
+                        origin_token,
+                        dest_token,
+                        _find_data_product(origin_uri, origin_token, data_product)[
+                            "object"
+                        ],
+                        _existing[0]["object"],
+                    )
+                    continue
 
         # Convert namespace name to an ID for retrieval
         _namespaces = fdp_req.get(
@@ -631,7 +720,10 @@ def sync_data_products(
         # object storage
         _placed = {}
         if not _moves_file:
-            pass
+            # A code repository takes the destination's object for its commit
+            _placed = _repository_placed(
+                result_object["url"], dest_uri, dest_token, origin_token
+            )
         elif local_data_store:
             logger.debug("Retrieving files from remote registry data storage")
             _placed = _place_pulled_file(
@@ -640,6 +732,7 @@ def sync_data_products(
                 origin_token,
                 local_data_store,
                 _data_product,
+                (caches or {}).get(data_product),
             )
         elif _is_public:
             upload_object(
@@ -650,7 +743,7 @@ def sync_data_products(
                 result_object["url"],
             )
 
-        sync_dependency_chain(
+        _dest_urls = sync_dependency_chain(
             object_url=result["url"],
             dest_uri=dest_uri,
             origin_uri=origin_uri,
@@ -660,6 +753,15 @@ def sync_data_products(
             public=_is_public,
             substitutes=_substitutes,
             placed=_placed,
+        )
+        # Before the runs below, which are mapped onto its named components
+        sync_attached(
+            origin_uri,
+            dest_uri,
+            origin_token,
+            dest_token,
+            result_object["url"],
+            _dest_urls[result_object["url"]],
         )
         # Going from local to remote
         if not local_data_store:
@@ -764,6 +866,232 @@ def get_dest_component_url(
     return dest_component[0]["url"]
 
 
+# The records that point at an object and are sent with it, by kind: the
+# fields that name one among those of its object, and its other fields. An
+# object has one quality-control record and one code release
+_ATTACHED = {
+    "object_component": (("name",), ("description",)),
+    "licence": (("identifier",), ("licence_info",)),
+    "keyword": (("keyphrase",), ("identifier",)),
+    "key_value": (("key",), ("value",)),
+    "quality_controlled": ((), ("document",)),
+    "code_repo_release": ((), ("name", "version", "website")),
+}
+
+
+# What names a record among those of its kind on one object, as the
+# registry's constraints do: a licence with no identifier is named by its text
+def _name_on_object(kind: str, record: typing.Dict) -> typing.Tuple:
+    if kind == "licence" and not record.get("identifier"):
+        return ("licence_info", record.get("licence_info"))
+    return tuple(record.get(_field) for _field in _ATTACHED[kind][0])
+
+
+# A component's counterpart on the destination, None where it is not there
+def _dest_component_or_none(
+    origin_component_url: str, dest_uri: str, dest_token: str, origin_token: str
+) -> typing.Optional[str]:
+    try:
+        return get_dest_component_url(
+            origin_component_url, dest_uri, dest_token, origin_token
+        )
+    except fdp_exc.RegistryError:
+        return None
+
+
+def sync_attached(
+    origin_uri: str,
+    dest_uri: str,
+    origin_token: str,
+    dest_token: str,
+    origin_object_url: str,
+    dest_object_url: str,
+) -> None:
+    """Send the records that point at an object to its copy on another registry
+
+    These are its named components, licences, keywords, key-values,
+    quality-control record and code release, and the issues on its
+    components. Each is posted where the destination's object has none of its
+    name. An issue is found by its UUID, else as an issue with its severity
+    and description on one of its components there, and is given the
+    components it is on in both registries; its components on objects the
+    destination does not hold are left out. A record the destination holds
+    with other values is kept as it is, with a warning.
+
+    Parameters
+    ----------
+    origin_uri : str
+        origin data registry URL
+    dest_uri : str
+        destination data registry URL
+    origin_token : str
+        token for the origin data registry
+    dest_token : str
+        token for the destination data registry
+    origin_object_url : str
+        URL of the object on the origin registry
+    dest_object_url : str
+        URL of the same object on the destination registry
+    """
+    _origin_id = fdp_req.get_obj_id_from_url(origin_object_url)
+    _dest_id = fdp_req.get_obj_id_from_url(dest_object_url)
+    for _kind, (_names, _others) in _ATTACHED.items():
+        _held = {
+            _name_on_object(_kind, _record): _record
+            for _record in fdp_req.get(
+                dest_uri, _kind, dest_token, params={"object": _dest_id}
+            )
+        }
+        for _record in fdp_req.get(
+            origin_uri, _kind, origin_token, params={"object": _origin_id}
+        ):
+            # The registry makes an object's whole_object component itself
+            if _record.get("whole_object"):
+                continue
+            _data = {_field: _record.get(_field) for _field in _names + _others}
+            if _kind == "quality_controlled":
+                try:
+                    _data["document"] = get_dest_object_url(
+                        _record["document"], dest_uri, dest_token, origin_token
+                    )
+                except fdp_exc.RegistryError:
+                    logger.warning(
+                        "The quality-control record of '%s' is not sent to "
+                        "'%s': its document is not there",
+                        origin_object_url,
+                        dest_uri,
+                    )
+                    continue
+            _there = _held.get(_name_on_object(_kind, _data))
+            if _there is None:
+                try:
+                    fdp_req.post(
+                        dest_uri,
+                        _kind,
+                        dest_token,
+                        {"object": dest_object_url, **_data},
+                    )
+                except fdp_exc.RegistryAPICallError as e:
+                    if e.error_code != 409:
+                        raise
+                    logger.warning(
+                        "The %s %s of '%s' is not sent to '%s': it conflicts "
+                        "with one there",
+                        _kind,
+                        _data,
+                        origin_object_url,
+                        dest_uri,
+                    )
+            elif any((_there.get(_f) or None) != (_data[_f] or None) for _f in _others):
+                logger.warning(
+                    "The %s of '%s' on '%s' is kept as it is there, %s, not "
+                    "as sent, %s",
+                    _kind,
+                    dest_object_url,
+                    dest_uri,
+                    {_f: _there.get(_f) for _f in _names + _others},
+                    _data,
+                )
+    _sync_issues(
+        origin_uri,
+        dest_uri,
+        origin_token,
+        dest_token,
+        origin_object_url,
+        dest_object_url,
+    )
+
+
+# The issues on an object's components, sent to its copy on the destination
+# as sync_attached describes
+def _sync_issues(
+    origin_uri: str,
+    dest_uri: str,
+    origin_token: str,
+    dest_token: str,
+    origin_object_url: str,
+    dest_object_url: str,
+) -> None:
+    _dest_components = {
+        _component["name"]: _component["url"]
+        for _component in fdp_req.get(
+            dest_uri,
+            "object_component",
+            dest_token,
+            params={"object": fdp_req.get_obj_id_from_url(dest_object_url)},
+        )
+    }
+    _issue_urls: typing.List[str] = []
+    for _component in fdp_req.get(
+        origin_uri,
+        "object_component",
+        origin_token,
+        params={"object": fdp_req.get_obj_id_from_url(origin_object_url)},
+    ):
+        _issue_urls += [
+            _url for _url in _component["issues"] if _url not in _issue_urls
+        ]
+    for _issue_url in _issue_urls:
+        _issue = fdp_req.url_get(_issue_url, origin_token)
+        _components = []
+        for _component_url in _issue["component_issues"]:
+            _component = fdp_req.url_get(_component_url, origin_token)
+            if _component["object"] == origin_object_url:
+                _component_there = _dest_components.get(_component["name"])
+            else:
+                _component_there = _dest_component_or_none(
+                    _component_url, dest_uri, dest_token, origin_token
+                )
+            if _component_there:
+                _components.append(_component_there)
+        _data = {
+            "severity": _issue["severity"],
+            "description": _issue["description"],
+        }
+        _there = fdp_req.get(
+            dest_uri, "issue", dest_token, params={"uuid": _issue["uuid"]}
+        ) or _same_issue(dest_token, _data, _components)
+        if not _there:
+            fdp_req.post(
+                dest_uri,
+                "issue",
+                dest_token,
+                {"uuid": _issue["uuid"], "component_issues": _components, **_data},
+            )
+            continue
+        _there = _there[0]
+        if any(_there[_field] != _value for _field, _value in _data.items()):
+            logger.warning(
+                "The issue %s on '%s' is kept as it is there, %s, not as sent, %s",
+                _there["uuid"],
+                dest_uri,
+                {_field: _there[_field] for _field in _data},
+                _data,
+            )
+        _all = sorted(set(_there["component_issues"]) | set(_components))
+        if _all != sorted(_there["component_issues"]):
+            fdp_req._access(
+                _there["url"],
+                "patch",
+                dest_token,
+                data={"component_issues": _all},
+            )
+
+
+# An issue a registry holds with the given severity and description on one of
+# the given components, which a client takes for the same issue raised again,
+# as a list of none or one
+def _same_issue(
+    token: str, data: typing.Dict, components: typing.List[str]
+) -> typing.List[typing.Dict]:
+    for _component_url in components:
+        for _issue_url in fdp_req.url_get(_component_url, token)["issues"]:
+            _issue = fdp_req.url_get(_issue_url, token)
+            if all(_issue[_field] == _value for _field, _value in data.items()):
+                return [_issue]
+    return []
+
+
 def sync_code_runs(
     origin_uri: str,
     dest_uri: str,
@@ -806,38 +1134,9 @@ def sync_code_runs(
             )
         _coderun = _code_run[0]
 
-        _input_components = _coderun["inputs"]
-        _output_components = _coderun["outputs"]
-        _components = _input_components + _output_components
-
-        _origin_input_data_products = []
-        _origin_output_data_products = []
-
-        # get the associated data_product urls
-        for component in _components:
-            object_url = fdp_req.url_get(component, origin_token)["object"]
-            object = fdp_req.url_get(object_url, origin_token)
-            if component in _input_components:
-                _origin_input_data_products += object["data_products"]
-            if component in _output_components:
-                _origin_output_data_products += object["data_products"]
-
-        _origin_data_products = (
-            _origin_input_data_products + _origin_output_data_products
+        _inputs_data_products, _outputs_data_products = _code_run_data_products(
+            _coderun, origin_token
         )
-        _inputs_data_products = []
-        _outputs_data_products = []
-        _dest_inputs = []
-        _dest_outputs = []
-        # Get and sync the original data products to the remote registry
-        for _origin_data_product_url in _origin_data_products:
-            _data_product_formatted = format_data_product(
-                _origin_data_product_url, origin_token
-            )
-            if _origin_data_product_url in _origin_input_data_products:
-                _inputs_data_products.append(_data_product_formatted)
-            if _origin_data_product_url in _origin_output_data_products:
-                _outputs_data_products.append(_data_product_formatted)
         _origin_data_products_formatted = _inputs_data_products + _outputs_data_products
         # Sync all the data products associated with the code run
         sync_data_products(
@@ -851,38 +1150,18 @@ def sync_code_runs(
             force,
         )
 
-        # Iterate through formatted objects and get their new values from the remote registry
-        for _origin_data_product_formatted in _origin_data_products_formatted:
-            namespace, name, version = re.split("[:@]", _origin_data_product_formatted)
-            # Get the destination namespace
-            _dest_namespace = fdp_req.get(
-                dest_uri, "namespace", dest_token, params={"name": namespace}
-            )
-            if not _dest_namespace:
-                raise fdp_exc.RegistryError(
-                    f"Failed to access {namespace} on remote registry"
-                )
-            _dest_namespace_url = _dest_namespace[0]["url"]
-            # get the data_product
-            _dest_data_product = fdp_req.get(
-                dest_uri,
-                "data_product",
-                dest_token,
-                params={
-                    "name": name,
-                    "version": version.replace("v", ""),
-                    "namespace": fdp_req.get_obj_id_from_url(_dest_namespace_url),
-                },
-            )
-            if not _dest_data_product:
-                raise fdp_exc.RegistryError(
-                    f"Failed to access data_product: {name} on remote registry"
-                )
-            _dest_object = fdp_req.url_get(_dest_data_product[0]["object"], dest_token)
-            if _origin_data_product_formatted in _inputs_data_products:
-                _dest_inputs += _dest_object["components"]
-            if _origin_data_product_formatted in _outputs_data_products:
-                _dest_outputs += _dest_object["components"]
+        # Each component the run read or wrote, as the destination names it.
+        # One of an object with no data product was not sent, and is left out
+        _dest_inputs = [
+            get_dest_component_url(_component, dest_uri, dest_token, origin_token)
+            for _component in _coderun["inputs"]
+            if get_data_products_from_component(_component, origin_token)
+        ]
+        _dest_outputs = [
+            get_dest_component_url(_component, dest_uri, dest_token, origin_token)
+            for _component in _coderun["outputs"]
+            if get_data_products_from_component(_component, origin_token)
+        ]
         logger.debug(
             f"attempting to sync coderun {code_run_uuid} with inputs {_dest_inputs} and outputs {_dest_outputs}"
         )
@@ -896,6 +1175,273 @@ def sync_code_runs(
             _dest_outputs,
         )
         logger.info(f"Synced Code Run: {code_run_uuid}")
+
+
+# The data products of the objects a code run read and wrote, each as
+# 'namespace:name@vversion': those it read, and those it wrote
+def _code_run_data_products(
+    code_run: typing.Dict, token: str
+) -> typing.Tuple[typing.List[str], typing.List[str]]:
+    _input_components = code_run["inputs"]
+    _output_components = code_run["outputs"]
+    _origin_input_data_products = []
+    _origin_output_data_products = []
+    for component in _input_components + _output_components:
+        object_url = fdp_req.url_get(component, token)["object"]
+        object = fdp_req.url_get(object_url, token)
+        if component in _input_components:
+            _origin_input_data_products += object["data_products"]
+        if component in _output_components:
+            _origin_output_data_products += object["data_products"]
+    _inputs_data_products = []
+    _outputs_data_products = []
+    for _url in _origin_input_data_products + _origin_output_data_products:
+        _formatted = format_data_product(_url, token)
+        if _url in _origin_input_data_products:
+            _inputs_data_products.append(_formatted)
+        if _url in _origin_output_data_products:
+            _outputs_data_products.append(_formatted)
+    return _inputs_data_products, _outputs_data_products
+
+
+def code_run_data_products(
+    uri: str, token: str, code_runs: typing.List[str]
+) -> typing.List[str]:
+    """Return the data products code runs read and wrote
+
+    Parameters
+    ----------
+    uri : str
+        registry URL
+    token : str
+        token for the registry
+    code_runs : typing.List[str]
+        UUIDs of the code runs
+
+    Returns
+    -------
+    typing.List[str]
+        each data product once, as 'namespace:name@vversion'
+    """
+    _data_products: typing.List[str] = []
+    for _uuid in code_runs:
+        _code_run = fdp_req.get(uri, "code_run", token, params={"uuid": _uuid})
+        if not _code_run:
+            raise fdp_exc.RegistryError(f"Failed to find code_run '{_uuid}' on '{uri}'")
+        _inputs, _outputs = _code_run_data_products(_code_run[0], token)
+        _data_products += [d for d in _inputs + _outputs if d not in _data_products]
+    return _data_products
+
+
+def unsent_producers(
+    origin_uri: str,
+    dest_uri: str,
+    origin_token: str,
+    dest_token: str,
+    code_runs: typing.List[str],
+    data_products: typing.List[str],
+) -> typing.List[typing.Tuple[str, str]]:
+    """Return the runs that made what was pushed that the destination lacks
+
+    The walk starts from the given code runs and the runs that wrote the given
+    data products, and goes back through the runs that wrote each one's
+    inputs, as far as the runs the destination holds.
+
+    Parameters
+    ----------
+    origin_uri : str
+        origin data registry URL
+    dest_uri : str
+        destination data registry URL
+    origin_token : str
+        token for the origin data registry
+    dest_token : str
+        token for the destination data registry
+    code_runs : typing.List[str]
+        UUIDs of the code runs pushed
+    data_products : typing.List[str]
+        data products pushed, as 'namespace:name@vversion'
+
+    Returns
+    -------
+    typing.List[typing.Tuple[str, str]]
+        each run the destination lacks, by UUID, with the data products of
+        what it wrote that the walk came from
+    """
+    _components: typing.List[str] = []
+    for _uuid in code_runs:
+        for _code_run in fdp_req.get(
+            origin_uri, "code_run", origin_token, params={"uuid": _uuid}
+        ):
+            _components += _code_run["inputs"]
+    for _data_product in data_products:
+        if _found := _find_data_product(origin_uri, origin_token, _data_product):
+            _components += fdp_req.url_get(_found["object"], origin_token)["components"]
+    _seen_components = set()
+    _seen_runs = set(code_runs)
+    _missing = []
+    while _components:
+        _component = _components.pop()
+        if _component in _seen_components:
+            continue
+        _seen_components.add(_component)
+        for _producer in fdp_req.get(
+            origin_uri,
+            "code_run",
+            origin_token,
+            params={"outputs": fdp_req.get_obj_id_from_url(_component)},
+        ):
+            if _producer["uuid"] in _seen_runs:
+                continue
+            _seen_runs.add(_producer["uuid"])
+            if fdp_req.get(
+                dest_uri, "code_run", dest_token, params={"uuid": _producer["uuid"]}
+            ):
+                _components += _producer["inputs"]
+            else:
+                _made = format_data_product_list(
+                    get_data_products_from_component(_component, origin_token),
+                    origin_token,
+                )
+                _missing.append((_producer["uuid"], ", ".join(_made)))
+    return _missing
+
+
+# A data product in a registry, by 'namespace:name@vversion', None where the
+# registry has none
+def _find_data_product(
+    uri: str, token: str, data_product: str
+) -> typing.Optional[typing.Dict]:
+    namespace, name, version = re.split("[:@]", data_product)
+    _namespace = fdp_req.get(
+        uri, "namespace", token, params={SEARCH_KEYS["namespace"]: namespace}
+    )
+    if not _namespace:
+        return None
+    _found = fdp_req.get(
+        uri,
+        "data_product",
+        token,
+        params={
+            "namespace": fdp_req.get_obj_id_from_url(_namespace[0]["url"]),
+            "name": name,
+            "version": version.replace("v", ""),
+        },
+    )
+    return _found[0] if _found else None
+
+
+# What tells a data product's contents apart from another's: its file's hash
+# (a code repository's being its commit); else its source - a source being one
+# file - by identifier, or alternate identifier and its type, title and
+# release version; else nothing
+def _contents(data_product: typing.Dict, token: str) -> typing.Tuple:
+    _object = fdp_req.url_get(data_product["object"], token)
+    if _object.get("storage_location"):
+        return ("file", fdp_req.url_get(_object["storage_location"], token)["hash"])
+    if data_product.get("external_object"):
+        _source = fdp_req.url_get(data_product["external_object"], token)
+        return (
+            "source",
+            tuple(
+                _source.get(_field)
+                for _field in (
+                    "identifier",
+                    "alternate_identifier",
+                    "alternate_identifier_type",
+                    "title",
+                    "version",
+                )
+            ),
+        )
+    return ("nothing",)
+
+
+# Contents as a refusal names them
+def _describe_contents(contents: typing.Tuple) -> str:
+    if contents[0] == "file":
+        return f"a file with hash {contents[1]}"
+    if contents[0] == "source":
+        _identifier, _alternate, _type, _title, _version = contents[1]
+        _named = _identifier or f"{_alternate} ({_type})"
+        return f"no file, and the source {_named} titled '{_title}', release {_version}"
+    return "no file and no source"
+
+
+def refuse_conflicts(
+    origin_uri: str,
+    dest_uri: str,
+    origin_token: str,
+    dest_token: str,
+    data_products: typing.List[str],
+    remote_label: str,
+    pulling: bool = False,
+) -> None:
+    """Refuse data products the destination holds under their names with other contents
+
+    A data product is a namespace, a name and a version, and two registries
+    holding the same three with other contents hold different things, which
+    a push or a pull would otherwise take for one. Every data product is
+    looked at before the refusal, which names them all.
+
+    Parameters
+    ----------
+    origin_uri : str
+        URL of the registry they are sent from
+    dest_uri : str
+        URL of the registry they are sent to
+    origin_token : str
+        token for the registry they are sent from
+    dest_token : str
+        token for the registry they are sent to
+    data_products : typing.List[str]
+        the data products, each as 'namespace:name@vversion'
+    remote_label : str
+        name of the remote registry, as the refusal names it
+    pulling : bool, optional
+        whether they are pulled from the remote, rather than pushed to it, by
+        default False
+    """
+    _conflicts = []
+    for _data_product in data_products:
+        _there = _find_data_product(dest_uri, dest_token, _data_product)
+        if not _there:
+            continue
+        _here = _find_data_product(origin_uri, origin_token, _data_product)
+        if not _here:
+            continue
+        _contents_there = _contents(_there, dest_token)
+        _contents_here = _contents(_here, origin_token)
+        if _contents_there != _contents_here:
+            _remote, _local = (
+                (_contents_here, _contents_there)
+                if pulling
+                else (_contents_there, _contents_here)
+            )
+            _conflicts.append(
+                f"'{_data_product}': on '{remote_label}' "
+                f"{_describe_contents(_remote)}, and in the local registry "
+                f"{_describe_contents(_local)}"
+            )
+    if not _conflicts:
+        return
+    _held = "\n".join(f"  - {_conflict}" for _conflict in _conflicts)
+    if pulling:
+        raise fdp_exc.RegistryError(
+            "Nothing was pulled: the local registry holds another data product "
+            f"under the name and version of each of these on '{remote_label}':\n"
+            f"{_held}",
+            hint="Pull into a local registry that holds none of them - a new one, "
+            "by 'fair registry install --directory <directory>', or this one "
+            "emptied by 'fair registry reset'",
+        )
+    raise fdp_exc.RegistryError(
+        f"Nothing was pushed: '{remote_label}' holds another data product under "
+        f"the name and version of each of these:\n{_held}",
+        hint="Register each under a version the remote does not have - write it "
+        "again, or give its 'write:' or 'register:' entry a version - and push "
+        "that instead",
+    )
 
 
 # The destination's object for an origin object, found by a data product of
@@ -956,6 +1502,10 @@ def get_dest_object_url(
         str: URL of the destination object
     """
     _origin_object = fdp_req.url_get(origin_object_url, origin_token)
+    if _repository := _dest_repository(
+        _origin_object, dest_uri, dest_token, origin_token
+    ):
+        return _repository["url"]
     _origin_object_storage_location = _origin_object["storage_location"]
     # An object with no file has no hash to be found by
     if not _origin_object_storage_location:
@@ -977,7 +1527,10 @@ def get_dest_object_url(
     )
     if not _dest_object_storage_location:
         raise fdp_exc.RegistryError(
-            f"Failed to access {_dest_object_storage_location} on remote registry"
+            f"No file with the hash {_model_object_hash}, the file of "
+            f"'{origin_object_url}', is on '{dest_uri}'",
+            hint="Push the data product it belongs to first, by 'fair add "
+            "<namespace>:<name>@v<version>' and 'fair push'",
         )
     # The same file may be recorded at more than one location: a registered
     # file is also recorded at the place it was fetched from, where no object
@@ -996,7 +1549,10 @@ def get_dest_object_url(
         )
     if not _dest_objects:
         raise fdp_exc.RegistryError(
-            f"Failed to access {_dest_objects} on remote registry"
+            f"No object on '{dest_uri}' holds the file with the hash "
+            f"{_model_object_hash}, the file of '{origin_object_url}'",
+            hint="Push the data product it belongs to first, by 'fair add "
+            "<namespace>:<name>@v<version>' and 'fair push'",
         )
     # Several objects may hold the same file - one registered under two
     # names, two outputs with the same contents - and the one wanted is then
@@ -1049,8 +1605,9 @@ def sync_code_run(
     )
     if _remote_coderun:
         _remote_coderun = _remote_coderun[0]
-        inputs += _remote_coderun["inputs"]
-        outputs += _remote_coderun["outputs"]
+        # New lists: extending the arguments would extend their defaults
+        inputs = inputs + _remote_coderun["inputs"]
+        outputs = outputs + _remote_coderun["outputs"]
         logger.debug(
             f'patching code run: {code_run["uuid"]} with inputs: {inputs} and outputs {outputs}'
         )
@@ -1059,6 +1616,9 @@ def sync_code_run(
             "patch",
             dest_token,
             data={"inputs": list(set(inputs)), "outputs": list(set(outputs))},
+        )
+        _sync_attached_to_run(
+            origin_uri, dest_uri, origin_token, dest_token, code_run, _remote_coderun
         )
     else:
         # Get and sync model config, the file before its records
@@ -1077,7 +1637,8 @@ def sync_code_run(
             code_run["model_config"], dest_uri, dest_token, origin_token
         )
         # If theres a code_repo sync it. Its location is the repository, so it
-        # is pushed as it is, never moved into the remote's data store
+        # is pushed as it is, never moved into the remote's data store, and the
+        # destination's object for its commit is taken where there is one
         _dest_code_run_code_repo = None
         if code_run["code_repo"]:
             sync_dependency_chain(
@@ -1087,6 +1648,9 @@ def sync_code_run(
                 dest_token=dest_token,
                 origin_token=origin_token,
                 public=False,
+                placed=_repository_placed(
+                    code_run["code_repo"], dest_uri, dest_token, origin_token
+                ),
             )
             _dest_code_run_code_repo = get_dest_object_url(
                 code_run["code_repo"], dest_uri, dest_token, origin_token
@@ -1127,7 +1691,32 @@ def sync_code_run(
                 "uuid": code_run["uuid"],
             },
         )
+        _sync_attached_to_run(
+            origin_uri, dest_uri, origin_token, dest_token, code_run, dest_code_run
+        )
         return dest_code_run
+
+
+# The records attached to a run's configuration, script and code repository,
+# such as an issue on the repository, sent to the run's copy on the destination
+def _sync_attached_to_run(
+    origin_uri: str,
+    dest_uri: str,
+    origin_token: str,
+    dest_token: str,
+    code_run: typing.Dict,
+    dest_code_run: typing.Dict,
+) -> None:
+    for _field in ("model_config", "submission_script", "code_repo"):
+        if code_run[_field] and dest_code_run.get(_field):
+            sync_attached(
+                origin_uri,
+                dest_uri,
+                origin_token,
+                dest_token,
+                code_run[_field],
+                dest_code_run[_field],
+            )
 
 
 def is_component_public(component_url: str, token: str) -> bool:
@@ -1244,15 +1833,9 @@ def get_dest_inputs(
                 format_data_product_list(component_data_products, origin_token),
                 force=force,
             )
-            for data_product_url in component_data_products:
-                origin_data_product_object_url = fdp_req.url_get(
-                    data_product_url, origin_token
-                )["object"]
-                dest_object_url = get_dest_object_url(
-                    origin_data_product_object_url, dest_uri, dest_token, origin_token
-                )
-                dest_object = fdp_req.url_get(dest_object_url, dest_token)
-                dest_inputs += dest_object["components"]
+            dest_inputs.append(
+                get_dest_component_url(origin_input, dest_uri, dest_token, origin_token)
+            )
         else:
             sync_dependency_chain(
                 object_url=origin_input,
@@ -1273,6 +1856,7 @@ def fetch_data_product(
     local_data_store: str,
     data_product: typing.Dict,
     out_file: str = None,
+    cache: str = None,
 ) -> typing.Optional[str]:
     """
     Retrieve a file using the given user configuration metadata
@@ -1289,6 +1873,9 @@ def fetch_data_product(
     out_file : optional, str
         where to put the file, by default under the data product's namespace
         and name in the data store, named by its version
+    cache : optional, str
+        a copy of the file that the user holds, copied into place in place of
+        the download, and left as it is
 
     Returns
     -------
@@ -1338,6 +1925,16 @@ def fetch_data_product(
         logger.debug("File '%s' already exists skipping download", _out_file)
         return _out_file
 
+    if cache:
+        _place_cached_file(
+            cache,
+            _out_file,
+            _storage_loc["hash"],
+            f"{_namespace['name']}:{data_product['name']}"
+            f"@v{data_product['version']}",
+        )
+        return _out_file
+
     _path = _storage_loc["path"]
     _path = urllib.parse.quote(_path)
     _root = fdp_req.url_get(_storage_loc["storage_root"], remote_token)
@@ -1366,20 +1963,54 @@ def fetch_data_product(
     return _out_file
 
 
+# Copy the user's own copy of a data product's file to its place in the data
+# store, if it is the file the registry describes. It is copied beside that
+# place and renamed into it, so that a copy cut short never stands there as
+# the data product's file
+def _place_cached_file(
+    cache: str, out_file: str, registered_hash: str, data_product: str
+) -> None:
+    if not os.path.isfile(cache):
+        raise fdp_exc.SynchronisationError(
+            f"Data product '{data_product}' was not fetched: its 'cache', "
+            f"'{cache}', is not a file",
+            error_code=1,
+        )
+    _hash = fdp_store.calculate_file_hash(cache)
+    if _hash != registered_hash:
+        raise fdp_exc.SynchronisationError(
+            f"Data product '{data_product}' was not fetched: its 'cache', "
+            f"'{cache}', has hash '{_hash}', and the registry records "
+            f"'{registered_hash}'",
+            error_code=1,
+        )
+    os.makedirs(os.path.dirname(out_file), exist_ok=True)
+    _handle, _copy = tempfile.mkstemp(dir=os.path.dirname(out_file))
+    os.close(_handle)
+    try:
+        shutil.copyfile(cache, _copy)
+        os.replace(_copy, out_file)
+    except BaseException:
+        os.remove(_copy)
+        raise
+
+
 # Fetch a pulled data product's file into the local data store and record it
 # there, in the destination registry: the storage location of the file on
 # this machine, keyed by the origin's storage location that it stands for,
 # whose own record says where the file is on the remote. A registry records a
 # file once under a root, so a file the data store holds already - registered
 # there, or pulled under another name - is the one recorded, and it is
-# fetched to that place only if it has gone. Nothing for a data product that
-# has no file
+# fetched to that place only if it has gone: copied from 'cache', the
+# user's own copy, where that is given. Nothing for a data product that has
+# no file
 def _place_pulled_file(
     dest_uri: str,
     dest_token: str,
     origin_token: str,
     local_data_store: str,
     data_product: typing.Dict,
+    cache: str = None,
 ) -> typing.Dict[str, str]:
     _location_url = fdp_req.url_get(data_product["object"], origin_token)[
         "storage_location"
@@ -1410,6 +2041,7 @@ def _place_pulled_file(
         local_data_store,
         data_product,
         os.path.join(local_data_store, _held[0]["path"]) if _held else None,
+        cache=cache,
     )
     if _held:
         return {_location_url: _held[0]["url"]}

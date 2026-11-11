@@ -1,8 +1,10 @@
 import json
+import logging
 import string
 import typing
 import os
 import hashlib
+import uuid
 
 import pytest
 import pytest_mock
@@ -28,6 +30,42 @@ def test_store_user(
     mocker.patch("fair.common.registry_home", lambda: local_registry._install)
     with local_registry:
         assert fdp_store.store_user(local_config[1], LOCAL_URL, local_registry._token)
+
+
+@pytest.mark.faircli_storage
+@pytest.mark.parametrize("key", ["identifier", "uuid"])
+def test_an_author_held_under_another_name_is_that_author(
+    local_config: typing.Tuple[str, str],
+    local_registry: conf.RegistryTest,
+    mocker: pytest_mock.MockerFixture,
+    caplog,
+    key: str,
+):
+    mocker.patch("fair.common.registry_home", lambda: local_registry._install)
+    _value = (
+        f"https://example.org/authors/{uuid.uuid4()}"
+        if key == "identifier"
+        else str(uuid.uuid4())
+    )
+    with local_registry:
+        _first = fdp_store.store_author(
+            LOCAL_URL, local_registry._token, "Josiah Carberry", **{key: _value}
+        )
+        caplog.clear()
+        _second = fdp_store.store_author(
+            LOCAL_URL, local_registry._token, "J. Carberry", **{key: _value}
+        )
+        _warnings = [
+            _record.getMessage()
+            for _record in caplog.records
+            if _record.levelno == logging.WARNING
+        ]
+        _again = fdp_store.store_author(
+            LOCAL_URL, local_registry._token, "Josiah Carberry", **{key: _value}
+        )
+    assert _second == _first == _again
+    assert len(_warnings) == 1
+    assert "'Josiah Carberry', not as 'J. Carberry'" in _warnings[0]
 
 
 @pytest.mark.faircli_storage
@@ -561,6 +599,7 @@ def test_external_object_release_version(
     # The version of the source is sent when the entry gives one; without it
     # none is, and the registry applies its own
     _access = mocker.patch("fair.registry.requests._access")
+    mocker.patch("fair.identifiers.check_id_permitted", return_value=True)
     _data = {
         "title": "A year of ERA5",
         "primary": False,

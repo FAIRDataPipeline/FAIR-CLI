@@ -45,10 +45,11 @@ DISPOSABLES = (
 def matches_wildcard(pattern: str, name: str) -> bool:
     """Return whether a name matches a wildcard pattern
 
-    Each '*' matches one segment of the name: one or more characters other
-    than '/' and the four the registry refuses in a name, '[', ']', '?' and
-    '*', so that a pattern never matches itself. The pattern is anchored at
-    both ends, and every other character matches itself.
+    Each '*' matches within one segment of the name, all of it or part of it
+    ('State_*' matches 'State_01'): one or more characters other than '/' and
+    the four the registry refuses in a name, '[', ']', '?' and '*', so that a
+    pattern never matches itself. The pattern is anchored at both ends, and
+    every other character matches itself.
 
     Parameters
     ----------

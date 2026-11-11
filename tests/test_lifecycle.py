@@ -8,6 +8,7 @@ import time
 import typing
 
 import click.testing
+import psutil
 import pytest
 import pytest_mock
 import requests
@@ -881,3 +882,184 @@ def test_closing_a_session_removes_nothing_else(registry_dir: str):
     open(_outside, "w").close()
     assert not fdp_life.close_session("../outside")
     assert os.path.exists(_outside)
+
+
+class _Holder:
+    """A child process that holds the install for a command until it is killed
+
+    It is known by the id it gives itself: on Windows a virtual environment's
+    python.exe runs the interpreter as a process of its own, so the id of the
+    process started is not the one that holds the install.
+    """
+
+    def __init__(self, child: subprocess.Popen, pid: int):
+        self._child = child
+        self.pid = pid
+
+    def kill(self) -> None:
+        """Kill the process holding the install, and the one started for it"""
+        try:
+            _process = psutil.Process(self.pid)
+            _process.kill()
+            _process.wait(timeout=30)
+        except psutil.NoSuchProcess:
+            pass
+        self._child.kill()
+        self._child.wait()
+
+
+@pytest.fixture
+def holder(registry_dir: str) -> typing.Iterator[_Holder]:
+    _child = subprocess.Popen(
+        [
+            sys.executable,
+            "-c",
+            "import os, sys, time\n"
+            "import fair.registry.lifecycle as fdp_life\n"
+            "with fdp_life.held(sys.argv[1], 'fair registry reset'):\n"
+            "    print(os.getpid(), flush=True)\n"
+            "    time.sleep(300)\n",
+            registry_dir,
+        ],
+        stdout=subprocess.PIPE,
+        text=True,
+        cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    )
+    _holder = _Holder(_child, int(_child.stdout.readline()))
+    yield _holder
+    _holder.kill()
+
+
+@pytest.mark.faircli_lifecycle
+def test_a_hold_refuses_every_other_process(
+    registry_dir: str,
+    holder: _Holder,
+    mocker: pytest_mock.MockerFixture,
+):
+    _server = _Server(mocker)
+    _held = f"held by 'fair registry reset', process {holder.pid}"
+    with pytest.raises(fdp_exc.RegistryError, match=_held) as e:
+        fdp_life.open_session()
+    assert "once it has finished" in e.value.hint
+    with pytest.raises(fdp_exc.RegistryError, match=_held):
+        fdp_life.start_for_user(port=8000)
+    with pytest.raises(fdp_exc.RegistryError, match=_held):
+        fdp_life.stop_for_removal(registry_dir)
+    with pytest.raises(fdp_exc.RegistryError, match=_held):
+        with fdp_life.held(registry_dir, "fair registry upgrade"):
+            pass
+    assert not _server.running
+    assert not _sessions(registry_dir)
+    assert fdp_life.status()["hold"]["pid"] == holder.pid
+
+    # Refused as held, not as missing, while the install is moved aside
+    os.rename(registry_dir, f"{registry_dir}-aside")
+    try:
+        with pytest.raises(fdp_exc.RegistryError, match=_held):
+            fdp_life.open_session()
+    finally:
+        os.rename(f"{registry_dir}-aside", registry_dir)
+
+
+@pytest.mark.faircli_lifecycle
+def test_the_holder_uses_the_registry_and_the_hold_goes_after(
+    registry_dir: str, mocker: pytest_mock.MockerFixture
+):
+    _server = _Server(mocker)
+    with fdp_life.held(registry_dir, "fair registry reset"):
+        assert os.path.exists(fdp_life.hold_file(registry_dir))
+        with fdp_life.held(registry_dir, "fair registry reset"):
+            fdp_life.start_for_user(port=8000)
+        assert os.path.exists(fdp_life.hold_file(registry_dir))
+        assert fdp_life.stop_for_removal(registry_dir) == URI
+    assert not _server.running
+    assert not os.path.exists(fdp_life.hold_file(registry_dir))
+    assert not fdp_life.status()["hold"]
+
+
+@pytest.mark.faircli_lifecycle
+def test_a_hold_whose_process_has_ended_is_removed(
+    registry_dir: str,
+    holder: _Holder,
+    mocker: pytest_mock.MockerFixture,
+    capsys: pytest.CaptureFixture,
+):
+    _Server(mocker)
+    holder.kill()
+    fdp_life.open_session()
+    assert "which has ended, is removed" in capsys.readouterr().err
+    assert not os.path.exists(fdp_life.hold_file(registry_dir))
+
+
+@pytest.mark.faircli_lifecycle
+def test_a_hold_being_written_holds_until_it_is_too_old(
+    registry_dir: str, mocker: pytest_mock.MockerFixture
+):
+    _Server(mocker)
+    _hold = fdp_life.hold_file(registry_dir)
+    open(_hold, "w").close()
+    with pytest.raises(fdp_exc.RegistryError, match="held by"):
+        fdp_life.open_session()
+    _then = time.time() - 2 * fdp_life.HOLD_WRITE_SECONDS
+    os.utime(_hold, (_then, _then))
+    fdp_life.open_session()
+    assert not os.path.exists(_hold)
+
+
+@pytest.mark.faircli_lifecycle
+def test_a_hold_on_another_host_names_its_file(
+    registry_dir: str, mocker: pytest_mock.MockerFixture
+):
+    _Server(mocker)
+    with open(fdp_life.hold_file(registry_dir), "w") as out_f:
+        json.dump(
+            {"command": "fair registry upgrade", "pid": 1, "host": "another-host"},
+            out_f,
+        )
+    with pytest.raises(fdp_exc.RegistryError, match="another-host") as e:
+        fdp_life.open_session()
+    assert fdp_life.hold_file(registry_dir) in e.value.hint
+
+
+@pytest.mark.faircli_lifecycle
+def test_registry_status_names_the_hold(
+    local_config: typing.Tuple[str, str],
+    registry_dir: str,
+    holder: _Holder,
+):
+    _result = click.testing.CliRunner().invoke(cli, ["registry", "status"])
+    assert _result.exit_code == 0, _result.output
+    assert f"Held by 'fair registry reset', process {holder.pid}" in _result.output
+
+
+@pytest.mark.faircli_lifecycle
+def test_fair_add_starts_the_registry_and_stops_it_after(
+    local_config: typing.Tuple[str, str],
+    registry_dir: str,
+    mocker: pytest_mock.MockerFixture,
+):
+    _server = _Server(mocker)
+    _while_running = []
+    mocker.patch.object(
+        fair.session.FAIR,
+        "add_to_staging",
+        side_effect=lambda identifier: _while_running.append(_server.running),
+    )
+    _result = click.testing.CliRunner().invoke(cli, ["add", "PSU:data@v1.0.0"])
+    assert _result.exit_code == 0, _result.output
+    assert _while_running == [True]
+    assert not _server.running
+
+
+@pytest.mark.faircli_lifecycle
+def test_fair_add_of_nothing_is_refused(
+    local_config: typing.Tuple[str, str],
+    registry_dir: str,
+    mocker: pytest_mock.MockerFixture,
+):
+    _server = _Server(mocker)
+    _result = click.testing.CliRunner().invoke(cli, ["add", ""])
+    assert _result.exit_code != 0
+    assert "No data product or code run to stage was given" in _result.output
+    assert "'fair list'" in _result.output
+    _server.launch.assert_not_called()

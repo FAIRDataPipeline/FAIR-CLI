@@ -12,7 +12,9 @@ Every process that uses the registry holds a session for as long as it does,
 recorded beside it with the process that owns it. A registry that a session
 started is stopped when its last session closes; one the user holds runs until
 'fair registry stop'; one that was running before anything recorded it is
-never stopped by a session.
+never stopped by a session. A command that changes the install itself -
+replacing, upgrading or emptying it - holds it while it does, and nothing else
+starts, stops or uses the registry meanwhile.
 
 Contents
 ========
@@ -26,8 +28,12 @@ Functions
     start_for_user - start the registry, or adopt the running one, for the user
     stop_for_user - stop the registry at the user's request
     stop_for_removal - stop the registry before its install is removed
+    require_stopped - refuse unless the registry is stopped and unused
     live_sessions - the sessions whose processes are using the registry
     status - what the records say of the registry and its sessions
+    hold_file - the file that records a command holding an install
+    held - hold an install for a command that changes it
+    current_hold - the command holding an install, if one is
 
 """
 
@@ -69,6 +75,11 @@ logger = logging.getLogger("FAIRDataPipeline.Lifecycle")
 RECORDS_DIRECTORY = "sessions"
 SERVER_RECORD = "server.json"
 LOCK_FILE = "lock"
+HOLD_SUFFIX = ".hold"
+
+# How long a hold's file may be unreadable before it is taken to have been
+# left by a process that ended while writing it
+HOLD_WRITE_SECONDS = 10
 
 # How long a process waits for another to finish starting or stopping the
 # registry: a start may take a minute and a half
@@ -123,6 +134,28 @@ def server_record_file(registry_dir: str) -> str:
         path of the server record
     """
     return os.path.join(records_directory(registry_dir), SERVER_RECORD)
+
+
+def hold_file(registry_dir: str) -> str:
+    """Return the file that records a command holding an install
+
+    It is beside the install's directory, not in it, so that it holds while
+    the directory is moved aside and built again.
+
+    Parameters
+    ----------
+    registry_dir : str
+        directory of the registry install
+
+    Returns
+    -------
+    str
+        path of the hold's record
+    """
+    _dir = os.path.abspath(registry_dir)
+    return os.path.join(
+        os.path.dirname(_dir), f".{os.path.basename(_dir)}{HOLD_SUFFIX}"
+    )
 
 
 # The name this host goes by in the records. On macOS the host name follows
@@ -339,7 +372,9 @@ def _session_is_live(
 # None where nothing answers there, False where something else does
 def _server_here(registry_dir: str, uri: str) -> typing.Optional[bool]:
     try:
-        _response = requests.get(uri, timeout=fdp_serv.REQUEST_SECONDS)
+        _response = requests.get(
+            uri, timeout=fdp_serv.REQUEST_SECONDS, proxies=fdp_req.proxies_for(uri)
+        )
     except requests.exceptions.ReadTimeout as e:
         raise fdp_exc.RegistryError(
             f"Something at '{uri}' accepts connections and does not answer",
@@ -475,6 +510,136 @@ def _record_server(registry_dir: str, uri: str, holder: str) -> typing.Dict:
     return _server
 
 
+def current_hold(registry_dir: str) -> typing.Optional[typing.Dict]:
+    """Return the record of the command holding an install, if one is
+
+    A hold whose process has ended is removed, and that said. One on another
+    host is taken to hold, since this host cannot tell.
+
+    Parameters
+    ----------
+    registry_dir : str
+        directory of the registry install
+
+    Returns
+    -------
+    typing.Optional[typing.Dict]
+        the command ("command"), its process ("pid") and host ("host"), and
+        when it took the hold ("started"); None where nothing holds it
+    """
+    _path = hold_file(registry_dir)
+    _hold = _read_record(_path)
+    if _hold is None:
+        # Being written, unless it is older than a write takes
+        try:
+            _age = time.time() - os.path.getmtime(_path)
+        except OSError:
+            return None
+        if _age < HOLD_WRITE_SECONDS:
+            return {"command": "unknown command", "pid": None, "host": _host()}
+        _remove(_path)
+        return None
+    if _hold.get("host") != _host():
+        return _hold
+    try:
+        _alive = _process_alive(_hold["pid"], _hold["process_started"])
+    except (KeyError, TypeError):
+        _alive = False
+    if _alive:
+        return _hold
+    if _remove(_path):
+        click.echo(
+            f"A hold on the local registry by '{_hold.get('command')}', "
+            f"process {_hold.get('pid')}, which has ended, is removed.",
+            err=True,
+        )
+    return None
+
+
+# Refuse to start, stop or use the registry while another process holds its
+# install; the process holding it may
+def _refuse_held(registry_dir: str) -> None:
+    _hold = current_hold(registry_dir)
+    if not _hold or (
+        _hold.get("host") == _host() and _hold.get("pid") == os.getpid()
+    ):
+        return
+    if _hold.get("host") != _host():
+        raise fdp_exc.RegistryError(
+            f"The local registry installed in '{registry_dir}' is held by "
+            f"'{_hold.get('command')}' on the host '{_hold.get('host')}', which "
+            "is changing it",
+            hint=f"Try again once it has finished. If '{_hold.get('host')}' is "
+            f"no longer running it, delete the file '{hold_file(registry_dir)}', "
+            "which records it, and try again",
+        )
+    raise fdp_exc.RegistryError(
+        f"The local registry installed in '{registry_dir}' is held by "
+        f"'{_hold.get('command')}', process {_hold.get('pid')}, which is "
+        "changing it",
+        hint="Try again once it has finished",
+    )
+
+
+@contextlib.contextmanager
+def held(registry_dir: str, command: str) -> typing.Iterator[None]:
+    """Hold an install for a command that changes it
+
+    Meanwhile every other process is refused that would start, stop or use
+    its registry, naming the command. Taking the hold refuses where another
+    process has it; the process holding it may take it again.
+
+    Parameters
+    ----------
+    registry_dir : str
+        directory of the registry install
+    command : str
+        the command holding it, as a user would know it
+    """
+    _path = hold_file(registry_dir)
+    os.makedirs(os.path.dirname(_path), exist_ok=True)
+    while True:
+        try:
+            _hold_fd = os.open(_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            break
+        except FileExistsError:
+            # Refused where another process holds it; one that has ended is
+            # removed, and the hold taken at the next try
+            _refuse_held(registry_dir)
+            _hold = current_hold(registry_dir)
+            if _hold:
+                yield
+                return
+    with os.fdopen(_hold_fd, "w", encoding="utf-8") as out_f:
+        json.dump(
+            {
+                "command": command,
+                "pid": os.getpid(),
+                "process_started": _process_start(os.getpid()),
+                "host": _host(),
+                "started": datetime.datetime.now().isoformat(timespec="seconds"),
+            },
+            out_f,
+            indent=2,
+        )
+    logger.debug("Holding the registry in '%s' for '%s'", registry_dir, command)
+    try:
+        yield
+    finally:
+        _remove(_path)
+
+
+# Hold the install's lock for the block, refusing where another process holds
+# the install. The hold is looked at before the lock too, as the install's
+# directory, which holds the lock, may be moved aside while it is held
+@contextlib.contextmanager
+def _unheld(registry_dir: str) -> typing.Iterator[None]:
+    _refuse_held(registry_dir)
+    with _locked(registry_dir):
+        _refuse_held(registry_dir)
+        yield
+
+
 # The address and port of a registry endpoint, 8000 where it names none
 def _address_and_port(uri: str) -> typing.Tuple[str, int]:
     _parsed = urllib.parse.urlparse(uri)
@@ -511,7 +676,7 @@ def open_session(
     uri = uri or fdp_conf.get_local_uri()
     pid = pid or os.getpid()
     _started = _process_start(pid)
-    with _locked(registry_dir):
+    with _unheld(registry_dir):
         # A registry found running may fail, where one started here was
         # checked as it started
         _server = _current_server(registry_dir)
@@ -646,7 +811,7 @@ def start_for_user(
     """
     registry_dir = registry_dir or fdp_com.registry_home()
     _uri = f"http://{address}:{port}/api/"
-    with _locked(registry_dir):
+    with _unheld(registry_dir):
         _server = _current_server(registry_dir)
         if _server and _server["holder"] == HELD_BY_USER:
             raise fdp_exc.UnexpectedRegistryServerState("Server already running.")
@@ -677,7 +842,7 @@ def stop_for_user(registry_dir: str = None, force: bool = False) -> None:
         stop it although sessions are using it, by default False
     """
     registry_dir = registry_dir or fdp_com.registry_home()
-    with _locked(registry_dir):
+    with _unheld(registry_dir):
         _server = _current_server(registry_dir)
         _uri = _server["uri"] if _server else fdp_conf.get_local_uri()
         _here = _server_here(registry_dir, _uri)
@@ -696,21 +861,26 @@ def stop_for_user(registry_dir: str = None, force: bool = False) -> None:
         _remove_records(registry_dir)
 
 
-def stop_for_removal(registry_dir: str) -> None:
-    """Stop the local registry before its install is removed
+def stop_for_removal(registry_dir: str) -> typing.Optional[str]:
+    """Stop the local registry before its install is removed or changed
 
-    Nothing is stopped while a session uses it, or while it is recorded as
-    running on another host, and those are refused, so that the caller
-    removes nothing.
+    Nothing is stopped while a session uses it, while it is recorded as
+    running on another host, or while another process holds the install, and
+    those are refused, so that the caller removes nothing.
 
     Parameters
     ----------
     registry_dir : str
         directory of the registry install
+
+    Returns
+    -------
+    typing.Optional[str]
+        the endpoint of the registry stopped, None where none was running
     """
     if not os.path.isdir(registry_dir):
-        return
-    with _locked(registry_dir):
+        return None
+    with _unheld(registry_dir):
         _server = _current_server(registry_dir)
         _sessions = list(_session_records(registry_dir).values())
         if _sessions:
@@ -721,11 +891,43 @@ def stop_for_removal(registry_dir: str) -> None:
                 "'fair registry stop --force', then try again",
             )
         _uri = _server["uri"] if _server else fdp_conf.get_local_uri()
+        _stopped = None
         if _server_here(registry_dir, _uri):
             fdp_serv.stop_server(
                 registry_dir=registry_dir, local_uri=_uri, force=True
             )
+            _stopped = _uri
         _remove_records(registry_dir)
+    return _stopped
+
+
+def require_stopped(registry_dir: str, purpose: str) -> None:
+    """Refuse unless the local registry is stopped and no session uses it
+
+    Parameters
+    ----------
+    registry_dir : str
+        directory of the registry install
+    purpose : str
+        what must be done with it stopped, as the refusal says it: "its data
+        stores are cleaned", say
+    """
+    with _unheld(registry_dir):
+        _server = _current_server(registry_dir)
+        _sessions = list(_session_records(registry_dir).values())
+        if _sessions:
+            raise fdp_exc.RegistryError(
+                f"The local registry installed in '{registry_dir}' is in use: "
+                + _describe_sessions(_sessions),
+                hint="Wait for them to finish, then try again",
+            )
+        _uri = _server["uri"] if _server else fdp_conf.get_local_uri()
+        if _server or _server_here(registry_dir, _uri):
+            raise fdp_exc.RegistryError(
+                f"The local registry installed in '{registry_dir}' is running "
+                f"at '{_uri}', and must be stopped while {purpose}",
+                hint="Stop it with 'fair registry stop', then try again",
+            )
 
 
 # Remove the server record and every session record, the server having stopped
@@ -793,9 +995,10 @@ def status(registry_dir: str = None) -> typing.Dict[str, typing.Any]:
     typing.Dict[str, typing.Any]
         the server record ("server", None where there is none), whether it
         is on another host ("elsewhere"), the file holding it
-        ("record_file"), and the live sessions ("sessions"), each with the
+        ("record_file"), the live sessions ("sessions"), each with the
         command its process runs ("command") and whether its start time
-        cannot be read ("start_unreadable")
+        cannot be read ("start_unreadable"), and the command holding the
+        install ("hold", None where none does)
     """
     registry_dir = registry_dir or fdp_com.registry_home()
     _status = {
@@ -803,7 +1006,10 @@ def status(registry_dir: str = None) -> typing.Dict[str, typing.Any]:
         "elsewhere": False,
         "record_file": server_record_file(registry_dir),
         "sessions": [],
+        "hold": current_hold(registry_dir),
     }
+    if not os.path.isdir(registry_dir):
+        return _status
     with _locked(registry_dir):
         _server = _read_record(server_record_file(registry_dir))
         if _server and _server.get("host") != _host():
