@@ -77,6 +77,9 @@
   is plain.
 - `fair init --using` failed on a file with a top-level `description`, as earlier documented examples had. It now
   ignores the key. A registry in the file with no `data_store` is now refused naming that key, not another.
+- A user whose identifier, such as an ORCID, the local registry held under another spelling of the name could not
+  register: `fair init` and `fair pull` stopped with "Expected to receive a URL location from registry post". The
+  registry's author with that identifier is now used, with a warning naming both spellings.
 
 # 2026-10-19 [v0.11.0](https://github.com/FAIRDataPipeline/FAIR-CLI/releases/tag/v0.11.0)
 

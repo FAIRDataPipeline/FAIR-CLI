@@ -84,16 +84,21 @@ def store_author(
 ) -> str:
     """Creates an Author entry if one does not exist
 
+    An author with an identifier, else a UUID, that the registry holds already is
+    that one, whatever its name there, with a warning where the names differ.
+
     Parameters
     ----------
     uri : str
         registry RestAPI endpoint
     token: str
         registry access token
-    data: typing.Dict
-        author data to post
-    params: typing.Dict, optional
-        parameters to search if exists already
+    name : str
+        the author's name
+    identifier : str, optional
+        the author's identifier, such as an ORCID, as a URL
+    uuid : str, optional
+        the author's UUID, for an author with no identifier
 
     Returns
     -------
@@ -101,6 +106,25 @@ def store_author(
         URI for created author
     """
     _data = {"name": name, "identifier": identifier, "uuid": uuid}
+
+    # An identifier, else a UUID, names one author on the registry, under
+    # whatever name it was registered there: one person's name may be spelled
+    # two ways, and two people may share a name
+    _key = "identifier" if identifier else "uuid" if uuid else None
+    _held = (
+        fdp_req.get(uri, "author", token, params={_key: _data[_key]}) if _key else []
+    )
+    if _held:
+        if name and _held[0]["name"] != name:
+            logger.warning(
+                "The registry '%s' holds the author %s as '%s', not as '%s'. "
+                "That author is used, under the name it has there.",
+                uri,
+                _data[_key],
+                _held[0]["name"],
+                name,
+            )
+        return _held[0]["url"]
 
     return fdp_req.post_else_get(uri, "author", token, _data, {"name": name})
 
