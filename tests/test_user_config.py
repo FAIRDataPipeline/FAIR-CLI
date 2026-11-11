@@ -1243,3 +1243,111 @@ def test_pull_of_nothing(mocker: pytest_mock.MockerFixture):
     assert _error.value.msg.endswith(
         f"in namespace 'testing' on registry '{_REMOTE}' or '{_LOCAL}'"
     )
+
+
+@pytest.mark.faircli_user_config
+@pytest.mark.parametrize(
+    "name, valid",
+    [
+        ("PSU", True),
+        ("my_namespace-2", True),
+        ("my namespace", False),
+        ("a/b", False),
+        ("a.b", False),
+        ("", False),
+        (None, False),
+    ],
+)
+def test_namespace_names(name: typing.Any, valid: bool):
+    if valid:
+        fdp_valid.check_namespace_name(name, "an entry")
+    else:
+        with pytest.raises(fdp_exc.UserConfigError, match="not a valid name") as e:
+            fdp_valid.check_namespace_name(name, "an entry")
+        assert "such as" in e.value.hint
+
+
+@pytest.mark.faircli_user_config
+@pytest.mark.parametrize(
+    "name, valid",
+    [
+        ("SEIRS_model/parameters", True),
+        ("DataPipeline.jl/release", True),
+        ("out/run_${{RUN_ID}}", True),
+        ("State_*", True),
+        ("CaseStudy/50km/*/Cells_01", True),
+        ("/leading", False),
+        ("trailing/", False),
+        ("double//slash", False),
+        (".hidden/x", False),
+        ("x/ends.", False),
+        ("has space", False),
+        ("PSU:data", False),
+        ("data@v1", False),
+        ("", False),
+    ],
+)
+def test_data_product_names(name: str, valid: bool):
+    if valid:
+        fdp_valid.check_data_product_name(name, "an entry")
+    else:
+        with pytest.raises(fdp_exc.UserConfigError, match="not a valid name"):
+            fdp_valid.check_data_product_name(name, "an entry")
+
+
+@pytest.mark.faircli_user_config
+@pytest.mark.parametrize(
+    "block, entry, refused",
+    [
+        ("write", {"data_product": "bad name", "use": {"namespace": "PSU"}}, True),
+        ("write", {"data_product": "x", "use": {"data_product": "bad name"}}, True),
+        ("write", {"data_product": "x", "use": {"namespace": "bad ns"}}, True),
+        (
+            "register",
+            {"external_object": "bad name", "use": {"namespace": "PSU"}},
+            True,
+        ),
+        ("register", {"data_product": "ok/name", "use": {"namespace": "PSU"}}, False),
+        # What a read names is registered already
+        ("read", {"data_product": "bad name", "use": {"namespace": "bad ns"}}, False),
+    ],
+)
+def test_the_names_a_run_would_register(block: str, entry: typing.Dict, refused: bool):
+    _config = fdp_user.JobConfiguration()
+    _config._config = {"run_metadata": {}, block: [entry]}
+    if refused:
+        with pytest.raises(fdp_exc.UserConfigError, match=f"the '{block}:' entry"):
+            _config._check_new_names()
+    else:
+        _config._check_new_names()
+
+
+@pytest.mark.faircli_user_config
+def test_a_bad_namespace_is_refused_before_any_is_registered(
+    mocker: pytest_mock.MockerFixture, tmp_path
+):
+    mocker.patch("fair.common.default_jobs_dir", lambda *args: str(tmp_path))
+    _config = fdp_user.JobConfiguration()
+    _config._config = {"run_metadata": {}, "register": [{"namespace": "bad ns"}]}
+    _posting = mocker.patch.object(_config, "_update_namespaces")
+    with pytest.raises(fdp_exc.UserConfigError, match="'bad ns'"):
+        _config.prepare(fdp_com.CMD_MODE.PULL)
+    _posting.assert_not_called()
+
+
+@pytest.mark.faircli_user_config
+def test_a_bad_data_product_name_is_refused_before_anything_is_registered(
+    mocker: pytest_mock.MockerFixture, tmp_path
+):
+    mocker.patch("fair.common.default_jobs_dir", lambda *args: str(tmp_path))
+    _config = fdp_user.JobConfiguration()
+    _config._config = {
+        "run_metadata": {},
+        "register": [{"external_object": "bad name", "use": {"namespace": "PSU"}}],
+    }
+    for _step in ("_update_namespaces", "_create_log", "_subst_cli_vars"):
+        mocker.patch.object(_config, _step)
+    _after = mocker.patch.object(_config, "_fill_all_block_types")
+    with pytest.raises(fdp_exc.UserConfigError, match="'bad name'"):
+        _config.prepare(fdp_com.CMD_MODE.PULL)
+    _after.assert_not_called()

@@ -1030,3 +1030,36 @@ def test_registry_status_names_the_hold(
     _result = click.testing.CliRunner().invoke(cli, ["registry", "status"])
     assert _result.exit_code == 0, _result.output
     assert f"Held by 'fair registry reset', process {holder.pid}" in _result.output
+
+
+@pytest.mark.faircli_lifecycle
+def test_fair_add_starts_the_registry_and_stops_it_after(
+    local_config: typing.Tuple[str, str],
+    registry_dir: str,
+    mocker: pytest_mock.MockerFixture,
+):
+    _server = _Server(mocker)
+    _while_running = []
+    mocker.patch.object(
+        fair.session.FAIR,
+        "add_to_staging",
+        side_effect=lambda identifier: _while_running.append(_server.running),
+    )
+    _result = click.testing.CliRunner().invoke(cli, ["add", "PSU:data@v1.0.0"])
+    assert _result.exit_code == 0, _result.output
+    assert _while_running == [True]
+    assert not _server.running
+
+
+@pytest.mark.faircli_lifecycle
+def test_fair_add_of_nothing_is_refused(
+    local_config: typing.Tuple[str, str],
+    registry_dir: str,
+    mocker: pytest_mock.MockerFixture,
+):
+    _server = _Server(mocker)
+    _result = click.testing.CliRunner().invoke(cli, ["add", ""])
+    assert _result.exit_code != 0
+    assert "No data product or code run to stage was given" in _result.output
+    assert "'fair list'" in _result.output
+    _server.launch.assert_not_called()

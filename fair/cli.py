@@ -22,6 +22,7 @@ import typing
 
 import click
 import click.shell_completion
+import git
 import yaml
 
 import fair.common as fdp_com
@@ -86,7 +87,23 @@ def complete_jobs(ctx, param, incomplete) -> typing.List[str]:
     ]
 
 
-@click.group()
+class _Commands(click.Group):
+    """The commands, each of which may run git: one that finds none says so"""
+
+    def invoke(self, ctx: click.Context) -> typing.Any:
+        """Run the command, saying so where it needs git and finds none"""
+        try:
+            return super().invoke(ctx)
+        except git.exc.GitCommandNotFound:
+            fdp_exc.FAIRCLIException(
+                "The FAIR CLI needs git, and could not run it",
+                hint="Install git, or give the path of its program in the "
+                "environment variable GIT_PYTHON_GIT_EXECUTABLE",
+            ).err_print()
+            sys.exit(1)
+
+
+@click.group(cls=_Commands)
 @click.version_option(package_name="fair-cli")
 @click.pass_context
 def cli(ctx):
@@ -730,9 +747,18 @@ def add(identifier: str, debug: bool) -> None:
 
     """
     try:
+        if not identifier.strip():
+            raise fdp_exc.StagingError(
+                "No data product or code run to stage was given",
+                hint="Give a data product as <namespace>:<name>@v<version>, or a "
+                "code run by its UUID: 'fair list' lists them",
+            )
+        # The item is looked for in the local registry, started if it is not
+        # running
         with fdp_session.FAIR(
             os.getcwd(),
             debug=debug,
+            server_mode=fdp_svr.SwitchMode.CLI,
         ) as fair_session:
             fair_session.add_to_staging(identifier)
     except fdp_exc.FAIRCLIException as e:

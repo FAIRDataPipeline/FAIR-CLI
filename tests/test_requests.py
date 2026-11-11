@@ -418,3 +418,15 @@ def test_object_type_fetch(
                 )
                 == obj
             )
+
+
+@pytest.mark.faircli_requests
+def test_a_search_keeps_false_and_zero(mocker: pytest_mock.MockerFixture):
+    _access = mocker.patch("fair.registry.requests._access", return_value=[])
+    fdp_req.get(
+        "http://127.0.0.1:8000/api/",
+        "data_product",
+        "token",
+        params={"public": False, "count": 0, "none": None, "empty": "", "list": []},
+    )
+    assert _access.call_args.kwargs["params"] == {"public": False, "count": 0}

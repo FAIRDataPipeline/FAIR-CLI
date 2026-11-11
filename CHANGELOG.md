@@ -1,6 +1,10 @@
 # Unreleased
 
 ## Changed behaviour
+- `fair run` and `fair pull` refuse a name that a `write:` or `register:` entry would register, and that does not keep
+  to the naming convention, before anything is registered, naming the entry: a namespace holds ASCII letters,
+  digits, `_` and `-`; a data product's name is such parts joined by single `/`, which may hold `.` but not start or
+  end with one. A `read:` entry is not checked.
 - `fair registry install` without `--directory` looks for the registry where the configuration puts it, and with
   `--force` replaces it there; it installed in `~/.fair/registry` whatever the configuration said. Its refusal of an
   existing registry names `fair registry upgrade`.
@@ -19,6 +23,11 @@
   stop or use the registry is refused, naming it, and `fair registry status` names it.
 
 ## Fixed
+- `fair add` failed unless the local registry was already running; it now starts it, and stops it after if it started
+  it. `fair add ""` staged an empty name, and is now refused.
+- A search of a registry dropped a filter set to `false` or `0`, and so found everything.
+- With no `git` on the path every command failed with GitPython's own error, `fair --version` and `--help` included;
+  they now run, and a command that needs `git` says so, naming `GIT_PYTHON_GIT_EXECUTABLE`.
 - `fair registry install --version` took a branch only as `origin/<branch>`, and a version the registry's repository
   does not have stopped the running registry before it was refused. A branch is now given by its name, and the
   version is checked before anything is stopped.

@@ -140,6 +140,8 @@ By default the shell used to execute a process is `sh` or `batch` for UNIX and W
 
 Flags for a shell's program follow its name, separated by spaces, and go straight after the program: `shell: julia --project=@.` runs `julia --project=@. {0}`, starting Julia in the repository's project, and `shell: bash -x` runs `bash -x -eo pipefail {0}`. A flag cannot contain a space, and `batch`, which has no program, takes none.
 
+The names a run or a pull would register - those of `write:` and `register:` entries and their namespaces - keep to a naming convention, and a configuration naming one that does not is refused before anything is registered. A namespace holds ASCII letters, digits, `_` and `-`; a data product's name is one or more parts joined by single `/`, each of those and `.`, which may not start or end a part: `PSU`, `SEIRS_model/parameters` and `DataPipeline.jl/release` are names, `my data` and `results/.hidden` are not. A `*` within a part, for a wildcard, and `${{RUN_ID}}` may stand in a name. A `read:` entry names what is registered already, and is not checked.
+
 A full description of `config.yaml` files can be found [here](https://www.fairdatapipeline.org/docs/interface/config/).
 
 ## Available Commands

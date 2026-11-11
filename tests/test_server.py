@@ -1,5 +1,6 @@
 import os
 import pathlib
+import re
 import sqlite3
 import time
 import typing
@@ -560,7 +561,8 @@ def test_an_install_looks_where_the_configuration_puts_the_registry(
     reg_dir = _existing_install(tmp_path, mocker)
     mocker.patch("fair.common.registry_home", lambda: reg_dir)
     _build = mocker.patch("fair.registry.server._build_registry")
-    with pytest.raises(fdp_exc.RegistryError, match=f"already installed in {reg_dir}"):
+    _refused = f"already installed in {re.escape(reg_dir)}"
+    with pytest.raises(fdp_exc.RegistryError, match=_refused):
         fdp_serv.install_registry()
     _build.assert_not_called()
 

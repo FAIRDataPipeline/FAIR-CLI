@@ -339,8 +339,10 @@ def get(
 
     params = {} if not params else copy.deepcopy(params)
 
+    # False and 0 are values, not gaps: left out, the search would not filter
+    # on them at all
     for param, value in params.copy().items():
-        if not value:
+        if not value and not isinstance(value, (bool, int, float)):
             logger.warning(
                 f"Key in get parameters '{param}' \
                     has no value so will be ignored"

@@ -395,6 +395,36 @@ class JobConfiguration(MutableMapping):
 
         return _new_register_block
 
+    # Refuse a namespace a 'register:' entry gives that does not keep to the
+    # naming convention, before any is registered
+    def _check_new_namespaces(self) -> None:
+        for item in self["register"] if "register" in self else []:
+            if "namespace" in item:
+                fdp_valid.check_namespace_name(
+                    item["namespace"], "the 'register:' entry of a namespace"
+                )
+
+    # Refuse a name a run or a pull would register that does not keep to the
+    # naming convention, before anything is registered: a 'write:' or
+    # 'register:' entry's data product and namespace. A 'read:' entry names
+    # what is registered already, so is left as it is
+    def _check_new_names(self) -> None:
+        for block_type in ("register", "write"):
+            for item in self[block_type] if block_type in self else []:
+                _key = next(
+                    (k for k in ("data_product", "external_object") if k in item),
+                    None,
+                )
+                if not _key:
+                    continue
+                _use = item.get("use") or {}
+                _entry = f"the '{block_type}:' entry '{item[_key]}'"
+                fdp_valid.check_data_product_name(
+                    _use.get("data_product") or item[_key], _entry
+                )
+                if "namespace" in _use:
+                    fdp_valid.check_namespace_name(_use["namespace"], _entry)
+
     def _update_namespaces(self) -> None:
         self._logger.debug("Updating namespace list")
 
@@ -831,11 +861,13 @@ class JobConfiguration(MutableMapping):
             return os.path.join(self._job_dir, fdp_com.USER_CONFIG_FILE)
 
         self._logger.debug("Preparing configuration")
+        self._check_new_namespaces()
         self._update_namespaces()
 
         os.makedirs(self._job_dir)
         self._create_log()
         self._subst_cli_vars(self._now)
+        self._check_new_names()
 
         self._fill_all_block_types()
 

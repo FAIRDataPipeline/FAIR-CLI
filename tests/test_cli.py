@@ -12,6 +12,7 @@ import inspect
 import json
 import os
 import shutil
+import subprocess
 import sys
 import traceback
 import typing
@@ -1370,3 +1371,51 @@ def test_cli_run_local(
         assert _result.output
 
         assert _result.exit_code == 0
+
+
+@pytest.mark.faircli_cli
+def test_the_cli_runs_without_git_and_leaves_no_setting(tmp_path):
+    # A path with no git on it, and nothing naming git otherwise
+    _env = {
+        _name: _value
+        for _name, _value in os.environ.items()
+        if not _name.startswith("GIT_PYTHON_")
+    }
+    _env["PATH"] = str(tmp_path)
+    _repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    _imported = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import os, fair.cli; print(os.environ.get('GIT_PYTHON_REFRESH'))",
+        ],
+        env=_env,
+        cwd=_repo,
+        capture_output=True,
+        text=True,
+    )
+    assert _imported.returncode == 0, _imported.stderr
+    assert _imported.stdout.strip() == "None"
+    _help = subprocess.run(
+        [sys.executable, "-m", "fair.cli", "--help"],
+        env=_env,
+        cwd=_repo,
+        capture_output=True,
+        text=True,
+    )
+    assert _help.returncode == 0, _help.stderr
+    assert "Usage:" in _help.stdout
+
+
+@pytest.mark.faircli_cli
+def test_a_command_that_finds_no_git_says_so(mocker: pytest_mock.MockerFixture):
+    mocker.patch(
+        "fair.registry.server.resolve_reference",
+        side_effect=git.exc.GitCommandNotFound("git", "not found"),
+    )
+    _result = click.testing.CliRunner().invoke(
+        cli, ["registry", "install", "--version", "v1.5.0"]
+    )
+    assert _result.exit_code == 1
+    assert "The FAIR CLI needs git" in _result.output
+    assert "GIT_PYTHON_GIT_EXECUTABLE" in _result.output
