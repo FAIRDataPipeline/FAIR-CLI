@@ -454,6 +454,24 @@ class FAIR:
             data_products=_staged_data_products,
         )
 
+        # Each run behind what was pushed that the remote does not hold is
+        # named, with the command that would send it
+        for _uuid, _made in fdp_sync.unsent_producers(
+            origin_uri=fdp_conf.get_local_uri(),
+            dest_uri=fdp_conf.get_remote_uri(self._session_loc, remote),
+            origin_token=fdp_req.local_token(),
+            dest_token=fdp_conf.get_remote_token(
+                self._session_loc, remote, local=self._local
+            ),
+            code_runs=_staged_code_runs,
+            data_products=_staged_data_products,
+        ):
+            click.echo(
+                f"Warning: the remote '{remote}' does not hold code run {_uuid}, "
+                f"which wrote {_made or 'an object with no data product'}. "
+                f"'fair add {_uuid}' and 'fair push' would send it."
+            )
+
         self._session_config.write_log_lines(
             [f"Pushing code_run(s) to remote '{remote}':"]
             + [f"\t- {code_run}" for code_run in _staged_code_runs]

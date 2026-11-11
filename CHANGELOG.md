@@ -24,8 +24,20 @@
   installed it builds the registry again, mending one whose Python has gone.
 - While `fair registry clean`, `reset`, `upgrade` or `install --force` runs, every other command that would start,
   stop or use the registry is refused, naming it, and `fair registry status` names it.
+- `fair push` and `fair pull` send the records attached to what they send: named components, licences, keywords,
+  key-values, quality-control records, a code release, and the issues on its components. One added after its object was
+  sent goes with the next push or pull of it. An issue is the one there with its UUID, else one with its severity and
+  description on the same part, and gains the parts it is on here. A record held there with other values is kept as it
+  is, with a warning.
+- `fair push` warns of each code run behind what it sent that the remote does not hold - the run that wrote an input
+  of a pushed run, and so on back - naming the `fair add` that would send it.
 
 ## Fixed
+- A data product written in named parts could not be pushed with a code run that read or wrote one of them: the push
+  failed with "Failed to access component ... on remote registry". A run is now recorded on the remote as reading and
+  writing the parts it did, where one pushed by itself was given every part of each file it used.
+- A push reaching two code runs the remote held already could give the second the first's outputs, which registry
+  v1.5.0 refuses, failing the push.
 - `fair push` and `fair pull` took a data product the other registry held under the same namespace, name and version
   for the same one, whatever its file or source: a push left the remote's in place without a word, and a run using it
   then failed with "Failed to access [] on remote registry". Both now look at every data product they would send
