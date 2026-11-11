@@ -32,9 +32,6 @@ jobs:
           python-version: "3.12"
           architecture: "x64"
 
-      - name: Install memcached
-        run: sudo apt install -y libmemcached-dev
-
       - name: Setup fair
         run: |
           # Create venv
@@ -129,8 +126,6 @@ jobs:
       with:
         python-version: "3.12"
         architecture: "x64"
-    - name: Install memcached
-      run: sudo apt install -y libmemcached-dev
     - name: Set up JDK 17
       uses: actions/setup-java@v6
       with:
@@ -182,9 +177,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v7 # Clone FAIR CLI
-
-    - name: Install memcached
-      run: sudo apt install -y libmemcached-dev
 
     - name: Clone R Data Pipeline
       uses: actions/checkout@v7
@@ -279,8 +271,6 @@ jobs:
         repository: FAIRDataPipeline/DataPipeline.jl
         path: julia_example
         ref: 'main'
-    - name: Install memcached
-      run: sudo apt install -y libmemcached-dev
     - name: Set up julia
       uses: julia-actions/setup-julia@v3
       with:
@@ -356,7 +346,7 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get upgrade
-        sudo apt install -y libmemcached-dev graphviz gnuplot --fix-missing
+        sudo apt install -y graphviz gnuplot --fix-missing
         sudo apt install -y libjsoncpp-dev curl libcurl4-openssl-dev --fix-missing
         sudo apt install -y libyaml-cpp-dev libhdf5-dev --fix-missing
 

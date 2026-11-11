@@ -81,6 +81,11 @@
   register: `fair init` and `fair pull` stopped with "Expected to receive a URL location from registry post". The
   registry's author with that identifier is now used, with a warning naming both spellings.
 
+## Development
+- The implementations workflow no longer installs `libmemcached-dev`, which the registry has not needed since before
+  v1.0.0. So the Python, Java and Julia jobs no longer need Ubuntu's package archive, which GitHub's runners could
+  not reach for a time.
+
 # 2026-10-19 [v0.11.0](https://github.com/FAIRDataPipeline/FAIR-CLI/releases/tag/v0.11.0)
 
 ## Changed behaviour
