@@ -272,6 +272,8 @@ The `push` command will push any staged data products to the remote registry:
 fair push
 ```
 
+A data product is its namespace, name and version: a push refuses one that the remote registry holds already under the same three with another file - or, for one with no file, another source - and so does a pull from it, the other way round. Every data product the command would send, those of the staged code runs included, is looked at first, so a refusal sends nothing; it names each such data product and both files. Register yours under another version and push that.
+
 ### `purge`
 
 The `purge` command removes setup of the current project so it can bereinitialised:

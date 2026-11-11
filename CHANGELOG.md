@@ -26,6 +26,10 @@
   stop or use the registry is refused, naming it, and `fair registry status` names it.
 
 ## Fixed
+- `fair push` and `fair pull` took a data product the other registry held under the same namespace, name and version
+  for the same one, whatever its file or source: a push left the remote's in place without a word, and a run using it
+  then failed with "Failed to access [] on remote registry". Both now look at every data product they would send
+  before sending anything, and refuse one held with other contents, naming each side's file or source.
 - With a web proxy set in the environment (`http_proxy`, `https_proxy` or `all_proxy`), every request to the local
   registry went to the proxy, so commands failed, naming the registry's token or another server. Requests to this
   machine now go to it directly; those to a remote registry and to identifier services still take the proxy.

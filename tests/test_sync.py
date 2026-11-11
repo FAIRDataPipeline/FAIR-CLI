@@ -4,6 +4,7 @@ import json
 import os
 import pathlib
 import tempfile
+import typing
 import uuid
 
 import click.testing
@@ -1930,3 +1931,268 @@ def test_ci_remote_user_is_on_the_remote(remote_registry: RegistryTest, tmp_path
             remote_registry._token,
             params={"username": _user},
         )
+
+
+# A source as an external object's record gives it
+_SOURCE = {
+    "identifier": "https://doi.org/10.1038/s41592-020-0856-2",
+    "alternate_identifier": None,
+    "alternate_identifier_type": None,
+    "title": "A deposit",
+    "version": "1.0.0",
+}
+
+
+# Stand-ins for two registries, 'here' and 'there', each holding the data
+# product 'PSU:x@v1.0.0' with the contents given - ("file", hash), ("source",
+# record) or ("nothing",) - or None for no such data product
+def _two_registries(
+    mocker: pytest_mock.MockerFixture, contents: typing.Dict[str, typing.Any]
+) -> None:
+    def mock_get(uri, obj, token=None, params=None, **kwargs):
+        if obj == "namespace":
+            return [{"url": f"http://{uri}/api/namespace/1/"}]
+        _held = contents[uri]
+        if obj != "data_product" or _held is None:
+            return []
+        return [
+            {
+                "url": f"http://{uri}/api/data_product/1/",
+                "object": f"http://{uri}/api/object/1/",
+                "external_object": (
+                    f"http://{uri}/api/external_object/1/"
+                    if _held[0] == "source"
+                    else None
+                ),
+            }
+        ]
+
+    def mock_url_get(url, token=None, **kwargs):
+        _held = contents[url.split("/")[2]]
+        if "/object/" in url:
+            return {
+                "storage_location": (
+                    url.replace("object", "storage_location")
+                    if _held[0] == "file"
+                    else None
+                )
+            }
+        if "/storage_location/" in url:
+            return {"hash": _held[1]}
+        return _held[1]
+
+    mocker.patch("fair.registry.requests.get", mock_get)
+    mocker.patch("fair.registry.requests.url_get", mock_url_get)
+
+
+@pytest.mark.faircli_sync
+@pytest.mark.parametrize(
+    "here, there, refused",
+    [
+        (("file", "a" * 40), ("file", "a" * 40), False),
+        (("file", "a" * 40), ("file", "b" * 40), True),
+        (("file", "a" * 40), ("nothing",), True),
+        (("file", "a" * 40), None, False),
+        (("source", _SOURCE), ("source", dict(_SOURCE)), False),
+        (("source", _SOURCE), ("source", {**_SOURCE, "title": "Another"}), True),
+        (("source", _SOURCE), ("source", {**_SOURCE, "version": "2.0.0"}), True),
+        (("source", _SOURCE), ("nothing",), True),
+        (("nothing",), ("nothing",), False),
+    ],
+)
+def test_a_data_product_held_with_other_contents_is_refused(
+    mocker: pytest_mock.MockerFixture,
+    here: typing.Any,
+    there: typing.Any,
+    refused: bool,
+):
+    _two_registries(mocker, {"here": here, "there": there})
+    _arguments = ("here", "there", "", "", ["PSU:x@v1.0.0"], "origin")
+    if not refused:
+        fdp_sync.refuse_conflicts(*_arguments)
+        return
+    with pytest.raises(fdp_exc.RegistryError, match="Nothing was pushed") as e:
+        fdp_sync.refuse_conflicts(*_arguments)
+    assert "'PSU:x@v1.0.0'" in e.value.msg
+    assert "a version the remote does not have" in e.value.hint
+
+
+@pytest.mark.faircli_sync
+def test_a_refusal_names_each_side(mocker: pytest_mock.MockerFixture):
+    _two_registries(mocker, {"here": ("file", "a" * 40), "there": ("file", "b" * 40)})
+    _arguments = ("here", "there", "", "", ["PSU:x@v1.0.0"], "origin")
+    with pytest.raises(fdp_exc.RegistryError) as e:
+        fdp_sync.refuse_conflicts(*_arguments)
+    assert f"on 'origin' a file with hash {'b' * 40}" in e.value.msg
+    assert f"in the local registry a file with hash {'a' * 40}" in e.value.msg
+    # Pulled, 'here' is the remote and 'there' the local registry
+    with pytest.raises(fdp_exc.RegistryError, match="Nothing was pulled") as e:
+        fdp_sync.refuse_conflicts(*_arguments, pulling=True)
+    assert f"on 'origin' a file with hash {'a' * 40}" in e.value.msg
+    assert f"in the local registry a file with hash {'b' * 40}" in e.value.msg
+    assert "'fair registry install --directory" in e.value.hint
+
+
+@pytest.mark.faircli_sync
+def test_a_conflict_is_refused_by_sync_whatever_force_says(
+    mocker: pytest_mock.MockerFixture,
+):
+    _two_registries(mocker, {"here": ("file", "a" * 40), "there": ("file", "b" * 40)})
+    _records = mocker.patch("fair.registry.sync.sync_dependency_chain")
+    with pytest.raises(fdp_exc.RegistryError, match="Nothing was pushed"):
+        fdp_sync.sync_data_products(
+            origin_uri="here",
+            dest_uri="there",
+            dest_token="",
+            origin_token="",
+            remote_label="origin",
+            data_products=["PSU:x@v1.0.0"],
+            force=True,
+        )
+    _records.assert_not_called()
+
+
+@pytest.mark.faircli_sync
+def test_push_and_pull_refuse_a_name_held_with_another_file(
+    global_config: str,
+    local_registry: RegistryTest,
+    remote_registry: RegistryTest,
+    pyDataPipeline: str,
+    fair_bucket: MotoTestServer,
+    mocker: pytest_mock.MockerFixture,
+    tmp_path,
+):
+    # The remote holds a data product with one file; the local registry
+    # registers another file under the same namespace, name and version
+    _name = f"conflict/{uuid.uuid4().hex[:8]}"
+    _theirs = os.path.join(tmp_path, "theirs.csv")
+    _ours = os.path.join(tmp_path, "ours.csv")
+    with open(_theirs, "wb") as out_f:
+        out_f.write(b"the remote's,file\n")
+    with open(_ours, "wb") as out_f:
+        out_f.write(b"another,file\n")
+    _their_hash = fdp_store.calculate_file_hash(_theirs)
+    _our_hash = fdp_store.calculate_file_hash(_ours)
+    _cfg = {
+        "run_metadata": {"description": "Another file", "script": "echo done"},
+        "register": [
+            {"namespace": "PSU", "full_name": "Pennsylvania State University"},
+            {
+                "external_object": _name,
+                "namespace_name": "PSU",
+                "root": f"file://{tmp_path}{os.path.sep}",
+                "path": "ours.csv",
+                "title": f"Another file {_name}",
+                "identifier": "https://doi.org/10.1038/s41592-020-0856-2",
+                "file_type": "csv",
+                "release_date": "2021-09-20T12:00",
+                "version": "1.0.0",
+                "primary": False,
+            },
+        ],
+    }
+    _cfg_path = os.path.join(tmp_path, "ours.yaml")
+    with open(_cfg_path, "w") as f:
+        yaml.dump(_cfg, f, sort_keys=False)
+
+    _cli_runner = click.testing.CliRunner()
+    with remote_registry, local_registry, fair_bucket:
+        mocker.patch(
+            "fair.configuration.get_current_user_remote_user",
+            lambda *args, **kwargs: "admin",
+        )
+        _token = remote_registry._token
+        _root = fdp_req.post_else_get(
+            _DEST,
+            "storage_root",
+            _token,
+            data={"root": f"file://{tmp_path}{os.path.sep}", "local": False},
+        )
+        _location = fdp_req.post(
+            _DEST,
+            "storage_location",
+            _token,
+            data={
+                "path": "theirs.csv",
+                "hash": _their_hash,
+                "public": True,
+                "storage_root": _root,
+            },
+        )
+        _object = fdp_req.post(
+            _DEST,
+            "object",
+            _token,
+            data={"description": "The remote's", "storage_location": _location["url"]},
+        )
+        _namespace = fdp_req.post_else_get(
+            _DEST, "namespace", _token, data={"name": "PSU"}, params={"name": "PSU"}
+        )
+        fdp_req.post(
+            _DEST,
+            "data_product",
+            _token,
+            data={
+                "name": _name,
+                "version": "1.0.0",
+                "namespace": _namespace,
+                "object": _object["url"],
+            },
+        )
+
+        # Registered here: a pull fetches nothing it registers
+        _res = _cli_runner.invoke(cli, ["pull", _cfg_path])
+        assert _res.exit_code == 0, _res.output
+
+        _res = _cli_runner.invoke(cli, ["add", f"PSU:{_name}@v1.0.0"])
+        assert _res.exit_code == 0, _res.output
+        _res = _cli_runner.invoke(cli, ["push"])
+        assert _res.exit_code != 0
+        assert "Nothing was pushed" in _res.output, _res.output
+        assert _their_hash in _res.output and _our_hash in _res.output
+
+        # Read from there, it is refused too
+        _read_path = os.path.join(tmp_path, "read.yaml")
+        with open(_read_path, "w") as f:
+            yaml.dump(
+                {
+                    "run_metadata": {"description": "Reads it", "script": "echo"},
+                    "read": [
+                        {
+                            "data_product": _name,
+                            "use": {"namespace": "PSU", "version": "1.0.0"},
+                        }
+                    ],
+                },
+                f,
+            )
+        _res = _cli_runner.invoke(cli, ["pull", _read_path])
+        assert _res.exit_code != 0
+        assert "Nothing was pulled" in _res.output, _res.output
+        assert _their_hash in _res.output and _our_hash in _res.output
+
+        # The remote's is as it was
+        _held = get(_DEST, "data_product", _token, params={"name": _name})
+        assert len(_held) == 1
+        _held_object = fdp_req.url_get(_held[0]["object"], _token)
+        assert (
+            fdp_req.url_get(_held_object["storage_location"], _token)["hash"]
+            == _their_hash
+        )
+
+
+@pytest.mark.faircli_sync
+def test_a_file_missing_from_the_destination_is_named(
+    mocker: pytest_mock.MockerFixture,
+):
+    _urls = {
+        "origin_object": {"storage_location": "origin_location"},
+        "origin_location": {"hash": "c" * 40},
+    }
+    mocker.patch(
+        "fair.registry.requests.url_get", lambda url, *args, **kwargs: _urls[url]
+    )
+    mocker.patch("fair.registry.requests.get", lambda *args, **kwargs: [])
+    with pytest.raises(fdp_exc.RegistryError, match="c" * 40) as e:
+        fdp_sync.get_dest_object_url("origin_object", "dest", "", "")
+    assert "'fair add" in e.value.hint

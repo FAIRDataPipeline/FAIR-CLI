@@ -392,6 +392,25 @@ class FAIR:
         if not _staged_code_runs:
             click.echo("No Staged Code Runs to Push.")
 
+        # Every data product the push would send is looked at first, so that a
+        # refusal leaves the remote as it was
+        _staged_and_used = list(_staged_data_products)
+        for _used in fdp_sync.code_run_data_products(
+            fdp_conf.get_local_uri(), fdp_req.local_token(), _staged_code_runs
+        ):
+            if _used not in _staged_and_used:
+                _staged_and_used.append(_used)
+        fdp_sync.refuse_conflicts(
+            origin_uri=fdp_conf.get_local_uri(),
+            dest_uri=fdp_conf.get_remote_uri(self._session_loc, remote),
+            origin_token=fdp_req.local_token(),
+            dest_token=fdp_conf.get_remote_token(
+                self._session_loc, remote, local=self._local
+            ),
+            data_products=_staged_and_used,
+            remote_label=remote,
+        )
+
         remote_author_url = fdp_sync.sync_author(
             origin_uri=fdp_conf.get_local_uri(),
             dest_uri=fdp_conf.get_remote_uri(self._session_loc, remote),
@@ -501,6 +520,19 @@ class FAIR:
         # case whereby no remote has been setup and we just want to register
         # items on the local registry
         if _readables:
+            # Looked at first, so that a refusal leaves the local registry as
+            # it was
+            fdp_sync.refuse_conflicts(
+                origin_uri=fdp_conf.get_remote_uri(self._session_loc, remote),
+                dest_uri=fdp_conf.get_local_uri(),
+                origin_token=fdp_conf.get_remote_token(
+                    self._session_loc, remote, local=self._local
+                ),
+                dest_token=fdp_req.local_token(),
+                data_products=_readables,
+                remote_label=remote,
+                pulling=True,
+            )
             fdp_sync.sync_data_products(
                 origin_uri=fdp_conf.get_remote_uri(self._session_loc, remote),
                 dest_uri=fdp_conf.get_local_uri(),
