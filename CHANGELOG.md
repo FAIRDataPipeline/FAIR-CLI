@@ -1,5 +1,15 @@
 # Unreleased
 
+## Added
+- `fair registry clean` deletes the files in the local registry's data stores that it does not hold. It works only
+  while the registry is stopped, asks first (`--yes` answers for you), lists what it would delete with `--dry-run`,
+  and keeps the files a run in progress could still be writing unless given `--delete-all`.
+- `fair registry reset` empties the local registry, deleting every record in it and keeping its install, after
+  asking (`--yes`). It starts the registry again if it was running, registers the file types and, in a project, its
+  user again, and clears the project's staging; `--delete-files` deletes every file in the data stores too.
+- While `fair registry clean` or `reset` runs, every other command that would start, stop or use the registry is
+  refused, naming it, and `fair registry status` names it.
+
 ## Fixed
 - `fair log` stopped with "Cannot open log for job" at the first job another repository had run with the same data
   store, which every project on a machine shares by default. It now lists this repository's jobs, then says how many

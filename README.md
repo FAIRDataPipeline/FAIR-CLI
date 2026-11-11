@@ -338,6 +338,24 @@ fair registry install --directory ~/.fair/my_registry --version v1.4.0
 ```
 To replace a registry that is already installed, see [Upgrading and reinstalling](#upgrading-and-reinstalling).
 
+The data stores can come to hold files that the registry does not - a file put there by hand, or an output of a run that failed before it was registered. To delete them:
+
+```sh
+fair registry clean
+```
+
+It works only while the registry is stopped and no command is using it, so that no run is writing to a store, and asks before deleting anything (`--yes` answers for you). `--dry-run` lists what it would delete and deletes nothing. It keeps the files a run in progress could still be writing - outputs named `dat-...` or by their hash, and everything under a store's `jobs/` - unless given `--delete-all`. A data store here is every folder on this machine that the registry holds files in; a code repository's folder in one is never touched, and a store that is your home folder, or a folder above it, is not cleaned.
+
+To empty the registry instead, deleting every record in it and keeping its install:
+
+```sh
+fair registry reset
+```
+
+It asks first (`--yes` answers for you), refuses while a command is using the registry, and starts the registry again if it was running. It registers the file types again and, run in a project, the project's user, and clears that project's staging; in each other project, `fair reset` unstages what it had staged. With `--delete-files` it deletes every file in the registry's data stores too, but a code repository's folder; without it they stay, and since an emptied registry knows no data stores, `fair registry clean` then finds nothing to delete.
+
+While `fair registry clean` or `fair registry reset` runs, every other command that would start, stop or use the registry is refused, naming it.
+
 ### `log`
 
 Runs are logged locally within the local FAIR repository. A full list of runs is shown by running:

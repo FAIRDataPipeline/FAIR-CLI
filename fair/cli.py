@@ -30,6 +30,7 @@ import fair.exceptions as fdp_exc
 import fair.history as fdp_hist
 import fair.registry.lifecycle as fdp_life
 import fair.registry.server as fdp_svr
+import fair.registry.stores as fdp_stores
 import fair.run as fdp_run
 import fair.session as fdp_session
 
@@ -453,6 +454,96 @@ def stop(force: bool, debug: bool) -> None:
     _mode = fdp_svr.SwitchMode.FORCE_STOP if force else fdp_svr.SwitchMode.USER_STOP
     try:
         fdp_session.FAIR(os.getcwd(), server_mode=_mode, debug=debug)
+    except fdp_exc.FAIRCLIException as e:
+        e.err_print()
+        if e.level.lower() != "warning":
+            sys.exit(e.exit_code)
+
+
+@registry.command()
+@click.option(
+    "--delete-all/--no-delete-all",
+    help="Also delete the files a run in progress could still be writing: outputs "
+    "named 'dat-...' or by their hash, and files under 'jobs/'",
+    default=False,
+)
+@click.option(
+    "--dry-run/--no-dry-run",
+    help="List what would be deleted, deleting nothing",
+    default=False,
+)
+@click.option("--yes/--no", help="Delete without asking", default=False)
+@click.option("--debug/--no-debug", help="Run in debug mode", default=False)
+def clean(delete_all: bool, dry_run: bool, yes: bool, debug: bool) -> None:
+    """Delete the files in the data stores that the local registry does not hold"""
+    try:
+        if debug:
+            logging.getLogger("FAIRDataPipeline").setLevel(logging.DEBUG)
+        fdp_stores.clean_stores(delete_all=delete_all, dry_run=dry_run, yes=yes)
+    except fdp_exc.FAIRCLIException as e:
+        e.err_print()
+        if e.level.lower() != "warning":
+            sys.exit(e.exit_code)
+
+
+@registry.command("reset")
+@click.option(
+    "--delete-files/--keep-files",
+    help="Also delete every file in the registry's data stores",
+    default=False,
+)
+@click.option("--yes/--no", help="Empty it without asking", default=False)
+@click.option("--debug/--no-debug", help="Run in debug mode", default=False)
+def registry_reset(delete_files: bool, yes: bool, debug: bool) -> None:
+    """Empty the local registry, deleting every record in it"""
+    try:
+        if debug:
+            logging.getLogger("FAIRDataPipeline").setLevel(logging.DEBUG)
+        _registry_dir = fdp_com.registry_home()
+        _what = (
+            f"empty the local registry installed in '{_registry_dir}', deleting "
+            "every record in it"
+            + (" and every file in its data stores" if delete_files else "")
+        )
+        if not yes:
+            if not sys.stdin.isatty():
+                raise fdp_exc.FAIRCLIException(
+                    f"There is no terminal to ask whether to {_what}",
+                    hint="Give '--yes' to empty it",
+                )
+            if not click.confirm(f"{_what[0].upper()}{_what[1:]}?", default=False):
+                return
+        _project = fdp_com.find_fair_root(os.getcwd()) or None
+        _result = fdp_svr.reset_registry(
+            registry_dir=_registry_dir, repo_dir=_project, delete_files=delete_files
+        )
+        click.echo(f"Emptied the local registry installed in '{_registry_dir}'")
+        if delete_files:
+            click.echo(
+                f"Deleted {_result['deleted']} file"
+                f"{'' if _result['deleted'] == 1 else 's'} from "
+                f"{len(_result['stores'])} data store"
+                f"{'' if len(_result['stores']) == 1 else 's'}"
+            )
+            for _path, _why in _result["failed"]:
+                click.echo(f"Warning: '{_path}' could not be deleted: {_why}", err=True)
+        if _result["restarted"]:
+            click.echo(
+                f"It is running again at {_result['restarted']}, until "
+                "'fair registry stop'"
+            )
+        if _project:
+            click.echo(
+                "This project's staging is cleared and its user registered "
+                "again. In each other project, run 'fair reset' to unstage what "
+                "it had staged."
+            )
+        else:
+            click.echo(
+                "In each project, run 'fair init', which registers its user "
+                "again, and 'fair reset', which unstages what it had staged, "
+                "before it next runs."
+            )
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
         if e.level.lower() != "warning":

@@ -14,6 +14,7 @@ Functions
 ---------
 
     check_server_running - confirm that the server is running locally
+    reset_registry - empty the local registry's database, keeping its install
 
 """
 
@@ -31,6 +32,7 @@ import sys
 import tempfile
 import time
 import typing
+import urllib.parse
 
 import git
 import requests
@@ -39,9 +41,12 @@ import yaml
 import fair.common as fdp_com
 import fair.configuration as fdp_conf
 import fair.exceptions as fdp_exc
+import fair.registry.database as fdp_db
 import fair.registry.lifecycle as fdp_life
 import fair.registry.requests as fdp_req
 import fair.registry.storage as fdp_store
+import fair.registry.stores as fdp_stores
+import fair.staging as fdp_stage
 import fair.utilities as fdp_util
 import fair.virtualenv as fdp_env
 
@@ -610,6 +615,113 @@ def uninstall_registry() -> None:
         raise fdp_exc.RegistryError(
             "Cannot uninstall registry, no local installation identified"
         )
+
+
+# The Python of an install's virtual environment
+def _install_python(registry_dir: str) -> str:
+    _bin, _exe = ("bin", "python")
+    if platform.system() == "Windows":
+        _bin, _exe = ("Scripts", "python.exe")
+    return os.path.join(registry_dir, "venv", _bin, _exe)
+
+
+# Whether an install's Python runs, with Django: a virtual environment whose
+# interpreter has been removed, as by an upgrade of the Python it was made
+# with, does not
+def _python_runs(python: str) -> bool:
+    try:
+        subprocess.run([python, "-c", "import django"], check=True, capture_output=True)
+    except (OSError, subprocess.CalledProcessError):
+        return False
+    return True
+
+
+def reset_registry(
+    registry_dir: str = None, repo_dir: str = None, delete_files: bool = False
+) -> typing.Dict[str, typing.Any]:
+    """Empty the local registry's database, keeping its install
+
+    Nothing is changed while a session uses the registry, while it runs on
+    another host, or while another process holds the install. A registry that
+    was running is started again, held by the user. The file types are
+    registered again, and, in a project, the project's user, whose staging is
+    cleared.
+
+    Parameters
+    ----------
+    registry_dir : str, optional
+        directory of the registry install, by default the configured one
+    repo_dir : str, optional
+        the project whose user is registered again and whose staging is
+        cleared, by default none
+    delete_files : bool, optional
+        also delete every file in the registry's data stores but its code
+        repositories' folders, by default False
+
+    Returns
+    -------
+    typing.Dict[str, typing.Any]
+        the endpoint the registry runs at again ("restarted", None where it
+        was not running), the files deleted ("deleted") and those that could
+        not be, each with why ("failed"), and the data stores ("stores")
+    """
+    registry_dir = registry_dir or fdp_com.registry_home()
+    if not os.path.isdir(registry_dir):
+        raise fdp_exc.RegistryError(
+            f"No local registry is installed in '{registry_dir}'",
+            hint="Install one with 'fair registry install'",
+        )
+    _python = _install_python(registry_dir)
+    _result = {"restarted": None, "deleted": 0, "failed": [], "stores": []}
+    with fdp_life.held(registry_dir, "fair registry reset"):
+        _stopped = fdp_life.stop_for_removal(registry_dir)
+        # The stores are read before the database that names them is emptied
+        _stores = fdp_db.local_stores(registry_dir) if delete_files else []
+        # Its environment is checked before anything is deleted
+        if not _python_runs(_python):
+            raise fdp_exc.RegistryError(
+                f"The registry installed in '{registry_dir}' cannot run its "
+                f"Python, '{_python}', so its database is left as it is",
+                hint="Build its environment again with 'fair registry upgrade', "
+                "then try again",
+            )
+        try:
+            rebuild_local(_python, registry_dir, silent=True)
+        except subprocess.CalledProcessError as e:
+            raise fdp_exc.RegistryError(
+                f"The database of the registry installed in '{registry_dir}' "
+                f"could not be built again: {e}",
+                hint="Install the registry again with 'fair registry install "
+                "--force'",
+            ) from e
+        if os.path.exists(os.path.join(registry_dir, "token")):
+            os.remove(os.path.join(registry_dir, "token"))
+        _write_missing_token(registry_dir)
+        if delete_files:
+            for _store in _stores:
+                _store["registered"] = set()
+            _found = fdp_stores.find_files(_stores, delete_all=True)
+            _result["failed"] = fdp_stores.delete_files(
+                _found["delete"], _found["stores"]
+            )
+            _result["deleted"] = len(_found["delete"]) - len(_result["failed"])
+            _result["stores"] = _found["stores"]
+        if _stopped:
+            _parsed = urllib.parse.urlparse(_stopped)
+            _result["restarted"] = fdp_life.start_for_user(
+                port=_parsed.port or 8000,
+                address=_parsed.hostname or "127.0.0.1",
+                registry_dir=registry_dir,
+            )
+        if repo_dir:
+            update_registry_post_setup(repo_dir, True, registry_dir)
+            fdp_stage.Stager(repo_dir).clear()
+        else:
+            with fdp_life.session(registry_dir):
+                fdp_store.populate_file_type(
+                    fdp_conf.get_local_uri(), fdp_req.local_token(registry_dir)
+                )
+    return _result
 
 
 def update_registry_post_setup(

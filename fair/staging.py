@@ -91,6 +91,10 @@ class Stager:
                 _staging_dict[obj_type][item] = False
         yaml.dump(_staging_dict, open(self._staging_file, "w"))
 
+    def clear(self) -> None:
+        """Stop tracking every item, staged or not"""
+        self._create_staging_file()
+
     def add_to_staging(self, identifier: str, item_type: str) -> None:
         """Add an item to tracking
 

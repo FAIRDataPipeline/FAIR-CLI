@@ -328,6 +328,13 @@ class FAIR:
         self._session_config.close_log()
 
     def registry_status(self):
+        _hold = fdp_life.current_hold(fdp_com.registry_home())
+        if _hold:
+            click.echo(
+                f"Held by '{_hold.get('command')}', process {_hold.get('pid')} "
+                f"on '{_hold.get('host')}' since {_hold.get('started')}: nothing "
+                "else starts, stops or uses the registry until it finishes"
+            )
         if not os.path.isdir(fdp_com.registry_home()):
             click.echo("Server is not running")
             return
