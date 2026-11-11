@@ -1,6 +1,9 @@
+import http.server
 import json
 import os
+import socket
 import tempfile
+import threading
 
 import pytest
 import pytest_mock
@@ -430,3 +433,59 @@ def test_a_search_keeps_false_and_zero(mocker: pytest_mock.MockerFixture):
         params={"public": False, "count": 0, "none": None, "empty": "", "list": []},
     )
     assert _access.call_args.kwargs["params"] == {"public": False, "count": 0}
+
+
+@pytest.mark.faircli_requests
+@pytest.mark.parametrize(
+    "url, bypassed",
+    [
+        ("http://127.0.0.1:8000/api/", True),
+        ("http://127.1.2.3:8000/api/", True),
+        ("http://localhost:8001/api/", True),
+        ("http://[::1]:8000/api/", True),
+        ("https://data.fairdatapipeline.org/api/", False),
+        ("http://10.0.0.2:8000/api/", False),
+    ],
+)
+def test_a_request_to_this_machine_takes_no_proxy(url: str, bypassed: bool):
+    _proxies = fdp_req.proxies_for(url)
+    if bypassed:
+        assert _proxies == {"http": None, "https": None, "all": None}
+    else:
+        assert _proxies == {}
+
+
+# A registry on this machine that answers every listing with one row
+class _OneRow(http.server.BaseHTTPRequestHandler):
+    def do_GET(self):
+        _body = json.dumps({"next": None, "results": [{"name": "row"}]}).encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(_body)))
+        self.end_headers()
+        self.wfile.write(_body)
+
+    def log_message(self, *args):
+        pass
+
+
+@pytest.mark.faircli_requests
+def test_the_local_registry_is_reached_past_an_environment_proxy(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    # A proxy nothing answers at, as a cluster's would be from here
+    with socket.socket() as _closed:
+        _closed.bind(("127.0.0.1", 0))
+        _proxy = f"http://127.0.0.1:{_closed.getsockname()[1]}"
+    for _variable in ("http_proxy", "https_proxy", "all_proxy"):
+        monkeypatch.setenv(_variable, _proxy)
+    monkeypatch.delenv("no_proxy", raising=False)
+    monkeypatch.delenv("NO_PROXY", raising=False)
+    _server = http.server.HTTPServer(("127.0.0.1", 0), _OneRow)
+    threading.Thread(target=_server.serve_forever, daemon=True).start()
+    try:
+        _uri = f"http://127.0.0.1:{_server.server_address[1]}/api/"
+        assert fdp_req.get(_uri, "data_product", "token") == [{"name": "row"}]
+    finally:
+        _server.shutdown()
+        _server.server_close()

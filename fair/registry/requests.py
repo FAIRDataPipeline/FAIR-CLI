@@ -14,12 +14,14 @@ Contents
     post          - post to the registry RestAPI
     get           - retrieve from the registry RestAPI
     post_else_get - if an item already exists retrieve it, else create it
+    proxies_for   - the proxies a request to a URL takes
 
 """
 
 __date__ = "2021-07-02"
 
 import copy
+import ipaddress
 import json
 import logging
 import traceback
@@ -42,6 +44,38 @@ from urllib3.exceptions import InsecureRequestWarning
 from fake_useragent import UserAgent
 
 logger = logging.getLogger("FAIRDataPipeline.Requests")
+
+# The proxies of a request sent to no proxy, whatever the environment names:
+# 'requests' takes 'all_proxy' as well as the scheme's own
+_NO_PROXIES = {"http": None, "https": None, "all": None}
+
+
+def proxies_for(url: str) -> typing.Dict[str, typing.Optional[str]]:
+    """Return the proxies a request to a URL takes
+
+    A request to this machine - a loopback address, or 'localhost' - takes
+    none, as a proxy elsewhere cannot reach it, where 'requests' would send it
+    to any proxy the environment names that 'no_proxy' does not exempt. Any
+    other takes the environment's.
+
+    Parameters
+    ----------
+    url : str
+        the URL requested
+
+    Returns
+    -------
+    typing.Dict[str, typing.Optional[str]]
+        the proxies, to give a request as its 'proxies'
+    """
+    _host = urllib.parse.urlparse(url).hostname or ""
+    if _host == "localhost":
+        return dict(_NO_PROXIES)
+    try:
+        _loopback = ipaddress.ip_address(_host).is_loopback
+    except ValueError:
+        _loopback = False
+    return dict(_NO_PROXIES) if _loopback else {}
 
 
 def split_api_url(request_url: str, splitter: str = "api") -> typing.Tuple[str]:
@@ -99,7 +133,10 @@ def _later_pages(
             _next = urllib.parse.urlparse(page["next"])
             _cursor = urllib.parse.parse_qs(_next.query)["cursor"][0]
             _request = requests.get(
-                url, headers=headers, params={**params, "cursor": _cursor}
+                url,
+                headers=headers,
+                params={**params, "cursor": _cursor},
+                proxies=proxies_for(url),
             )
             _status = _request.status_code
             page = _request.json()
@@ -151,19 +188,28 @@ def _access(
 
     logger.debug("Sending request of type '%s': %s", method, _url)
 
+    _proxies = proxies_for(_url)
     try:
         if method == "get":
             logger.debug("Query parameters: %s", params)
-            _request = requests.get(_url, headers=_headers, params=params)
+            _request = requests.get(
+                _url, headers=_headers, params=params, proxies=_proxies
+            )
         elif method == "post":
             logger.debug("Post data: %s", data)
-            _request = requests.post(_url, headers=_headers, data=data)
+            _request = requests.post(
+                _url, headers=_headers, data=data, proxies=_proxies
+            )
         elif method == "patch":
             logger.debug("Patch data: %s", data)
             _headers.update({"Content-Type": "application/json"})
-            _request = requests.patch(_url, headers=_headers, data=json.dumps(data))
+            _request = requests.patch(
+                _url, headers=_headers, data=json.dumps(data), proxies=_proxies
+            )
         else:
-            _request = getattr(requests, method)(_url, headers=_headers)
+            _request = getattr(requests, method)(
+                _url, headers=_headers, proxies=_proxies
+            )
     except requests.exceptions.ConnectionError as e:
         raise fdp_exc.UnexpectedRegistryServerState(
             f"Failed to make registry API request '{_url}'",
@@ -534,7 +580,9 @@ def put_file(upload_url: str, file_loc: str) -> bool:
     # would not state a length, which an object store insists on
     with open(file_loc, mode="rb") as _file:
         _req = s.put(
-            upload_url, data=_file if os.path.getsize(file_loc) else b""
+            upload_url,
+            data=_file if os.path.getsize(file_loc) else b"",
+            proxies=proxies_for(upload_url),
         )
     if _req.status_code not in [200, 201]:
         raise fdp_exc.RegistryError(
@@ -594,6 +642,7 @@ def download_file(url: str, chunk_size: int = 1024 * 1024) -> str:
                 verify=False,
                 headers=headers,
                 stream=True,
+                proxies=proxies_for(url),
             )
         except Exception as e:
             os.remove(_fname)

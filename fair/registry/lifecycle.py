@@ -372,7 +372,9 @@ def _session_is_live(
 # None where nothing answers there, False where something else does
 def _server_here(registry_dir: str, uri: str) -> typing.Optional[bool]:
     try:
-        _response = requests.get(uri, timeout=fdp_serv.REQUEST_SECONDS)
+        _response = requests.get(
+            uri, timeout=fdp_serv.REQUEST_SECONDS, proxies=fdp_req.proxies_for(uri)
+        )
     except requests.exceptions.ReadTimeout as e:
         raise fdp_exc.RegistryError(
             f"Something at '{uri}' accepts connections and does not answer",

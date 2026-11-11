@@ -104,7 +104,9 @@ def check_server_running(local_uri: str = None) -> bool:
     logger.debug("Checking if server is running on '%s'", local_uri)
 
     try:
-        _status_code = requests.get(local_uri, timeout=REQUEST_SECONDS).status_code
+        _status_code = requests.get(
+            local_uri, timeout=REQUEST_SECONDS, proxies=fdp_req.proxies_for(local_uri)
+        ).status_code
         assert _status_code == 200
         return True
     except (
@@ -122,6 +124,7 @@ def _accepts_token(uri: str, token: str) -> bool:
         f"{uri}users/",
         headers={"Authorization": f"token {token}"},
         timeout=REQUEST_SECONDS,
+        proxies=fdp_req.proxies_for(uri),
     )
     return _response.status_code not in (401, 403)
 
@@ -134,6 +137,7 @@ def _refuse_failing(uri: str, registry_dir: str) -> None:
         f"{uri}users/",
         headers={"Authorization": f"token {_token}"},
         timeout=REQUEST_SECONDS,
+        proxies=fdp_req.proxies_for(uri),
     )
     if _response.status_code == 500:
         raise fdp_exc.RegistryError(

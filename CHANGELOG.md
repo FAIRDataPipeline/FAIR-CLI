@@ -1,6 +1,9 @@
 # Unreleased
 
 ## Changed behaviour
+- `fair run`, and `fair run --ci` or `--rehearse`, refuse a configuration whose `run_metadata` has no `description`,
+  or a blank one, before anything is registered: the registry requires one of every code run, so the run's API
+  failed later. `fair pull` needs none.
 - `fair run` and `fair pull` refuse a name that a `write:` or `register:` entry would register, and that does not keep
   to the naming convention, before anything is registered, naming the entry: a namespace holds ASCII letters,
   digits, `_` and `-`; a data product's name is such parts joined by single `/`, which may hold `.` but not start or
@@ -23,6 +26,9 @@
   stop or use the registry is refused, naming it, and `fair registry status` names it.
 
 ## Fixed
+- With a web proxy set in the environment (`http_proxy`, `https_proxy` or `all_proxy`), every request to the local
+  registry went to the proxy, so commands failed, naming the registry's token or another server. Requests to this
+  machine now go to it directly; those to a remote registry and to identifier services still take the proxy.
 - `fair add` failed unless the local registry was already running; it now starts it, and stops it after if it started
   it. `fair add ""` staged an empty name, and is now refused.
 - A search of a registry dropped a filter set to `false` or `0`, and so found everything.

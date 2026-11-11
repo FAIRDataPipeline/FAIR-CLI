@@ -165,7 +165,7 @@ def test_wildcard_unpack_local(
 
         _split_key = _path.split("/")[-1]
 
-        # Each '*' matches one segment of a name; the example data products
+        # Each '*' matches within one segment of a name; the example data products
         # have several names two segments below this one, in one namespace
         _wildcard_path = _path.split(_split_key)[0] + "*/*"
         _namespace = _namespace_of_matches(local_registry, _wildcard_path)
@@ -228,7 +228,7 @@ def test_wildcard_unpack_remote(
 
         _split_key = _path.split("/")[-1]
 
-        # Each '*' matches one segment of a name; the example data products
+        # Each '*' matches within one segment of a name; the example data products
         # have several names two segments below this one, in one namespace
         _wildcard_path = _path.split(_split_key)[0] + "*/*"
         _namespace = _namespace_of_matches(remote_registry, _wildcard_path)
@@ -820,6 +820,11 @@ def test_update_from_fair_without_git_remote(
         ("a/*/c", "a/b/c", True),
         ("a/*/c", "a/b/d/c", False),
         ("a.b/*", "aXb/1", False),
+        # Part of a segment
+        ("a/b_*", "a/b_01", True),
+        ("a/b_*", "a/b_", False),
+        ("a/*_x", "a/b_x/c", False),
+        ("CaseStudy/*/Hold/State_*", "CaseStudy/50km/Hold/State_01", True),
         # A pattern never matches itself, nor a name the registry refuses
         ("era5/t2m/*", "era5/t2m/*", False),
         ("era5/t2m/*", "era5/t2m/[1]", False),
@@ -832,7 +837,7 @@ def test_matches_wildcard(pattern: str, name: str, matches: bool):
 @pytest.mark.faircli_user_config
 def test_wildcard_write(mocker: pytest_mock.MockerFixture):
     # Registered: a/1 at 0.0.1, and a/thing/1 at 2.0.0, which the registry's
-    # own filter matches to 'a/*' but a wildcard (one segment) does not
+    # own filter matches to 'a/*' but a wildcard (within one segment) does not
     _products = [
         {"name": "a/1", "version": "0.0.1", "namespace": "ns_url"},
         {"name": "a/thing/1", "version": "2.0.0", "namespace": "ns_url"},
@@ -1351,3 +1356,36 @@ def test_a_bad_data_product_name_is_refused_before_anything_is_registered(
     with pytest.raises(fdp_exc.UserConfigError, match="'bad name'"):
         _config.prepare(fdp_com.CMD_MODE.PULL)
     _after.assert_not_called()
+
+
+@pytest.mark.faircli_user_config
+@pytest.mark.parametrize("description", [None, "", "   "])
+@pytest.mark.parametrize("mode", [fdp_com.CMD_MODE.RUN, fdp_com.CMD_MODE.PASS])
+def test_a_run_with_no_description_is_refused_before_anything_is_registered(
+    mocker: pytest_mock.MockerFixture,
+    tmp_path,
+    description: typing.Optional[str],
+    mode: fdp_com.CMD_MODE,
+):
+    mocker.patch("fair.common.default_jobs_dir", lambda *args: str(tmp_path))
+    _config = fdp_user.JobConfiguration()
+    _config._config = {"run_metadata": {"description": description}}
+    _posting = mocker.patch.object(_config, "_update_namespaces")
+    with pytest.raises(fdp_exc.UserConfigError, match="no description") as e:
+        _config.prepare(mode)
+    assert "run_metadata: description:" in e.value.hint
+    _posting.assert_not_called()
+
+
+class _Reached(Exception):
+    """Raised by a stand-in to show a step was reached"""
+
+
+@pytest.mark.faircli_user_config
+def test_a_pull_needs_no_description(mocker: pytest_mock.MockerFixture, tmp_path):
+    mocker.patch("fair.common.default_jobs_dir", lambda *args: str(tmp_path))
+    _config = fdp_user.JobConfiguration()
+    _config._config = {"run_metadata": {}}
+    mocker.patch.object(_config, "_update_namespaces", side_effect=_Reached)
+    with pytest.raises(_Reached):
+        _config.prepare(fdp_com.CMD_MODE.PULL)

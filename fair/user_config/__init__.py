@@ -395,6 +395,18 @@ class JobConfiguration(MutableMapping):
 
         return _new_register_block
 
+    # Refuse a run with no description, before anything is registered: the
+    # registry requires one of every code run, so no API could record the run
+    def _check_description(self) -> None:
+        _description = (self._config.get("run_metadata") or {}).get("description")
+        if _description is None or not str(_description).strip():
+            raise fdp_exc.UserConfigError(
+                "The run has no description: the registry requires one of every "
+                "code run",
+                hint="Describe it in 'run_metadata: description:' of the "
+                "configuration file",
+            )
+
     # Refuse a namespace a 'register:' entry gives that does not keep to the
     # naming convention, before any is registered
     def _check_new_namespaces(self) -> None:
@@ -861,6 +873,8 @@ class JobConfiguration(MutableMapping):
             return os.path.join(self._job_dir, fdp_com.USER_CONFIG_FILE)
 
         self._logger.debug("Preparing configuration")
+        if job_mode in (CMD_MODE.RUN, CMD_MODE.PASS):
+            self._check_description()
         self._check_new_namespaces()
         self._update_namespaces()
 
