@@ -47,6 +47,9 @@
   input of a pushed run, or an input of another such run. The warning names the `fair add` command that would send it.
 
 ## Fixed
+- `fair push` took time growing with the square of the number of data products a code run read: about 23 hours for a
+  run that read 600. A push now sends or checks each data product once, and links each code run once, after the data
+  products are sent. A push that fails links the runs of what it sent before the failure.
 - A code run that read or wrote a named part (a component) of a data product could not be pushed. The push failed
   with "Failed to access component ... on remote registry". A run is now recorded on the remote as reading and
   writing the parts it did. Before, a run pushed by itself was given every part of each file it used.

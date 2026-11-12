@@ -2844,6 +2844,137 @@ def test_push_sends_a_run_by_itself_with_what_it_read(
         assert (_release["name"], _release["version"]) == (_name, "1.0.0")
 
 
+# Data products registered as one run's outputs, each with a file of its own,
+# their whole-object components in order
+def _written(token: str, name: str, count: int) -> typing.List[str]:
+    return [
+        _registered_data_product(
+            token, f"{name}/{_i}", f"{name} {_i}\n".encode()
+        )["components"][0]
+        for _i in range(count)
+    ]
+
+
+# A code run as the destination holds it
+def _run_there(token: str, run: str) -> typing.Dict[str, typing.Any]:
+    return get(_DEST, "code_run", token, params={"uuid": run})[0]
+
+
+# The data products a call of refuse_conflicts looked at
+def _looked_at(call) -> typing.List[str]:
+    if "data_products" in call.kwargs:
+        return call.kwargs["data_products"]
+    return call.args[4]
+
+
+@pytest.mark.faircli_sync
+@pytest.mark.dependency(depends=["run"])
+def test_a_push_handles_each_data_product_and_run_once(
+    global_config: str,
+    local_registry: RegistryTest,
+    remote_registry: RegistryTest,
+    pyDataPipeline: str,
+    fair_bucket: MotoTestServer,
+    mocker: pytest_mock.MockerFixture,
+):
+    # A run that wrote twenty data products and a run that read them all,
+    # pushed by the first. Each data product is checked once and sent once,
+    # each run linked once, and no data product is sent inside the sending of
+    # another. Calls are counted, not requests, so a call grown dearer passes
+    _name = f"many/{uuid.uuid4().hex[:8]}"
+    _count = 20
+    _cli_runner = click.testing.CliRunner()
+    with remote_registry, local_registry, fair_bucket:
+        mocker.patch(
+            "fair.configuration.get_current_user_remote_user",
+            lambda *args, **kwargs: "admin",
+        )
+        _token = local_registry._token
+        _components = _written(_token, _name, _count)
+        _writer = _registered_run(_token, [], _components)
+        _reader = _registered_run(_token, _components, [])
+        _checks = mocker.spy(fdp_sync, "refuse_conflicts")
+        _links = mocker.spy(fdp_sync, "sync_code_run")
+        _depth = {"now": 0, "most": 0}
+        _sync_data_products = fdp_sync.sync_data_products
+
+        def _nested(*args, **kwargs):
+            _depth["now"] += 1
+            _depth["most"] = max(_depth["most"], _depth["now"])
+            try:
+                return _sync_data_products(*args, **kwargs)
+            finally:
+                _depth["now"] -= 1
+
+        mocker.patch("fair.registry.sync.sync_data_products", _nested)
+
+        _res = _push(_cli_runner, _writer)
+        assert _res.exit_code == 0, _res.output
+        _checked = collections.Counter(
+            _product
+            for _call in _checks.call_args_list
+            for _product in _looked_at(_call)
+        )
+        assert _checked == {
+            f"testing:{_name}/{_i}@v1.0.0": 1 for _i in range(_count)
+        }
+        assert collections.Counter(
+            _call.args[4] for _call in _links.call_args_list
+        ) == {_writer: 1, _reader: 1}
+        assert _depth["most"] == 1
+        _remote_token = remote_registry._token
+        _outputs = _run_there(_remote_token, _writer)["outputs"]
+        assert len(_outputs) == _count
+        assert sorted(_run_there(_remote_token, _reader)["inputs"]) == sorted(
+            _outputs
+        )
+
+
+@pytest.mark.faircli_sync
+@pytest.mark.dependency(depends=["run"])
+def test_a_push_that_fails_links_what_it_sent(
+    global_config: str,
+    local_registry: RegistryTest,
+    remote_registry: RegistryTest,
+    pyDataPipeline: str,
+    fair_bucket: MotoTestServer,
+    mocker: pytest_mock.MockerFixture,
+):
+    # Three data products of one run, pushed without the run, the third's
+    # file refused. The run is linked with the two sent; pushed again, with all
+    # three
+    _name = f"failed/{uuid.uuid4().hex[:8]}"
+    _cli_runner = click.testing.CliRunner()
+    with remote_registry, local_registry, fair_bucket:
+        mocker.patch(
+            "fair.configuration.get_current_user_remote_user",
+            lambda *args, **kwargs: "admin",
+        )
+        _token = local_registry._token
+        _components = _written(_token, _name, 3)
+        _writer = _registered_run(_token, [], _components)
+        _refused = fdp_req.url_get(_components[2], _token)["object"]
+        _upload_object = fdp_sync.upload_object
+
+        def _refusing(*args):
+            if args[4] == _refused:
+                raise fdp_exc.SynchronisationError("Refused", error_code=1)
+            return _upload_object(*args)
+
+        mocker.patch("fair.registry.sync.upload_object", _refusing)
+        _products = [f"testing:{_name}/{_i}@v1.0.0" for _i in range(3)]
+
+        _res = _push(_cli_runner, *_products)
+        assert _res.exit_code != 0, _res.output
+        _remote_token = remote_registry._token
+        assert len(_run_there(_remote_token, _writer)["outputs"]) == 2
+
+        mocker.patch("fair.registry.sync.upload_object", _upload_object)
+        _res = _push(_cli_runner, *_products)
+        assert _res.exit_code == 0, _res.output
+        assert len(_run_there(_remote_token, _writer)["outputs"]) == 3
+
+
 @pytest.mark.faircli_sync
 @pytest.mark.dependency(depends=["run"])
 def test_push_sends_an_issue_on_two_data_products_pushed_apart(

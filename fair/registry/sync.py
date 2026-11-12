@@ -17,6 +17,7 @@ Functions
 __date__ = "2021-08-05"
 
 import collections
+import contextlib
 import logging
 import os
 import re
@@ -572,6 +573,189 @@ def get_new_author_url(
     )
 
 
+class PushContext:
+    """What one push or pull has done so far
+
+    Within one, each data product is sent, or found on the destination and
+    checked, once; and each code run that a push reaches is linked with its
+    inputs once, after the data products are sent.
+
+    Attributes
+    ----------
+    handled : typing.Set[str]
+        the data products sent or checked, each as 'namespace:name@vversion'
+    dest_components : typing.Dict[str, str]
+        the destination's component for each origin component looked up
+    to_link : typing.Dict[str, typing.Set[str]]
+        the code runs to link, by UUID, each with the origin components it
+        wrote that were sent and are not yet linked as its outputs
+    linked : typing.Set[str]
+        the code runs, by UUID, already linked with their inputs
+    waiting : typing.Set[typing.Tuple[str, str]]
+        the objects, by their URLs on the origin and the destination, whose
+        quality-control record waits for its document to be sent
+    """
+
+    def __init__(self) -> None:
+        self.handled: typing.Set[str] = set()
+        self.dest_components: typing.Dict[str, str] = {}
+        self.to_link: typing.Dict[str, typing.Set[str]] = {}
+        self.linked: typing.Set[str] = set()
+        self.waiting: typing.Set[typing.Tuple[str, str]] = set()
+
+
+@contextlib.contextmanager
+def push_context(
+    origin_uri: str,
+    dest_uri: str,
+    dest_token: str,
+    origin_token: str,
+    remote_label: str,
+    force: bool = False,
+) -> typing.Iterator[PushContext]:
+    """Hold the context of one push or pull, linking the runs it reached at the end
+
+    A push that fails still links what it sent before the failure, as far as
+    it can, and the failure is then raised. A quality-control record whose
+    document was sent after its object is sent at the end.
+
+    Parameters
+    ----------
+    origin_uri : str
+        origin data registry URL
+    dest_uri : str
+        destination data registry URL
+    dest_token : str
+        token for the destination data registry
+    origin_token : str
+        token for the origin data registry
+    remote_label : str
+        name of the remote registry, as messages name it
+    force : bool, optional
+        whether to send again a data product the destination holds with the
+        same contents, by default False
+    """
+    _context = PushContext()
+    _linking = (origin_uri, dest_uri, dest_token, origin_token, remote_label)
+    try:
+        yield _context
+    except Exception:
+        link_runs(*_linking, _context, force, best_effort=True)
+        raise
+    link_runs(*_linking, _context, force)
+    for _origin_object, _dest_object in sorted(_context.waiting):
+        sync_attached(
+            origin_uri,
+            dest_uri,
+            origin_token,
+            dest_token,
+            _origin_object,
+            _dest_object,
+        )
+
+
+# The destination's component for an origin component, looked up once in a
+# push
+def _dest_component(
+    context: PushContext,
+    origin_component_url: str,
+    dest_uri: str,
+    dest_token: str,
+    origin_token: str,
+) -> str:
+    if origin_component_url not in context.dest_components:
+        context.dest_components[origin_component_url] = get_dest_component_url(
+            origin_component_url, dest_uri, dest_token, origin_token
+        )
+    return context.dest_components[origin_component_url]
+
+
+def link_runs(
+    origin_uri: str,
+    dest_uri: str,
+    dest_token: str,
+    origin_token: str,
+    remote_label: str,
+    context: PushContext,
+    force: bool = False,
+    best_effort: bool = False,
+) -> None:
+    """Link each code run a push reached with what it read and wrote
+
+    A run is linked with its inputs once, any the destination lacks being sent
+    first, which may reach more runs, linked in turn; and with each output the
+    push sent.
+
+    Parameters
+    ----------
+    origin_uri : str
+        origin data registry URL
+    dest_uri : str
+        destination data registry URL
+    dest_token : str
+        token for the destination data registry
+    origin_token : str
+        token for the origin data registry
+    remote_label : str
+        name of the remote registry, as messages name it
+    context : PushContext
+        the push's context, naming the runs to link
+    force : bool, optional
+        whether to send again an input the destination holds with the same
+        contents, by default False
+    best_effort : bool, optional
+        pass over a run that cannot be linked, saying so, as after a push
+        that failed, by default False
+    """
+    while _uuid := next(
+        (
+            _pending
+            for _pending, _outputs in context.to_link.items()
+            if _outputs or _pending not in context.linked
+        ),
+        None,
+    ):
+        _outputs = context.to_link[_uuid]
+        context.to_link[_uuid] = set()
+        try:
+            _inputs = []
+            if _uuid not in context.linked:
+                context.linked.add(_uuid)
+                _code_run = fdp_req.get(
+                    origin_uri, "code_run", origin_token, params={"uuid": _uuid}
+                )[0]
+                _inputs = get_dest_inputs(
+                    _code_run["inputs"],
+                    origin_uri,
+                    dest_uri,
+                    dest_token,
+                    origin_token,
+                    remote_label,
+                    force,
+                    context=context,
+                )
+            sync_code_run(
+                origin_uri,
+                dest_uri,
+                dest_token,
+                origin_token,
+                _uuid,
+                inputs=_inputs,
+                outputs=[
+                    _dest_component(
+                        context, _component, dest_uri, dest_token, origin_token
+                    )
+                    for _component in sorted(_outputs)
+                ],
+            )
+        except Exception as e:
+            if not best_effort:
+                raise
+            logger.warning(
+                f"Code run {_uuid} was not linked on '{remote_label}': {e}"
+            )
+
+
 def sync_data_products(
     origin_uri: str,
     dest_uri: str,
@@ -582,6 +766,7 @@ def sync_data_products(
     local_data_store: str = None,
     force: bool = False,
     caches: typing.Dict[str, str] = None,
+    context: PushContext = None,
 ) -> None:
     """Transfer data products from one registry to another
 
@@ -606,8 +791,30 @@ def sync_data_products(
     caches : optional, typing.Dict[str, str]
         when pulling, a copy of a data product's file that the user holds,
         taken in place of the download, by data product as in data_products
+    context : optional, PushContext
+        the context of the push or pull this is part of, whose owner links the
+        runs reached; by default one of its own, the runs linked before this
+        returns
     """
+    if context is None:
+        with push_context(
+            origin_uri, dest_uri, dest_token, origin_token, remote_label, force
+        ) as _context:
+            return sync_data_products(
+                origin_uri,
+                dest_uri,
+                dest_token,
+                origin_token,
+                remote_label,
+                data_products,
+                local_data_store,
+                force,
+                caches,
+                context=_context,
+            )
     for data_product in data_products:
+        if data_product in context.handled:
+            continue
         namespace, name, version = re.split("[:@]", data_product)
 
         if _existing_namespace := fdp_req.get(
@@ -652,7 +859,9 @@ def sync_data_products(
                             "object"
                         ],
                         _existing[0]["object"],
+                        waiting=context.waiting,
                     )
+                    context.handled.add(data_product)
                     continue
 
         # Convert namespace name to an ID for retrieval
@@ -762,70 +971,36 @@ def sync_data_products(
             dest_token,
             result_object["url"],
             _dest_urls[result_object["url"]],
+            waiting=context.waiting,
         )
-        # Going from local to remote
+        context.handled.add(data_product)
+        # Going from local to remote, each run that read or wrote it is linked
+        # once every data product is sent, a writer with what it wrote that was
+        # sent. Linking here would walk a reading run's inputs again for each
+        # data product sent, sending the next inside the walk
         if not local_data_store:
             for origin_component_url in result_object["components"]:
-                origin_input_code_runs = fdp_req.get(
+                _component_id = fdp_req.get_obj_id_from_url(
+                    origin_component_url
+                )
+                for origin_input_code_run in fdp_req.get(
                     origin_uri,
                     "code_run",
                     origin_token,
-                    params={
-                        "inputs": fdp_req.get_obj_id_from_url(origin_component_url)
-                    },
-                )
-                for origin_input_code_run in origin_input_code_runs:
-                    dest_component_url = get_dest_component_url(
-                        origin_component_url, dest_uri, dest_token, origin_token
+                    params={"inputs": _component_id},
+                ):
+                    context.to_link.setdefault(
+                        origin_input_code_run["uuid"], set()
                     )
-                    dest_inputs = [dest_component_url]
-                    dest_inputs += get_dest_inputs(
-                        origin_input_code_run["inputs"],
-                        origin_uri,
-                        dest_uri,
-                        dest_token,
-                        origin_token,
-                        remote_label,
-                    )
-                    sync_code_run(
-                        origin_uri,
-                        dest_uri,
-                        dest_token,
-                        origin_token,
-                        origin_input_code_run["uuid"],
-                        inputs=dest_inputs,
-                    )
-
-                origin_output_code_runs = fdp_req.get(
+                for origin_output_code_run in fdp_req.get(
                     origin_uri,
                     "code_run",
                     origin_token,
-                    params={
-                        "outputs": fdp_req.get_obj_id_from_url(origin_component_url)
-                    },
-                )
-                for origin_output_code_run in origin_output_code_runs:
-                    dest_component_url = get_dest_component_url(
-                        origin_component_url, dest_uri, dest_token, origin_token
-                    )
-                    dest_inputs = get_dest_inputs(
-                        origin_output_code_run["inputs"],
-                        origin_uri,
-                        dest_uri,
-                        dest_token,
-                        origin_token,
-                        remote_label,
-                        force,
-                    )
-                    sync_code_run(
-                        origin_uri,
-                        dest_uri,
-                        dest_token,
-                        origin_token,
-                        origin_output_code_run["uuid"],
-                        inputs=dest_inputs,
-                        outputs=[dest_component_url],
-                    )
+                    params={"outputs": _component_id},
+                ):
+                    context.to_link.setdefault(
+                        origin_output_code_run["uuid"], set()
+                    ).add(origin_component_url)
         logger.info(f"Synced Data Product: {data_product}")
 
 
@@ -906,6 +1081,7 @@ def sync_attached(
     dest_token: str,
     origin_object_url: str,
     dest_object_url: str,
+    waiting: typing.Set[typing.Tuple[str, str]] = None,
 ) -> None:
     """Send the records that point at an object to its copy on another registry
 
@@ -932,6 +1108,11 @@ def sync_attached(
         URL of the object on the origin registry
     dest_object_url : str
         URL of the same object on the destination registry
+    waiting : typing.Set[typing.Tuple[str, str]], optional
+        where to add the two objects' URLs, saying nothing, if the
+        quality-control record's document is not on the destination, for a
+        caller that will send it later; by default it is left out with a
+        warning
     """
     _origin_id = fdp_req.get_obj_id_from_url(origin_object_url)
     _dest_id = fdp_req.get_obj_id_from_url(dest_object_url)
@@ -955,6 +1136,9 @@ def sync_attached(
                         _record["document"], dest_uri, dest_token, origin_token
                     )
                 except fdp_exc.RegistryError:
+                    if waiting is not None:
+                        waiting.add((origin_object_url, dest_object_url))
+                        continue
                     logger.warning(
                         "The quality-control record of '%s' is not sent to "
                         "'%s': its document is not there",
@@ -1101,6 +1285,7 @@ def sync_code_runs(
     code_runs: typing.List[str],
     local_data_store: str = None,
     force: bool = False,
+    context: PushContext = None,
 ) -> None:
     """Transfer data code_run(s) from one registry to another
 
@@ -1122,7 +1307,26 @@ def sync_code_runs(
         specified when pulling from remote registry to local
     force : optional, bool
         whether or not to force pusing of any data_products if they already exist on the registry, useful if a previous push failed
+    context : optional, PushContext
+        the context of the push this is part of, whose owner links the other
+        runs reached; by default one of its own, those runs linked before this
+        returns
     """
+    if context is None:
+        with push_context(
+            origin_uri, dest_uri, dest_token, origin_token, remote_label, force
+        ) as _context:
+            return sync_code_runs(
+                origin_uri,
+                dest_uri,
+                dest_token,
+                origin_token,
+                remote_label,
+                code_runs,
+                local_data_store,
+                force,
+                context=_context,
+            )
     for code_run_uuid in code_runs:
         _code_run = fdp_req.get(
             origin_uri, "code_run", origin_token, params={"uuid": code_run_uuid}
@@ -1148,17 +1352,22 @@ def sync_code_runs(
             _origin_data_products_formatted,
             local_data_store,
             force,
+            context=context,
         )
 
         # Each component the run read or wrote, as the destination names it.
         # One of an object with no data product was not sent, and is left out
         _dest_inputs = [
-            get_dest_component_url(_component, dest_uri, dest_token, origin_token)
+            _dest_component(
+                context, _component, dest_uri, dest_token, origin_token
+            )
             for _component in _coderun["inputs"]
             if get_data_products_from_component(_component, origin_token)
         ]
         _dest_outputs = [
-            get_dest_component_url(_component, dest_uri, dest_token, origin_token)
+            _dest_component(
+                context, _component, dest_uri, dest_token, origin_token
+            )
             for _component in _coderun["outputs"]
             if get_data_products_from_component(_component, origin_token)
         ]
@@ -1174,6 +1383,9 @@ def sync_code_runs(
             _dest_inputs,
             _dest_outputs,
         )
+        # Linked with everything it read and wrote
+        context.linked.add(code_run_uuid)
+        context.to_link[code_run_uuid] = set()
         logger.info(f"Synced Code Run: {code_run_uuid}")
 
 
@@ -1801,6 +2013,7 @@ def get_dest_inputs(
     origin_token: str,
     remote_label: str,
     force: bool = False,
+    context: PushContext = None,
 ) -> list:
     """Returns a list of input component urls on the destination registry
      from a given list of input component urls from the origin registry
@@ -1814,10 +2027,26 @@ def get_dest_inputs(
         origin_token (str): Origin Token
         remote_label (str): Remote label of the registry as define in the config yaml
         force (str): whether or not to force pusing of data_products when the already exist on the destination registry
+        context (PushContext, optional): the context of the push this is part of, whose owner links the runs
+            reached; by default one of its own, those runs linked before this returns
 
     Returns:
         list: A list of destination input component URLS
     """
+    if context is None:
+        with push_context(
+            origin_uri, dest_uri, dest_token, origin_token, remote_label, force
+        ) as _context:
+            return get_dest_inputs(
+                origin_inputs,
+                origin_uri,
+                dest_uri,
+                dest_token,
+                origin_token,
+                remote_label,
+                force,
+                context=_context,
+            )
     dest_inputs = []
     for origin_input in origin_inputs:
         component_data_products = get_data_products_from_component(
@@ -1832,9 +2061,12 @@ def get_dest_inputs(
                 remote_label,
                 format_data_product_list(component_data_products, origin_token),
                 force=force,
+                context=context,
             )
             dest_inputs.append(
-                get_dest_component_url(origin_input, dest_uri, dest_token, origin_token)
+                _dest_component(
+                    context, origin_input, dest_uri, dest_token, origin_token
+                )
             )
         else:
             sync_dependency_chain(

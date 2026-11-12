@@ -432,7 +432,9 @@ class FAIR:
             remote_user=fdp_conf.get_current_user_remote_user(self._session_loc),
         )
 
-        fdp_sync.sync_code_runs(
+        # One context for both, so that a data product is sent or checked once,
+        # and each run reached is linked once, after them
+        with fdp_sync.push_context(
             origin_uri=fdp_conf.get_local_uri(),
             dest_uri=fdp_conf.get_remote_uri(self._session_loc, remote),
             dest_token=fdp_conf.get_remote_token(
@@ -440,19 +442,30 @@ class FAIR:
             ),
             origin_token=fdp_req.local_token(),
             remote_label=remote,
-            code_runs=_staged_code_runs,
-        )
+        ) as _context:
+            fdp_sync.sync_code_runs(
+                origin_uri=fdp_conf.get_local_uri(),
+                dest_uri=fdp_conf.get_remote_uri(self._session_loc, remote),
+                dest_token=fdp_conf.get_remote_token(
+                    self._session_loc, remote, local=self._local
+                ),
+                origin_token=fdp_req.local_token(),
+                remote_label=remote,
+                code_runs=_staged_code_runs,
+                context=_context,
+            )
 
-        fdp_sync.sync_data_products(
-            origin_uri=fdp_conf.get_local_uri(),
-            dest_uri=fdp_conf.get_remote_uri(self._session_loc, remote),
-            dest_token=fdp_conf.get_remote_token(
-                self._session_loc, remote, local=self._local
-            ),
-            origin_token=fdp_req.local_token(),
-            remote_label=remote,
-            data_products=_staged_data_products,
-        )
+            fdp_sync.sync_data_products(
+                origin_uri=fdp_conf.get_local_uri(),
+                dest_uri=fdp_conf.get_remote_uri(self._session_loc, remote),
+                dest_token=fdp_conf.get_remote_token(
+                    self._session_loc, remote, local=self._local
+                ),
+                origin_token=fdp_req.local_token(),
+                remote_label=remote,
+                data_products=_staged_data_products,
+                context=_context,
+            )
 
         # Each run behind what was pushed that the remote does not hold is
         # named, with the command that would send it
