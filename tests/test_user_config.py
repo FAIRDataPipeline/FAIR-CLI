@@ -886,8 +886,7 @@ def test_wildcard_write(mocker: pytest_mock.MockerFixture):
     # As prepare() does
     _config._update_namespaces()
     _config._fill_all_block_types()
-    _config._expand_wildcards("http://127.0.0.1:8000/api/", "")
-    _config["write"] = _config._fill_versions("write")
+    _config._resolve_blocks(("http://127.0.0.1:8000/api/", ""))
     _config._config = _config._clean()
 
     _written = {
@@ -990,8 +989,7 @@ def _prepared_block(
     }
     _config._update_namespaces()
     _config._fill_all_block_types()
-    _config._expand_wildcards(remote_uri or _LOCAL, "")
-    _config[block_type] = _config._fill_versions(block_type, remote_uri, "")
+    _config._resolve_blocks((remote_uri or _LOCAL, ""), (remote_uri, ""))
     if block_type == "read":
         _config["read"] = _config._update_use_sections(_config["read"])
     # A block left with nothing in it is left out
@@ -1151,12 +1149,13 @@ def test_a_pattern_with_a_cache_is_refused():
     "use,expected",
     [
         # One entry for a name however many versions it has, and the pattern
-        # for names that are new
+        # for names that are new, all at one version: the highest of any
+        # match, bumped
         (
             {},
             [
                 ("testing", "fetched/era5/1940", "0.0.3"),
-                ("testing", "fetched/era5/1941", "0.0.2"),
+                ("testing", "fetched/era5/1941", "0.0.3"),
                 ("testing", "fetched/era5/*", "0.0.3"),
             ],
         ),
@@ -1164,7 +1163,7 @@ def test_a_pattern_with_a_cache_is_refused():
         (
             {"namespace": "other"},
             [
-                ("other", "fetched/era5/1999", "1.0.1"),
+                ("other", "fetched/era5/1999", "9.0.1"),
                 ("other", "fetched/era5/1940", "9.0.1"),
                 ("other", "fetched/era5/*", "9.0.1"),
             ],
@@ -1189,6 +1188,134 @@ def test_wildcard_write_namespace(
         ],
     )
     assert _used(_write) == expected
+
+
+# Two names under one pattern whose versions have drifted apart
+_DRIFTED = [
+    ("testing", "real/data/1", "0.0.1"),
+    ("testing", "real/data/2", "0.0.3"),
+]
+
+
+# Every name a 'write:' pattern matches is written at one version, so that a
+# name written again is never below another name under the pattern
+@pytest.mark.faircli_user_config
+@pytest.mark.parametrize(
+    "use,version",
+    [
+        ({}, "0.0.4"),
+        ({"version": "${{MINOR}}"}, "0.1.0"),
+        ({"version": "2.0.0"}, "2.0.0"),
+    ],
+)
+def test_wildcard_write_one_version(
+    mocker: pytest_mock.MockerFixture, use, version
+):
+    _mock_registries(mocker, {_LOCAL: _DRIFTED})
+    _write = _prepared_block(
+        "write",
+        [
+            {
+                "data_product": "real/data/*",
+                "file_type": "csv",
+                "use": dict(use),
+            }
+        ],
+    )
+    assert _used(_write) == [
+        ("testing", "real/data/2", version),
+        ("testing", "real/data/1", version),
+        ("testing", "real/data/*", version),
+    ]
+
+
+# A 'write:' entry of one name is written as it says, and a pattern that
+# matches the name gives it no entry; one in another namespace is another
+# data product
+@pytest.mark.faircli_user_config
+@pytest.mark.parametrize(
+    "namespace,expected",
+    [
+        (
+            "testing",
+            [
+                ("testing", "real/data/1", "0.0.2"),
+                ("testing", "real/data/2", "0.0.4"),
+                ("testing", "real/data/*", "0.0.4"),
+            ],
+        ),
+        (
+            "other",
+            [
+                ("other", "real/data/1", "0.0.1"),
+                ("testing", "real/data/2", "0.0.4"),
+                ("testing", "real/data/1", "0.0.4"),
+                ("testing", "real/data/*", "0.0.4"),
+            ],
+        ),
+    ],
+)
+def test_wildcard_write_leaves_a_named_entry(
+    mocker: pytest_mock.MockerFixture, namespace, expected
+):
+    _mock_registries(mocker, {_LOCAL: _DRIFTED}, {_LOCAL: ["other"]})
+    _write = _prepared_block(
+        "write",
+        [
+            {
+                "data_product": "real/data/1",
+                "file_type": "csv",
+                "use": {"namespace": namespace},
+            },
+            {"data_product": "real/data/*", "file_type": "csv"},
+        ],
+    )
+    assert _used(_write) == expected
+
+
+# Two 'write:' patterns that match one data product are refused, naming both;
+# patterns in two namespaces, or that share only names not yet registered,
+# are not
+@pytest.mark.faircli_user_config
+def test_wildcard_write_patterns_that_match_one_name(
+    mocker: pytest_mock.MockerFixture,
+):
+    _mock_registries(
+        mocker, {_LOCAL: _DRIFTED + [("other", "real/data/1", "0.0.1")]}
+    )
+
+    def _patterns(*entries) -> typing.List[typing.Tuple]:
+        return _used(
+            _prepared_block(
+                "write",
+                [
+                    {"data_product": name, "file_type": "csv", "use": use}
+                    for name, use in entries
+                ],
+            )
+        )
+
+    with pytest.raises(fdp_exc.UserConfigError) as e:
+        _patterns(("real/*/1", {}), ("real/data/*", {}))
+    assert "'real/*/1' and 'real/data/*'" in str(e.value)
+    assert "'testing:real/data/1'" in str(e.value)
+    assert "'real/data/1' a 'write:' entry of its own" in e.value.hint
+
+    assert _patterns(
+        ("real/*/1", {"namespace": "other"}), ("real/data/*", {})
+    ) == [
+        ("other", "real/data/1", "0.0.2"),
+        ("other", "real/*/1", "0.0.2"),
+        ("testing", "real/data/2", "0.0.4"),
+        ("testing", "real/data/1", "0.0.4"),
+        ("testing", "real/data/*", "0.0.4"),
+    ]
+    assert _patterns(("real/*/9", {}), ("real/data/*", {})) == [
+        ("testing", "real/*/9", "0.0.1"),
+        ("testing", "real/data/2", "0.0.4"),
+        ("testing", "real/data/1", "0.0.4"),
+        ("testing", "real/data/*", "0.0.4"),
+    ]
 
 
 @pytest.mark.faircli_user_config

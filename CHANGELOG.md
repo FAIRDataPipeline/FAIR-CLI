@@ -19,6 +19,10 @@
   cannot send. `fair pull` now pulls the entry as any other read, and copies that file into the local data store in
   place of the download. It refuses a file without the hash the remote records. Before, it pulled nothing for the
   entry, and `fair run` let it through unregistered. A wildcard `read:` entry with `cache` is refused.
+- A `write:` pattern's version token is now bumped from the highest version of any name the pattern matches, and
+  every name written under the pattern takes that version. Before, a name already registered was bumped from its own
+  highest version, so it could be written below another name under the pattern. A `write:` entry for one name now
+  takes the place of a pattern's entry for that name. Two `write:` patterns matching one registered name are refused.
 
 ## Added
 - `fair registry clean` deletes the files in the local registry's data stores that the registry does not hold. It runs

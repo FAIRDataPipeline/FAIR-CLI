@@ -537,6 +537,16 @@ class JobConfiguration(MutableMapping):
             )
         ]
 
+        # A data product with a 'write:' entry of its own is written as that
+        # entry says, so a pattern gives it no entry
+        if _obj_type == "data_product" and block_type == "write":
+            _named = self._named_writes()
+            _results_local = [
+                result
+                for result in _results_local
+                if (_namespace, result[_search_key]) not in _named
+            ]
+
         if _obj_type in ("namespace", "author"):
             # If the object is a namespace or an author then there is no
             # additional info in the registry so we can just add the entries
@@ -589,19 +599,88 @@ class JobConfiguration(MutableMapping):
 
         return _new_entries
 
+    # The data products that 'write:' entries of one name each give, as
+    # namespace and name
+    def _named_writes(self) -> typing.Set[typing.Tuple[str, str]]:
+        _named = set()
+        for item in self["write"] if "write" in self else []:
+            _use = item.get("use") or {}
+            _name = _use.get("data_product") or item.get("data_product", "")
+            if _name and "*" not in _name:
+                _namespace = (
+                    _use.get("namespace") or self.default_output_namespace
+                )
+                _named.add((_namespace, _name))
+        return _named
+
+    # Refuse a data product that two 'write:' patterns both match, since each
+    # would give it an entry, with a version and a description of its own.
+    # 'claimed' holds the pattern entry that gave each data product its entry
+    @staticmethod
+    def _claim_write_matches(
+        claimed: typing.Dict[typing.Tuple[str, str], typing.Dict],
+        pattern_entry: typing.Dict,
+        entries: typing.List[typing.Dict],
+    ) -> None:
+        if "*" not in pattern_entry.get("data_product", ""):
+            return
+        for _entry in entries:
+            if _entry is pattern_entry:
+                continue
+            _use = _entry.get("use") or {}
+            _key = (_use.get("namespace"), _use.get("data_product"))
+            _other = claimed.setdefault(_key, pattern_entry)
+            if _other is not pattern_entry:
+                raise fdp_exc.UserConfigError(
+                    f"The 'write:' patterns '{_other['data_product']}' and "
+                    f"'{pattern_entry['data_product']}' both match the data "
+                    f"product '{_key[0]}:{_key[1]}', so it would have two "
+                    "entries",
+                    hint="Narrow one pattern so that the two match different "
+                    f"data products, or give '{_key[1]}' a 'write:' entry of "
+                    "its own",
+                )
+
     def _expand_wildcards(self, registry_uri: str, registry_token: str) -> None:
         self._logger.debug(f"Expanding wildcards using registry '{registry_uri}")
         for block in self._block_types:
             if block not in self:
                 continue
             _new_block: typing.List[typing.Dict] = []
+            _claimed: typing.Dict[typing.Tuple[str, str], typing.Dict] = {}
             for block_entry in self[block]:
                 _new_block_entries = self._globular_registry_search(
                     registry_uri, registry_token, block_entry, block
                 )
+                if block == "write":
+                    self._claim_write_matches(
+                        _claimed, block_entry, _new_block_entries
+                    )
                 _new_block += _new_block_entries
 
             self[block] = _new_block
+
+    # Give every entry a version, and expand the patterns against the registry
+    # 'expand_from' gives (URL and token), unless it is None. The 'write:'
+    # block's versions are filled before its patterns expand, so that every
+    # data product a pattern matches takes the one version its own entry
+    # resolves to, against all of them. A read's version is looked for first
+    # in 'remote' (URL and token), where one is given
+    def _resolve_blocks(
+        self,
+        expand_from: typing.Optional[typing.Tuple[str, str]],
+        remote: typing.Tuple[typing.Optional[str], typing.Optional[str]] = (
+            None,
+            None,
+        ),
+    ) -> None:
+        if "write" in self:
+            self["write"] = self._fill_versions("write")
+        if expand_from:
+            self._expand_wildcards(*expand_from)
+        for block_type in self._block_types:
+            if block_type in self and block_type != "write":
+                self[block_type] = self._fill_versions(block_type, *remote)
 
     def _fetch_latest_commit(self, allow_dirty: bool = False) -> None:
         self._logger.debug(
@@ -909,6 +988,7 @@ class JobConfiguration(MutableMapping):
             self._pull_push_log_header(_cmd)
 
         # If pulling glob from the remote, else glob from local
+        _expand_from = None
         if job_mode == CMD_MODE.PULL:
             if not remote_uri:
                 raise fdp_exc.InternalError(
@@ -919,9 +999,9 @@ class JobConfiguration(MutableMapping):
                     raise fdp_exc.InternalError(
                         "Expected token during wildcard unpacking for 'pull'"
                     )
-                self._expand_wildcards(remote_uri, remote_token)
+                _expand_from = (remote_uri, remote_token)
         else:
-            self._expand_wildcards(self.local_uri, fdp_req.local_token())
+            _expand_from = (self.local_uri, fdp_req.local_token())
 
         # What 'pull' fetches is on the remote registry, so that is where the
         # version of a read is looked for first
@@ -929,9 +1009,7 @@ class JobConfiguration(MutableMapping):
         if job_mode == CMD_MODE.PULL and not local:
             _remote = (remote_uri, remote_token)
 
-        for block_type in self._block_types:
-            if block_type in self:
-                self[block_type] = self._fill_versions(block_type, *_remote)
+        self._resolve_blocks(_expand_from, _remote)
 
         if job_mode == CMD_MODE.PULL and "register" in self:
             self._logger.debug("Fetching registrations")
