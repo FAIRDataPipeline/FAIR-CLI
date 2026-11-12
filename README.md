@@ -420,7 +420,7 @@ To empty the registry instead, deleting every record but keeping the install:
 fair registry reset
 ```
 
-`reset` asks first (`--yes` answers for you). It refuses while another command is using the registry. If the registry was running, `reset` starts it again afterwards. It registers the file types again. Run in a project, it also registers the project's user again and clears the project's staging. In each other project, run `fair reset` to unstage what that project had staged.
+`reset` asks first (`--yes` answers for you). It refuses while another command is using the registry. If the registry was running, `reset` starts it again afterwards. If emptying it fails, or is stopped by Ctrl-C, the registry keeps its records. It registers the file types again. Run in a project, it also registers the project's user again and clears the project's staging. In each other project, run `fair reset` to unstage what that project had staged.
 
 `--delete-files` also deletes every file in the registry's data stores, except code repositories' folders. Without it the files stay. `fair registry clean` cannot delete them later, because an emptied registry knows no data stores.
 

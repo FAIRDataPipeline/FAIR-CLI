@@ -1,7 +1,9 @@
+import glob
 import os
 import pathlib
 import re
 import sqlite3
+import subprocess
 import time
 import typing
 
@@ -411,9 +413,10 @@ def installed(tmp_path, mocker: pytest_mock.MockerFixture) -> typing.Dict:
     mocker.patch("fair.registry.server._refuse_failing")
     mocker.patch("fair.registry.server._python_runs", lambda python: True)
 
-    # Emptying the database stands for building it again
-    def _rebuild(python, install_dir, silent):
-        os.remove(os.path.join(install_dir, "db.sqlite3"))
+    # A file of its own stands for the database built again
+    def _build(python, registry_dir):
+        with open(os.path.join(registry_dir, "db.sqlite3"), "w") as out_f:
+            out_f.write("new")
 
     def _token(registry_dir):
         with open(os.path.join(registry_dir, "token"), "w") as out_f:
@@ -428,7 +431,7 @@ def installed(tmp_path, mocker: pytest_mock.MockerFixture) -> typing.Dict:
         "project": str(_project),
         "state": _state,
         "rebuild": mocker.patch(
-            "fair.registry.server.rebuild_local", side_effect=_rebuild
+            "fair.registry.server._build_database", side_effect=_build
         ),
         "token": mocker.patch(
             "fair.registry.server._write_missing_token", side_effect=_token
@@ -442,10 +445,11 @@ def installed(tmp_path, mocker: pytest_mock.MockerFixture) -> typing.Dict:
 def test_a_reset_empties_and_starts_the_registry_again(installed: typing.Dict):
     _result = fdp_serv.reset_registry(repo_dir=installed["project"])
     installed["rebuild"].assert_called_once_with(
-        fdp_serv._install_python(installed["registry"]),
-        installed["registry"],
-        silent=True,
+        fdp_serv._install_python(installed["registry"]), installed["registry"]
     )
+    with open(os.path.join(installed["registry"], "db.sqlite3")) as in_f:
+        assert in_f.read() == "new"
+    assert not glob.glob(os.path.join(installed["registry"], ".reset-*"))
     with open(os.path.join(installed["registry"], "token")) as in_f:
         assert in_f.read() == "new"
     assert _result["restarted"] == _URI and installed["state"]["running"]
@@ -494,6 +498,49 @@ def test_a_reset_of_a_registry_whose_python_has_gone_changes_nothing(
     assert "'fair registry upgrade'" in e.value.hint
     installed["rebuild"].assert_not_called()
     assert os.path.exists(os.path.join(installed["registry"], "db.sqlite3"))
+    # Nothing is stopped
+    assert installed["state"]["running"]
+    assert fdp_life.status(installed["registry"])["server"]["holder"] == (
+        fdp_life.HELD_BY_USER
+    )
+
+
+@pytest.mark.faircli_server
+@pytest.mark.parametrize(
+    "failure,raised",
+    [
+        (subprocess.CalledProcessError(1, "migrate"), fdp_exc.RegistryError),
+        (KeyboardInterrupt(), KeyboardInterrupt),
+    ],
+)
+def test_a_reset_that_fails_keeps_the_database_and_starts_the_registry_again(
+    installed: typing.Dict, failure: BaseException, raised: typing.Type
+):
+    # The build fails, or is stopped by Ctrl-C, having begun a database
+    def _failing(python, registry_dir):
+        with open(os.path.join(registry_dir, "db.sqlite3"), "w") as out_f:
+            out_f.write("half built")
+        raise failure
+
+    installed["rebuild"].side_effect = _failing
+    with open(os.path.join(installed["registry"], "db.sqlite3"), "rb") as in_f:
+        _records = in_f.read()
+    with pytest.raises(raised) as e:
+        fdp_serv.reset_registry(repo_dir=installed["project"])
+    if raised is fdp_exc.RegistryError:
+        assert "left as it was" in e.value.msg
+        assert "'fair registry upgrade'" in e.value.hint
+    with open(os.path.join(installed["registry"], "db.sqlite3"), "rb") as in_f:
+        assert in_f.read() == _records
+    with open(os.path.join(installed["registry"], "token")) as in_f:
+        assert in_f.read() == "old"
+    assert not glob.glob(os.path.join(installed["registry"], ".reset-*"))
+    assert installed["state"]["running"]
+    assert fdp_life.status(installed["registry"])["server"]["holder"] == (
+        fdp_life.HELD_BY_USER
+    )
+    assert not os.path.exists(fdp_life.hold_file(installed["registry"]))
+    installed["setup"].assert_not_called()
 
 
 @pytest.mark.faircli_server

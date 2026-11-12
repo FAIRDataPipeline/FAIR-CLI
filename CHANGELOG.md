@@ -29,9 +29,9 @@
   only while the registry is stopped, and asks first (`--yes` answers for you). `--dry-run` lists what it would
   delete. It keeps any file that a run in progress could still be writing, unless given `--delete-all`.
 - `fair registry reset` empties the local registry. It deletes every record and keeps the install. It asks first
-  (`--yes` answers for you). It registers the file types again, and restarts the registry if it was running. Run in a
-  project, it also registers the project's user again and clears the project's staging. `--delete-files` also deletes
-  every file in the data stores.
+  (`--yes` answers for you). It registers the file types again, and restarts the registry if it was running. If it
+  fails, or is stopped by Ctrl-C, the registry keeps its records. Run in a project, it also registers the project's
+  user again and clears the project's staging. `--delete-files` also deletes every file in the data stores.
 - `fair registry upgrade` moves the local registry to another version: the newest release, or the one given by
   `--version`. It keeps the registry's records if the new version's tables are the same. If they differ, it leaves
   the registry as it was. Given the installed version, it rebuilds the registry. That mends one whose Python has gone.

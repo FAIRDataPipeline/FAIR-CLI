@@ -847,16 +847,67 @@ def _python_runs(python: str) -> bool:
     return True
 
 
+# Build an install's database afresh, as its registry's code defines it, with
+# the registry's administrator. The install's migrations are used as they are
+def _build_database(python: str, registry_dir: str) -> None:
+    _migrate(python, registry_dir, silent=True)
+    subprocess.check_call(
+        [
+            python,
+            os.path.join(registry_dir, "manage.py"),
+            "createsuperuser",
+            "--noinput",
+        ],
+        shell=False,
+        stdout=subprocess.DEVNULL,
+        env=django_environ(),
+        cwd=registry_dir,
+    )
+
+
+# Give an install an empty database and a new token in the block. Those it has
+# are set aside first, and on any failure, Ctrl-C included, what the block made
+# is removed and they are put back
+@contextlib.contextmanager
+def _replacing_database(
+    registry_dir: str,
+) -> typing.Generator[None, None, None]:
+    _names = (fdp_db.DATABASE_FILE, "token")
+    _aside = tempfile.mkdtemp(prefix=".reset-", dir=registry_dir)
+    try:
+        for _name in _names:
+            if os.path.exists(os.path.join(registry_dir, _name)):
+                os.rename(
+                    os.path.join(registry_dir, _name),
+                    os.path.join(_aside, _name),
+                )
+        yield
+    except BaseException:
+        for _name in _names:
+            if os.path.exists(os.path.join(registry_dir, _name)):
+                os.remove(os.path.join(registry_dir, _name))
+            if os.path.exists(os.path.join(_aside, _name)):
+                os.rename(
+                    os.path.join(_aside, _name),
+                    os.path.join(registry_dir, _name),
+                )
+        raise
+    finally:
+        shutil.rmtree(_aside, onerror=fdp_com.remove_readonly)
+
+
 def reset_registry(
     registry_dir: str = None, repo_dir: str = None, delete_files: bool = False
 ) -> typing.Dict[str, typing.Any]:
     """Empty the local registry's database, keeping its install
 
     Nothing is changed while a session uses the registry, while it runs on
-    another host, or while another process holds the install. A registry that
-    was running is started again, held by the user. The file types are
-    registered again, and, in a project, the project's user, whose staging is
-    cleared.
+    another host, or while another process holds the install, nor where the
+    install's Python does not run. A registry that was running is started
+    again, held by the user. The file types are registered again, and, in a
+    project, the project's user, whose staging is cleared. Where the database
+    cannot be built again, or on Ctrl-C, its records are kept, and a registry
+    that was running is started again.
 
     Parameters
     ----------
@@ -885,29 +936,35 @@ def reset_registry(
     _python = _install_python(registry_dir)
     _result = {"restarted": None, "deleted": 0, "failed": [], "stores": []}
     with fdp_life.held(registry_dir, "fair registry reset"):
-        _stopped = fdp_life.stop_for_removal(registry_dir)
-        # The stores are read before the database that names them is emptied
-        _stores = fdp_db.local_stores(registry_dir) if delete_files else []
-        # Its environment is checked before anything is deleted
+        # Its environment is checked before anything is stopped
         if not _python_runs(_python):
             raise fdp_exc.RegistryError(
                 f"The registry installed in '{registry_dir}' cannot run its "
-                f"Python, '{_python}', so its database is left as it is",
+                f"Python, '{_python}', so it is left as it is",
                 hint="Build its environment again with 'fair registry upgrade', "
                 "then try again",
             )
+        _stopped = fdp_life.stop_for_removal(registry_dir)
         try:
-            rebuild_local(_python, registry_dir, silent=True)
-        except subprocess.CalledProcessError as e:
-            raise fdp_exc.RegistryError(
-                f"The database of the registry installed in '{registry_dir}' "
-                f"could not be built again: {e}",
-                hint="Install the registry again with 'fair registry install "
-                "--force'",
-            ) from e
-        if os.path.exists(os.path.join(registry_dir, "token")):
-            os.remove(os.path.join(registry_dir, "token"))
-        _write_missing_token(registry_dir)
+            # The stores are read before the database that names them is
+            # emptied
+            _stores = fdp_db.local_stores(registry_dir) if delete_files else []
+            with _replacing_database(registry_dir):
+                _build_database(_python, registry_dir)
+                _write_missing_token(registry_dir)
+        except BaseException as e:
+            # The database is as it was, and so is the registry
+            if _stopped:
+                _restart(_stopped, registry_dir)
+            if isinstance(e, subprocess.CalledProcessError):
+                raise fdp_exc.RegistryError(
+                    f"The database of the registry installed in "
+                    f"'{registry_dir}' could not be built again, so it is left "
+                    f"as it was: {e}",
+                    hint="Build its environment again with 'fair registry "
+                    "upgrade', then try again",
+                ) from e
+            raise
         if delete_files:
             for _store in _stores:
                 _store["registered"] = set()
