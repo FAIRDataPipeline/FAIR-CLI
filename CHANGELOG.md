@@ -37,7 +37,8 @@
   stores.
 - `fair registry upgrade` moves the local registry to another version: the newest release, or the one given by
   `--version`. It keeps the registry's records if the new version's tables are the same. If they differ, it leaves
-  the registry as it was. Given the installed version, it rebuilds the registry. That mends one whose Python has gone.
+  the registry as it was, as it does if it fails or is stopped by Ctrl-C. Given the installed version, it rebuilds the
+  registry. That mends one whose Python has gone.
 - While `fair registry erase-unknown-data`, `reset`, `upgrade` or `install --force` runs, any other command that would
   start, stop or use the registry is refused. The refusal names the command that is running, and so does
   `fair registry status`.

@@ -712,6 +712,36 @@ def test_an_upgrade_to_other_tables_leaves_the_install_as_it_was(
 
 
 @pytest.mark.faircli_server
+def test_an_upgrade_stopped_by_ctrl_c_leaves_the_install_and_starts_it_again(
+    installed: typing.Dict, mocker: pytest_mock.MockerFixture
+):
+    # Ctrl-C part way through the build
+    def _interrupted(repository, reference, install_dir, *args):
+        os.makedirs(install_dir, exist_ok=True)
+        with open(os.path.join(install_dir, "built"), "w") as out_f:
+            out_f.write("half")
+        raise KeyboardInterrupt()
+
+    mocker.patch(
+        "fair.registry.server._build_registry", side_effect=_interrupted
+    )
+    with pytest.raises(KeyboardInterrupt):
+        fdp_serv.upgrade_registry()
+    assert not os.path.exists(os.path.join(installed["registry"], "built"))
+    assert _storage_roots(installed["registry"]) == 1
+    assert installed["state"]["running"]
+    assert fdp_life.status(installed["registry"])["server"]["holder"] == (
+        fdp_life.HELD_BY_USER
+    )
+    assert not os.path.exists(fdp_life.hold_file(installed["registry"]))
+    assert sorted(os.listdir(os.path.dirname(installed["registry"]))) == [
+        "project",
+        "registry",
+        "store",
+    ]
+
+
+@pytest.mark.faircli_server
 def test_an_upgrade_of_an_install_with_no_database(
     installed: typing.Dict, mocker: pytest_mock.MockerFixture
 ):

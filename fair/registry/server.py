@@ -696,7 +696,8 @@ def upgrade_registry(
 
     Nothing is changed while a session uses the registry, while it runs on
     another host, or while another process holds the install. A registry that
-    was running is started again, held by the user.
+    was running is started again, held by the user, whether the upgrade
+    succeeds or fails, Ctrl-C included.
 
     Parameters
     ----------
@@ -738,7 +739,7 @@ def upgrade_registry(
             _result["kept"] = _upgrade_in_place(
                 registry_dir, _old_tables, repository, reference, silent, _result
             )
-        except Exception:
+        except BaseException:
             # The install is as it was, and so is the registry
             if _stopped:
                 _restart(_stopped, registry_dir)

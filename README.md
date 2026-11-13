@@ -97,7 +97,7 @@ fair registry upgrade --version v1.5.0
 fair registry upgrade --version <branch>
 ```
 
-`upgrade` builds the new version in the registry's place. It keeps the registry's records if the new version's tables are the same as the installed version's, as they are between most releases. If the tables differ, `upgrade` leaves the registry as it was, and its refusal says how to install that version with an empty registry. A running registry is stopped for the rebuild and started again afterwards. Nothing is changed while another command is using the registry.
+`upgrade` builds the new version in the registry's place. It keeps the registry's records if the new version's tables are the same as the installed version's, as they are between most releases. If the tables differ, `upgrade` leaves the registry as it was, and its refusal says how to install that version with an empty registry. A running registry is stopped for the rebuild and started again afterwards. If the upgrade fails, or is stopped by Ctrl-C, the registry is left as it was. Nothing is changed while another command is using the registry.
 
 Given the version already installed, `upgrade` rebuilds the registry and keeps its records. This mends a registry whose Python has gone, for example after an upgrade of the Python it was built with.
 
