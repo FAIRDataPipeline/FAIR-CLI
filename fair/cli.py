@@ -65,7 +65,8 @@ def complete_data_products(ctx, param, incomplete) -> typing.List[str]:
     if not os.path.exists(_staging_file):
         return []
     _staging_data = yaml.safe_load(open(_staging_file, encoding="utf-8"))
-    _candidates = list(_staging_data["data_product"].keys())
+    # 'list' is the command here, not the builtin
+    _candidates = [*_staging_data["data_product"]]
     return [
         click.shell_completion.CompletionItem(c)
         for c in _candidates
@@ -811,16 +812,69 @@ def add(identifier: str, all_runs: bool, remote: str, debug: bool) -> None:
 
 
 @cli.command()
-@click.argument("job_ids", nargs=-1)
-@click.option("--debug/--no-debug", help="Run in debug mode", default=False)
+@click.argument("code_runs", nargs=-1)
 @click.option(
-    "--cached/--not-cached",
-    default=False,
-    help="remove from tracking but do not delete from file system",
+    "--remote",
+    default="origin",
+    help="The remote registry, which must not hold the code runs",
 )
-def rm(job_ids: typing.List[str], cached: bool = False, debug: bool = False) -> None:
-    """Removes jobs from system or just tracking"""
-    pass
+@click.option(
+    "--local/--no-local",
+    help="Do not ask the remote registry whether it holds them",
+    default=False,
+)
+@click.option("--yes/--no", help="Delete them without asking", default=False)
+@click.option("--debug/--no-debug", help="Run in debug mode", default=False)
+def rm(
+    code_runs: typing.List[str],
+    remote: str,
+    local: bool,
+    yes: bool,
+    debug: bool,
+) -> None:
+    """Delete code runs from the local registry
+
+    Give each code run by its UUID. A run that the remote registry holds is
+    kept, as is a run whose outputs another run read, unless that run is
+    deleted too. What the runs wrote stays registered, and its files stay in
+    the data store.
+    """
+    try:
+        if not code_runs:
+            raise fdp_exc.FAIRCLIException(
+                "No code run to delete was given",
+                hint="Give each by its UUID: 'fair list code-runs' lists them",
+            )
+        if not yes and not sys.stdin.isatty():
+            raise fdp_exc.FAIRCLIException(
+                "There is no terminal to ask whether to delete the code runs",
+                hint="Give '--yes' to delete them",
+            )
+        with fdp_session.FAIR(
+            os.getcwd(),
+            debug=debug,
+            server_mode=fdp_svr.SwitchMode.CLI,
+        ) as fair_session:
+            # 'list' is the command here, not the builtin
+            _code_runs = fair_session.code_runs_to_remove(
+                [*code_runs], remote=remote, local=local
+            )
+            if not yes:
+                for _code_run in _code_runs:
+                    click.echo(
+                        f"Code run {_code_run['uuid']} of "
+                        f"{_code_run['run_date']}: {_code_run['description']}"
+                    )
+                if not click.confirm(
+                    "Delete these code runs from the local registry?",
+                    default=False,
+                ):
+                    return
+            fair_session.remove_code_runs(_code_runs)
+    except fdp_exc.FAIRCLIException as e:
+        e.err_print()
+        if e.level.lower() != "warning":
+            sys.exit(e.exit_code)
 
 
 @cli.command()

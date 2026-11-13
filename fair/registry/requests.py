@@ -14,6 +14,7 @@ Contents
     post          - post to the registry RestAPI
     get           - retrieve from the registry RestAPI
     post_else_get - if an item already exists retrieve it, else create it
+    delete        - delete a record from the registry RestAPI
     proxies_for   - the proxies a request to a URL takes
 
 """
@@ -245,6 +246,10 @@ def _access(
             error_code=409,
         )
 
+    # A deletion is answered with no content
+    if _request.status_code == 204 and 204 in response_codes:
+        return None
+
     try:
         _json_req = _request.json()
         _result = _json_req["results"] if "results" in _json_req else _json_req
@@ -396,6 +401,19 @@ def get(
             del params[param]
 
     return _access(uri, "get", token, obj_path=obj_path, headers=headers, params=params)
+
+
+def delete(url: str, token: str) -> None:
+    """Delete a record from a registry
+
+    Parameters
+    ----------
+    url : str
+        URL of the record
+    token : str
+        token for the registry
+    """
+    _access(url, "delete", token, response_codes=[204])
 
 
 def post_else_get(

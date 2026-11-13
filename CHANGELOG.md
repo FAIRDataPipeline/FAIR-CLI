@@ -30,6 +30,9 @@
 - `fair add --all` stages every finished code run of this repository that the remote lacks, or holds only in part.
   `--remote` names the remote, `origin` by default. A run has finished once it records inputs or outputs. It is
   refused while another process holds a session on the local registry, since that may be a run in progress.
+- `fair rm <uuid>...` deletes code runs from the local registry and from the project's staging. It refuses a run the
+  remote holds (`--local` does not ask it), and a run whose outputs another run read, unless that run is deleted too.
+  It asks first (`--yes` answers for you). What the runs wrote stays registered. Before, `fair rm` did nothing.
 - `fair registry erase-unknown-data` erases the files in the local registry's data stores that the registry does not
   hold. It runs only while the registry is stopped. It names each store and warns that another registry using it may
   hold the files, then erases them only once the store's path is typed. `--dry-run` lists what it would erase. It keeps
@@ -84,6 +87,8 @@
 - A code run deleted from the local registry stayed in the project's staging. `fair add` staged it again, and
   `fair push` then failed naming it. `fair status`, `fair add` and `fair push` now remove it from staging and say so.
   `fair add` refuses it, and a push sends the rest.
+- Shell completion of a data product for `fair add` offered nothing: it ran `fair list` and stopped. It now offers
+  the data products the project's staging names.
 - A registry search dropped any filter set to `false` or `0`, so it found everything.
 - With no `git` on the path, every command failed with GitPython's own error, even `fair --version` and `--help`.
   These two now run. A command that needs `git` says so, and names `GIT_PYTHON_GIT_EXECUTABLE`.

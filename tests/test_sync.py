@@ -3374,6 +3374,53 @@ def test_add_all_stages_the_finished_runs_the_remote_lacks(
 
 
 @pytest.mark.faircli_sync
+@pytest.mark.dependency(depends=["run"])
+def test_rm_deletes_runs_the_remote_lacks(
+    global_config: str,
+    local_registry: RegistryTest,
+    remote_registry: RegistryTest,
+    pyDataPipeline: str,
+    fair_bucket: MotoTestServer,
+    mocker: pytest_mock.MockerFixture,
+):
+    # A run wrote what another run read, and a third run read a data product
+    # of its own and was pushed
+    _name = f"removed/{uuid.uuid4().hex[:8]}"
+    _cli_runner = click.testing.CliRunner()
+    with remote_registry, local_registry, fair_bucket:
+        mocker.patch(
+            "fair.configuration.get_current_user_remote_user",
+            lambda *args, **kwargs: "admin",
+        )
+        _token = local_registry._token
+        _written = _registered_data_product(_token, _name, b"written\n")
+        _writer = _registered_run(_token, [], _written["components"])
+        _reader = _registered_run(_token, _written["components"], [])
+        _read = _registered_data_product(_token, f"{_name}-read", b"read\n")
+        _pushed = _registered_run(_token, _read["components"], [])
+        _res = _push(_cli_runner, _pushed)
+        assert _res.exit_code == 0, _res.output
+
+        _res = _cli_runner.invoke(cli, ["rm", _writer, "--yes"])
+        assert _res.exit_code != 0
+        assert f"code run {_reader} read outputs of {_writer}" in _res.output
+        _res = _cli_runner.invoke(cli, ["rm", _pushed, "--yes"])
+        assert _res.exit_code != 0
+        assert "The remote 'origin' holds these code runs" in _res.output
+        assert get(_ORIGIN, "code_run", _token, params={"uuid": _pushed})
+
+        _res = _cli_runner.invoke(cli, ["add", _writer])
+        assert _res.exit_code == 0, _res.output
+        _res = _cli_runner.invoke(cli, ["rm", _writer, _reader, "--yes"])
+        assert _res.exit_code == 0, _res.output
+        for _run in (_writer, _reader):
+            assert not get(_ORIGIN, "code_run", _token, params={"uuid": _run})
+        assert _writer not in _staged_runs()
+        # What the deleted runs wrote stays
+        assert get(_ORIGIN, "data_product", _token, params={"name": _name})
+
+
+@pytest.mark.faircli_sync
 @pytest.mark.parametrize(
     "objects,expected",
     [([(10, None), (9, None)], 9), ([(9, None), (10, "a release")], 10), ([], None)],

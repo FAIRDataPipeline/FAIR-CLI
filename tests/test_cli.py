@@ -28,6 +28,7 @@ import pytest_mock
 import requests
 import yaml
 
+import fair.cli
 import fair.common as fdp_com
 import fair.exceptions as fdp_exc
 import fair.registry.lifecycle
@@ -115,6 +116,21 @@ def test_status(
             cli, ["status", "--debug", "--verbose"], catch_exceptions=True
         )
         assert _result.exit_code == 0
+
+
+@pytest.mark.faircli_cli
+def test_fair_add_completes_a_data_product(
+    local_config: typing.Tuple[str, str],
+):
+    _staging = {
+        "job": {},
+        "data_product": {"PSU:a/b@v1.0.0": False, "other:c@v1.0.0": True},
+        "code_run": {},
+    }
+    with open(fdp_com.staging_cache(local_config[1]), "w") as staged:
+        yaml.dump(_staging, staged)
+    _offered = fair.cli.complete_data_products(None, None, "PSU")
+    assert [_item.value for _item in _offered] == ["PSU:a/b@v1.0.0"]
 
 
 @pytest.mark.faircli_cli

@@ -319,6 +319,18 @@ fair add --all
 
 A run belongs to this repository if its code repository is the one in the project's `git: remote_repo`. The remote is `origin` unless `--remote` names another. A run that the remote holds only in part is staged too. A push of a data product sends the run that wrote it, with that data product's outputs alone. `fair add --all` is refused while another process holds a session on the local registry, since that may be a run in progress. `fair registry status` lists the sessions.
 
+### `rm`
+
+`fair rm` deletes code runs, given by their UUIDs, from the local registry and from the project's staging:
+
+```sh
+fair rm <uuid> <uuid>
+```
+
+It lists the runs and asks first (`--yes` answers for you). It refuses a run that the remote registry holds. The remote is `origin` unless `--remote` names another, and `--local` deletes without asking it. It also refuses a run whose outputs another run read, unless that run is deleted in the same command, because that run's inputs would be left with no run that made them. What the deleted runs wrote stays registered, under its names and versions, and its files stay in the data store.
+
+Delete a run you do not want on the remote before you push. A push of a data product also sends each code run that read it, with its inputs, whether that run is staged or not.
+
 ### `push`
 
 `fair push` sends what is staged to the remote registry, `origin` unless you name another:

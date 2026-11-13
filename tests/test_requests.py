@@ -76,6 +76,19 @@ def test_post_keeps_false_values(mocker: pytest_mock.MockerFixture):
 
 
 @pytest.mark.faircli_requests
+def test_delete_takes_an_answer_with_no_content(
+    mocker: pytest_mock.MockerFixture,
+):
+    _answer = mocker.Mock(status_code=204)
+    _answer.json.side_effect = json.JSONDecodeError("Expecting value", "", 0)
+    _delete = mocker.patch("requests.delete", return_value=_answer)
+    assert fdp_req.delete(f"{LOCAL_URL}/code_run/1/", "a-token") is None
+    assert _delete.call_args.args[0] == f"{LOCAL_URL}/code_run/1/"
+    _headers = _delete.call_args.kwargs["headers"]
+    assert _headers["Authorization"] == "token a-token"
+
+
+@pytest.mark.faircli_requests
 def test_get_follows_pages(mocker: pytest_mock.MockerFixture):
     # A registry lists a page at a time, giving with each the address of the
     # next - here an address it could not be reached at

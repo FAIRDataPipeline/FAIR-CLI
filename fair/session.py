@@ -998,6 +998,131 @@ class FAIR:
                 "stages one finished run meanwhile",
             )
 
+    def code_runs_to_remove(
+        self,
+        code_runs: typing.List[str],
+        remote: str = "origin",
+        local: bool = False,
+    ) -> typing.List[typing.Dict[str, typing.Any]]:
+        """Return the local registry's records of code runs that may be deleted
+
+        Each must be in the local registry. A run whose outputs another run
+        read is refused unless that run is named too: its inputs would be left
+        with no run that made them. A run the remote holds is refused, and so
+        is every run where the remote cannot be asked, unless 'local'.
+
+        Parameters
+        ----------
+        code_runs : typing.List[str]
+            UUIDs of the code runs
+        remote : str, optional
+            label of the remote registry, by default 'origin'
+        local : bool, optional
+            whether to leave the remote unasked, by default False
+
+        Returns
+        -------
+        typing.List[typing.Dict[str, typing.Any]]
+            the local registry's record of each code run
+        """
+        self.check_is_repo()
+        _local_uri = fdp_conf.get_local_uri()
+        _token = fdp_req.local_token()
+        _named = list(dict.fromkeys(code_runs))
+        _records = []
+        for _uuid in _named:
+            _found = fdp_req.get(
+                _local_uri, "code_run", _token, params={"uuid": _uuid}
+            )
+            if not _found:
+                raise fdp_exc.RegistryError(
+                    f"No code run '{_uuid}' is in the local registry",
+                    hint="'fair list code-runs' lists the code runs it holds",
+                )
+            _records.append(_found[0])
+        _read = []
+        for _code_run in _records:
+            for _output in _code_run["outputs"]:
+                for _reader in fdp_req.get(
+                    _local_uri,
+                    "code_run",
+                    _token,
+                    params={"inputs": fdp_req.get_obj_id_from_url(_output)},
+                ):
+                    _pair = (_code_run["uuid"], _reader["uuid"])
+                    if _reader["uuid"] not in _named and _pair not in _read:
+                        _read.append(_pair)
+        if _read:
+            raise fdp_exc.RegistryError(
+                "Other code runs read the outputs of these, and would be left "
+                "with inputs that no run made: "
+                + "; ".join(
+                    f"code run {_reader} read outputs of {_writer}"
+                    for _writer, _reader in _read
+                ),
+                hint="Name the runs that read them too, to delete them all",
+            )
+        if not local:
+            self._refuse_code_runs_the_remote_holds(_named, remote)
+        return _records
+
+    # Refuse code runs the remote holds, and every run where it cannot be asked
+    def _refuse_code_runs_the_remote_holds(
+        self, code_runs: typing.List[str], remote: str
+    ) -> None:
+        try:
+            _uri = fdp_conf.get_remote_uri(self._session_loc, remote)
+            _token = fdp_conf.get_remote_token(
+                self._session_loc, remote, local=self._local
+            )
+            _held = [
+                _uuid
+                for _uuid in code_runs
+                if fdp_req.get(
+                    _uri, "code_run", _token, params={"uuid": _uuid}
+                )
+            ]
+        except fdp_exc.FAIRCLIException as e:
+            raise fdp_exc.RegistryError(
+                f"The remote '{remote}' could not be asked whether it holds "
+                f"the code runs: {e.msg}",
+                hint="Give '--local' to delete them without asking it",
+            ) from e
+        if _held:
+            raise fdp_exc.RegistryError(
+                f"The remote '{remote}' holds these code runs, so they are "
+                "kept here too: " + ", ".join(_held),
+                hint="Only a code run that the remote does not hold is "
+                "deleted",
+            )
+
+    def remove_code_runs(
+        self, code_runs: typing.List[typing.Dict[str, typing.Any]]
+    ) -> None:
+        """Delete code runs from the local registry and this project's staging
+
+        What the runs wrote stays registered, and its files stay in the data
+        store.
+
+        Parameters
+        ----------
+        code_runs : typing.List[typing.Dict[str, typing.Any]]
+            the local registry's record of each code run
+        """
+        _token = fdp_req.local_token()
+        for _code_run in code_runs:
+            fdp_req.delete(_code_run["url"], _token)
+            if self._stager.is_in_staging_dict(_code_run["uuid"], "code_run"):
+                self._stager.remove_staging_entry(
+                    _code_run["uuid"], "code_run"
+                )
+            click.echo(f"Deleted code run {_code_run['uuid']}")
+        if any(_code_run["outputs"] for _code_run in code_runs):
+            click.echo(
+                "The outputs stay registered, and their files stay in the "
+                "data store"
+            )
+
     def is_staging_item_in_registry(self, identifier, item_type) -> bool:
         local_uri = fdp_conf.get_local_uri()
         local_token = fdp_req.local_token()

@@ -1306,3 +1306,141 @@ def test_fair_add_all_with_an_item_is_refused(
     assert _result.exit_code != 0
     assert "Give '--all' or an item to stage, not both" in _result.output
     _server.launch.assert_not_called()
+
+
+class _Removable:
+    """A stand-in for a local registry's code runs, and for whether a remote
+    holds them: 'writer' wrote what 'reader' read, the remote holds 'held',
+    and 'lone' is on its own; the deletions asked for are kept"""
+
+    REMOTE = "http://127.0.0.1:8001/api/"
+
+    def __init__(self, mocker: pytest_mock.MockerFixture):
+        _written = f"{URI}object_component/1/"
+        self.local = {
+            "writer": _run("writer", "repository", [], [_written]),
+            "reader": _run("reader", "repository", [_written], []),
+            "held": _run(
+                "held", "repository", [], [f"{URI}object_component/2/"]
+            ),
+            "lone": _run(
+                "lone", "repository", [], [f"{URI}object_component/3/"]
+            ),
+        }
+        for _number, _code_run in enumerate(self.local.values(), start=1):
+            _code_run["url"] = f"{URI}code_run/{_number}/"
+        self.deleted = []
+        mocker.patch("fair.registry.requests.get", side_effect=self._get)
+        mocker.patch(
+            "fair.registry.requests.delete",
+            side_effect=lambda url, token: self.deleted.append(url),
+        )
+        mocker.patch("fair.registry.requests.local_token", lambda *args: "")
+        mocker.patch(
+            "fair.configuration.get_remote_uri",
+            lambda *args, **kwargs: self.REMOTE,
+        )
+        mocker.patch(
+            "fair.configuration.get_remote_token", lambda *args, **kwargs: ""
+        )
+
+    def _get(self, uri, obj_path, token, params=None, **kwargs):
+        assert obj_path == "code_run"
+        if uri == self.REMOTE:
+            return [self.local["held"]] if params["uuid"] == "held" else []
+        if "uuid" in params:
+            _code_run = self.local.get(params["uuid"])
+            return [_code_run] if _code_run else []
+        _read = f"{URI}object_component/{params['inputs']}/"
+        return [
+            _code_run
+            for _code_run in self.local.values()
+            if _read in _code_run["inputs"]
+        ]
+
+    def url(self, code_run: str) -> str:
+        return self.local[code_run]["url"]
+
+
+@pytest.fixture
+def removable(
+    local_config: typing.Tuple[str, str],
+    registry_dir: str,
+    mocker: pytest_mock.MockerFixture,
+) -> _Removable:
+    _Server(mocker)
+    _staging = {"job": {}, "data_product": {}, "code_run": {"writer": True}}
+    with open(fdp_com.staging_cache(local_config[1]), "w") as stage_f:
+        yaml.dump(_staging, stage_f)
+    return _Removable(mocker)
+
+
+@pytest.mark.faircli_lifecycle
+def test_fair_rm_deletes_code_runs_and_drops_them_from_staging(
+    local_config: typing.Tuple[str, str], removable: _Removable
+):
+    _result = click.testing.CliRunner().invoke(
+        cli, ["rm", "writer", "reader", "--yes"]
+    )
+    assert _result.exit_code == 0, _result.output
+    assert removable.deleted == [
+        removable.url("writer"),
+        removable.url("reader"),
+    ]
+    with open(fdp_com.staging_cache(local_config[1])) as stage_f:
+        assert yaml.safe_load(stage_f)["code_run"] == {}
+    assert "Deleted code run writer" in _result.output
+    assert "The outputs stay registered" in _result.output
+
+
+@pytest.mark.faircli_lifecycle
+@pytest.mark.parametrize(
+    "arguments,refusal",
+    [
+        (["rm", "writer"], "code run reader read outputs of writer"),
+        (["rm", "held"], "The remote 'origin' holds these code runs"),
+        (["rm", "gone"], "No code run 'gone' is in the local registry"),
+        (["rm"], "No code run to delete was given"),
+    ],
+)
+def test_fair_rm_refuses(
+    removable: _Removable, arguments: typing.List[str], refusal: str
+):
+    _result = click.testing.CliRunner().invoke(cli, [*arguments, "--yes"])
+    assert _result.exit_code != 0
+    assert refusal in _result.output
+    assert not removable.deleted
+
+
+@pytest.mark.faircli_lifecycle
+def test_fair_rm_needs_the_remote_or_local(
+    removable: _Removable, mocker: pytest_mock.MockerFixture
+):
+    def _no_remote(*args, **kwargs):
+        raise fdp_exc.CLIConfigurationError("No remote 'origin' is configured")
+
+    mocker.patch("fair.configuration.get_remote_uri", side_effect=_no_remote)
+    _result = click.testing.CliRunner().invoke(cli, ["rm", "lone", "--yes"])
+    assert _result.exit_code != 0
+    assert "could not be asked" in _result.output
+    assert "'--local'" in _result.output
+    assert not removable.deleted
+
+    _result = click.testing.CliRunner().invoke(
+        cli, ["rm", "lone", "--yes", "--local"]
+    )
+    assert _result.exit_code == 0, _result.output
+    assert removable.deleted == [removable.url("lone")]
+
+
+@pytest.mark.faircli_lifecycle
+def test_fair_rm_with_no_terminal_needs_yes(
+    local_config: typing.Tuple[str, str],
+    registry_dir: str,
+    mocker: pytest_mock.MockerFixture,
+):
+    _server = _Server(mocker)
+    _result = click.testing.CliRunner().invoke(cli, ["rm", "lone"])
+    assert _result.exit_code != 0
+    assert "Give '--yes'" in _result.output
+    _server.launch.assert_not_called()
