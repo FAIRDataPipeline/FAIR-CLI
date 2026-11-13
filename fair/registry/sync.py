@@ -786,8 +786,10 @@ def sync_data_products(
         list of data products to push
     local_data_store : optional, str
         specified when pulling from remote registry to local
-    force : optional, str
-        whether or not to force pusing of a data product if it already exists on the registry, useful if a previous push failed
+    force : optional, bool
+        whether to send again a data product the destination holds with the
+        same contents, as after a push that failed part way, by default
+        False. One it holds with other contents is refused whatever this says
     caches : optional, typing.Dict[str, str]
         when pulling, a copy of a data product's file that the user holds,
         taken in place of the download, by data product as in data_products
@@ -1306,7 +1308,9 @@ def sync_code_runs(
     local_data_store : optional, str
         specified when pulling from remote registry to local
     force : optional, bool
-        whether or not to force pusing of any data_products if they already exist on the registry, useful if a previous push failed
+        whether to send again a data product the destination holds with the
+        same contents, as after a push that failed part way, by default
+        False. One it holds with other contents is refused whatever this says
     context : optional, PushContext
         the context of the push this is part of, whose owner links the other
         runs reached; by default one of its own, those runs linked before this
@@ -2027,7 +2031,9 @@ def get_dest_inputs(
         dest_token (str): Destination Token
         origin_token (str): Origin Token
         remote_label (str): Remote label of the registry as define in the config yaml
-        force (str): whether or not to force pusing of data_products when the already exist on the destination registry
+        force (bool): whether to send again a data product the destination holds with the same contents, as after
+            a push that failed part way, by default False. One it holds with other contents is refused whatever
+            this says
         context (PushContext, optional): the context of the push this is part of, whose owner links the runs
             reached; by default one of its own, those runs linked before this returns
 
