@@ -752,6 +752,22 @@ def test_an_upgrade_keeps_the_records_and_starts_the_registry_again(
 
 
 @pytest.mark.faircli_server
+def test_an_upgrade_finds_a_python_once(
+    installed: typing.Dict, mocker: pytest_mock.MockerFixture
+):
+    # The command found before anything is stopped builds the environment
+    _command = ["python", "-m", "venv", "venv"]
+    _venv = mocker.patch("fair.virtualenv.venv_command", return_value=_command)
+    _build = mocker.patch(
+        "fair.registry.server._build_registry", side_effect=_build_with(SCHEMA)
+    )
+    mocker.patch("fair.registry.server._migrate")
+    fdp_serv.upgrade_registry()
+    _venv.assert_called_once()
+    assert _build.call_args.args[5] == _command
+
+
+@pytest.mark.faircli_server
 def test_an_upgrade_to_other_tables_leaves_the_install_as_it_was(
     installed: typing.Dict, mocker: pytest_mock.MockerFixture
 ):

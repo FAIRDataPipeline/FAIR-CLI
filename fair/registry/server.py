@@ -727,8 +727,9 @@ def upgrade_registry(
         )
     if reference:
         reference = resolve_reference(reference, repository)
-    # A Python for the new install is found before anything is stopped
-    fdp_env.venv_command(os.path.join(registry_dir, "venv"))
+    # A Python for the new install is found before anything is stopped, and
+    # used for it
+    _venv_cmd = fdp_env.venv_command(os.path.join(registry_dir, "venv"))
     _result = {"version": None, "kept": False, "restarted": None}
     with fdp_life.held(registry_dir, "fair registry upgrade"):
         # Read before anything is stopped or moved: a database that cannot be
@@ -739,7 +740,13 @@ def upgrade_registry(
         _stopped = fdp_life.stop_for_removal(registry_dir)
         try:
             _result["kept"] = _upgrade_in_place(
-                registry_dir, _old_tables, repository, reference, silent, _result
+                registry_dir,
+                _old_tables,
+                repository,
+                reference,
+                silent,
+                _result,
+                _venv_cmd,
             )
         except BaseException:
             # The install is as it was, and so is the registry
@@ -753,7 +760,8 @@ def upgrade_registry(
 
 # Replace an install with a version built in its place, keeping its database
 # and token where the version's tables are the ones given; saying whether it
-# kept them, and putting the version built into the result
+# kept them, and putting the version built into the result. Its environment is
+# made by venv_cmd, as fair.virtualenv.venv_command gives it
 def _upgrade_in_place(
     registry_dir: str,
     old_tables: typing.Optional[typing.Dict],
@@ -761,13 +769,13 @@ def _upgrade_in_place(
     reference: typing.Optional[str],
     silent: bool,
     result: typing.Dict[str, typing.Any],
+    venv_cmd: typing.List[str],
 ) -> bool:
     logger = logging.getLogger("FAIRDataPipeline.Server")
     _venv_dir = os.path.join(registry_dir, "venv")
-    _venv_cmd = fdp_env.venv_command(_venv_dir)
     with _replacing_directory(registry_dir) as _old:
         result["version"] = _build_registry(
-            repository, reference, registry_dir, silent, _venv_dir, _venv_cmd
+            repository, reference, registry_dir, silent, _venv_dir, venv_cmd
         )
         if old_tables is None:
             return False

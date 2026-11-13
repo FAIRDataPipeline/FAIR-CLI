@@ -1024,8 +1024,13 @@ def get_dest_component_url(
         str: Url of the destination component
     """
     origin_component = fdp_req.url_get(origin_component_url, token=origin_token)
+    # A data product may be of a code repository, so its object may be one
     dest_object_url = get_dest_object_url(
-        origin_component["object"], dest_uri, dest_token, origin_token
+        origin_component["object"],
+        dest_uri,
+        dest_token,
+        origin_token,
+        repository=True,
     )
     dest_component = fdp_req.get(
         dest_uri,
@@ -1342,8 +1347,10 @@ def sync_code_runs(
             )
         _coderun = _code_run[0]
 
+        # Each component's data products, fetched once for all that follows
+        _by_component = _component_data_products(_coderun, origin_token)
         _inputs_data_products, _outputs_data_products = _code_run_data_products(
-            _coderun, origin_token
+            _coderun, origin_token, _by_component
         )
         _origin_data_products_formatted = _inputs_data_products + _outputs_data_products
         # Sync all the data products associated with the code run
@@ -1366,14 +1373,14 @@ def sync_code_runs(
                 context, _component, dest_uri, dest_token, origin_token
             )
             for _component in _coderun["inputs"]
-            if get_data_products_from_component(_component, origin_token)
+            if _by_component[_component]
         ]
         _dest_outputs = [
             _dest_component(
                 context, _component, dest_uri, dest_token, origin_token
             )
             for _component in _coderun["outputs"]
-            if get_data_products_from_component(_component, origin_token)
+            if _by_component[_component]
         ]
         logger.debug(
             f"attempting to sync coderun {code_run_uuid} with inputs {_dest_inputs} and outputs {_dest_outputs}"
@@ -1393,31 +1400,38 @@ def sync_code_runs(
         logger.info(f"Synced Code Run: {code_run_uuid}")
 
 
-# The data products of the objects a code run read and wrote, each as
-# 'namespace:name@vversion': those it read, and those it wrote
-def _code_run_data_products(
+# The data products of the object of each component a code run read or wrote,
+# by component, each component fetched once
+def _component_data_products(
     code_run: typing.Dict, token: str
+) -> typing.Dict[str, typing.List[str]]:
+    return {
+        _component: get_data_products_from_component(_component, token)
+        for _component in dict.fromkeys(code_run["inputs"] + code_run["outputs"])
+    }
+
+
+# The data products of the objects a code run read and wrote, each as
+# 'namespace:name@vversion': those it read, and those it wrote. Each is
+# formatted once, and the components' data products are taken from
+# by_component where given
+def _code_run_data_products(
+    code_run: typing.Dict,
+    token: str,
+    by_component: typing.Optional[typing.Dict[str, typing.List[str]]] = None,
 ) -> typing.Tuple[typing.List[str], typing.List[str]]:
-    _input_components = code_run["inputs"]
-    _output_components = code_run["outputs"]
-    _origin_input_data_products = []
-    _origin_output_data_products = []
-    for component in _input_components + _output_components:
-        object_url = fdp_req.url_get(component, token)["object"]
-        object = fdp_req.url_get(object_url, token)
-        if component in _input_components:
-            _origin_input_data_products += object["data_products"]
-        if component in _output_components:
-            _origin_output_data_products += object["data_products"]
-    _inputs_data_products = []
-    _outputs_data_products = []
-    for _url in _origin_input_data_products + _origin_output_data_products:
-        _formatted = format_data_product(_url, token)
-        if _url in _origin_input_data_products:
-            _inputs_data_products.append(_formatted)
-        if _url in _origin_output_data_products:
-            _outputs_data_products.append(_formatted)
-    return _inputs_data_products, _outputs_data_products
+    if by_component is None:
+        by_component = _component_data_products(code_run, token)
+    _formatted: typing.Dict[str, str] = {}
+
+    def _format(components: typing.List[str]) -> typing.List[str]:
+        _urls = [_url for _component in components for _url in by_component[_component]]
+        for _url in _urls:
+            if _url not in _formatted:
+                _formatted[_url] = format_data_product(_url, token)
+        return [_formatted[_url] for _url in _urls]
+
+    return _format(code_run["inputs"]), _format(code_run["outputs"])
 
 
 def code_run_data_products(
@@ -1700,7 +1714,11 @@ def _get_dest_object_url_by_data_product(
 
 # Internal function to return the (remote) object associated with a code_run field containing and object url
 def get_dest_object_url(
-    origin_object_url: str, dest_uri: str, dest_token: str, origin_token: str
+    origin_object_url: str,
+    dest_uri: str,
+    dest_token: str,
+    origin_token: str,
+    repository: bool = False,
 ) -> str:
     """Get the destination object url for a given origin object url
     Assumes the Object has already been synced and is on the remote registry
@@ -1710,6 +1728,10 @@ def get_dest_object_url(
         dest_uri (str): Destination registry URL
         dest_token (str): Token for the Destination Registry
         origin_token (str): Token for the Origin Registry
+        repository (bool, optional): whether the object may be a code repository, found on the destination by its
+            commit rather than by a file's hash, as a code run's 'code_repo' or a data product's object may be; by
+            default False, for an object that is always a file - a code run's model config or submission script,
+            or a quality-control document - which spares the origin a query for each
 
     Raises:
         fdp_exc.RegistryError: If the object has no storage location and no data product of it is on the destination
@@ -1719,8 +1741,10 @@ def get_dest_object_url(
         str: URL of the destination object
     """
     _origin_object = fdp_req.url_get(origin_object_url, origin_token)
-    if _repository := _dest_repository(
-        _origin_object, dest_uri, dest_token, origin_token
+    if repository and (
+        _repository := _dest_repository(
+            _origin_object, dest_uri, dest_token, origin_token
+        )
     ):
         return _repository["url"]
     _origin_object_storage_location = _origin_object["storage_location"]
@@ -1858,6 +1882,9 @@ def sync_code_run(
         # destination's object for its commit is taken where there is one
         _dest_code_run_code_repo = None
         if code_run["code_repo"]:
+            _placed = _repository_placed(
+                code_run["code_repo"], dest_uri, dest_token, origin_token
+            )
             sync_dependency_chain(
                 object_url=code_run["code_repo"],
                 dest_uri=dest_uri,
@@ -1865,12 +1892,17 @@ def sync_code_run(
                 dest_token=dest_token,
                 origin_token=origin_token,
                 public=False,
-                placed=_repository_placed(
-                    code_run["code_repo"], dest_uri, dest_token, origin_token
-                ),
+                placed=_placed,
             )
-            _dest_code_run_code_repo = get_dest_object_url(
-                code_run["code_repo"], dest_uri, dest_token, origin_token
+            # The destination's object found already, else the one just sent
+            _dest_code_run_code_repo = _placed.get(
+                code_run["code_repo"]
+            ) or get_dest_object_url(
+                code_run["code_repo"],
+                dest_uri,
+                dest_token,
+                origin_token,
+                repository=True,
             )
         # Sync Submision Script, the file before its records
         upload_object(

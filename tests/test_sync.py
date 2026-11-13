@@ -650,7 +650,7 @@ def test_sync_code_run_pushes_its_code_repo_as_it_is(
     )
     mocker.patch("fair.registry.sync.upload_object")
     mocker.patch(
-        "fair.registry.sync.get_dest_object_url", lambda url, *args: url
+        "fair.registry.sync.get_dest_object_url", lambda url, *args, **kwargs: url
     )
     mocker.patch("fair.registry.requests.post", return_value={})
     _records = mocker.patch("fair.registry.sync.sync_dependency_chain")
@@ -663,6 +663,186 @@ def test_sync_code_run_pushes_its_code_repo_as_it_is(
         for c in _records.call_args_list
     }
     assert _public == {"config": True, "repo": False, "script": True}
+
+
+@pytest.mark.faircli_sync
+@pytest.mark.parametrize("held", [True, False])
+def test_sync_code_run_looks_for_its_code_repo_once(
+    mocker: pytest_mock.MockerFixture, held: bool
+):
+    # The destination's object for the repository's commit, where it holds
+    # one, is taken as found before the push; else the one sent is looked
+    # for, as a repository. The run's files are never looked for as one
+    _run = {
+        "uuid": "abc",
+        "run_date": "2026-10-17T00:00:00Z",
+        "description": "A run",
+        "model_config": "config",
+        "submission_script": "script",
+        "code_repo": "repo",
+    }
+    mocker.patch(
+        "fair.registry.sync._repository_placed",
+        return_value={"repo": "held_repo"} if held else {},
+    )
+    mocker.patch(
+        "fair.registry.requests.get",
+        lambda uri, obj, *args, **kwargs: [] if uri == "dest" else [_run],
+    )
+    mocker.patch("fair.registry.sync.upload_object")
+    _found = mocker.patch(
+        "fair.registry.sync.get_dest_object_url",
+        side_effect=lambda url, *args, **kwargs: f"dest_{url}",
+    )
+    _post = mocker.patch("fair.registry.requests.post", return_value={})
+    mocker.patch("fair.registry.sync.sync_dependency_chain")
+    mocker.patch("fair.registry.sync.sync_attached")
+
+    fdp_sync.sync_code_run("origin", "dest", "", "", "abc")
+
+    _looked_for = {c.args[0]: c.kwargs for c in _found.call_args_list}
+    assert _looked_for == {
+        "config": {},
+        "script": {},
+        **({} if held else {"repo": {"repository": True}}),
+    }
+    _posted = next(c.args[3] for c in _post.call_args_list if c.args[1] == "code_run")
+    assert _posted["code_repo"] == ("held_repo" if held else "dest_repo")
+
+
+@pytest.mark.faircli_sync
+def test_dest_object_of_a_file_is_not_looked_for_as_a_repository(
+    mocker: pytest_mock.MockerFixture,
+):
+    _repository = mocker.patch(
+        "fair.registry.sync._dest_repository", return_value={"url": "held"}
+    )
+    mocker.patch(
+        "fair.registry.requests.url_get",
+        lambda *args, **kwargs: {
+            "storage_location": "location",
+            "hash": "abc",
+            "data_products": [],
+        },
+    )
+
+    def mock_get(uri, obj_type, *args, **kwargs):
+        if obj_type == "storage_location":
+            return [{"url": f"{_DEST}storage_location/1/"}]
+        return [{"url": f"{_DEST}object/7/"}]
+
+    mocker.patch("fair.registry.requests.get", mock_get)
+
+    assert (
+        fdp_sync.get_dest_object_url("object", _DEST, "", "")
+        == f"{_DEST}object/7/"
+    )
+    _repository.assert_not_called()
+    # One that may be a repository is looked for as one first
+    assert (
+        fdp_sync.get_dest_object_url("object", _DEST, "", "", repository=True)
+        == "held"
+    )
+
+
+@pytest.mark.faircli_sync
+def test_dest_component_of_a_data_product_may_be_of_a_repository(
+    mocker: pytest_mock.MockerFixture,
+):
+    # A data product may be of a code repository, so the object of its
+    # component is looked for as one
+    mocker.patch(
+        "fair.registry.requests.url_get",
+        lambda *args, **kwargs: {"object": "object", "name": "whole"},
+    )
+    _found = mocker.patch(
+        "fair.registry.sync.get_dest_object_url", return_value=f"{_DEST}object/7/"
+    )
+    mocker.patch(
+        "fair.registry.requests.get",
+        return_value=[{"url": f"{_DEST}object_component/2/"}],
+    )
+
+    assert (
+        fdp_sync.get_dest_component_url("component", _DEST, "", "")
+        == f"{_DEST}object_component/2/"
+    )
+    assert _found.call_args.kwargs == {"repository": True}
+
+
+@pytest.mark.faircli_sync
+def test_sync_code_runs_fetches_each_component_once(
+    mocker: pytest_mock.MockerFixture,
+):
+    # A run read two components and wrote three, one of them read too, and
+    # one of an object with no data product
+    _run = {
+        "uuid": "abc",
+        "inputs": ["in", "both"],
+        "outputs": ["out", "both", "none"],
+    }
+    _products = {"in": ["dp1"], "both": ["dp2"], "out": ["dp3"], "none": []}
+    _fetched = mocker.patch(
+        "fair.registry.sync.get_data_products_from_component",
+        side_effect=lambda component, token: _products[component],
+    )
+    _formatted = mocker.patch(
+        "fair.registry.sync.format_data_product",
+        side_effect=lambda url, token: f"testing:{url}@v1.0.0",
+    )
+    mocker.patch("fair.registry.requests.get", return_value=[_run])
+    _sent = mocker.patch("fair.registry.sync.sync_data_products")
+    mocker.patch(
+        "fair.registry.sync._dest_component",
+        side_effect=lambda context, component, *args: f"dest_{component}",
+    )
+    _synced = mocker.patch("fair.registry.sync.sync_code_run")
+
+    fdp_sync.sync_code_runs(
+        "origin", "dest", "", "", "origin", ["abc"], context=fdp_sync.PushContext()
+    )
+
+    assert sorted(c.args[0] for c in _fetched.call_args_list) == [
+        "both",
+        "in",
+        "none",
+        "out",
+    ]
+    assert sorted(c.args[0] for c in _formatted.call_args_list) == [
+        "dp1",
+        "dp2",
+        "dp3",
+    ]
+    assert _sent.call_args.args[5] == [
+        "testing:dp1@v1.0.0",
+        "testing:dp2@v1.0.0",
+        "testing:dp3@v1.0.0",
+        "testing:dp2@v1.0.0",
+    ]
+    # The component with no data product is left out
+    assert _synced.call_args.args[5:7] == (
+        ["dest_in", "dest_both"],
+        ["dest_out", "dest_both"],
+    )
+
+
+@pytest.mark.faircli_sync
+def test_code_run_data_products_fetches_its_components_where_not_given(
+    mocker: pytest_mock.MockerFixture,
+):
+    _run = {"inputs": ["in"], "outputs": ["out"]}
+    mocker.patch(
+        "fair.registry.sync.get_data_products_from_component",
+        side_effect=lambda component, token: [f"{component}_dp"],
+    )
+    mocker.patch(
+        "fair.registry.sync.format_data_product",
+        side_effect=lambda url, token: f"testing:{url}@v1.0.0",
+    )
+    assert fdp_sync._code_run_data_products(_run, "") == (
+        ["testing:in_dp@v1.0.0"],
+        ["testing:out_dp@v1.0.0"],
+    )
 
 
 @pytest.mark.faircli_sync
