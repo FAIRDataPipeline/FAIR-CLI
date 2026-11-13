@@ -4,6 +4,7 @@ import logging
 import os
 import subprocess
 import sys
+import threading
 import time
 import typing
 
@@ -998,12 +999,86 @@ def test_a_hold_being_written_holds_until_it_is_too_old(
     _Server(mocker)
     _hold = fdp_life.hold_file(registry_dir)
     open(_hold, "w").close()
-    with pytest.raises(fdp_exc.RegistryError, match="held by"):
+    with pytest.raises(
+        fdp_exc.RegistryError, match="held by a command still taking the hold"
+    ):
         fdp_life.open_session()
     _then = time.time() - 2 * fdp_life.HOLD_WRITE_SECONDS
     os.utime(_hold, (_then, _then))
     fdp_life.open_session()
     assert not os.path.exists(_hold)
+
+
+# The record of a hold by this test's parent process, which runs throughout
+def _parents_hold() -> typing.Dict:
+    return {
+        "command": "fair registry reset",
+        "pid": os.getppid(),
+        "process_started": fdp_life._process_start(os.getppid()),
+        "host": fdp_life._host(),
+        "started": "2026-11-13T00:00:00",
+    }
+
+
+# Write a hold's record in its file, as the process taking the hold does. A
+# reader meanwhile finds it empty or part written, and reads it again
+def _write_hold(registry_dir: str, record: typing.Dict) -> None:
+    with open(fdp_life.hold_file(registry_dir), "w") as out_f:
+        json.dump(record, out_f)
+
+
+@pytest.mark.faircli_lifecycle
+def test_a_hold_being_written_is_judged_by_what_it_says(registry_dir: str):
+    # Made and not yet written, then written a moment later
+    open(fdp_life.hold_file(registry_dir), "w").close()
+    _writer = threading.Timer(
+        0.2, _write_hold, (registry_dir, _parents_hold())
+    )
+    _writer.start()
+    try:
+        _hold = fdp_life.current_hold(registry_dir)
+    finally:
+        _writer.join()
+    assert _hold and _hold["pid"] == os.getppid()
+
+
+@pytest.mark.faircli_lifecycle
+def test_a_hold_another_process_takes_meanwhile_is_not_taken_as_this_ones(
+    registry_dir: str, mocker: pytest_mock.MockerFixture
+):
+    # A hold left by a process that has ended. As it is removed, another
+    # process takes the hold, between the two looks at it before this one
+    # would take it
+    _ended = subprocess.Popen([sys.executable, "-c", "pass"])
+    _ended.wait()
+    _write_hold(
+        registry_dir,
+        {
+            **_parents_hold(),
+            "pid": _ended.pid,
+            "process_started": time.time() - 60,
+        },
+    )
+    _current_hold = fdp_life.current_hold
+    _looks = []
+
+    def _taken_meanwhile(*args):
+        _hold = _current_hold(*args)
+        _looks.append(_hold)
+        if len(_looks) == 1:
+            _write_hold(registry_dir, _parents_hold())
+        return _hold
+
+    mocker.patch("fair.registry.lifecycle.current_hold", _taken_meanwhile)
+    _entered = False
+    with pytest.raises(
+        fdp_exc.RegistryError,
+        match=f"held by 'fair registry reset', process {os.getppid()}",
+    ):
+        with fdp_life.held(registry_dir, "fair registry upgrade"):
+            _entered = True
+    assert not _entered
+    assert _looks[0] is None
 
 
 @pytest.mark.faircli_lifecycle

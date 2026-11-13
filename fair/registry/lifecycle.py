@@ -81,6 +81,12 @@ HOLD_SUFFIX = ".hold"
 # left by a process that ended while writing it
 HOLD_WRITE_SECONDS = 10
 
+# How long a hold's file still being written is waited for before it is
+# judged, and how often it is read meanwhile: its writer fills it as soon as
+# it has made it
+HOLD_WAIT_SECONDS = 1
+HOLD_POLL_SECONDS = 0.05
+
 # How long a process waits for another to finish starting or stopping the
 # registry: a start may take a minute and a half
 LOCK_SECONDS = 300
@@ -525,20 +531,32 @@ def current_hold(registry_dir: str) -> typing.Optional[typing.Dict]:
     -------
     typing.Optional[typing.Dict]
         the command ("command"), its process ("pid") and host ("host"), and
-        when it took the hold ("started"); None where nothing holds it
+        when it took the hold ("started"), each None but the host for a hold
+        still being written; None where nothing holds it
     """
     _path = hold_file(registry_dir)
     _hold = _read_record(_path)
-    if _hold is None:
-        # Being written, unless it is older than a write takes
+    _waited = 0.0
+    while _hold is None:
+        # Being written, unless it is older than a write takes; waited for
+        # briefly, so that it is judged by what it says
         try:
             _age = time.time() - os.path.getmtime(_path)
         except OSError:
             return None
-        if _age < HOLD_WRITE_SECONDS:
-            return {"command": "unknown command", "pid": None, "host": _host()}
-        _remove(_path)
-        return None
+        if _age >= HOLD_WRITE_SECONDS:
+            _remove(_path)
+            return None
+        if _waited >= HOLD_WAIT_SECONDS:
+            return {
+                "command": None,
+                "pid": None,
+                "host": _host(),
+                "started": None,
+            }
+        time.sleep(HOLD_POLL_SECONDS)
+        _waited += HOLD_POLL_SECONDS
+        _hold = _read_record(_path)
     if _hold.get("host") != _host():
         return _hold
     try:
@@ -556,14 +574,23 @@ def current_hold(registry_dir: str) -> typing.Optional[typing.Dict]:
     return None
 
 
+# Whether a hold is this process's
+def _is_this_process(hold: typing.Dict) -> bool:
+    return hold.get("host") == _host() and hold.get("pid") == os.getpid()
+
+
 # Refuse to start, stop or use the registry while another process holds its
 # install; the process holding it may
 def _refuse_held(registry_dir: str) -> None:
     _hold = current_hold(registry_dir)
-    if not _hold or (
-        _hold.get("host") == _host() and _hold.get("pid") == os.getpid()
-    ):
+    if not _hold or _is_this_process(_hold):
         return
+    if _hold.get("pid") is None:
+        raise fdp_exc.RegistryError(
+            f"The local registry installed in '{registry_dir}' is held by a "
+            "command still taking the hold",
+            hint="Try again once it has finished",
+        )
     if _hold.get("host") != _host():
         raise fdp_exc.RegistryError(
             f"The local registry installed in '{registry_dir}' is held by "
@@ -604,10 +631,12 @@ def held(registry_dir: str, command: str) -> typing.Iterator[None]:
             break
         except FileExistsError:
             # Refused where another process holds it; one that has ended is
-            # removed, and the hold taken at the next try
+            # removed, and the hold taken at the next try. A hold is taken
+            # again only by the process holding it: one another process has
+            # just taken is refused at the next try
             _refuse_held(registry_dir)
             _hold = current_hold(registry_dir)
-            if _hold:
+            if _hold and _is_this_process(_hold):
                 yield
                 return
     with os.fdopen(_hold_fd, "w", encoding="utf-8") as out_f:

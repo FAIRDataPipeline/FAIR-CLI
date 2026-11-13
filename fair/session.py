@@ -329,7 +329,12 @@ class FAIR:
 
     def registry_status(self):
         _hold = fdp_life.current_hold(fdp_com.registry_home())
-        if _hold:
+        if _hold and _hold.get("pid") is None:
+            click.echo(
+                f"Held by a command still taking the hold on '{_hold.get('host')}': "
+                "nothing else starts, stops or uses the registry until it finishes"
+            )
+        elif _hold:
             click.echo(
                 f"Held by '{_hold.get('command')}', process {_hold.get('pid')} "
                 f"on '{_hold.get('host')}' since {_hold.get('started')}: nothing "
