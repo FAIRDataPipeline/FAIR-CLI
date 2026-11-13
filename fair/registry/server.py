@@ -744,7 +744,7 @@ def upgrade_registry(
         except BaseException:
             # The install is as it was, and so is the registry
             if _stopped:
-                _restart(_stopped, registry_dir)
+                _restart_after_failure(_stopped, registry_dir)
             raise
         if _stopped:
             _result["restarted"] = _restart(_stopped, registry_dir)
@@ -797,6 +797,21 @@ def _restart(uri: str, registry_dir: str) -> str:
         address=_parsed.hostname or "127.0.0.1",
         registry_dir=registry_dir,
     )
+
+
+# Start again a registry stopped for a change that failed. A failure to start
+# it is logged, not raised, so that the change's own error is the one the user
+# sees; a second Ctrl-C still stops it
+def _restart_after_failure(uri: str, registry_dir: str) -> None:
+    try:
+        _restart(uri, registry_dir)
+    except Exception as e:
+        logging.getLogger("FAIRDataPipeline.Server").error(
+            "The registry stopped at '%s' could not be started again: %s. "
+            "Start it with 'fair registry start'",
+            uri,
+            e,
+        )
 
 
 def uninstall_registry() -> None:
@@ -870,33 +885,40 @@ def _build_database(python: str, registry_dir: str) -> None:
 
 # Give an install an empty database and a new token in the block. Those it has
 # are set aside first, and on any failure, Ctrl-C included, what the block made
-# is removed and they are put back
+# is removed and they are put back. Where they cannot be, they are kept where
+# they were set aside, and that place named
 @contextlib.contextmanager
 def _replacing_database(
     registry_dir: str,
 ) -> typing.Generator[None, None, None]:
     _names = (fdp_db.DATABASE_FILE, "token")
     _aside = tempfile.mkdtemp(prefix=".reset-", dir=registry_dir)
+    for _name in _names:
+        if os.path.exists(os.path.join(registry_dir, _name)):
+            os.rename(os.path.join(registry_dir, _name), os.path.join(_aside, _name))
     try:
-        for _name in _names:
-            if os.path.exists(os.path.join(registry_dir, _name)):
-                os.rename(
-                    os.path.join(registry_dir, _name),
-                    os.path.join(_aside, _name),
-                )
         yield
     except BaseException:
-        for _name in _names:
-            if os.path.exists(os.path.join(registry_dir, _name)):
-                os.remove(os.path.join(registry_dir, _name))
-            if os.path.exists(os.path.join(_aside, _name)):
-                os.rename(
-                    os.path.join(_aside, _name),
-                    os.path.join(registry_dir, _name),
-                )
-        raise
-    finally:
+        try:
+            for _name in _names:
+                _new = os.path.join(registry_dir, _name)
+                _old = os.path.join(_aside, _name)
+                if os.path.exists(_old):
+                    # Replacing what the block made in one step
+                    os.replace(_old, _new)
+                elif os.path.exists(_new):
+                    os.remove(_new)
+        except OSError as restore_error:
+            # The originals are left where they were set aside, never removed
+            raise fdp_exc.RegistryError(
+                "The database of the registry could not be put back after a "
+                f"reset that failed; the original is kept in '{_aside}'",
+                hint=f"Move '{fdp_db.DATABASE_FILE}' and 'token' from there "
+                f"into '{registry_dir}'",
+            ) from restore_error
         shutil.rmtree(_aside, onerror=fdp_com.remove_readonly)
+        raise
+    shutil.rmtree(_aside, onerror=fdp_com.remove_readonly)
 
 
 def reset_registry(
@@ -965,7 +987,7 @@ def reset_registry(
         except BaseException as e:
             # The database is as it was, and so is the registry
             if _stopped:
-                _restart(_stopped, registry_dir)
+                _restart_after_failure(_stopped, registry_dir)
             if isinstance(e, subprocess.CalledProcessError):
                 raise fdp_exc.RegistryError(
                     f"The database of the registry installed in "

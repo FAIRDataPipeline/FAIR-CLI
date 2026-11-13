@@ -551,6 +551,75 @@ def test_a_reset_that_fails_keeps_the_database_and_starts_the_registry_again(
 
 
 @pytest.mark.faircli_server
+def test_a_reset_whose_database_cannot_be_put_back_keeps_the_original(
+    installed: typing.Dict, mocker: pytest_mock.MockerFixture
+):
+    def _failing(python, registry_dir):
+        with open(os.path.join(registry_dir, "db.sqlite3"), "w") as out_f:
+            out_f.write("half built")
+        raise subprocess.CalledProcessError(1, "migrate")
+
+    installed["rebuild"].side_effect = _failing
+    with open(os.path.join(installed["registry"], "db.sqlite3"), "rb") as in_f:
+        _records = in_f.read()
+    # Putting back what was set aside fails, as for a locked file on Windows
+    _replace = os.replace
+
+    def _locked(src, dst):
+        if ".reset-" in str(src):
+            raise PermissionError("locked")
+        _replace(src, dst)
+
+    mocker.patch("fair.registry.server.os.replace", side_effect=_locked)
+    with pytest.raises(fdp_exc.RegistryError, match="could not be put back") as e:
+        fdp_serv.reset_registry()
+    _aside = glob.glob(os.path.join(installed["registry"], ".reset-*"))
+    assert len(_aside) == 1 and _aside[0] in e.value.msg
+    with open(os.path.join(_aside[0], "db.sqlite3"), "rb") as in_f:
+        assert in_f.read() == _records
+    with open(os.path.join(_aside[0], "token")) as in_f:
+        assert in_f.read() == "old"
+    # The registry is still started again
+    assert installed["state"]["running"]
+
+
+@pytest.mark.faircli_server
+def test_a_reset_whose_registry_cannot_start_again_raises_its_own_error(
+    installed: typing.Dict,
+    mocker: pytest_mock.MockerFixture,
+    caplog: pytest.LogCaptureFixture,
+):
+    installed["rebuild"].side_effect = subprocess.CalledProcessError(1, "migrate")
+    mocker.patch(
+        "fair.registry.server._restart",
+        side_effect=fdp_exc.RegistryError("The port is taken"),
+    )
+    with pytest.raises(fdp_exc.RegistryError, match="could not be built again"):
+        fdp_serv.reset_registry()
+    assert "could not be started again" in caplog.text
+    assert "The port is taken" in caplog.text
+
+
+@pytest.mark.faircli_server
+def test_a_restart_after_failure_lets_ctrl_c_through(
+    mocker: pytest_mock.MockerFixture,
+):
+    mocker.patch("fair.registry.server._restart", side_effect=KeyboardInterrupt())
+    with pytest.raises(KeyboardInterrupt):
+        fdp_serv._restart_after_failure(_URI, "registry")
+
+
+@pytest.mark.faircli_server
+def test_a_reset_deleting_files_warns_of_other_registries(installed: typing.Dict):
+    _result = click.testing.CliRunner().invoke(
+        cli, ["registry", "reset", "--delete-files"]
+    )
+    assert _result.exit_code == 1
+    assert "another registry using those stores" in _result.output
+    installed["rebuild"].assert_not_called()
+
+
+@pytest.mark.faircli_server
 def test_a_reset_clears_the_staging_though_the_user_is_not_registered(
     installed: typing.Dict,
 ):

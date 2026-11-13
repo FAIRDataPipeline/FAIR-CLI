@@ -559,7 +559,8 @@ def erase_unknown_data(delete_all: bool, dry_run: bool, debug: bool) -> None:
 @registry.command("reset")
 @click.option(
     "--delete-files/--keep-files",
-    help="Also delete the files the registry holds in its data stores",
+    help="Also delete the files the registry holds in its data stores, which "
+    "another registry using the same stores may also hold",
     default=False,
 )
 @click.option("--yes/--no", help="Empty it without asking", default=False)
@@ -574,7 +575,8 @@ def registry_reset(delete_files: bool, yes: bool, debug: bool) -> None:
             f"empty the local registry installed in '{_registry_dir}', deleting "
             "every record in it"
             + (
-                " and the files it holds in its data stores"
+                " and the files it holds in its data stores. Warning: another "
+                "registry using those stores may hold some of the same files"
                 if delete_files
                 else ""
             )
