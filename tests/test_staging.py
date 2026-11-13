@@ -197,3 +197,18 @@ def test_get_job_data(
             "config_file": _dummy_url,
             "script_file": None,
         }
+
+
+@pytest.mark.faircli_staging
+def test_stage_code_runs_stages_named_and_new_runs(stager: fdp_stage.Stager):
+    with open(stager._staging_file) as stage_f:
+        _dict = yaml.safe_load(stage_f)
+    _dict["code_run"] = {"named": False, "other": False}
+    with open(stager._staging_file, "w") as stage_f:
+        yaml.dump(_dict, stage_f)
+
+    stager.stage_code_runs(["named", "new"])
+
+    with open(stager._staging_file) as stage_f:
+        _staged = yaml.safe_load(stage_f)["code_run"]
+    assert _staged == {"named": True, "new": True, "other": False}

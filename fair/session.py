@@ -60,6 +60,7 @@ import fair.staging as fdp_stage
 import fair.templates as fdp_tpl
 import fair.testing as fdp_test
 import fair.user_config as fdp_user
+import fair.utilities as fdp_util
 import fair.logging as fdp_logging
 import fair.registry.storage as fdp_store
 
@@ -908,6 +909,94 @@ class FAIR:
                 "run again",
             )
         return True
+
+    def add_all_code_runs(self, remote: str = "origin") -> None:
+        """Stage every finished code run of this repository that a remote lacks
+
+        A run is this repository's where its code repository is at the address
+        the project's configuration gives as 'git: remote_repo'. It has
+        finished where it records an input or an output. The remote lacks it
+        where it holds no run with its UUID, or one with fewer inputs or
+        outputs, as a push that sent part of it leaves. Refused while another
+        process holds a session on the local registry.
+
+        Parameters
+        ----------
+        remote : str, optional
+            label of the remote registry, by default 'origin'
+        """
+        self.check_is_repo()
+        self._refuse_other_sessions()
+        _configured = fdp_conf.remote_git_repo(self._session_loc)
+        _repository = fdp_util.repository_address(_configured)
+        if not _repository:
+            raise fdp_exc.StagingError(
+                f"This project's repository, '{_configured}', is not an "
+                "address that a code run's repository can be compared with",
+                hint="Give 'git: remote_repo' in the project's "
+                ".fair/cli-config.yaml as a URL, such as "
+                "https://github.com/<organisation>/<repository>",
+            )
+        _local_token = fdp_req.local_token()
+        _remote_uri = fdp_conf.get_remote_uri(self._session_loc, remote)
+        _remote_token = fdp_conf.get_remote_token(
+            self._session_loc, remote, local=self._local
+        )
+        _known = {}
+        _to_stage, _unfinished = [], []
+        _held = _elsewhere = 0
+        for _code_run in fdp_req.get(
+            fdp_conf.get_local_uri(), "code_run", _local_token
+        ):
+            if _run_repository(_code_run, _local_token, _known) != _repository:
+                _elsewhere += 1
+            elif not _code_run["inputs"] and not _code_run["outputs"]:
+                _unfinished.append(_code_run)
+            elif _remote_holds(_code_run, _remote_uri, _remote_token):
+                _held += 1
+            else:
+                _to_stage.append(_code_run)
+        self._stager.stage_code_runs(
+            [_code_run["uuid"] for _code_run in _to_stage]
+        )
+        for _code_run in _to_stage:
+            click.echo(
+                f"Staged code run {_code_run['uuid']} of "
+                f"{_code_run['run_date']}: {_code_run['description']}"
+            )
+        for _code_run in _unfinished:
+            click.echo(
+                f"Not staged: code run {_code_run['uuid']} of "
+                f"{_code_run['run_date']} records no inputs or outputs, so "
+                "has not finished"
+            )
+        click.echo(
+            f"Code runs staged: {len(_to_stage)}; held by '{remote}' already: "
+            f"{_held}; not finished: {len(_unfinished)}; of other "
+            f"repositories: {_elsewhere}"
+        )
+
+    # Refuse while a process other than this command holds a session on the
+    # local registry, since it may be a code run in progress
+    def _refuse_other_sessions(self) -> None:
+        _others = [
+            _session
+            for _session in fdp_life.status(self._session_registry)["sessions"]
+            if _session.get("id") != self._session_id
+        ]
+        if _others:
+            raise fdp_exc.StagingError(
+                "Other processes hold sessions on the local registry, and one "
+                "may be a code run in progress: "
+                + "; ".join(
+                    f"process {_session.get('pid')} since "
+                    f"{_session.get('opened')} ({_session['command']})"
+                    for _session in _others
+                ),
+                hint="Run 'fair add --all' again once they have finished. "
+                "'fair registry status' lists them, and 'fair add <uuid>' "
+                "stages one finished run meanwhile",
+            )
 
     def is_staging_item_in_registry(self, identifier, item_type) -> bool:
         local_uri = fdp_conf.get_local_uri()
@@ -1895,3 +1984,47 @@ def _report_gone_code_runs(code_runs: typing.List[str]) -> None:
             f"Code run '{_code_run}' is no longer in the local registry, "
             "and has been removed from staging"
         )
+
+
+# The host and path of a code run's repository, None where it has none or its
+# address is neither a URL nor a git remote. An API registers the location
+# under the host's root, with the path relative to that or the whole address.
+# Each repository object's is kept in 'known' by its URL
+def _run_repository(
+    code_run: typing.Dict[str, typing.Any],
+    token: str,
+    known: typing.Dict[str, typing.Optional[typing.Tuple[str, str]]],
+) -> typing.Optional[typing.Tuple[str, str]]:
+    _object_url = code_run.get("code_repo")
+    if not _object_url:
+        return None
+    if _object_url not in known:
+        _object = fdp_req.url_get(_object_url, token)
+        _address = None
+        if _object.get("storage_location"):
+            _location = fdp_req.url_get(_object["storage_location"], token)
+            _root = fdp_req.url_get(_location["storage_root"], token)["root"]
+            _path = _location["path"].lstrip("/")
+            _address = fdp_util.repository_address(
+                _path
+            ) or fdp_util.repository_address(
+                fdp_util.check_trailing_slash(_root) + _path
+            )
+        known[_object_url] = _address
+    return known[_object_url]
+
+
+# Whether a remote holds a code run whole: a run with its UUID and at least as
+# many inputs and outputs. A push links a run it reaches through a data
+# product with that data product's outputs alone
+def _remote_holds(
+    code_run: typing.Dict[str, typing.Any], uri: str, token: str
+) -> bool:
+    _there = fdp_req.get(
+        uri, "code_run", token, params={"uuid": code_run["uuid"]}
+    )
+    return (
+        bool(_there)
+        and len(_there[0]["inputs"]) >= len(code_run["inputs"])
+        and len(_there[0]["outputs"]) >= len(code_run["outputs"])
+    )

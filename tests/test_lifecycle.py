@@ -1138,3 +1138,171 @@ def test_fair_add_of_nothing_is_refused(
     assert "No data product or code run to stage was given" in _result.output
     assert "'fair list'" in _result.output
     _server.launch.assert_not_called()
+
+
+# A code run as the registry lists it
+def _run(
+    uuid: str,
+    repository: typing.Optional[str],
+    inputs: typing.List[str],
+    outputs: typing.List[str],
+) -> typing.Dict[str, typing.Any]:
+    return {
+        "uuid": uuid,
+        "code_repo": repository,
+        "inputs": inputs,
+        "outputs": outputs,
+        "run_date": "2026-11-13T12:00:00Z",
+        "description": f"A run, {uuid}",
+    }
+
+
+class _Runs:
+    """A stand-in for a local registry's code runs, with their repositories,
+    and for what a remote holds of them. This project's repository is
+    registered as Julia and R register one ('julia') and as Python does
+    ('python'); the requests made of it are kept"""
+
+    REMOTE = "http://127.0.0.1:8001/api/"
+
+    def __init__(self, mocker: pytest_mock.MockerFixture):
+        self.records = {
+            "julia": {"storage_location": "location/julia"},
+            "location/julia": {
+                "path": "FAIRDataPipeline/FAIR-CLI.git",
+                "storage_root": "root/github",
+            },
+            "root/github": {"root": "https://github.com/"},
+            "python": {"storage_location": "location/python"},
+            "location/python": {
+                "path": "https://github.com/FAIRDataPipeline/FAIR-CLI",
+                "storage_root": "root/python",
+            },
+            "root/python": {"root": "https://github.com"},
+            "other": {"storage_location": "location/other"},
+            "location/other": {
+                "path": "FAIRDataPipeline/other",
+                "storage_root": "root/github",
+            },
+        }
+        self.local = [
+            _run("new", "julia", ["a"], ["b"]),
+            _run("partly", "python", [], ["c", "d"]),
+            _run("held", "julia", ["a"], []),
+            _run("unfinished", "julia", [], []),
+            _run("elsewhere", "other", ["a"], ["e"]),
+            _run("no-repository", None, ["a"], []),
+        ]
+        # A push of one of its data products sent part of a run
+        self.remote = {
+            "partly": _run("partly", "there", [], ["c"]),
+            "held": _run("held", "there", ["a"], []),
+        }
+        self.asked = []
+        mocker.patch("fair.registry.requests.get", side_effect=self._get)
+        mocker.patch(
+            "fair.registry.requests.url_get", side_effect=self._url_get
+        )
+        mocker.patch("fair.registry.requests.local_token", lambda *args: "")
+        mocker.patch(
+            "fair.configuration.remote_git_repo",
+            lambda *args: "git@github.com:FAIRDataPipeline/FAIR-CLI.git",
+        )
+        mocker.patch(
+            "fair.configuration.get_remote_uri",
+            lambda *args, **kwargs: self.REMOTE,
+        )
+        mocker.patch(
+            "fair.configuration.get_remote_token", lambda *args, **kwargs: ""
+        )
+
+    def _get(self, uri, obj_path, token, params=None, **kwargs):
+        self.asked.append((uri, obj_path, params))
+        assert obj_path == "code_run"
+        if uri == URI and not params:
+            return self.local
+        assert uri == self.REMOTE and list(params) == ["uuid"]
+        _there = self.remote.get(params["uuid"])
+        return [_there] if _there else []
+
+    def _url_get(self, url, token):
+        self.asked.append((url, None, None))
+        return self.records[url]
+
+
+@pytest.mark.faircli_lifecycle
+def test_fair_add_all_stages_the_finished_runs_the_remote_lacks(
+    local_config: typing.Tuple[str, str],
+    registry_dir: str,
+    mocker: pytest_mock.MockerFixture,
+):
+    _Server(mocker)
+    _runs = _Runs(mocker)
+    with open(fdp_com.staging_cache(local_config[1]), "w") as stage_f:
+        yaml.dump({"job": {}, "data_product": {}, "code_run": {}}, stage_f)
+    _result = click.testing.CliRunner().invoke(cli, ["add", "--all"])
+    assert _result.exit_code == 0, _result.output
+    with open(fdp_com.staging_cache(local_config[1])) as stage_f:
+        _staged = yaml.safe_load(stage_f)["code_run"]
+    assert _staged == {"new": True, "partly": True}
+    _staged_line = "Staged code run new of 2026-11-13T12:00:00Z: A run, new"
+    assert _staged_line in _result.output
+    assert "Not staged: code run unfinished of" in _result.output
+    assert (
+        "Code runs staged: 2; held by 'origin' already: 1; not finished: 1; of "
+        "other repositories: 2"
+    ) in _result.output
+    # Each repository's records are read once
+    assert _runs.asked.count(("julia", None, None)) == 1
+
+
+@pytest.mark.faircli_lifecycle
+def test_fair_add_all_is_refused_while_another_session_is_open(
+    local_config: typing.Tuple[str, str],
+    registry_dir: str,
+    mocker: pytest_mock.MockerFixture,
+    child,
+):
+    _Server(mocker)
+    _runs = _Runs(mocker)
+    fdp_life.open_session(pid=child.pid)
+    _result = click.testing.CliRunner().invoke(cli, ["add", "--all"])
+    assert _result.exit_code != 0
+    assert f"process {child.pid} since" in _result.output
+    assert "'fair registry status'" in _result.output
+    assert not _runs.asked
+
+
+@pytest.mark.faircli_lifecycle
+def test_fair_add_all_needs_the_projects_repository_address(
+    local_config: typing.Tuple[str, str],
+    registry_dir: str,
+    mocker: pytest_mock.MockerFixture,
+):
+    _Server(mocker)
+    _runs = _Runs(mocker)
+    mocker.patch(
+        "fair.configuration.remote_git_repo",
+        lambda *args: "git@notagit.com/user/project.git",
+    )
+    _result = click.testing.CliRunner().invoke(cli, ["add", "--all"])
+    assert _result.exit_code != 0
+    _refusal = "'git@notagit.com/user/project.git', is not an address"
+    assert _refusal in _result.output
+    assert "'git: remote_repo'" in _result.output
+    assert not _runs.asked
+
+
+@pytest.mark.faircli_lifecycle
+def test_fair_add_all_with_an_item_is_refused(
+    local_config: typing.Tuple[str, str],
+    registry_dir: str,
+    mocker: pytest_mock.MockerFixture,
+):
+    _server = _Server(mocker)
+    _result = click.testing.CliRunner().invoke(
+        cli, ["add", "--all", "PSU:data@v1.0.0"]
+    )
+    assert _result.exit_code != 0
+    assert "Give '--all' or an item to stage, not both" in _result.output
+    _server.launch.assert_not_called()

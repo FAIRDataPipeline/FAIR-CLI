@@ -311,6 +311,14 @@ A code run can be staged once it has finished. `fair add` refuses a run that rec
 
 A code run deleted from the local registry may still be named in a project's staging. `fair status`, `fair add` and `fair push` remove it, and say so. `fair add` then refuses it, and a push sends the rest.
 
+`fair add --all` stages every finished code run of this repository that the remote registry lacks:
+
+```sh
+fair add --all
+```
+
+A run belongs to this repository if its code repository is the one in the project's `git: remote_repo`. The remote is `origin` unless `--remote` names another. A run that the remote holds only in part is staged too. A push of a data product sends the run that wrote it, with that data product's outputs alone. `fair add --all` is refused while another process holds a session on the local registry, since that may be a run in progress. `fair registry status` lists the sessions.
+
 ### `push`
 
 `fair push` sends what is staged to the remote registry, `origin` unless you name another:

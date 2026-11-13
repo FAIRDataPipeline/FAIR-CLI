@@ -464,6 +464,23 @@ class Stager:
             yaml.dump(_staging_dict, f)
         return _gone
 
+    def stage_code_runs(self, code_runs: typing.List[str]) -> None:
+        """Stage code runs, adding each that staging does not name yet
+
+        Parameters
+        ----------
+        code_runs : typing.List[str]
+            UUIDs of the code runs
+        """
+        with open(self._staging_file, encoding="utf-8") as f:
+            _staging_dict = yaml.safe_load(f)
+
+        for _code_run in code_runs:
+            _staging_dict["code_run"][_code_run] = True
+
+        with open(self._staging_file, encoding="utf-8", mode="w") as f:
+            yaml.dump(_staging_dict, f)
+
     def remove_gone_code_runs(self) -> typing.List[str]:
         """Remove from staging every code run the local registry no longer holds
 

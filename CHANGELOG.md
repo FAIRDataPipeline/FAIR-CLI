@@ -27,6 +27,9 @@
   is still running, or stopped before it finished.
 
 ## Added
+- `fair add --all` stages every finished code run of this repository that the remote lacks, or holds only in part.
+  `--remote` names the remote, `origin` by default. A run has finished once it records inputs or outputs. It is
+  refused while another process holds a session on the local registry, since that may be a run in progress.
 - `fair registry erase-unknown-data` erases the files in the local registry's data stores that the registry does not
   hold. It runs only while the registry is stopped. It names each store and warns that another registry using it may
   hold the files, then erases them only once the store's path is typed. `--dry-run` lists what it would erase. It keeps

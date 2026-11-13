@@ -742,9 +742,27 @@ def unstage(identifier: str, debug: bool, job: bool) -> None:
 
 
 @cli.command()
-@click.argument("identifier", shell_complete=complete_data_products)
+@click.argument(
+    "identifier",
+    required=False,
+    default="",
+    shell_complete=complete_data_products,
+)
+@click.option(
+    "--all",
+    "all_runs",
+    is_flag=True,
+    default=False,
+    help="Stage every finished code run of this repository that the remote "
+    "lacks",
+)
+@click.option(
+    "--remote",
+    default="origin",
+    help="The remote registry that '--all' looks at",
+)
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
-def add(identifier: str, debug: bool) -> None:
+def add(identifier: str, all_runs: bool, remote: str, debug: bool) -> None:
     """
     Add a data product or coderun to staging
 
@@ -757,22 +775,35 @@ def add(identifier: str, debug: bool) -> None:
 
     Use `fair list` to view Data Products and Code Runs
 
+    With `--all`, every finished code run of this repository that the remote
+    registry lacks is staged
+
     """
     try:
-        if not identifier.strip():
+        if all_runs and identifier.strip():
+            raise fdp_exc.StagingError(
+                "Give '--all' or an item to stage, not both",
+                hint="'fair add --all' stages every finished code run of this "
+                "repository that the remote lacks, and 'fair add <item>' one "
+                "item",
+            )
+        if not all_runs and not identifier.strip():
             raise fdp_exc.StagingError(
                 "No data product or code run to stage was given",
-                hint="Give a data product as <namespace>:<name>@v<version>, or a "
-                "code run by its UUID: 'fair list' lists them",
+                hint="Give a data product as <namespace>:<name>@v<version>, a "
+                "code run by its UUID, or '--all': 'fair list' lists them",
             )
-        # The item is looked for in the local registry, started if it is not
+        # The items are looked for in the local registry, started if it is not
         # running
         with fdp_session.FAIR(
             os.getcwd(),
             debug=debug,
             server_mode=fdp_svr.SwitchMode.CLI,
         ) as fair_session:
-            fair_session.add_to_staging(identifier)
+            if all_runs:
+                fair_session.add_all_code_runs(remote)
+            else:
+                fair_session.add_to_staging(identifier)
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
         if e.level.lower() != "warning":

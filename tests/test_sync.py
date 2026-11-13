@@ -3304,6 +3304,76 @@ def test_staging_drops_a_run_the_registry_no_longer_holds(
 
 
 @pytest.mark.faircli_sync
+@pytest.mark.dependency(depends=["run"])
+def test_add_all_stages_the_finished_runs_the_remote_lacks(
+    global_config: str,
+    local_registry: RegistryTest,
+    remote_registry: RegistryTest,
+    pyDataPipeline: str,
+    fair_bucket: MotoTestServer,
+    mocker: pytest_mock.MockerFixture,
+):
+    # Runs of a repository of the test's own, which the project is said to be:
+    # one the remote holds in part, one it holds whole, one it lacks, one not
+    # finished; and a run of another repository
+    _here = f"FAIRDataPipeline/all-{uuid.uuid4().hex[:8]}"
+    mocker.patch(
+        "fair.configuration.remote_git_repo",
+        lambda *args: f"git@github.com:{_here}.git",
+    )
+    _cli_runner = click.testing.CliRunner()
+    with remote_registry, local_registry, fair_bucket:
+        mocker.patch(
+            "fair.configuration.get_current_user_remote_user",
+            lambda *args, **kwargs: "admin",
+        )
+        _token = local_registry._token
+        _commit = hashlib.sha1(_here.encode()).hexdigest()
+        _repo = _repository(_ORIGIN, _token, _commit, _here)["url"]
+        _first = _registered_data_product(_token, f"{_here}/first", b"first\n")
+        _second = _registered_data_product(
+            _token, f"{_here}/second", b"second\n"
+        )
+        _partly = _registered_run(
+            _token, [], _first["components"] + _second["components"], _repo
+        )
+        # A push of one of its data products sends that part of the run
+        _res = _push(_cli_runner, f"testing:{_here}/first@v1.0.0")
+        assert _res.exit_code == 0, _res.output
+        _whole = _registered_run(_token, _first["components"], [], _repo)
+        _res = _push(_cli_runner, _whole)
+        assert _res.exit_code == 0, _res.output
+        _new = _registered_run(_token, _second["components"], [], _repo)
+        _unfinished = _registered_run(_token, [], [], _repo)
+        _other = _repository(_ORIGIN, _token, _commit[::-1], f"{_here}-other")
+        _elsewhere = _registered_run(
+            _token, _first["components"], [], _other["url"]
+        )
+
+        _res = _cli_runner.invoke(cli, ["add", "--all"])
+        try:
+            assert _res.exit_code == 0, _res.output
+            _staged = _staged_runs()
+            assert _staged.get(_partly) and _staged.get(_new)
+            assert not _staged.get(_whole)
+            assert not _staged.get(_unfinished)
+            assert not _staged.get(_elsewhere)
+            assert f"Not staged: code run {_unfinished} of" in _res.output
+
+            _res = _cli_runner.invoke(cli, ["push"])
+            assert _res.exit_code == 0, _res.output
+            _pushed = get(
+                _DEST,
+                "code_run",
+                remote_registry._token,
+                params={"uuid": _partly},
+            )
+            assert len(_pushed[0]["outputs"]) == 2
+        finally:
+            _cli_runner.invoke(cli, ["reset"])
+
+
+@pytest.mark.faircli_sync
 @pytest.mark.parametrize(
     "objects,expected",
     [([(10, None), (9, None)], 9), ([(9, None), (10, "a release")], 10), ([], None)],

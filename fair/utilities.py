@@ -18,6 +18,7 @@ Functions
     flatten_dict - convert a nested dictionary into a single level version.
     expand_dict  - expands a single level dictionary to a nested version.
     remove_dictlist_dupes - removes duplicates from list of depth 1 dictionaries
+    repository_address - the host and path of a code repository's address
 
 Class
 -----
@@ -30,6 +31,7 @@ __date__ = "2021-08-04"
 import datetime
 import json
 import logging
+import re
 import typing
 import urllib.parse
 
@@ -218,3 +220,35 @@ def is_api_url(uri: str, string: str) -> bool:
     _api_path = check_trailing_slash(_uri.path) if _uri.path else "/"
 
     return _url.path.startswith(_api_path)
+
+
+def repository_address(
+    address: str,
+) -> typing.Optional[typing.Tuple[str, str]]:
+    """Return the host and path of a code repository's address
+
+    A URL ('https://github.com/org/repo') and an scp-style git remote
+    ('git@github.com:org/repo.git') of one repository give the same host and
+    path: the host in lower case, and the path without a trailing '.git' or
+    '/'.
+
+    Parameters
+    ----------
+    address : str
+        the repository's address
+
+    Returns
+    -------
+    typing.Optional[typing.Tuple[str, str]]
+        its host and path, or None where the address is neither form
+    """
+    _match = re.fullmatch(
+        r"[A-Za-z][A-Za-z0-9+.-]*://(?:[^@/]*@)?([^/:]+)(?::[0-9]*)?/(.*)",
+        address.strip(),
+    ) or re.fullmatch(r"[^@/:]+@([^/:]+):/?(.*)", address.strip())
+    if not _match:
+        return None
+    _path = _match.group(2).rstrip("/")
+    if _path.endswith(".git"):
+        _path = _path[: -len(".git")]
+    return _match.group(1).lower(), _path
