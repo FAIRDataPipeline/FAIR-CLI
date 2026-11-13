@@ -200,8 +200,7 @@ def list(ctx, debug, remote) -> None:
         ctx.obj = {}
     ctx.obj["DEBUG"] = debug
     ctx.obj["REMOTE"] = remote
-    _current_args = " ".join(sys.argv)
-    if not ("data-products" in _current_args or "code-runs" in _current_args):
+    if ctx.invoked_subcommand is None:
         ctx.invoke(data_products)
         ctx.invoke(code_runs)
 
@@ -223,15 +222,20 @@ def data_products(ctx) -> None:
 
 
 @list.command()
+@click.option(
+    "--json", "as_json", is_flag=True, default=False, help="Print them as JSON"
+)
 @click.pass_context
-def code_runs(ctx) -> None:
+def code_runs(ctx, as_json: bool) -> None:
+    """List the code runs, with whether each has finished, is staged, and is
+    held by the remote 'origin'"""
     debug = ctx.obj["DEBUG"]
     remote = ctx.obj["REMOTE"]
     try:
         with fdp_session.FAIR(
             os.getcwd(), debug=debug, server_mode=fdp_svr.SwitchMode.CLI
         ) as fair_session:
-            fair_session.show_all_code_runs(remote=remote)
+            fair_session.show_all_code_runs(remote=remote, as_json=as_json)
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
         if e.level.lower() != "warning":

@@ -1219,8 +1219,8 @@ class _Runs:
     def _get(self, uri, obj_path, token, params=None, **kwargs):
         self.asked.append((uri, obj_path, params))
         assert obj_path == "code_run"
-        if uri == URI and not params:
-            return self.local
+        if not params:
+            return self.local if uri == URI else [*self.remote.values()]
         assert uri == self.REMOTE and list(params) == ["uuid"]
         _there = self.remote.get(params["uuid"])
         return [_there] if _there else []
@@ -1306,6 +1306,94 @@ def test_fair_add_all_with_an_item_is_refused(
     assert _result.exit_code != 0
     assert "Give '--all' or an item to stage, not both" in _result.output
     _server.launch.assert_not_called()
+
+
+# The code runs a listing of them prints as JSON, by UUID
+def _listed(result: click.testing.Result) -> typing.Dict[str, typing.Dict]:
+    return {_row["uuid"]: _row for _row in json.loads(result.stdout)}
+
+
+@pytest.fixture
+def listed_runs(
+    local_config: typing.Tuple[str, str],
+    registry_dir: str,
+    mocker: pytest_mock.MockerFixture,
+) -> _Runs:
+    _Server(mocker)
+    _staging = {"job": {}, "data_product": {}, "code_run": {"new": True}}
+    with open(fdp_com.staging_cache(local_config[1]), "w") as stage_f:
+        yaml.dump(_staging, stage_f)
+    return _Runs(mocker)
+
+
+@pytest.mark.faircli_lifecycle
+def test_fair_list_code_runs_gives_each_runs_state(listed_runs: _Runs):
+    _result = click.testing.CliRunner().invoke(
+        cli, ["list", "code-runs", "--json"]
+    )
+    assert _result.exit_code == 0, _result.output
+    _rows = _listed(_result)
+    assert _rows["new"] == {
+        "uuid": "new",
+        "run_date": "2026-11-13T12:00:00Z",
+        "description": "A run, new",
+        "finished": True,
+        "staged": True,
+        "on_remote": "none",
+    }
+    assert _rows["partly"]["on_remote"] == "part"
+    assert _rows["held"]["on_remote"] == "whole"
+    assert not _rows["unfinished"]["finished"]
+    assert not _rows["held"]["staged"]
+    assert len(_rows) == len(listed_runs.local)
+
+
+@pytest.mark.faircli_lifecycle
+def test_fair_list_code_runs_shows_every_run(listed_runs: _Runs):
+    listed_runs.local += [
+        _run(f"more-{_number}", "julia", ["a"], []) for _number in range(10)
+    ]
+    _result = click.testing.CliRunner().invoke(
+        cli, ["list", "code-runs"], env={"COLUMNS": "200"}
+    )
+    assert _result.exit_code == 0, _result.output
+    for _code_run in listed_runs.local:
+        assert f" {_code_run['uuid']} " in _result.stdout
+        assert _code_run["description"] in _result.stdout
+    assert "more..." not in _result.stdout
+    assert "On 'origin'" in _result.stdout
+    assert "in part" in _result.stdout
+
+
+@pytest.mark.faircli_lifecycle
+def test_fair_list_code_runs_without_origin(
+    listed_runs: _Runs, mocker: pytest_mock.MockerFixture
+):
+    def _no_remote(*args, **kwargs):
+        raise fdp_exc.CLIConfigurationError("No remote 'origin' is configured")
+
+    mocker.patch("fair.configuration.get_remote_uri", side_effect=_no_remote)
+    _result = click.testing.CliRunner().invoke(
+        cli, ["list", "code-runs", "--json"]
+    )
+    assert _result.exit_code == 0, _result.output
+    assert {_row["on_remote"] for _row in _listed(_result).values()} == {None}
+    assert "Not shown which code runs 'origin' holds" in _result.stderr
+
+
+@pytest.mark.faircli_lifecycle
+def test_fair_list_code_runs_of_the_remote(listed_runs: _Runs):
+    _result = click.testing.CliRunner().invoke(
+        cli, ["list", "--remote", "origin", "code-runs", "--json"]
+    )
+    assert _result.exit_code == 0, _result.output
+    _rows = _listed(_result)
+    assert sorted(_rows) == ["held", "partly"]
+    assert _rows["held"] == {
+        "uuid": "held",
+        "run_date": "2026-11-13T12:00:00Z",
+        "description": "A run, held",
+    }
 
 
 class _Removable:

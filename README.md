@@ -297,6 +297,16 @@ fair status
 
 Staged items are shown in green, and unstaged ones in red.
 
+### `list`
+
+`fair list` lists the local registry's data products and code runs. `fair list code-runs` lists every code run, with its date and description. It also shows whether each run has finished, whether the project has staged it, and how much of it the remote `origin` holds: whole, in part, or not at all.
+
+```sh
+fair list code-runs --json
+```
+
+`--json` prints the runs as a JSON list for a program to read. Each object has the keys `uuid`, `run_date`, `description`, `finished`, `staged` and `on_remote`. `on_remote` is `"whole"`, `"part"` or `"none"`, or `null` where `origin` cannot be asked. `fair list --remote <label> code-runs` lists a remote's code runs instead, with their dates and descriptions.
+
 ### `add`
 
 A push sends only what is staged. `fair add` stages an item that `fair status` lists. Give a data product as `namespace:name@v<version>`, or a code run by its UUID:

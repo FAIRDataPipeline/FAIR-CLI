@@ -33,6 +33,8 @@
 - `fair rm <uuid>...` deletes code runs from the local registry and from the project's staging. It refuses a run the
   remote holds (`--local` does not ask it), and a run whose outputs another run read, unless that run is deleted too.
   It asks first (`--yes` answers for you). What the runs wrote stays registered. Before, `fair rm` did nothing.
+- `fair list code-runs` lists every code run, not the first ten. It shows whether each has finished, whether the
+  project has staged it, and how much of it `origin` holds. `--json` prints them as JSON, for a program to read.
 - `fair registry erase-unknown-data` erases the files in the local registry's data stores that the registry does not
   hold. It runs only while the registry is stopped. It names each store and warns that another registry using it may
   hold the files, then erases them only once the store's path is typed. `--dry-run` lists what it would erase. It keeps

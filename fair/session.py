@@ -31,6 +31,7 @@ __date__ = "2021-06-28"
 
 import copy
 import glob
+import json
 import logging
 import os
 import re
@@ -1392,33 +1393,109 @@ class FAIR:
                 break
         click.echo(console.print(table))
 
-    def show_all_code_runs(self, remote: str = None):
-        _title = "Local Code Runs"
-        _code_run_uuids = []
-        if not remote:
-            _code_runs = fdp_req.get(
-                fdp_conf.get_local_uri(), "code_run", fdp_req.local_token()
-            )
-            for code_run in _code_runs:
-                _code_run_uuids.append(code_run["uuid"])
-        else:
+    def show_all_code_runs(self, remote: str = None, as_json: bool = False):
+        """Show every code run of the local registry, or of a remote
+
+        Each run is shown with its UUID, date and description. A local run is
+        also shown with whether it has finished, recording inputs or outputs;
+        whether this project has staged it; and how much of it the remote
+        'origin' holds, where that can be asked: whole, in part or none.
+
+        Parameters
+        ----------
+        remote : str, optional
+            label of a remote registry whose runs to show instead
+        as_json : bool, optional
+            print the runs as a JSON list of objects, by default False
+        """
+        if remote:
             _title = f"Remote Code Runs on {remote}"
             try:
-                _remote_code_runs = fdp_req.get(
+                _code_runs = fdp_req.get(
                     fdp_conf.get_remote_uri(self._session_loc, remote),
                     "code_run",
                     fdp_conf.get_remote_token(
                         self._session_loc, remote, local=self._local
                     ),
                 )
-                if _remote_code_runs:
-                    for _remote_code_run in _remote_code_runs:
-                        _code_run_uuids.append(_remote_code_run["uuid"])
             except Exception:
                 self._logger.warning("Could not Fetch from a remote registry")
                 self._logger.debug(f"{traceback.format_exc()}")
-        _code_run_uuids = list(set(_code_run_uuids))
-        return self.show_code_runs(_code_run_uuids, _title)
+                _code_runs = []
+        else:
+            _title = "Local Code Runs"
+            _code_runs = fdp_req.get(
+                fdp_conf.get_local_uri(), "code_run", fdp_req.local_token()
+            )
+            _staged = set(self._stager.get_item_list(True, "code_run"))
+            _held = self._origin_holdings(_code_runs)
+        _rows = []
+        for _code_run in sorted(
+            _code_runs, key=lambda _run: (_run["run_date"], _run["uuid"])
+        ):
+            _row = {
+                "uuid": _code_run["uuid"],
+                "run_date": _code_run["run_date"],
+                "description": _code_run["description"],
+            }
+            if not remote:
+                _row["finished"] = bool(
+                    _code_run["inputs"] or _code_run["outputs"]
+                )
+                _row["staged"] = _code_run["uuid"] in _staged
+                _row["on_remote"] = _held.get(_code_run["uuid"])
+            _rows.append(_row)
+        if as_json:
+            click.echo(json.dumps(_rows, indent=2))
+            return
+        console = Console()
+        table = Table(
+            title=_title,
+            title_style="bold",
+            title_justify="left",
+            box=rich.box.SIMPLE,
+        )
+        # The UUID is kept whole, and the date and description give way to it
+        table.add_column(
+            "Code Run UUID", style="green", no_wrap=True, min_width=36
+        )
+        table.add_column("Code Run Date", style="green", overflow="fold")
+        table.add_column(
+            "Code Run Description", style="green", overflow="fold"
+        )
+        if not remote:
+            for _column in ("Finished", "Staged", "On 'origin'"):
+                table.add_column(_column, style="green", no_wrap=True)
+        for _row in _rows:
+            _cells = [_row["uuid"], _row["run_date"], _row["description"]]
+            if not remote:
+                _cells += [
+                    "yes" if _row["finished"] else "no",
+                    "yes" if _row["staged"] else "no",
+                    _HELD.get(_row["on_remote"], "unknown"),
+                ]
+            table.add_row(*_cells)
+        click.echo(console.print(table))
+
+    # How much of each code run the remote 'origin' holds - "whole", "part" or
+    # "none" - by UUID. Empty, with a warning, where it cannot be asked
+    def _origin_holdings(
+        self, code_runs: typing.List[typing.Dict[str, typing.Any]]
+    ) -> typing.Dict[str, str]:
+        try:
+            _uri = fdp_conf.get_remote_uri(self._session_loc, "origin")
+            _token = fdp_conf.get_remote_token(
+                self._session_loc, "origin", local=self._local
+            )
+            return {
+                _code_run["uuid"]: _remote_state(_code_run, _uri, _token)
+                for _code_run in code_runs
+            }
+        except fdp_exc.FAIRCLIException as e:
+            click.echo(
+                f"Not shown which code runs 'origin' holds: {e.msg}", err=True
+            )
+            return {}
 
     def show_all_data_products(self, remote: str = None):
         _title = "Local Data Products"
@@ -2139,17 +2216,31 @@ def _run_repository(
     return known[_object_url]
 
 
-# Whether a remote holds a code run whole: a run with its UUID and at least as
-# many inputs and outputs. A push links a run it reaches through a data
-# product with that data product's outputs alone
-def _remote_holds(
+# How much of a code run a remote holds: "whole", a run with its UUID and at
+# least as many inputs and outputs; "part", one with fewer, as a push leaves a
+# run it reaches through a data product, linked with that data product's
+# outputs alone; or "none"
+def _remote_state(
     code_run: typing.Dict[str, typing.Any], uri: str, token: str
-) -> bool:
+) -> str:
     _there = fdp_req.get(
         uri, "code_run", token, params={"uuid": code_run["uuid"]}
     )
-    return (
-        bool(_there)
-        and len(_there[0]["inputs"]) >= len(code_run["inputs"])
-        and len(_there[0]["outputs"]) >= len(code_run["outputs"])
-    )
+    if not _there:
+        return "none"
+    if len(_there[0]["inputs"]) >= len(code_run["inputs"]) and len(
+        _there[0]["outputs"]
+    ) >= len(code_run["outputs"]):
+        return "whole"
+    return "part"
+
+
+# Whether a remote holds a code run whole
+def _remote_holds(
+    code_run: typing.Dict[str, typing.Any], uri: str, token: str
+) -> bool:
+    return _remote_state(code_run, uri, token) == "whole"
+
+
+# How a listing's table shows how much of a run the remote holds
+_HELD = {"whole": "whole", "part": "in part", "none": "no"}
