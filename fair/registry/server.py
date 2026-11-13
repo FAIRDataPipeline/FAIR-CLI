@@ -972,6 +972,9 @@ def reset_registry(
                     "upgrade', then try again",
                 ) from e
             raise
+        # What the project's staging names is gone, whatever happens next
+        if repo_dir:
+            fdp_stage.Stager(repo_dir).clear()
         if delete_files:
             _held = fdp_stores.held_files(_stores)
             _result["failed"] = fdp_stores.delete_files(
@@ -984,7 +987,6 @@ def reset_registry(
             _result["restarted"] = _restart(_stopped, registry_dir)
         if repo_dir:
             update_registry_post_setup(repo_dir, True, registry_dir)
-            fdp_stage.Stager(repo_dir).clear()
         else:
             with fdp_life.session(registry_dir):
                 fdp_store.populate_file_type(

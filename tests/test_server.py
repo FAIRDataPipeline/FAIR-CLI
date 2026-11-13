@@ -545,6 +545,21 @@ def test_a_reset_that_fails_keeps_the_database_and_starts_the_registry_again(
     )
     assert not os.path.exists(fdp_life.hold_file(installed["registry"]))
     installed["setup"].assert_not_called()
+    # Its records kept, so is the staging that names them
+    with open(fdp_com.staging_cache(installed["project"])) as in_f:
+        assert any(yaml.safe_load(in_f).values())
+
+
+@pytest.mark.faircli_server
+def test_a_reset_clears_the_staging_though_the_user_is_not_registered(
+    installed: typing.Dict,
+):
+    # The records the staging names are gone once the database is emptied
+    installed["setup"].side_effect = fdp_exc.RegistryError("Not registered")
+    with pytest.raises(fdp_exc.RegistryError, match="Not registered"):
+        fdp_serv.reset_registry(repo_dir=installed["project"])
+    with open(fdp_com.staging_cache(installed["project"])) as in_f:
+        assert not any(yaml.safe_load(in_f).values())
 
 
 @pytest.mark.faircli_server
