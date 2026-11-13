@@ -612,7 +612,7 @@ def push_context(
     origin_token: str,
     remote_label: str,
     force: bool = False,
-) -> typing.Iterator[PushContext]:
+) -> typing.Generator[PushContext, None, None]:
     """Hold the context of one push or pull, linking the runs it reached at the end
 
     A push that fails still links what it sent before the failure, as far as

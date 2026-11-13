@@ -209,7 +209,7 @@ def _unlock_file(lock_file: typing.IO) -> None:
 # file in the install's directory, so that it holds between the hosts of a
 # shared file system as well as between processes
 @contextlib.contextmanager
-def _locked(registry_dir: str) -> typing.Iterator[None]:
+def _locked(registry_dir: str) -> typing.Generator[None, None, None]:
     if not os.path.isdir(registry_dir):
         raise fdp_exc.RegistryError(
             f"No local registry is installed in '{registry_dir}'",
@@ -609,7 +609,9 @@ def _refuse_held(registry_dir: str) -> None:
 
 
 @contextlib.contextmanager
-def held(registry_dir: str, command: str) -> typing.Iterator[None]:
+def held(
+    registry_dir: str, command: str
+) -> typing.Generator[None, None, None]:
     """Hold an install for a command that changes it
 
     Meanwhile every other process is refused that would start, stop or use
@@ -662,7 +664,7 @@ def held(registry_dir: str, command: str) -> typing.Iterator[None]:
 # the install. The hold is looked at before the lock too, as the install's
 # directory, which holds the lock, may be moved aside while it is held
 @contextlib.contextmanager
-def _unheld(registry_dir: str) -> typing.Iterator[None]:
+def _unheld(registry_dir: str) -> typing.Generator[None, None, None]:
     _refuse_held(registry_dir)
     with _locked(registry_dir):
         _refuse_held(registry_dir)
@@ -788,7 +790,9 @@ def close_session(session_id: str, registry_dir: str = None) -> bool:
 
 
 @contextlib.contextmanager
-def session(registry_dir: str = None, uri: str = None) -> typing.Iterator[str]:
+def session(
+    registry_dir: str = None, uri: str = None
+) -> typing.Generator[str, None, None]:
     """Hold a session on the local registry for the length of a block
 
     Parameters

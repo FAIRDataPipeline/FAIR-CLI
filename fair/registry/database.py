@@ -63,7 +63,9 @@ def database_file(registry_dir: str) -> str:
 # Read an install's database for the block, never writing it. A database that
 # cannot be read is refused, naming the command that builds it again
 @contextlib.contextmanager
-def _reading(registry_dir: str) -> typing.Iterator[sqlite3.Connection]:
+def _reading(
+    registry_dir: str,
+) -> typing.Generator[sqlite3.Connection, None, None]:
     _file = os.path.abspath(database_file(registry_dir))
     try:
         _db = sqlite3.connect(f"{pathlib.Path(_file).as_uri()}?mode=ro", uri=True)

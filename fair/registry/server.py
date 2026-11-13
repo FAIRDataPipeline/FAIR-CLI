@@ -407,7 +407,9 @@ def _remove_directory(directory: str) -> None:
 
 
 @contextlib.contextmanager
-def _replacing_directory(directory: str) -> typing.Iterator[typing.Optional[str]]:
+def _replacing_directory(
+    directory: str,
+) -> typing.Generator[typing.Optional[str], None, None]:
     """Make a directory afresh in the block, keeping any old one until it works
 
     The old directory is moved aside beside it, so the move is a rename, and
