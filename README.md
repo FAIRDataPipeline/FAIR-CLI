@@ -404,15 +404,17 @@ fair registry install --directory ~/.fair/my_registry --version v1.5.0
 
 To replace a registry that is already installed, see [Upgrading and reinstalling](#upgrading-and-reinstalling).
 
-The data stores can hold files that the registry does not know about. One may be a file put there by hand, or the output of a run that failed before registering it. To delete such files:
+The data stores can hold files that the registry does not know about. One may be a file put there by hand, or the output of a run that failed before registering it. To erase such files:
 
 ```sh
-fair registry clean
+fair registry erase-unknown-data
 ```
 
-`clean` runs only while the registry is stopped and no command is using it, so that no run is writing to a store. It asks before deleting anything (`--yes` answers for you). `--dry-run` lists what it would delete and deletes nothing. By default it keeps the files that a run in progress could still be writing: outputs named `dat-...` or by their hash, and everything under a store's `jobs/`. `--delete-all` deletes those too.
+`erase-unknown-data` runs only while the registry is stopped and no command is using it, so that no run is writing to a store. It names each data store with files to erase, and warns that another registry using the store may hold them. It erases a store's files only once you type the store's path. Anything else leaves the store as it is. With no terminal to ask, it erases nothing. `--dry-run` lists what it would erase and erases nothing. By default it keeps the files that a run in progress could still be writing: outputs named `dat-...` or by their hash, and everything under a store's `jobs/`. `--delete-all` erases those too.
 
-The data stores are the folders on this machine where the registry holds files. `clean` never touches a code repository's folder inside one. It does not clean a store that is your home folder, or a folder above it.
+The data stores are the folders on this machine where the registry holds files. `erase-unknown-data` never touches a code repository's folder inside one. It does not erase a store that is your home folder, or a folder above it.
+
+We recommend a data store for each local registry. Registries can share one, but `erase-unknown-data` then erases the other registries' files. `reset --delete-files` deletes only the files its own registry held, but another registry may hold the same file, for example where both pulled the same data product.
 
 To empty the registry instead, deleting every record but keeping the install:
 
@@ -422,9 +424,9 @@ fair registry reset
 
 `reset` asks first (`--yes` answers for you). It refuses while another command is using the registry. If the registry was running, `reset` starts it again afterwards. If emptying it fails, or is stopped by Ctrl-C, the registry keeps its records. It registers the file types again. Run in a project, it also registers the project's user again and clears the project's staging. In each other project, run `fair reset` to unstage what that project had staged.
 
-`--delete-files` also deletes every file in the registry's data stores, except code repositories' folders. Without it the files stay. `fair registry clean` cannot delete them later, because an emptied registry knows no data stores.
+`--delete-files` also deletes the files that the registry held in its data stores, except code repositories' folders. Without it the files stay. Either way the files it did not hold stay. To erase those too, run `fair registry erase-unknown-data` before the reset, because an emptied registry knows no data stores.
 
-While `fair registry clean` or `reset` runs, any other command that would start, stop or use the registry is refused. The refusal names the command that is running.
+While `fair registry erase-unknown-data` or `reset` runs, any other command that would start, stop or use the registry is refused. The refusal names the command that is running.
 
 ### `log`
 

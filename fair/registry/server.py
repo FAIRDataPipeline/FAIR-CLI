@@ -917,15 +917,16 @@ def reset_registry(
         the project whose user is registered again and whose staging is
         cleared, by default none
     delete_files : bool, optional
-        also delete every file in the registry's data stores but its code
-        repositories' folders, by default False
+        also delete the files in the registry's data stores that it holds,
+        but its code repositories' folders, by default False
 
     Returns
     -------
     typing.Dict[str, typing.Any]
         the endpoint the registry runs at again ("restarted", None where it
         was not running), the files deleted ("deleted") and those that could
-        not be, each with why ("failed"), and the data stores ("stores")
+        not be, each with why ("failed"), the data stores ("stores"), and
+        those too wide to touch ("too_wide")
     """
     registry_dir = registry_dir or fdp_com.registry_home()
     if not os.path.isdir(registry_dir):
@@ -934,7 +935,13 @@ def reset_registry(
             hint="Install one with 'fair registry install'",
         )
     _python = _install_python(registry_dir)
-    _result = {"restarted": None, "deleted": 0, "failed": [], "stores": []}
+    _result = {
+        "restarted": None,
+        "deleted": 0,
+        "failed": [],
+        "stores": [],
+        "too_wide": [],
+    }
     with fdp_life.held(registry_dir, "fair registry reset"):
         # Its environment is checked before anything is stopped
         if not _python_runs(_python):
@@ -966,14 +973,13 @@ def reset_registry(
                 ) from e
             raise
         if delete_files:
-            for _store in _stores:
-                _store["registered"] = set()
-            _found = fdp_stores.find_files(_stores, delete_all=True)
+            _held = fdp_stores.held_files(_stores)
             _result["failed"] = fdp_stores.delete_files(
-                _found["delete"], _found["stores"]
+                _held["files"], _held["stores"]
             )
-            _result["deleted"] = len(_found["delete"]) - len(_result["failed"])
-            _result["stores"] = _found["stores"]
+            _result["deleted"] = len(_held["files"]) - len(_result["failed"])
+            _result["stores"] = _held["stores"]
+            _result["too_wide"] = _held["too_wide"]
         if _stopped:
             _result["restarted"] = _restart(_stopped, registry_dir)
         if repo_dir:

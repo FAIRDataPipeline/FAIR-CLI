@@ -1643,9 +1643,10 @@ def refuse_conflicts(
             "Nothing was pulled: the local registry holds another data product "
             f"under the name and version of each of these on '{remote_label}':\n"
             f"{_held}",
-            hint="Pull into a local registry that holds none of them - a new one, "
-            "by 'fair registry install --directory <directory>', or this one "
-            "emptied by 'fair registry reset'",
+            hint="Pull into a local registry that holds none of them - a new one "
+            "with a data store of its own, by 'fair registry install "
+            "--directory <directory>', or this one emptied by 'fair registry "
+            "reset'",
         )
     raise fdp_exc.RegistryError(
         f"Nothing was pushed: '{remote_label}' holds another data product under "

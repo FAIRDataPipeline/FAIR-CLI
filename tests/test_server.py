@@ -470,10 +470,14 @@ def test_a_reset_empties_and_starts_the_registry_again(installed: typing.Dict):
 def test_a_reset_deletes_the_stores_files_when_asked(installed: typing.Dict):
     installed["state"]["running"] = False
     fdp_life.stop_for_removal(installed["registry"])
+    # A file the registry does not hold, as another registry's may be
+    with open(os.path.join(installed["store"], "theirs.csv"), "w") as out_f:
+        out_f.write("another registry's")
     _result = fdp_serv.reset_registry(delete_files=True)
     assert _result["deleted"] == 1 and not _result["failed"]
     assert not os.path.exists(os.path.join(installed["store"], "PSU"))
     assert os.path.exists(os.path.join(installed["store"], "my-model", "README.md"))
+    assert os.path.exists(os.path.join(installed["store"], "theirs.csv"))
     # Not running before, not started after; outside a project, the file types
     assert not _result["restarted"] and not installed["state"]["running"]
     installed["setup"].assert_not_called()

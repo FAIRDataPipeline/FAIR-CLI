@@ -2170,6 +2170,7 @@ def test_a_refusal_names_each_side(mocker: pytest_mock.MockerFixture):
     assert f"on 'origin' a file with hash {'a' * 40}" in e.value.msg
     assert f"in the local registry a file with hash {'b' * 40}" in e.value.msg
     assert "'fair registry install --directory" in e.value.hint
+    assert "a data store of its own" in e.value.hint
 
 
 @pytest.mark.faircli_sync

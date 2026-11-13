@@ -4,12 +4,12 @@
 Data Stores
 ===========
 
-The files in this machine's data stores that the local registry does not
-hold, and their deletion. A data store is a folder on this machine that the
-registry has as a storage root, and a file in one is registered where a
-storage location under that root has its path. A code repository's folder in
-a store is left whole, and a store inside another is walked as one of its
-own.
+The files in this machine's data stores, those the local registry holds and
+those it does not, and their deletion. A data store is a folder on this
+machine that the registry has as a storage root, and a file in one is
+registered where a storage location under that root has its path. A code
+repository's folder in a store is left whole, and a store inside another is
+walked as one of its own.
 
 Contents
 ========
@@ -18,8 +18,9 @@ Functions
 ---------
 
     find_files - the files in data stores that no storage location names
+    held_files - the files in data stores that storage locations name
     delete_files - delete files, and the folders they leave empty
-    clean_stores - delete the files the local registry does not hold
+    erase_unknown_data - erase the files the local registry does not hold
 
 """
 
@@ -148,6 +149,47 @@ def find_files(
     return _found
 
 
+def held_files(
+    stores: typing.List[typing.Dict[str, typing.Any]],
+) -> typing.Dict[str, typing.List[str]]:
+    """Return the files in data stores that storage locations name
+
+    A code repository's folder is not among them, nor is anything a location's
+    path would put outside its store.
+
+    Parameters
+    ----------
+    stores : typing.List[typing.Dict[str, typing.Any]]
+        the stores, as 'fair.registry.database.local_stores' gives them
+
+    Returns
+    -------
+    typing.Dict[str, typing.List[str]]
+        the stores' folders ("stores"), those too wide to touch ("too_wide"),
+        and the files there that a location names ("files")
+    """
+    _found = {"stores": [], "too_wide": [], "files": []}
+    _files = set()
+    for _store in stores:
+        _key = _folder_key(_store["folder"])
+        if not os.path.isdir(_key):
+            continue
+        if _too_wide(_key):
+            if _key not in _found["too_wide"]:
+                _found["too_wide"].append(_key)
+            continue
+        if _key not in _found["stores"]:
+            _found["stores"].append(_key)
+        for _relative in _store["registered"]:
+            _path = os.path.normpath(os.path.join(_key, *_relative.split("/")))
+            if _path.startswith(_key) and (
+                os.path.isfile(_path) or os.path.islink(_path)
+            ):
+                _files.add(_path)
+    _found["files"] = sorted(_files)
+    return _found
+
+
 # Remove a file, making it writable first where it is read-only, as Windows
 # requires
 def _remove_file(path: str) -> None:
@@ -203,20 +245,18 @@ def delete_files(
 def _report(found: typing.Dict[str, typing.List[str]], listed: bool) -> None:
     for _store in found["too_wide"]:
         click.echo(
-            f"Not cleaned: the data store '{_store}' is your home folder or one "
+            f"Not erased: the data store '{_store}' is your home folder or one "
             "above it"
         )
-    _paths = list(found["delete"])
     if listed:
-        _paths.sort()
-        for _path in _paths:
-            click.echo(f"To delete: {_path}")
+        for _path in sorted(found["delete"]):
+            click.echo(f"To erase: {_path}")
     if found["kept"]:
         click.echo(
             f"Kept: {_count(len(found['kept']))} that a run in progress could "
             "still be writing - outputs named 'dat-...' or by their hash, and "
-            "files under 'jobs/'. 'fair registry clean --delete-all' deletes "
-            "them too"
+            "files under 'jobs/'. 'fair registry erase-unknown-data "
+            "--delete-all' erases them too"
         )
         if listed:
             for _path in sorted(found["kept"]):
@@ -225,7 +265,11 @@ def _report(found: typing.Dict[str, typing.List[str]], listed: bool) -> None:
         click.echo(
             f"Missing: {_count(len(found['missing']))} the registry holds "
             "are not in their stores"
-            + ("" if listed else "; 'fair registry clean --dry-run' lists them")
+            + (
+                ""
+                if listed
+                else "; 'fair registry erase-unknown-data --dry-run' lists them"
+            )
         )
         if listed:
             for _path in found["missing"]:
@@ -237,33 +281,61 @@ def _count(number: int) -> str:
     return f"{number} file{'' if number == 1 else 's'}"
 
 
-def clean_stores(
+# Whether the user can be asked: standard input is a terminal
+def _has_terminal() -> bool:
+    return sys.stdin.isatty()
+
+
+# Whether a path the user typed names a store's folder, as _folder_key gives
+# it: the same absolute path, with or without its final separator, and on
+# Windows in any case. A relative path or a '~' names none
+def _names_store(typed: str, folder_key: str) -> bool:
+    _typed = typed.strip()
+    if not _typed or not os.path.isabs(_typed):
+        return False
+    return os.path.normcase(
+        os.path.join(os.path.normpath(_typed), "")
+    ) == os.path.normcase(folder_key)
+
+
+# The files to erase, by the store each is in: the innermost store holding it,
+# since a store inside another is walked as one of its own
+def _by_store(
+    paths: typing.List[str], stores: typing.List[str]
+) -> typing.Dict[str, typing.List[str]]:
+    _files: typing.Dict[str, typing.List[str]] = {}
+    for _path in paths:
+        _store = max((_s for _s in stores if _path.startswith(_s)), key=len)
+        _files.setdefault(_store, []).append(_path)
+    return _files
+
+
+def erase_unknown_data(
     registry_dir: str = None,
     delete_all: bool = False,
     dry_run: bool = False,
-    yes: bool = False,
 ) -> int:
-    """Delete the files in the local registry's data stores that it does not hold
+    """Erase the files in the local registry's data stores that it does not hold
 
     The registry must be stopped, so that no run is using it, and it is held
-    meanwhile, so that none starts. The user is asked first, unless 'yes'.
+    meanwhile, so that none starts. Each store is named, with a warning that
+    another registry using it may hold some of the files, and its files are
+    erased only once the user types the store's path.
 
     Parameters
     ----------
     registry_dir : str, optional
         directory of the registry install, by default the configured one
     delete_all : bool, optional
-        delete too the files a run in progress could still be writing, by
+        erase too the files a run in progress could still be writing, by
         default False
     dry_run : bool, optional
-        list what would be deleted, deleting nothing, by default False
-    yes : bool, optional
-        delete without asking, by default False
+        list what would be erased, erasing nothing, by default False
 
     Returns
     -------
     int
-        how many files were deleted
+        how many files were erased
     """
     registry_dir = registry_dir or fdp_com.registry_home()
     if not os.path.isdir(registry_dir):
@@ -271,33 +343,49 @@ def clean_stores(
             f"No local registry is installed in '{registry_dir}'",
             hint="Install one with 'fair registry install'",
         )
-    with fdp_life.held(registry_dir, "fair registry clean"):
-        fdp_life.require_stopped(registry_dir, "its data stores are cleaned")
+    with fdp_life.held(registry_dir, "fair registry erase-unknown-data"):
+        fdp_life.require_stopped(registry_dir, "its data stores are erased")
         _found = find_files(fdp_db.local_stores(registry_dir), delete_all)
         _report(_found, listed=dry_run)
         _number = len(_found["delete"])
         if not _number:
-            click.echo("Nothing to delete")
+            click.echo("Nothing to erase")
             return 0
+        _files = _by_store(_found["delete"], _found["stores"])
         _what = (
             f"{_count(_number)} that the registry does not hold, from "
-            f"{len(_found['stores'])} data store"
-            f"{'' if len(_found['stores']) == 1 else 's'}"
+            f"{len(_files)} data store{'' if len(_files) == 1 else 's'}"
         )
         if dry_run:
-            click.echo(f"Would delete {_what}")
+            click.echo(f"Would erase {_what}")
             return 0
-        if not yes:
-            if not sys.stdin.isatty():
-                raise fdp_exc.FAIRCLIException(
-                    f"There is no terminal to ask whether to delete {_what}",
-                    hint="Give '--yes' to delete them, or '--dry-run' to list them",
+        if not _has_terminal():
+            raise fdp_exc.FAIRCLIException(
+                f"There is no terminal to ask whether to erase {_what}",
+                hint="Run 'fair registry erase-unknown-data' in a terminal, or "
+                "give '--dry-run' to list what it would erase",
+            )
+        _erased = 0
+        for _store, _paths in _files.items():
+            click.echo(
+                f"The data store '{_store}' holds {_count(len(_paths))} that "
+                "this registry does not hold. Warning: another registry using "
+                "this store may hold them"
+            )
+            _typed = click.prompt(
+                "To erase them, type the store's path; anything else leaves "
+                "them",
+                default="",
+                show_default=False,
+            )
+            if not _names_store(_typed, _store):
+                click.echo(f"Left '{_store}' as it is")
+                continue
+            _failed = delete_files(_paths, _found["stores"])
+            for _path, _why in _failed:
+                click.echo(
+                    f"Warning: '{_path}' could not be erased: {_why}", err=True
                 )
-            if not click.confirm(f"Delete {_what}?", default=False):
-                return 0
-        _failed = delete_files(_found["delete"], _found["stores"])
-        for _path, _why in _failed:
-            click.echo(f"Warning: '{_path}' could not be deleted: {_why}", err=True)
-        _deleted = _number - len(_failed)
-        click.echo(f"Deleted {_count(_deleted)}")
-        return _deleted
+            _erased += len(_paths) - len(_failed)
+        click.echo(f"Erased {_count(_erased)}")
+        return _erased

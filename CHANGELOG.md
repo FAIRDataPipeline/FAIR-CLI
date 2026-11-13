@@ -25,18 +25,22 @@
   takes the place of a pattern's entry for that name. Two `write:` patterns matching one registered name are refused.
 
 ## Added
-- `fair registry clean` deletes the files in the local registry's data stores that the registry does not hold. It runs
-  only while the registry is stopped, and asks first (`--yes` answers for you). `--dry-run` lists what it would
-  delete. It keeps any file that a run in progress could still be writing, unless given `--delete-all`.
+- `fair registry erase-unknown-data` erases the files in the local registry's data stores that the registry does not
+  hold. It runs only while the registry is stopped. It names each store and warns that another registry using it may
+  hold the files, then erases them only once the store's path is typed. `--dry-run` lists what it would erase. It keeps
+  any file that a run in progress could still be writing, unless given `--delete-all`. We recommend a data store for
+  each local registry.
 - `fair registry reset` empties the local registry. It deletes every record and keeps the install. It asks first
   (`--yes` answers for you). It registers the file types again, and restarts the registry if it was running. If it
   fails, or is stopped by Ctrl-C, the registry keeps its records. Run in a project, it also registers the project's
-  user again and clears the project's staging. `--delete-files` also deletes every file in the data stores.
+  user again and clears the project's staging. `--delete-files` also deletes the files the registry held in its data
+  stores.
 - `fair registry upgrade` moves the local registry to another version: the newest release, or the one given by
   `--version`. It keeps the registry's records if the new version's tables are the same. If they differ, it leaves
   the registry as it was. Given the installed version, it rebuilds the registry. That mends one whose Python has gone.
-- While `fair registry clean`, `reset`, `upgrade` or `install --force` runs, any other command that would start, stop
-  or use the registry is refused. The refusal names the command that is running, and so does `fair registry status`.
+- While `fair registry erase-unknown-data`, `reset`, `upgrade` or `install --force` runs, any other command that would
+  start, stop or use the registry is refused. The refusal names the command that is running, and so does
+  `fair registry status`.
 - `fair push` and `fair pull` send the records attached to what they send. These are named components, licences,
   keywords, key-values, quality-control records, code releases, and the issues on components. A record added after its
   object was sent goes with the next push or pull of that object. If the other registry holds a record with other

@@ -522,26 +522,29 @@ def stop(force: bool, debug: bool) -> None:
             sys.exit(e.exit_code)
 
 
-@registry.command()
+@registry.command("erase-unknown-data")
 @click.option(
     "--delete-all/--no-delete-all",
-    help="Also delete the files a run in progress could still be writing: outputs "
+    help="Also erase the files a run in progress could still be writing: outputs "
     "named 'dat-...' or by their hash, and files under 'jobs/'",
     default=False,
 )
 @click.option(
     "--dry-run/--no-dry-run",
-    help="List what would be deleted, deleting nothing",
+    help="List what would be erased, erasing nothing",
     default=False,
 )
-@click.option("--yes/--no", help="Delete without asking", default=False)
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
-def clean(delete_all: bool, dry_run: bool, yes: bool, debug: bool) -> None:
-    """Delete the files in the data stores that the local registry does not hold"""
+def erase_unknown_data(delete_all: bool, dry_run: bool, debug: bool) -> None:
+    """Erase the files in the data stores that the local registry does not hold
+
+    Each data store is named, and its files are erased only once its path is
+    typed. Another registry using the store may hold some of them.
+    """
     try:
         if debug:
             logging.getLogger("FAIRDataPipeline").setLevel(logging.DEBUG)
-        fdp_stores.clean_stores(delete_all=delete_all, dry_run=dry_run, yes=yes)
+        fdp_stores.erase_unknown_data(delete_all=delete_all, dry_run=dry_run)
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
         if e.level.lower() != "warning":
@@ -551,7 +554,7 @@ def clean(delete_all: bool, dry_run: bool, yes: bool, debug: bool) -> None:
 @registry.command("reset")
 @click.option(
     "--delete-files/--keep-files",
-    help="Also delete every file in the registry's data stores",
+    help="Also delete the files the registry holds in its data stores",
     default=False,
 )
 @click.option("--yes/--no", help="Empty it without asking", default=False)
@@ -565,7 +568,11 @@ def registry_reset(delete_files: bool, yes: bool, debug: bool) -> None:
         _what = (
             f"empty the local registry installed in '{_registry_dir}', deleting "
             "every record in it"
-            + (" and every file in its data stores" if delete_files else "")
+            + (
+                " and the files it holds in its data stores"
+                if delete_files
+                else ""
+            )
         )
         if not yes:
             if not sys.stdin.isatty():
@@ -587,6 +594,11 @@ def registry_reset(delete_files: bool, yes: bool, debug: bool) -> None:
                 f"{len(_result['stores'])} data store"
                 f"{'' if len(_result['stores']) == 1 else 's'}"
             )
+            for _store in _result["too_wide"]:
+                click.echo(
+                    f"Not deleted from: the data store '{_store}' is your home "
+                    "folder or one above it"
+                )
             for _path, _why in _result["failed"]:
                 click.echo(f"Warning: '{_path}' could not be deleted: {_why}", err=True)
         if _result["restarted"]:
