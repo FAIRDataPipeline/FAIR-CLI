@@ -470,6 +470,8 @@ While `fair registry erase-unknown-data` or `reset` runs, any other command that
 fair log
 ```
 
+`fair log -n <count>` lists the newest `<count>` jobs instead, and `fair log --all` every one.
+
 Each job is shown much as `git log` shows a commit:
 
 ```text

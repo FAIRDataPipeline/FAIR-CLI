@@ -482,7 +482,7 @@ class Stager:
             yaml.dump(_staging_dict, f)
 
     def remove_gone_code_runs(self) -> typing.List[str]:
-        """Remove from staging every code run the local registry no longer holds
+        """Remove from staging each code run the local registry no longer holds
 
         Returns
         -------

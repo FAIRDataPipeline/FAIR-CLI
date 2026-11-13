@@ -700,11 +700,30 @@ def status(debug) -> None:
 
 
 @cli.command()
+@click.option(
+    "-n",
+    "--count",
+    type=click.IntRange(min=1),
+    default=None,
+    metavar="COUNT",
+    help="Show the newest COUNT jobs, by default 10",
+)
+@click.option(
+    "--all", "all_jobs", is_flag=True, default=False, help="Show every job"
+)
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
-def log(debug: bool) -> None:
-    """Show a full job history"""
+def log(count: typing.Optional[int], all_jobs: bool, debug: bool) -> None:
+    """Show this repository's jobs, newest first: by default the newest 10"""
     try:
-        fdp_hist.show_history(os.getcwd())
+        if all_jobs and count:
+            raise fdp_exc.FAIRCLIException(
+                "Give '-n' or '--all', not both",
+                hint="'fair log --all' shows every job, and 'fair log -n "
+                "<count>' the newest <count>",
+            )
+        fdp_hist.show_history(
+            os.getcwd(), length=None if all_jobs else count or 10
+        )
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
         if e.level.lower() != "warning":

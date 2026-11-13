@@ -906,8 +906,8 @@ class FAIR:
             raise fdp_exc.StagingError(
                 f"Code run '{identifier}' records no inputs or outputs: it is "
                 "still running, or stopped before it finished",
-                hint="Stage it once it has finished; a run that stopped must be "
-                "run again",
+                hint="Stage it once it has finished; a run that stopped "
+                "must be run again",
             )
         return True
 

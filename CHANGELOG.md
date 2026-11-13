@@ -35,6 +35,7 @@
   It asks first (`--yes` answers for you). What the runs wrote stays registered. Before, `fair rm` did nothing.
 - `fair list code-runs` lists every code run, not the first ten. It shows whether each has finished, whether the
   project has staged it, and how much of it `origin` holds. `--json` prints them as JSON, for a program to read.
+- `fair log -n <count>` lists the newest `<count>` jobs, and `fair log --all` every one. Ten is still the default.
 - `fair registry erase-unknown-data` erases the files in the local registry's data stores that the registry does not
   hold. It runs only while the registry is stopped. It names each store and warns that another registry using it may
   hold the files, then erases them only once the store's path is typed. `--dry-run` lists what it would erase. It keeps

@@ -3218,6 +3218,34 @@ def test_push_warns_of_a_run_the_remote_lacks(
         assert "does not hold code run" not in _res.output
 
 
+@pytest.mark.faircli_sync
+@pytest.mark.dependency(depends=["run"])
+def test_push_keeps_a_runs_uuid(
+    global_config: str,
+    local_registry: RegistryTest,
+    remote_registry: RegistryTest,
+    pyDataPipeline: str,
+    fair_bucket: MotoTestServer,
+    mocker: pytest_mock.MockerFixture,
+):
+    # A push, and 'fair add --all', find a run the remote holds by its UUID.
+    # The remote's runs are listed whole, not asked for by that UUID
+    _name = f"uuid/{uuid.uuid4().hex[:8]}"
+    _cli_runner = click.testing.CliRunner()
+    with remote_registry, local_registry, fair_bucket:
+        mocker.patch(
+            "fair.configuration.get_current_user_remote_user",
+            lambda *args, **kwargs: "admin",
+        )
+        _token = local_registry._token
+        _read = _registered_data_product(_token, _name, _name.encode())
+        _run = _registered_run(_token, _read["components"], [])
+        _res = _push(_cli_runner, _run)
+        assert _res.exit_code == 0, _res.output
+        _held = get(_DEST, "code_run", remote_registry._token)
+        assert _run in [_code_run["uuid"] for _code_run in _held]
+
+
 # Delete a code run from the origin registry through its API
 def _delete_run(token: str, run: str) -> None:
     _url = get(_ORIGIN, "code_run", token, params={"uuid": run})[0]["url"]
@@ -3230,7 +3258,7 @@ def _delete_run(token: str, run: str) -> None:
     ).raise_for_status()
 
 
-# The code runs the project's staging file names, each with whether it is staged
+# The code runs the project's staging names, each with whether it is staged
 def _staged_runs() -> typing.Dict[str, bool]:
     with open(fdp_com.staging_cache(os.getcwd()), encoding="utf-8") as stage_f:
         return yaml.safe_load(stage_f)["code_run"]

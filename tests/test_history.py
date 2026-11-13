@@ -2,10 +2,12 @@ import hashlib
 import os
 import pathlib
 
+import click.testing
 import pytest
 
 import fair.exceptions as fdp_exc
 import fair.history as fdp_hist
+from fair.cli import cli
 from fair.common import FAIR_FOLDER
 
 _JOB_LOG = """--------------------------------
@@ -152,3 +154,33 @@ def test_job_log_show_other_repository(shared_jobs: dict):
         fdp_hist.show_job_log(shared_jobs["repo"], _job)
     assert "Could not find job matching id" in e.value.msg
     assert "'fair log'" in e.value.hint
+
+
+@pytest.mark.faircli_history
+@pytest.mark.parametrize(
+    "arguments,shown",
+    [([], 10), (["-n", "3"], 3), (["--count", "12"], 11), (["--all"], 11)],
+)
+def test_fair_log_shows_as_many_jobs_as_asked(
+    shared_jobs: dict, arguments: list, shown: int
+):
+    _result = click.testing.CliRunner().invoke(cli, ["log", *arguments])
+    assert _result.exit_code == 0, _result.output
+    assert _listed_jobs(_result.stdout) == [
+        _job_hash(shared_jobs["jobs"], t) for t in shared_jobs["own"][:shown]
+    ]
+
+
+@pytest.mark.faircli_history
+@pytest.mark.parametrize(
+    "arguments,refusal",
+    [
+        (["--all", "-n", "3"], "Give '-n' or '--all', not both"),
+        (["-n", "0"], "0 is not in the range x>=1"),
+    ],
+)
+def test_fair_log_refuses(shared_jobs: dict, arguments: list, refusal: str):
+    _result = click.testing.CliRunner().invoke(cli, ["log", *arguments])
+    assert _result.exit_code != 0
+    assert refusal in _result.output
+    assert not _listed_jobs(_result.output)

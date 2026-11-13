@@ -101,15 +101,16 @@ def show_job_log(repo_loc: str, job_id: str) -> str:
     )
 
 
-def show_history(repo_loc: str, length: int = 10) -> None:
+def show_history(repo_loc: str, length: typing.Optional[int] = 10) -> None:
     """Show job history by time sorting log outputs, display metadata
 
     Parameters
     ----------
     repo_loc : str
         FAIR-CLI repository path
-    length : int, optional
-        max number of entries to display, by default 10
+    length : typing.Optional[int], optional
+        max number of entries to display, by default 10; None displays every
+        entry
     """
 
     _job_dir = Path(f"{fdp_com.default_jobs_dir()}")

@@ -1249,8 +1249,8 @@ def test_fair_add_all_stages_the_finished_runs_the_remote_lacks(
     assert _staged_line in _result.output
     assert "Not staged: code run unfinished of" in _result.output
     assert (
-        "Code runs staged: 2; held by 'origin' already: 1; not finished: 1; of "
-        "other repositories: 2"
+        "Code runs staged: 2; held by 'origin' already: 1; not finished: 1; "
+        "of other repositories: 2"
     ) in _result.output
     # Each repository's records are read once
     assert _runs.asked.count(("julia", None, None)) == 1
