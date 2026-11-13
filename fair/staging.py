@@ -439,22 +439,59 @@ class Stager:
         with open(self._staging_file, encoding="utf-8", mode="w") as f:
             yaml.dump(_staging_dict, f)
 
-    def update_code_run_staging(self) -> None:
-        """Update code_run(s) list in staging file."""
+    def update_code_run_staging(self) -> typing.List[str]:
+        """Update code_run(s) list in staging file.
+
+        A code run new to the local registry is added unstaged, and one the
+        registry no longer holds is removed.
+
+        Returns
+        -------
+        typing.List[str]
+            the code runs removed
+        """
         with open(self._staging_file, encoding="utf-8") as f:
             _staging_dict = yaml.safe_load(f)
 
-        result = fdp_req.get(
-            fdp_conf.get_local_uri(), "code_run", fdp_req.local_token()
-        )
+        _held = self._local_code_runs()
 
-        for code_run in result:
-            key = code_run["uuid"]
+        for key in _held:
             if key not in _staging_dict["code_run"]:
                 _staging_dict["code_run"][key] = False
+        _gone = _remove_code_runs_not_held(_staging_dict, _held)
 
         with open(self._staging_file, encoding="utf-8", mode="w") as f:
             yaml.dump(_staging_dict, f)
+        return _gone
+
+    def remove_gone_code_runs(self) -> typing.List[str]:
+        """Remove from staging every code run the local registry no longer holds
+
+        Returns
+        -------
+        typing.List[str]
+            the code runs removed
+        """
+        with open(self._staging_file, encoding="utf-8") as f:
+            _staging_dict = yaml.safe_load(f)
+
+        _gone = _remove_code_runs_not_held(
+            _staging_dict, self._local_code_runs()
+        )
+
+        if _gone:
+            with open(self._staging_file, encoding="utf-8", mode="w") as f:
+                yaml.dump(_staging_dict, f)
+        return _gone
+
+    # The UUIDs of the code runs the local registry holds
+    def _local_code_runs(self) -> typing.Set[str]:
+        return {
+            code_run["uuid"]
+            for code_run in fdp_req.get(
+                fdp_conf.get_local_uri(), "code_run", fdp_req.local_token()
+            )
+        }
 
     def _load_from_file(self, file_name: str = None) -> typing.Dict[str, bool]:
         if not file_name:
@@ -465,3 +502,15 @@ class Stager:
 
         self._staging_file = file_name
         return _staging_dict
+
+
+# Remove from a staging dictionary the code runs not among those held,
+# returning them
+def _remove_code_runs_not_held(
+    staging_dict: typing.Dict[str, typing.Dict[str, bool]],
+    held: typing.Set[str],
+) -> typing.List[str]:
+    _gone = sorted(set(staging_dict["code_run"]) - held)
+    for _code_run in _gone:
+        del staging_dict["code_run"][_code_run]
+    return _gone

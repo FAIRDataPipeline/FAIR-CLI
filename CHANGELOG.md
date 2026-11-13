@@ -23,6 +23,8 @@
   every name written under the pattern takes that version. Before, a name already registered was bumped from its own
   highest version, so it could be written below another name under the pattern. A `write:` entry for one name now
   takes the place of a pattern's entry for that name. Two `write:` patterns matching one registered name are refused.
+- `fair add` refuses a code run that records no inputs or outputs. A run records them as it finishes, so such a run
+  is still running, or stopped before it finished.
 
 ## Added
 - `fair registry erase-unknown-data` erases the files in the local registry's data stores that the registry does not
@@ -76,6 +78,9 @@
   the proxy.
 - `fair add` failed unless the local registry was running. It now starts the registry, and stops it afterwards if it
   started it. `fair add ""` staged an empty name, and is now refused.
+- A code run deleted from the local registry stayed in the project's staging. `fair add` staged it again, and
+  `fair push` then failed naming it. `fair status`, `fair add` and `fair push` now remove it from staging and say so.
+  `fair add` refuses it, and a push sends the rest.
 - A registry search dropped any filter set to `false` or `0`, so it found everything.
 - With no `git` on the path, every command failed with GitPython's own error, even `fair --version` and `--help`.
   These two now run. A command that needs `git` says so, and names `GIT_PYTHON_GIT_EXECUTABLE`.

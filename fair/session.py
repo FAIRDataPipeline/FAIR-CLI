@@ -387,6 +387,7 @@ class FAIR:
         self._session_config.prepare(
             fdp_com.CMD_MODE.PUSH, allow_dirty=self._allow_dirty
         )
+        _report_gone_code_runs(self._stager.remove_gone_code_runs())
         _staged_data_products = self._stager.get_item_list(True, "data_product")
 
         _staged_code_runs = self._stager.get_item_list(True, "code_run")
@@ -861,16 +862,52 @@ class FAIR:
 
     def add_to_staging(self, identifier):
         item_type = self.get_type_to_stage(identifier)
-        if self._stager.is_in_staging_dict(identifier, item_type):
-            self.change_staging_state(identifier)
-        elif self.is_staging_item_in_registry(identifier, item_type):
-            self._stager.add_to_staging(identifier, item_type)
-            self.change_staging_state(identifier)
+        _named = self._stager.is_in_staging_dict(identifier, item_type)
+        # A code run is looked for in the registry even where staging names
+        # it, since one the registry no longer holds is still named there
+        if item_type == "code_run":
+            _found = self._code_run_to_stage(identifier, _named)
         else:
+            _found = _named or self.is_staging_item_in_registry(
+                identifier, item_type
+            )
+        if not _found:
             raise fdp_exc.StagingError(
                 f"Cannot stage '{item_type}' with label '{identifier}', "
                 "item does not exist in staging or local registry."
             )
+        if not _named:
+            self._stager.add_to_staging(identifier, item_type)
+        self.change_staging_state(identifier)
+
+    # Whether the local registry holds a code run to stage. One it no longer
+    # holds is removed from staging, where staging names it, and refused. One
+    # with neither inputs nor outputs is refused, as not finished: a run's
+    # inputs and outputs are recorded as it finishes
+    def _code_run_to_stage(self, identifier: str, named: bool) -> bool:
+        _code_run = fdp_req.get(
+            fdp_conf.get_local_uri(),
+            "code_run",
+            fdp_req.local_token(),
+            params={"uuid": identifier},
+        )
+        if not _code_run:
+            if not named:
+                return False
+            self._stager.remove_staging_entry(identifier, "code_run")
+            raise fdp_exc.StagingError(
+                f"Code run '{identifier}' is no longer in the local registry, "
+                "and has been removed from staging",
+                hint="'fair list code-runs' lists the code runs it holds",
+            )
+        if not _code_run[0]["inputs"] and not _code_run[0]["outputs"]:
+            raise fdp_exc.StagingError(
+                f"Code run '{identifier}' records no inputs or outputs: it is "
+                "still running, or stopped before it finished",
+                hint="Stage it once it has finished; a run that stopped must be "
+                "run again",
+            )
+        return True
 
     def is_staging_item_in_registry(self, identifier, item_type) -> bool:
         local_uri = fdp_conf.get_local_uri()
@@ -1020,7 +1057,7 @@ class FAIR:
         self._logger.debug("Getting code_run(s) staging status")
         self.check_is_repo()
 
-        self._stager.update_code_run_staging()
+        _report_gone_code_runs(self._stager.update_code_run_staging())
         _staged_code_runs = self._stager.get_item_list(True, "code_run")
         _unstaged_code_runs = self._stager.get_item_list(False, "code_run")
 
@@ -1848,3 +1885,13 @@ class FAIR:
 
     def __exit__(self, *args) -> None:
         self.close_session()
+
+
+# Say which code runs were removed from staging, the local registry no longer
+# holding them
+def _report_gone_code_runs(code_runs: typing.List[str]) -> None:
+    for _code_run in code_runs:
+        click.echo(
+            f"Code run '{_code_run}' is no longer in the local registry, "
+            "and has been removed from staging"
+        )

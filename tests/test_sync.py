@@ -3218,6 +3218,91 @@ def test_push_warns_of_a_run_the_remote_lacks(
         assert "does not hold code run" not in _res.output
 
 
+# Delete a code run from the origin registry through its API
+def _delete_run(token: str, run: str) -> None:
+    _url = get(_ORIGIN, "code_run", token, params={"uuid": run})[0]["url"]
+    requests.delete(
+        _url,
+        headers={
+            "Authorization": f"token {token}",
+            "Accept": "application/json; version=1.0.0",
+        },
+    ).raise_for_status()
+
+
+# The code runs the project's staging file names, each with whether it is staged
+def _staged_runs() -> typing.Dict[str, bool]:
+    with open(fdp_com.staging_cache(os.getcwd()), encoding="utf-8") as stage_f:
+        return yaml.safe_load(stage_f)["code_run"]
+
+
+@pytest.mark.faircli_sync
+@pytest.mark.dependency(depends=["run"])
+def test_staging_drops_a_run_the_registry_no_longer_holds(
+    global_config: str,
+    local_registry: RegistryTest,
+    remote_registry: RegistryTest,
+    pyDataPipeline: str,
+    fair_bucket: MotoTestServer,
+    mocker: pytest_mock.MockerFixture,
+):
+    # Runs that read a data product, each staged and then deleted from the
+    # registry before 'fair add', 'fair push' or 'fair status'
+    _name = f"deleted/{uuid.uuid4().hex[:8]}"
+    _gone = (
+        "is no longer in the local registry, and has been removed from "
+        "staging"
+    )
+    _cli_runner = click.testing.CliRunner()
+    with remote_registry, local_registry, fair_bucket:
+        mocker.patch(
+            "fair.configuration.get_current_user_remote_user",
+            lambda *args, **kwargs: "admin",
+        )
+        _token = local_registry._token
+        _written = _registered_data_product(_token, _name, _name.encode())
+        _read = _written["components"]
+
+        def _staged_and_deleted() -> str:
+            _run = _registered_run(_token, _read, [])
+            _res = _cli_runner.invoke(cli, ["add", _run])
+            assert _res.exit_code == 0, _res.output
+            assert _staged_runs()[_run]
+            _delete_run(_token, _run)
+            return _run
+
+        _run = _staged_and_deleted()
+        _res = _cli_runner.invoke(cli, ["add", _run])
+        assert _res.exit_code != 0
+        assert f"Code run '{_run}' {_gone}" in _res.output
+        assert _run not in _staged_runs()
+
+        # The push goes on with what is held
+        _run = _staged_and_deleted()
+        _kept = _registered_run(_token, _read, [])
+        _res = _push(_cli_runner, _kept)
+        assert _res.exit_code == 0, _res.output
+        assert f"Code run '{_run}' {_gone}" in _res.output
+        assert _run not in _staged_runs()
+        assert get(
+            _DEST, "code_run", remote_registry._token, params={"uuid": _kept}
+        )
+
+        # A run that has not finished records no inputs or outputs
+        _unfinished = _registered_run(_token, [], [])
+        _res = _cli_runner.invoke(cli, ["add", _unfinished])
+        assert _res.exit_code != 0
+        _refusal = f"Code run '{_unfinished}' records no inputs or outputs"
+        assert _refusal in _res.output
+        assert not _staged_runs().get(_unfinished)
+
+        _run = _staged_and_deleted()
+        _res = _cli_runner.invoke(cli, ["status"])
+        assert _res.exit_code == 0, _res.output
+        assert f"Code run '{_run}' {_gone}" in _res.output
+        assert _run not in _staged_runs()
+
+
 @pytest.mark.faircli_sync
 @pytest.mark.parametrize(
     "objects,expected",

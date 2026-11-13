@@ -307,6 +307,10 @@ fair add my_namespace:data_object@v0.1.0
 
 `fair unstage` takes an item off the stage again, and `fair reset` unstages everything.
 
+A code run can be staged once it has finished. `fair add` refuses a run that records no inputs or outputs, because a run records them as it finishes. Such a run is still running, or it stopped before it finished.
+
+A code run deleted from the local registry may still be named in a project's staging. `fair status`, `fair add` and `fair push` remove it, and say so. `fair add` then refuses it, and a push sends the rest.
+
 ### `push`
 
 `fair push` sends what is staged to the remote registry, `origin` unless you name another:
