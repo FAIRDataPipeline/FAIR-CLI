@@ -24,6 +24,12 @@ Classes
     - DataProduct
     - UserConfigModel
 
+Functions
+---------
+
+    check_namespace_name - refuse a namespace's name outside the convention
+    check_data_product_name - refuse a data product's name outside the convention
+
 """
 
 __date__ = "2021-11-16"
@@ -31,10 +37,26 @@ __date__ = "2021-11-16"
 import datetime
 import enum
 import pathlib
+import re
 import typing
 import uuid
 
 import pydantic
+
+import fair.exceptions as fdp_exc
+
+# The naming convention: a namespace holds ASCII letters, digits, '_' and '-';
+# a data product's name is parts joined by single slashes, each of those and
+# '.', which may not start a part (a hidden folder) or end one (stripped on
+# Windows)
+_NAME_PART = r"[A-Za-z0-9_-](?:[A-Za-z0-9_.-]*[A-Za-z0-9_-])?"
+NAMESPACE_NAME = re.compile(r"[A-Za-z0-9_-]+")
+DATA_PRODUCT_NAME = re.compile(rf"{_NAME_PART}(?:/{_NAME_PART})*")
+
+# What a data product's name in a configuration may hold besides: a wildcard
+# within a part, and the code run's id, which the API puts in place of
+# '${{RUN_ID}}'
+_STANDS_FOR_NAME = ("${{RUN_ID}}", "*")
 
 
 class SupportedShells(enum.Enum):
@@ -344,3 +366,46 @@ if __name__ in "__main__":
 
     _data = yaml.safe_load(open(parser.parse_args().in_file, encoding="utf-8"))
     UserConfigModel(**_data)
+
+
+def check_namespace_name(name: typing.Any, entry: str) -> None:
+    """Refuse a namespace's name that does not keep to the naming convention
+
+    Parameters
+    ----------
+    name : typing.Any
+        the name, as a configuration gives it
+    entry : str
+        the configuration's entry that gives it, as the refusal names it
+    """
+    if not isinstance(name, str) or not NAMESPACE_NAME.fullmatch(name):
+        raise fdp_exc.UserConfigError(
+            f"The namespace '{name}' of {entry} is not a valid name: a "
+            "namespace holds ASCII letters, digits, '_' and '-' alone",
+            hint="Name it with those alone, such as 'my_namespace'",
+        )
+
+
+def check_data_product_name(name: typing.Any, entry: str) -> None:
+    """Refuse a data product's name that does not keep to the naming convention
+
+    A '*' within a part, as a wildcard has, and '${{RUN_ID}}' are allowed.
+
+    Parameters
+    ----------
+    name : typing.Any
+        the name, as a configuration gives it
+    entry : str
+        the configuration's entry that gives it, as the refusal names it
+    """
+    _name = name
+    if isinstance(_name, str):
+        for _token in _STANDS_FOR_NAME:
+            _name = _name.replace(_token, "0")
+    if not isinstance(_name, str) or not DATA_PRODUCT_NAME.fullmatch(_name):
+        raise fdp_exc.UserConfigError(
+            f"The data product name '{name}' of {entry} is not a valid name: it "
+            "is one or more parts joined by single '/', each of ASCII letters, "
+            "digits, '_', '-' and '.', with no '.' at a part's start or end",
+            hint="Name it so, such as 'model/results/output_01'",
+        )

@@ -165,7 +165,7 @@ def test_wildcard_unpack_local(
 
         _split_key = _path.split("/")[-1]
 
-        # Each '*' matches one segment of a name; the example data products
+        # Each '*' matches within one segment of a name; the example data products
         # have several names two segments below this one, in one namespace
         _wildcard_path = _path.split(_split_key)[0] + "*/*"
         _namespace = _namespace_of_matches(local_registry, _wildcard_path)
@@ -228,7 +228,7 @@ def test_wildcard_unpack_remote(
 
         _split_key = _path.split("/")[-1]
 
-        # Each '*' matches one segment of a name; the example data products
+        # Each '*' matches within one segment of a name; the example data products
         # have several names two segments below this one, in one namespace
         _wildcard_path = _path.split(_split_key)[0] + "*/*"
         _namespace = _namespace_of_matches(remote_registry, _wildcard_path)
@@ -820,6 +820,11 @@ def test_update_from_fair_without_git_remote(
         ("a/*/c", "a/b/c", True),
         ("a/*/c", "a/b/d/c", False),
         ("a.b/*", "aXb/1", False),
+        # Part of a segment
+        ("a/b_*", "a/b_01", True),
+        ("a/b_*", "a/b_", False),
+        ("a/*_x", "a/b_x/c", False),
+        ("CaseStudy/*/Hold/State_*", "CaseStudy/50km/Hold/State_01", True),
         # A pattern never matches itself, nor a name the registry refuses
         ("era5/t2m/*", "era5/t2m/*", False),
         ("era5/t2m/*", "era5/t2m/[1]", False),
@@ -832,7 +837,7 @@ def test_matches_wildcard(pattern: str, name: str, matches: bool):
 @pytest.mark.faircli_user_config
 def test_wildcard_write(mocker: pytest_mock.MockerFixture):
     # Registered: a/1 at 0.0.1, and a/thing/1 at 2.0.0, which the registry's
-    # own filter matches to 'a/*' but a wildcard (one segment) does not
+    # own filter matches to 'a/*' but a wildcard (within one segment) does not
     _products = [
         {"name": "a/1", "version": "0.0.1", "namespace": "ns_url"},
         {"name": "a/thing/1", "version": "2.0.0", "namespace": "ns_url"},
@@ -881,8 +886,7 @@ def test_wildcard_write(mocker: pytest_mock.MockerFixture):
     # As prepare() does
     _config._update_namespaces()
     _config._fill_all_block_types()
-    _config._expand_wildcards("http://127.0.0.1:8000/api/", "")
-    _config["write"] = _config._fill_versions("write")
+    _config._resolve_blocks(("http://127.0.0.1:8000/api/", ""))
     _config._config = _config._clean()
 
     _written = {
@@ -985,8 +989,7 @@ def _prepared_block(
     }
     _config._update_namespaces()
     _config._fill_all_block_types()
-    _config._expand_wildcards(remote_uri or _LOCAL, "")
-    _config[block_type] = _config._fill_versions(block_type, remote_uri, "")
+    _config._resolve_blocks((remote_uri or _LOCAL, ""), (remote_uri, ""))
     if block_type == "read":
         _config["read"] = _config._update_use_sections(_config["read"])
     # A block left with nothing in it is left out
@@ -1107,16 +1110,52 @@ def test_readables_leave_out_a_patterns_own_entry():
 
 
 @pytest.mark.faircli_user_config
+def test_a_cached_read_is_retrieved_from_its_cache():
+    # A read from a copy the user holds is retrieved as any other read, the
+    # copy standing in for the download
+    _config = fdp_user.JobConfiguration()
+    _config["read"] = [
+        {
+            "data_product": "fetched/era5/1940",
+            "use": {"namespace": "testing", "version": "0.0.2"},
+        },
+        {
+            "data_product": "fetched/era5/1941",
+            "use": {"namespace": "testing", "version": "0.0.1", "cache": "1941.nc"},
+        },
+    ]
+    assert _config.get_readables() == [
+        "testing:fetched/era5/1940@v0.0.2",
+        "testing:fetched/era5/1941@v0.0.1",
+    ]
+    assert _config.get_read_caches() == {"testing:fetched/era5/1941@v0.0.1": "1941.nc"}
+
+
+@pytest.mark.faircli_user_config
+def test_a_pattern_with_a_cache_is_refused():
+    # A cache is one file, and a pattern may stand for several data products
+    _config = fdp_user.JobConfiguration()
+    _config["read"] = [
+        {"data_product": "fetched/era5/*", "use": {"cache": "era5.nc"}},
+    ]
+    with pytest.raises(fdp_exc.UserConfigError) as _error:
+        _config._check_read_caches()
+    assert "'fetched/era5/*' gives a 'cache'" in _error.value.msg
+    assert "an entry of its own" in _error.value.hint
+
+
+@pytest.mark.faircli_user_config
 @pytest.mark.parametrize(
     "use,expected",
     [
         # One entry for a name however many versions it has, and the pattern
-        # for names that are new
+        # for names that are new, all at one version: the highest of any
+        # match, bumped
         (
             {},
             [
                 ("testing", "fetched/era5/1940", "0.0.3"),
-                ("testing", "fetched/era5/1941", "0.0.2"),
+                ("testing", "fetched/era5/1941", "0.0.3"),
                 ("testing", "fetched/era5/*", "0.0.3"),
             ],
         ),
@@ -1124,7 +1163,7 @@ def test_readables_leave_out_a_patterns_own_entry():
         (
             {"namespace": "other"},
             [
-                ("other", "fetched/era5/1999", "1.0.1"),
+                ("other", "fetched/era5/1999", "9.0.1"),
                 ("other", "fetched/era5/1940", "9.0.1"),
                 ("other", "fetched/era5/*", "9.0.1"),
             ],
@@ -1149,6 +1188,134 @@ def test_wildcard_write_namespace(
         ],
     )
     assert _used(_write) == expected
+
+
+# Two names under one pattern whose versions have drifted apart
+_DRIFTED = [
+    ("testing", "real/data/1", "0.0.1"),
+    ("testing", "real/data/2", "0.0.3"),
+]
+
+
+# Every name a 'write:' pattern matches is written at one version, so that a
+# name written again is never below another name under the pattern
+@pytest.mark.faircli_user_config
+@pytest.mark.parametrize(
+    "use,version",
+    [
+        ({}, "0.0.4"),
+        ({"version": "${{MINOR}}"}, "0.1.0"),
+        ({"version": "2.0.0"}, "2.0.0"),
+    ],
+)
+def test_wildcard_write_one_version(
+    mocker: pytest_mock.MockerFixture, use, version
+):
+    _mock_registries(mocker, {_LOCAL: _DRIFTED})
+    _write = _prepared_block(
+        "write",
+        [
+            {
+                "data_product": "real/data/*",
+                "file_type": "csv",
+                "use": dict(use),
+            }
+        ],
+    )
+    assert _used(_write) == [
+        ("testing", "real/data/2", version),
+        ("testing", "real/data/1", version),
+        ("testing", "real/data/*", version),
+    ]
+
+
+# A 'write:' entry of one name is written as it says, and a pattern that
+# matches the name gives it no entry; one in another namespace is another
+# data product
+@pytest.mark.faircli_user_config
+@pytest.mark.parametrize(
+    "namespace,expected",
+    [
+        (
+            "testing",
+            [
+                ("testing", "real/data/1", "0.0.2"),
+                ("testing", "real/data/2", "0.0.4"),
+                ("testing", "real/data/*", "0.0.4"),
+            ],
+        ),
+        (
+            "other",
+            [
+                ("other", "real/data/1", "0.0.1"),
+                ("testing", "real/data/2", "0.0.4"),
+                ("testing", "real/data/1", "0.0.4"),
+                ("testing", "real/data/*", "0.0.4"),
+            ],
+        ),
+    ],
+)
+def test_wildcard_write_leaves_a_named_entry(
+    mocker: pytest_mock.MockerFixture, namespace, expected
+):
+    _mock_registries(mocker, {_LOCAL: _DRIFTED}, {_LOCAL: ["other"]})
+    _write = _prepared_block(
+        "write",
+        [
+            {
+                "data_product": "real/data/1",
+                "file_type": "csv",
+                "use": {"namespace": namespace},
+            },
+            {"data_product": "real/data/*", "file_type": "csv"},
+        ],
+    )
+    assert _used(_write) == expected
+
+
+# Two 'write:' patterns that match one data product are refused, naming both;
+# patterns in two namespaces, or that share only names not yet registered,
+# are not
+@pytest.mark.faircli_user_config
+def test_wildcard_write_patterns_that_match_one_name(
+    mocker: pytest_mock.MockerFixture,
+):
+    _mock_registries(
+        mocker, {_LOCAL: _DRIFTED + [("other", "real/data/1", "0.0.1")]}
+    )
+
+    def _patterns(*entries) -> typing.List[typing.Tuple]:
+        return _used(
+            _prepared_block(
+                "write",
+                [
+                    {"data_product": name, "file_type": "csv", "use": use}
+                    for name, use in entries
+                ],
+            )
+        )
+
+    with pytest.raises(fdp_exc.UserConfigError) as e:
+        _patterns(("real/*/1", {}), ("real/data/*", {}))
+    assert "'real/*/1' and 'real/data/*'" in str(e.value)
+    assert "'testing:real/data/1'" in str(e.value)
+    assert "'real/data/1' a 'write:' entry of its own" in e.value.hint
+
+    assert _patterns(
+        ("real/*/1", {"namespace": "other"}), ("real/data/*", {})
+    ) == [
+        ("other", "real/data/1", "0.0.2"),
+        ("other", "real/*/1", "0.0.2"),
+        ("testing", "real/data/2", "0.0.4"),
+        ("testing", "real/data/1", "0.0.4"),
+        ("testing", "real/data/*", "0.0.4"),
+    ]
+    assert _patterns(("real/*/9", {}), ("real/data/*", {})) == [
+        ("testing", "real/*/9", "0.0.1"),
+        ("testing", "real/data/2", "0.0.4"),
+        ("testing", "real/data/1", "0.0.4"),
+        ("testing", "real/data/*", "0.0.4"),
+    ]
 
 
 @pytest.mark.faircli_user_config
@@ -1180,6 +1347,9 @@ def test_read_of_a_name(mocker: pytest_mock.MockerFixture, use, expected):
         ("fetched/era5/1940", {"namespace": "unregistered"}, "any version"),
         # No such version
         ("fetched/era5/1940", {"version": "9.9.9"}, "version '9.9.9'"),
+        # A copy of the file the user holds is not what is read: the data
+        # product must be registered, as any other read
+        ("fetched/era5/1850", {"cache": "1850.nc"}, "any version"),
     ],
 )
 def test_read_of_nothing(mocker: pytest_mock.MockerFixture, name, use, wanted):
@@ -1243,3 +1413,144 @@ def test_pull_of_nothing(mocker: pytest_mock.MockerFixture):
     assert _error.value.msg.endswith(
         f"in namespace 'testing' on registry '{_REMOTE}' or '{_LOCAL}'"
     )
+
+
+@pytest.mark.faircli_user_config
+@pytest.mark.parametrize(
+    "name, valid",
+    [
+        ("PSU", True),
+        ("my_namespace-2", True),
+        ("my namespace", False),
+        ("a/b", False),
+        ("a.b", False),
+        ("", False),
+        (None, False),
+    ],
+)
+def test_namespace_names(name: typing.Any, valid: bool):
+    if valid:
+        fdp_valid.check_namespace_name(name, "an entry")
+    else:
+        with pytest.raises(fdp_exc.UserConfigError, match="not a valid name") as e:
+            fdp_valid.check_namespace_name(name, "an entry")
+        assert "such as" in e.value.hint
+
+
+@pytest.mark.faircli_user_config
+@pytest.mark.parametrize(
+    "name, valid",
+    [
+        ("SEIRS_model/parameters", True),
+        ("DataPipeline.jl/release", True),
+        ("out/run_${{RUN_ID}}", True),
+        ("State_*", True),
+        ("CaseStudy/50km/*/Cells_01", True),
+        ("/leading", False),
+        ("trailing/", False),
+        ("double//slash", False),
+        (".hidden/x", False),
+        ("x/ends.", False),
+        ("has space", False),
+        ("PSU:data", False),
+        ("data@v1", False),
+        ("", False),
+    ],
+)
+def test_data_product_names(name: str, valid: bool):
+    if valid:
+        fdp_valid.check_data_product_name(name, "an entry")
+    else:
+        with pytest.raises(fdp_exc.UserConfigError, match="not a valid name"):
+            fdp_valid.check_data_product_name(name, "an entry")
+
+
+@pytest.mark.faircli_user_config
+@pytest.mark.parametrize(
+    "block, entry, refused",
+    [
+        ("write", {"data_product": "bad name", "use": {"namespace": "PSU"}}, True),
+        ("write", {"data_product": "x", "use": {"data_product": "bad name"}}, True),
+        ("write", {"data_product": "x", "use": {"namespace": "bad ns"}}, True),
+        (
+            "register",
+            {"external_object": "bad name", "use": {"namespace": "PSU"}},
+            True,
+        ),
+        ("register", {"data_product": "ok/name", "use": {"namespace": "PSU"}}, False),
+        # What a read names is registered already
+        ("read", {"data_product": "bad name", "use": {"namespace": "bad ns"}}, False),
+    ],
+)
+def test_the_names_a_run_would_register(block: str, entry: typing.Dict, refused: bool):
+    _config = fdp_user.JobConfiguration()
+    _config._config = {"run_metadata": {}, block: [entry]}
+    if refused:
+        with pytest.raises(fdp_exc.UserConfigError, match=f"the '{block}:' entry"):
+            _config._check_new_names()
+    else:
+        _config._check_new_names()
+
+
+@pytest.mark.faircli_user_config
+def test_a_bad_namespace_is_refused_before_any_is_registered(
+    mocker: pytest_mock.MockerFixture, tmp_path
+):
+    mocker.patch("fair.common.default_jobs_dir", lambda *args: str(tmp_path))
+    _config = fdp_user.JobConfiguration()
+    _config._config = {"run_metadata": {}, "register": [{"namespace": "bad ns"}]}
+    _posting = mocker.patch.object(_config, "_update_namespaces")
+    with pytest.raises(fdp_exc.UserConfigError, match="'bad ns'"):
+        _config.prepare(fdp_com.CMD_MODE.PULL)
+    _posting.assert_not_called()
+
+
+@pytest.mark.faircli_user_config
+def test_a_bad_data_product_name_is_refused_before_anything_is_registered(
+    mocker: pytest_mock.MockerFixture, tmp_path
+):
+    mocker.patch("fair.common.default_jobs_dir", lambda *args: str(tmp_path))
+    _config = fdp_user.JobConfiguration()
+    _config._config = {
+        "run_metadata": {},
+        "register": [{"external_object": "bad name", "use": {"namespace": "PSU"}}],
+    }
+    for _step in ("_update_namespaces", "_create_log", "_subst_cli_vars"):
+        mocker.patch.object(_config, _step)
+    _after = mocker.patch.object(_config, "_fill_all_block_types")
+    with pytest.raises(fdp_exc.UserConfigError, match="'bad name'"):
+        _config.prepare(fdp_com.CMD_MODE.PULL)
+    _after.assert_not_called()
+
+
+@pytest.mark.faircli_user_config
+@pytest.mark.parametrize("description", [None, "", "   "])
+@pytest.mark.parametrize("mode", [fdp_com.CMD_MODE.RUN, fdp_com.CMD_MODE.PASS])
+def test_a_run_with_no_description_is_refused_before_anything_is_registered(
+    mocker: pytest_mock.MockerFixture,
+    tmp_path,
+    description: typing.Optional[str],
+    mode: fdp_com.CMD_MODE,
+):
+    mocker.patch("fair.common.default_jobs_dir", lambda *args: str(tmp_path))
+    _config = fdp_user.JobConfiguration()
+    _config._config = {"run_metadata": {"description": description}}
+    _posting = mocker.patch.object(_config, "_update_namespaces")
+    with pytest.raises(fdp_exc.UserConfigError, match="no description") as e:
+        _config.prepare(mode)
+    assert "run_metadata: description:" in e.value.hint
+    _posting.assert_not_called()
+
+
+class _Reached(Exception):
+    """Raised by a stand-in to show a step was reached"""
+
+
+@pytest.mark.faircli_user_config
+def test_a_pull_needs_no_description(mocker: pytest_mock.MockerFixture, tmp_path):
+    mocker.patch("fair.common.default_jobs_dir", lambda *args: str(tmp_path))
+    _config = fdp_user.JobConfiguration()
+    _config._config = {"run_metadata": {}}
+    mocker.patch.object(_config, "_update_namespaces", side_effect=_Reached)
+    with pytest.raises(_Reached):
+        _config.prepare(fdp_com.CMD_MODE.PULL)

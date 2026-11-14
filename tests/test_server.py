@@ -1,16 +1,25 @@
+import glob
 import os
+import pathlib
+import re
+import sqlite3
+import subprocess
 import time
 import typing
 
+import click.testing
 import pytest
 import pytest_mock
 import yaml
 
 import fair.common as fdp_com
 import fair.exceptions as fdp_exc
+import fair.registry.lifecycle as fdp_life
 import fair.registry.server as fdp_serv
+from fair.cli import cli
 
 from . import conftest as conf
+from .registry_database import FRESH, SCHEMA, make_install
 
 LOCAL_REGISTRY_URL = "http://127.0.0.1:8000/api"
 
@@ -287,7 +296,7 @@ def test_launch_server_with_another_on_its_port(
     mocker.patch.dict(os.environ)
     mocker.patch("subprocess.Popen")
 
-    def _answer(url, headers=None, timeout=None):
+    def _answer(url, headers=None, timeout=None, proxies=None):
         # Any registry answers a request that carries no token
         return mocker.Mock(status_code=status if headers else 200)
 
@@ -302,6 +311,7 @@ def test_launch_server_with_another_on_its_port(
         "http://127.0.0.1:8000/api/users/",
         headers={"Authorization": "token this-registrys-token"},
         timeout=fdp_serv.REQUEST_SECONDS,
+        proxies={"http": None, "https": None, "all": None},
     )
 
 
@@ -351,3 +361,529 @@ def test_launch_stop_server_with_port(
     fdp_serv.launch_server(port=8005, address="0.0.0.0", verbose=True)
     time.sleep(5)
     fdp_serv.stop_server(force=True, local_uri="http://127.0.0.1:8005/api")
+
+
+_URI = "http://127.0.0.1:8000/api/"
+
+
+@pytest.fixture
+def installed(tmp_path, mocker: pytest_mock.MockerFixture) -> typing.Dict:
+    """An install with records, running for the user, its store, and a project
+
+    The registry's server, its database's rebuilding and what is registered
+    after are stood in for: the server runs while 'running' says so.
+    """
+    _store = tmp_path.joinpath("store")
+    _store.joinpath("PSU").mkdir(parents=True)
+    _store.joinpath("PSU", "data.csv").write_text("registered")
+    _store.joinpath("my-model").mkdir()
+    _store.joinpath("my-model", "README.md").write_text("a repository")
+    _rows = FRESH + [
+        f"INSERT INTO data_management_storageroot (root, local) VALUES "
+        f"('file://{_store}/', 1)",
+        "INSERT INTO data_management_storagelocation (path, storage_root_id) "
+        "VALUES ('PSU/data.csv', 1)",
+        "INSERT INTO data_management_storagelocation (path, storage_root_id) "
+        "VALUES ('my-model', 1)",
+        "INSERT INTO data_management_object (description, storage_location_id) "
+        "VALUES ('Remote code repository.', 2)",
+    ]
+    _registry = make_install(tmp_path.joinpath("registry"), rows=_rows)
+    _project = tmp_path.joinpath("project")
+    _project.joinpath(fdp_com.FAIR_FOLDER).mkdir(parents=True)
+    with open(fdp_com.staging_cache(str(_project)), "w") as out_f:
+        yaml.dump(
+            {"job": {"a-job": True}, "data_product": {"PSU:data@v1.0.0": False}}, out_f
+        )
+    _state = {"running": True}
+    mocker.patch("fair.common.registry_home", lambda: _registry)
+    mocker.patch("fair.configuration.get_local_uri", lambda: _URI)
+    mocker.patch(
+        "fair.registry.lifecycle._server_here",
+        side_effect=lambda *args: True if _state["running"] else None,
+    )
+    mocker.patch(
+        "fair.registry.server.stop_server",
+        side_effect=lambda **kwargs: _state.update(running=False),
+    )
+    mocker.patch(
+        "fair.registry.server.launch_server",
+        side_effect=lambda **kwargs: _state.update(running=True),
+    )
+    mocker.patch("fair.registry.server._refuse_failing")
+    mocker.patch("fair.registry.server._python_runs", lambda python: True)
+
+    # A file of its own stands for the database built again
+    def _build(python, registry_dir):
+        with open(os.path.join(registry_dir, "db.sqlite3"), "w") as out_f:
+            out_f.write("new")
+
+    def _token(registry_dir):
+        with open(os.path.join(registry_dir, "token"), "w") as out_f:
+            out_f.write("new")
+
+    with open(os.path.join(_registry, "token"), "w") as out_f:
+        out_f.write("old")
+    fdp_life.start_for_user(port=8000, registry_dir=_registry)
+    return {
+        "registry": _registry,
+        "store": str(_store),
+        "project": str(_project),
+        "state": _state,
+        "rebuild": mocker.patch(
+            "fair.registry.server._build_database", side_effect=_build
+        ),
+        "token": mocker.patch(
+            "fair.registry.server._write_missing_token", side_effect=_token
+        ),
+        "setup": mocker.patch("fair.registry.server.update_registry_post_setup"),
+        "file_types": mocker.patch("fair.registry.storage.populate_file_type"),
+    }
+
+
+@pytest.mark.faircli_server
+def test_a_reset_empties_and_starts_the_registry_again(installed: typing.Dict):
+    _result = fdp_serv.reset_registry(repo_dir=installed["project"])
+    installed["rebuild"].assert_called_once_with(
+        fdp_serv._install_python(installed["registry"]), installed["registry"]
+    )
+    with open(os.path.join(installed["registry"], "db.sqlite3")) as in_f:
+        assert in_f.read() == "new"
+    assert not glob.glob(os.path.join(installed["registry"], ".reset-*"))
+    with open(os.path.join(installed["registry"], "token")) as in_f:
+        assert in_f.read() == "new"
+    assert _result["restarted"] == _URI and installed["state"]["running"]
+    assert fdp_life.status(installed["registry"])["server"]["holder"] == (
+        fdp_life.HELD_BY_USER
+    )
+    installed["setup"].assert_called_once_with(
+        installed["project"], True, installed["registry"]
+    )
+    with open(fdp_com.staging_cache(installed["project"])) as in_f:
+        assert not any(yaml.safe_load(in_f).values())
+    assert not os.path.exists(fdp_life.hold_file(installed["registry"]))
+    # Its files stay unless asked
+    assert os.path.exists(os.path.join(installed["store"], "PSU", "data.csv"))
+
+
+@pytest.mark.faircli_server
+def test_a_reset_deletes_the_stores_files_when_asked(installed: typing.Dict):
+    installed["state"]["running"] = False
+    fdp_life.stop_for_removal(installed["registry"])
+    # A file the registry does not hold, as another registry's may be
+    with open(os.path.join(installed["store"], "theirs.csv"), "w") as out_f:
+        out_f.write("another registry's")
+    _result = fdp_serv.reset_registry(delete_files=True)
+    assert _result["deleted"] == 1 and not _result["failed"]
+    assert not os.path.exists(os.path.join(installed["store"], "PSU"))
+    assert os.path.exists(os.path.join(installed["store"], "my-model", "README.md"))
+    assert os.path.exists(os.path.join(installed["store"], "theirs.csv"))
+    # Not running before, not started after; outside a project, the file types
+    assert not _result["restarted"] and not installed["state"]["running"]
+    installed["setup"].assert_not_called()
+    installed["file_types"].assert_called_once()
+
+
+@pytest.mark.faircli_server
+def test_a_reset_waits_for_the_sessions(installed: typing.Dict):
+    fdp_life.open_session(installed["registry"])
+    with pytest.raises(fdp_exc.RegistryError, match="is in use"):
+        fdp_serv.reset_registry()
+    installed["rebuild"].assert_not_called()
+
+
+@pytest.mark.faircli_server
+def test_a_reset_of_a_registry_whose_python_has_gone_changes_nothing(
+    installed: typing.Dict, mocker: pytest_mock.MockerFixture
+):
+    mocker.patch("fair.registry.server._python_runs", lambda python: False)
+    with pytest.raises(fdp_exc.RegistryError, match="cannot run its Python") as e:
+        fdp_serv.reset_registry()
+    assert "'fair registry upgrade'" in e.value.hint
+    installed["rebuild"].assert_not_called()
+    assert os.path.exists(os.path.join(installed["registry"], "db.sqlite3"))
+    # Nothing is stopped
+    assert installed["state"]["running"]
+    assert fdp_life.status(installed["registry"])["server"]["holder"] == (
+        fdp_life.HELD_BY_USER
+    )
+
+
+@pytest.mark.faircli_server
+@pytest.mark.parametrize(
+    "failure,raised",
+    [
+        (subprocess.CalledProcessError(1, "migrate"), fdp_exc.RegistryError),
+        (KeyboardInterrupt(), KeyboardInterrupt),
+    ],
+)
+def test_a_reset_that_fails_keeps_the_database_and_starts_the_registry_again(
+    installed: typing.Dict, failure: BaseException, raised: typing.Type
+):
+    # The build fails, or is stopped by Ctrl-C, having begun a database
+    def _failing(python, registry_dir):
+        with open(os.path.join(registry_dir, "db.sqlite3"), "w") as out_f:
+            out_f.write("half built")
+        raise failure
+
+    installed["rebuild"].side_effect = _failing
+    with open(os.path.join(installed["registry"], "db.sqlite3"), "rb") as in_f:
+        _records = in_f.read()
+    with pytest.raises(raised) as e:
+        fdp_serv.reset_registry(repo_dir=installed["project"])
+    if raised is fdp_exc.RegistryError:
+        assert "left as it was" in e.value.msg
+        assert "'fair registry upgrade'" in e.value.hint
+    with open(os.path.join(installed["registry"], "db.sqlite3"), "rb") as in_f:
+        assert in_f.read() == _records
+    with open(os.path.join(installed["registry"], "token")) as in_f:
+        assert in_f.read() == "old"
+    assert not glob.glob(os.path.join(installed["registry"], ".reset-*"))
+    assert installed["state"]["running"]
+    assert fdp_life.status(installed["registry"])["server"]["holder"] == (
+        fdp_life.HELD_BY_USER
+    )
+    assert not os.path.exists(fdp_life.hold_file(installed["registry"]))
+    installed["setup"].assert_not_called()
+    # Its records kept, so is the staging that names them
+    with open(fdp_com.staging_cache(installed["project"])) as in_f:
+        assert any(yaml.safe_load(in_f).values())
+
+
+@pytest.mark.faircli_server
+def test_a_reset_whose_database_cannot_be_put_back_keeps_the_original(
+    installed: typing.Dict, mocker: pytest_mock.MockerFixture
+):
+    def _failing(python, registry_dir):
+        with open(os.path.join(registry_dir, "db.sqlite3"), "w") as out_f:
+            out_f.write("half built")
+        raise subprocess.CalledProcessError(1, "migrate")
+
+    installed["rebuild"].side_effect = _failing
+    with open(os.path.join(installed["registry"], "db.sqlite3"), "rb") as in_f:
+        _records = in_f.read()
+    # Putting back what was set aside fails, as for a locked file on Windows
+    _replace = os.replace
+
+    def _locked(src, dst):
+        if ".reset-" in str(src):
+            raise PermissionError("locked")
+        _replace(src, dst)
+
+    mocker.patch("fair.registry.server.os.replace", side_effect=_locked)
+    with pytest.raises(fdp_exc.RegistryError, match="could not be put back") as e:
+        fdp_serv.reset_registry()
+    _aside = glob.glob(os.path.join(installed["registry"], ".reset-*"))
+    assert len(_aside) == 1 and _aside[0] in e.value.msg
+    with open(os.path.join(_aside[0], "db.sqlite3"), "rb") as in_f:
+        assert in_f.read() == _records
+    with open(os.path.join(_aside[0], "token")) as in_f:
+        assert in_f.read() == "old"
+    # The registry is still started again
+    assert installed["state"]["running"]
+
+
+@pytest.mark.faircli_server
+def test_a_reset_whose_registry_cannot_start_again_raises_its_own_error(
+    installed: typing.Dict,
+    mocker: pytest_mock.MockerFixture,
+    caplog: pytest.LogCaptureFixture,
+):
+    installed["rebuild"].side_effect = subprocess.CalledProcessError(1, "migrate")
+    mocker.patch(
+        "fair.registry.server._restart",
+        side_effect=fdp_exc.RegistryError("The port is taken"),
+    )
+    with pytest.raises(fdp_exc.RegistryError, match="could not be built again"):
+        fdp_serv.reset_registry()
+    assert "could not be started again" in caplog.text
+    assert "The port is taken" in caplog.text
+
+
+@pytest.mark.faircli_server
+def test_a_restart_after_failure_lets_ctrl_c_through(
+    mocker: pytest_mock.MockerFixture,
+):
+    mocker.patch("fair.registry.server._restart", side_effect=KeyboardInterrupt())
+    with pytest.raises(KeyboardInterrupt):
+        fdp_serv._restart_after_failure(_URI, "registry")
+
+
+@pytest.mark.faircli_server
+def test_a_reset_deleting_files_warns_of_other_registries(installed: typing.Dict):
+    _result = click.testing.CliRunner().invoke(
+        cli, ["registry", "reset", "--delete-files"]
+    )
+    assert _result.exit_code == 1
+    assert "another registry using those stores" in _result.output
+    installed["rebuild"].assert_not_called()
+
+
+@pytest.mark.faircli_server
+def test_a_reset_clears_the_staging_though_the_user_is_not_registered(
+    installed: typing.Dict,
+):
+    # The records the staging names are gone once the database is emptied
+    installed["setup"].side_effect = fdp_exc.RegistryError("Not registered")
+    with pytest.raises(fdp_exc.RegistryError, match="Not registered"):
+        fdp_serv.reset_registry(repo_dir=installed["project"])
+    with open(fdp_com.staging_cache(installed["project"])) as in_f:
+        assert not any(yaml.safe_load(in_f).values())
+
+
+@pytest.mark.faircli_server
+def test_registry_reset_command(installed: typing.Dict):
+    _result = click.testing.CliRunner().invoke(cli, ["registry", "reset"])
+    assert _result.exit_code == 1
+    assert "'--yes'" in _result.output
+    installed["rebuild"].assert_not_called()
+
+    _result = click.testing.CliRunner().invoke(cli, ["registry", "reset", "--yes"])
+    assert _result.exit_code == 0, _result.output
+    assert "Emptied the local registry" in _result.output
+    assert "run 'fair init'" in _result.output
+
+
+# What 'git ls-remote --heads --tags' prints for the registry's repository
+_LISTING = """\
+1111111111111111111111111111111111111111\trefs/heads/main
+2222222222222222222222222222222222222222\trefs/heads/rr/postgres
+3333333333333333333333333333333333333333\trefs/tags/v1.9.0
+4444444444444444444444444444444444444444\trefs/tags/v1.10.0
+5555555555555555555555555555555555555555\trefs/tags/v1.10.0^{}
+"""
+
+
+@pytest.mark.faircli_server
+@pytest.mark.parametrize(
+    "given, checked_out",
+    [
+        ("v1.10.0", "v1.10.0"),
+        ("rr/postgres", "origin/rr/postgres"),
+        ("origin/rr/postgres", "origin/rr/postgres"),
+        ("main", "origin/main"),
+    ],
+)
+def test_a_version_is_found_by_its_tag_or_its_branch(
+    mocker: pytest_mock.MockerFixture, given: str, checked_out: str
+):
+    mocker.patch("git.cmd.Git.ls_remote", return_value=_LISTING)
+    assert fdp_serv.resolve_reference(given) == checked_out
+
+
+@pytest.mark.faircli_server
+def test_a_version_the_repository_lacks_names_its_newest_tags(
+    mocker: pytest_mock.MockerFixture,
+):
+    mocker.patch("git.cmd.Git.ls_remote", return_value=_LISTING)
+    with pytest.raises(fdp_exc.RegistryError, match="No tag or branch 'v9'") as e:
+        fdp_serv.resolve_reference("v9")
+    assert "v1.10.0, v1.9.0" in e.value.hint
+
+
+@pytest.mark.faircli_server
+def test_an_install_refused_names_upgrade(mocker: pytest_mock.MockerFixture, tmp_path):
+    reg_dir = _existing_install(tmp_path, mocker)
+    with pytest.raises(fdp_exc.RegistryError, match="already installed") as e:
+        fdp_serv.install_registry(install_dir=reg_dir)
+    assert "'fair registry upgrade --version <version>'" in e.value.hint
+    assert "'fair registry install --force'" in e.value.hint
+
+
+@pytest.mark.faircli_server
+def test_an_install_looks_where_the_configuration_puts_the_registry(
+    mocker: pytest_mock.MockerFixture, tmp_path
+):
+    reg_dir = _existing_install(tmp_path, mocker)
+    mocker.patch("fair.common.registry_home", lambda: reg_dir)
+    _build = mocker.patch("fair.registry.server._build_registry")
+    _refused = f"already installed in {re.escape(reg_dir)}"
+    with pytest.raises(fdp_exc.RegistryError, match=_refused):
+        fdp_serv.install_registry()
+    _build.assert_not_called()
+
+
+# A build of a version in an install's place: a database with the tables given
+# and none of the old install's records, and a file to tell it by
+def _build_with(schema: typing.List[str]) -> typing.Callable:
+    def _build(repository, reference, install_dir, silent, venv_dir, venv_cmd):
+        make_install(pathlib.Path(install_dir), schema=schema)
+        with open(os.path.join(install_dir, "built"), "w") as out_f:
+            out_f.write("v9.9.9")
+        return "v9.9.9"
+
+    return _build
+
+
+# How many storage roots an install's database holds
+def _storage_roots(registry_dir: str) -> int:
+    _db = sqlite3.connect(os.path.join(registry_dir, "db.sqlite3"))
+    try:
+        return _db.execute(
+            "SELECT COUNT(*) FROM data_management_storageroot"
+        ).fetchone()[0]
+    finally:
+        _db.close()
+
+
+@pytest.mark.faircli_server
+def test_an_upgrade_keeps_the_records_and_starts_the_registry_again(
+    installed: typing.Dict, mocker: pytest_mock.MockerFixture
+):
+    mocker.patch(
+        "fair.registry.server._build_registry", side_effect=_build_with(SCHEMA)
+    )
+    _migrate = mocker.patch("fair.registry.server._migrate")
+    _result = fdp_serv.upgrade_registry()
+    assert _result == {"version": "v9.9.9", "kept": True, "restarted": _URI}
+    assert os.path.exists(os.path.join(installed["registry"], "built"))
+    assert _storage_roots(installed["registry"]) == 1
+    with open(os.path.join(installed["registry"], "token")) as in_f:
+        assert in_f.read() == "old"
+    _migrate.assert_called_once()
+    assert installed["state"]["running"]
+    assert not os.path.exists(fdp_life.hold_file(installed["registry"]))
+    # Nothing is left beside it
+    assert sorted(os.listdir(os.path.dirname(installed["registry"]))) == [
+        "project",
+        "registry",
+        "store",
+    ]
+
+
+@pytest.mark.faircli_server
+def test_an_upgrade_finds_a_python_once(
+    installed: typing.Dict, mocker: pytest_mock.MockerFixture
+):
+    # The command found before anything is stopped builds the environment
+    _command = ["python", "-m", "venv", "venv"]
+    _venv = mocker.patch("fair.virtualenv.venv_command", return_value=_command)
+    _build = mocker.patch(
+        "fair.registry.server._build_registry", side_effect=_build_with(SCHEMA)
+    )
+    mocker.patch("fair.registry.server._migrate")
+    fdp_serv.upgrade_registry()
+    _venv.assert_called_once()
+    assert _build.call_args.args[5] == _command
+
+
+@pytest.mark.faircli_server
+def test_an_upgrade_to_other_tables_leaves_the_install_as_it_was(
+    installed: typing.Dict, mocker: pytest_mock.MockerFixture
+):
+    _other = [
+        _statement.replace(
+            '"local" bool NOT NULL)', '"local" bool NOT NULL, "x" int NULL)'
+        )
+        for _statement in SCHEMA
+    ]
+    mocker.patch(
+        "fair.registry.server._build_registry", side_effect=_build_with(_other)
+    )
+    _migrate = mocker.patch("fair.registry.server._migrate")
+    with pytest.raises(fdp_exc.RegistryError, match="cannot be kept") as e:
+        fdp_serv.upgrade_registry()
+    assert "'fair registry install --force --version v9.9.9'" in e.value.hint
+    assert not os.path.exists(os.path.join(installed["registry"], "built"))
+    assert _storage_roots(installed["registry"]) == 1
+    _migrate.assert_not_called()
+    # Running again, as it was
+    assert installed["state"]["running"]
+    assert sorted(os.listdir(os.path.dirname(installed["registry"]))) == [
+        "project",
+        "registry",
+        "store",
+    ]
+
+
+@pytest.mark.faircli_server
+def test_an_upgrade_stopped_by_ctrl_c_leaves_the_install_and_starts_it_again(
+    installed: typing.Dict, mocker: pytest_mock.MockerFixture
+):
+    # Ctrl-C part way through the build
+    def _interrupted(repository, reference, install_dir, *args):
+        os.makedirs(install_dir, exist_ok=True)
+        with open(os.path.join(install_dir, "built"), "w") as out_f:
+            out_f.write("half")
+        raise KeyboardInterrupt()
+
+    mocker.patch(
+        "fair.registry.server._build_registry", side_effect=_interrupted
+    )
+    with pytest.raises(KeyboardInterrupt):
+        fdp_serv.upgrade_registry()
+    assert not os.path.exists(os.path.join(installed["registry"], "built"))
+    assert _storage_roots(installed["registry"]) == 1
+    assert installed["state"]["running"]
+    assert fdp_life.status(installed["registry"])["server"]["holder"] == (
+        fdp_life.HELD_BY_USER
+    )
+    assert not os.path.exists(fdp_life.hold_file(installed["registry"]))
+    assert sorted(os.listdir(os.path.dirname(installed["registry"]))) == [
+        "project",
+        "registry",
+        "store",
+    ]
+
+
+@pytest.mark.faircli_server
+def test_an_upgrade_of_an_install_with_no_database(
+    installed: typing.Dict, mocker: pytest_mock.MockerFixture
+):
+    os.remove(os.path.join(installed["registry"], "db.sqlite3"))
+    mocker.patch(
+        "fair.registry.server._build_registry", side_effect=_build_with(SCHEMA)
+    )
+    _migrate = mocker.patch("fair.registry.server._migrate")
+    assert not fdp_serv.upgrade_registry()["kept"]
+    _migrate.assert_not_called()
+    assert _storage_roots(installed["registry"]) == 0
+
+
+@pytest.mark.faircli_server
+def test_an_upgrade_waits_for_the_sessions(
+    installed: typing.Dict, mocker: pytest_mock.MockerFixture
+):
+    _build = mocker.patch("fair.registry.server._build_registry")
+    fdp_life.open_session(installed["registry"])
+    with pytest.raises(fdp_exc.RegistryError, match="is in use"):
+        fdp_serv.upgrade_registry()
+    _build.assert_not_called()
+
+
+@pytest.mark.faircli_server
+def test_registry_install_checks_the_version_before_stopping_anything(
+    installed: typing.Dict, mocker: pytest_mock.MockerFixture
+):
+    mocker.patch("git.cmd.Git.ls_remote", return_value=_LISTING)
+    _stop = mocker.patch("fair.registry.lifecycle.stop_for_removal")
+    _result = click.testing.CliRunner().invoke(
+        cli, ["registry", "install", "--force", "--version", "v9"]
+    )
+    assert _result.exit_code != 0
+    assert "No tag or branch 'v9'" in _result.output
+    _stop.assert_not_called()
+    assert installed["state"]["running"]
+
+
+@pytest.mark.faircli_server
+def test_registry_install_without_force_names_upgrade(installed: typing.Dict):
+    _result = click.testing.CliRunner().invoke(cli, ["registry", "install"])
+    assert _result.exit_code != 0
+    assert f"already installed in {installed['registry']}" in _result.output
+    assert "'fair registry upgrade --version <version>'" in _result.output
+
+
+@pytest.mark.faircli_server
+def test_registry_upgrade_command(
+    installed: typing.Dict, mocker: pytest_mock.MockerFixture
+):
+    mocker.patch(
+        "fair.registry.server._build_registry", side_effect=_build_with(SCHEMA)
+    )
+    mocker.patch("fair.registry.server._migrate")
+    _result = click.testing.CliRunner().invoke(cli, ["registry", "upgrade"])
+    assert _result.exit_code == 0, _result.output
+    assert "Installed registry version 'v9.9.9'" in _result.output
+    assert "keeping its records" in _result.output
+    assert f"It is running again at {_URI}" in _result.output

@@ -112,6 +112,44 @@ def test_update_staging_uses_configured_registry(
     assert _dict["code_run"] == {"a-code-run": False}
 
 
+# Staging that names a run the registry holds and two it no longer holds, one
+# staged and one not; the registry also holds a run staging does not name
+@pytest.fixture
+def lost_runs(stager: fdp_stage.Stager, mocker: pytest_mock.MockerFixture):
+    with open(stager._staging_file) as stage_f:
+        _dict = yaml.safe_load(stage_f)
+    _dict["code_run"] = {"held": True, "gone-staged": True, "gone": False}
+    with open(stager._staging_file, "w") as stage_f:
+        yaml.dump(_dict, stage_f)
+
+    def dummy_get(uri, obj_path, token, **kwargs):
+        if obj_path != "code_run" or kwargs:
+            raise fdp_exc.RegistryError(f"Unexpected request for '{obj_path}'")
+        return [{"uuid": "held"}, {"uuid": "new"}]
+
+    mocker.patch("fair.registry.requests.get", dummy_get)
+    mocker.patch("fair.registry.requests.local_token", lambda: "")
+    return stager
+
+
+@pytest.mark.faircli_staging
+def test_update_code_run_staging_removes_runs_the_registry_lost(
+    lost_runs: fdp_stage.Stager,
+):
+    assert lost_runs.update_code_run_staging() == ["gone", "gone-staged"]
+    with open(lost_runs._staging_file) as stage_f:
+        _staged = yaml.safe_load(stage_f)["code_run"]
+    assert _staged == {"held": True, "new": False}
+
+
+@pytest.mark.faircli_staging
+def test_remove_gone_code_runs_adds_nothing(lost_runs: fdp_stage.Stager):
+    assert lost_runs.remove_gone_code_runs() == ["gone", "gone-staged"]
+    with open(lost_runs._staging_file) as stage_f:
+        assert yaml.safe_load(stage_f)["code_run"] == {"held": True}
+    assert lost_runs.remove_gone_code_runs() == []
+
+
 @pytest.mark.faircli_staging
 def test_get_job_data(
     local_registry,
@@ -159,3 +197,18 @@ def test_get_job_data(
             "config_file": _dummy_url,
             "script_file": None,
         }
+
+
+@pytest.mark.faircli_staging
+def test_stage_code_runs_stages_named_and_new_runs(stager: fdp_stage.Stager):
+    with open(stager._staging_file) as stage_f:
+        _dict = yaml.safe_load(stage_f)
+    _dict["code_run"] = {"named": False, "other": False}
+    with open(stager._staging_file, "w") as stage_f:
+        yaml.dump(_dict, stage_f)
+
+    stager.stage_code_runs(["named", "new"])
+
+    with open(stager._staging_file) as stage_f:
+        _staged = yaml.safe_load(stage_f)["code_run"]
+    assert _staged == {"named": True, "new": True, "other": False}
