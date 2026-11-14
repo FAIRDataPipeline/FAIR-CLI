@@ -350,8 +350,10 @@ jobs:
         sudo apt install -y libyaml-cpp-dev libhdf5-dev --fix-missing
 
     - name: Install Model
+      # CMake 4 refuses projects declaring a minimum below 3.5, as yaml-cpp
+      # 0.7.0, which cppDataPipeline v0.2.7 fetches, does
       run: |
-        cmake -Bbuild
+        cmake -Bbuild -DCMAKE_POLICY_VERSION_MINIMUM=3.5
         cmake --build build
       working-directory: cpp_example
 
