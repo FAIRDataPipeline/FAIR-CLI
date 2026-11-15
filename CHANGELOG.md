@@ -1,3 +1,14 @@
+# 2026-11-15 [v0.12.1](https://github.com/FAIRDataPipeline/FAIR-CLI/releases/tag/v0.12.1)
+
+## Fixed
+- v0.12.0 has no binaries: the Windows build's check of the binary's version failed, though the binary ran and gave
+  the right version, so no binary was released for any platform. v0.12.1 releases them for Windows, macOS and Linux,
+  with the same code as v0.12.0.
+
+## Development
+- The deploy workflow checks each binary's version without `tee /dev/stderr`, as Git Bash on the Windows runner has
+  no `/dev/stderr`.
+
 # 2026-11-11 [v0.12.0](https://github.com/FAIRDataPipeline/FAIR-CLI/releases/tag/v0.12.0)
 
 ## Changed behaviour
