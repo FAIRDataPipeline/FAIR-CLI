@@ -43,7 +43,11 @@ jobs:
         shell: bash
         env:
           TAG: ${{ steps.previoustag.outputs.tag }}
-        run: ./dist/fair-cli-${{ steps.previoustag.outputs.tag }}-x64-windows-latest.exe --version | tee /dev/stderr | grep -F "version ${TAG#v}"
+        # The version is held and printed, as Git Bash on Windows has no /dev/stderr
+        run: |
+          _version=$(./dist/fair-cli-${TAG}-x64-windows-latest.exe --version)
+          echo "$_version"
+          grep -F "version ${TAG#v}" <<< "$_version"
 
       - uses: actions/upload-artifact@v7
         with:
@@ -87,7 +91,11 @@ jobs:
         shell: bash
         env:
           TAG: ${{ steps.previoustag.outputs.tag }}
-        run: ./dist/fair-cli-${{ steps.previoustag.outputs.tag }}-arm64-macos-latest --version | tee /dev/stderr | grep -F "version ${TAG#v}"
+        # The version is held and printed, as Git Bash on Windows has no /dev/stderr
+        run: |
+          _version=$(./dist/fair-cli-${TAG}-arm64-macos-latest --version)
+          echo "$_version"
+          grep -F "version ${TAG#v}" <<< "$_version"
 
       - uses: actions/upload-artifact@v7
         with:
@@ -131,7 +139,11 @@ jobs:
         shell: bash
         env:
           TAG: ${{ steps.previoustag.outputs.tag }}
-        run: ./dist/fair-cli-${{ steps.previoustag.outputs.tag }}-x64-ubuntu-latest --version | tee /dev/stderr | grep -F "version ${TAG#v}"
+        # The version is held and printed, as Git Bash on Windows has no /dev/stderr
+        run: |
+          _version=$(./dist/fair-cli-${TAG}-x64-ubuntu-latest --version)
+          echo "$_version"
+          grep -F "version ${TAG#v}" <<< "$_version"
 
       - uses: actions/upload-artifact@v7
         with:
