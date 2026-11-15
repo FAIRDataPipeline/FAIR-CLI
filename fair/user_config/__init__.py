@@ -395,6 +395,63 @@ class JobConfiguration(MutableMapping):
 
         return _new_register_block
 
+    # Refuse a run with no description, before anything is registered: the
+    # registry requires one of every code run, so no API could record the run
+    def _check_description(self) -> None:
+        _description = (self._config.get("run_metadata") or {}).get("description")
+        if _description is None or not str(_description).strip():
+            raise fdp_exc.UserConfigError(
+                "The run has no description: the registry requires one of every "
+                "code run",
+                hint="Describe it in 'run_metadata: description:' of the "
+                "configuration file",
+            )
+
+    # Refuse a namespace a 'register:' entry gives that does not keep to the
+    # naming convention, before any is registered
+    def _check_new_namespaces(self) -> None:
+        for item in self["register"] if "register" in self else []:
+            if "namespace" in item:
+                fdp_valid.check_namespace_name(
+                    item["namespace"], "the 'register:' entry of a namespace"
+                )
+
+    # Refuse a name a run or a pull would register that does not keep to the
+    # naming convention, before anything is registered: a 'write:' or
+    # 'register:' entry's data product and namespace. A 'read:' entry names
+    # what is registered already, so is left as it is
+    def _check_new_names(self) -> None:
+        for block_type in ("register", "write"):
+            for item in self[block_type] if block_type in self else []:
+                _key = next(
+                    (k for k in ("data_product", "external_object") if k in item),
+                    None,
+                )
+                if not _key:
+                    continue
+                _use = item.get("use") or {}
+                _entry = f"the '{block_type}:' entry '{item[_key]}'"
+                fdp_valid.check_data_product_name(
+                    _use.get("data_product") or item[_key], _entry
+                )
+                if "namespace" in _use:
+                    fdp_valid.check_namespace_name(_use["namespace"], _entry)
+
+    # Refuse a 'cache' on a 'read:' pattern: a cache is one file, and a
+    # pattern stands for any number of data products
+    def _check_read_caches(self) -> None:
+        for item in self["read"] if "read" in self else []:
+            if "*" in item.get("data_product", "") and "cache" in (
+                item.get("use") or {}
+            ):
+                raise fdp_exc.UserConfigError(
+                    f"The 'read:' entry '{item['data_product']}' gives a "
+                    "'cache', which is one file, and its name is a pattern "
+                    "that may match several data products",
+                    hint="Give each data product read from a copy of your own "
+                    "an entry of its own, with its 'use: cache'",
+                )
+
     def _update_namespaces(self) -> None:
         self._logger.debug("Updating namespace list")
 
@@ -480,6 +537,16 @@ class JobConfiguration(MutableMapping):
             )
         ]
 
+        # A data product with a 'write:' entry of its own is written as that
+        # entry says, so a pattern gives it no entry
+        if _obj_type == "data_product" and block_type == "write":
+            _named = self._named_writes()
+            _results_local = [
+                result
+                for result in _results_local
+                if (_namespace, result[_search_key]) not in _named
+            ]
+
         if _obj_type in ("namespace", "author"):
             # If the object is a namespace or an author then there is no
             # additional info in the registry so we can just add the entries
@@ -532,19 +599,88 @@ class JobConfiguration(MutableMapping):
 
         return _new_entries
 
+    # The data products that 'write:' entries of one name each give, as
+    # namespace and name
+    def _named_writes(self) -> typing.Set[typing.Tuple[str, str]]:
+        _named = set()
+        for item in self["write"] if "write" in self else []:
+            _use = item.get("use") or {}
+            _name = _use.get("data_product") or item.get("data_product", "")
+            if _name and "*" not in _name:
+                _namespace = (
+                    _use.get("namespace") or self.default_output_namespace
+                )
+                _named.add((_namespace, _name))
+        return _named
+
+    # Refuse a data product that two 'write:' patterns both match, since each
+    # would give it an entry, with a version and a description of its own.
+    # 'claimed' holds the pattern entry that gave each data product its entry
+    @staticmethod
+    def _claim_write_matches(
+        claimed: typing.Dict[typing.Tuple[str, str], typing.Dict],
+        pattern_entry: typing.Dict,
+        entries: typing.List[typing.Dict],
+    ) -> None:
+        if "*" not in pattern_entry.get("data_product", ""):
+            return
+        for _entry in entries:
+            if _entry is pattern_entry:
+                continue
+            _use = _entry.get("use") or {}
+            _key = (_use.get("namespace"), _use.get("data_product"))
+            _other = claimed.setdefault(_key, pattern_entry)
+            if _other is not pattern_entry:
+                raise fdp_exc.UserConfigError(
+                    f"The 'write:' patterns '{_other['data_product']}' and "
+                    f"'{pattern_entry['data_product']}' both match the data "
+                    f"product '{_key[0]}:{_key[1]}', so it would have two "
+                    "entries",
+                    hint="Narrow one pattern so that the two match different "
+                    f"data products, or give '{_key[1]}' a 'write:' entry of "
+                    "its own",
+                )
+
     def _expand_wildcards(self, registry_uri: str, registry_token: str) -> None:
         self._logger.debug(f"Expanding wildcards using registry '{registry_uri}")
         for block in self._block_types:
             if block not in self:
                 continue
             _new_block: typing.List[typing.Dict] = []
+            _claimed: typing.Dict[typing.Tuple[str, str], typing.Dict] = {}
             for block_entry in self[block]:
                 _new_block_entries = self._globular_registry_search(
                     registry_uri, registry_token, block_entry, block
                 )
+                if block == "write":
+                    self._claim_write_matches(
+                        _claimed, block_entry, _new_block_entries
+                    )
                 _new_block += _new_block_entries
 
             self[block] = _new_block
+
+    # Give every entry a version, and expand the patterns against the registry
+    # 'expand_from' gives (URL and token), unless it is None. The 'write:'
+    # block's versions are filled before its patterns expand, so that every
+    # data product a pattern matches takes the one version its own entry
+    # resolves to, against all of them. A read's version is looked for first
+    # in 'remote' (URL and token), where one is given
+    def _resolve_blocks(
+        self,
+        expand_from: typing.Optional[typing.Tuple[str, str]],
+        remote: typing.Tuple[typing.Optional[str], typing.Optional[str]] = (
+            None,
+            None,
+        ),
+    ) -> None:
+        if "write" in self:
+            self["write"] = self._fill_versions("write")
+        if expand_from:
+            self._expand_wildcards(*expand_from)
+        for block_type in self._block_types:
+            if block_type in self and block_type != "write":
+                self[block_type] = self._fill_versions(block_type, *remote)
 
     def _fetch_latest_commit(self, allow_dirty: bool = False) -> None:
         self._logger.debug(
@@ -831,11 +967,16 @@ class JobConfiguration(MutableMapping):
             return os.path.join(self._job_dir, fdp_com.USER_CONFIG_FILE)
 
         self._logger.debug("Preparing configuration")
+        if job_mode in (CMD_MODE.RUN, CMD_MODE.PASS):
+            self._check_description()
+        self._check_new_namespaces()
         self._update_namespaces()
 
         os.makedirs(self._job_dir)
         self._create_log()
         self._subst_cli_vars(self._now)
+        self._check_new_names()
+        self._check_read_caches()
 
         self._fill_all_block_types()
 
@@ -847,6 +988,7 @@ class JobConfiguration(MutableMapping):
             self._pull_push_log_header(_cmd)
 
         # If pulling glob from the remote, else glob from local
+        _expand_from = None
         if job_mode == CMD_MODE.PULL:
             if not remote_uri:
                 raise fdp_exc.InternalError(
@@ -857,9 +999,9 @@ class JobConfiguration(MutableMapping):
                     raise fdp_exc.InternalError(
                         "Expected token during wildcard unpacking for 'pull'"
                     )
-                self._expand_wildcards(remote_uri, remote_token)
+                _expand_from = (remote_uri, remote_token)
         else:
-            self._expand_wildcards(self.local_uri, fdp_req.local_token())
+            _expand_from = (self.local_uri, fdp_req.local_token())
 
         # What 'pull' fetches is on the remote registry, so that is where the
         # version of a read is looked for first
@@ -867,9 +1009,7 @@ class JobConfiguration(MutableMapping):
         if job_mode == CMD_MODE.PULL and not local:
             _remote = (remote_uri, remote_token)
 
-        for block_type in self._block_types:
-            if block_type in self:
-                self[block_type] = self._fill_versions(block_type, *_remote)
+        self._resolve_blocks(_expand_from, _remote)
 
         if job_mode == CMD_MODE.PULL and "register" in self:
             self._logger.debug("Fetching registrations")
@@ -1249,12 +1389,7 @@ class JobConfiguration(MutableMapping):
             # A read of one name must be of something. With nothing found,
             # the latest version would be 0.0.0, and a version given would
             # stand unchecked
-            if (
-                block_type == "read"
-                and "*" not in _name
-                and "cache" not in item["use"]
-                and not _results
-            ):
+            if block_type == "read" and "*" not in _name and not _results:
                 _wanted = f"version '{_version}'"
                 if "${{" in _version:
                     _wanted = "any version"
@@ -1629,12 +1764,27 @@ class JobConfiguration(MutableMapping):
             _namespace = readable["use"]["namespace"]
             _name = readable["data_product"]
 
-            # If the user has requested to use a cached version, do not
-            # add to the list of items to read externally
-            if "cache" not in readable["use"]:
-                _readables.append(f"{_namespace}:{_name}@v{_version}")
+            _readables.append(f"{_namespace}:{_name}@v{_version}")
 
         return _readables
+
+    def get_read_caches(self) -> typing.Dict[str, str]:
+        """Return the copy of each item to retrieve that the user holds
+
+        Returns
+        -------
+        typing.Dict[str, str]
+            the path a 'read' entry gives as its 'use: cache', by data product
+            as get_readables names it, for each entry that gives one
+        """
+        return {
+            f'{_read["use"]["namespace"]}:{_read["data_product"]}'
+            f'@v{_read["use"]["version"]}': _read["use"]["cache"]
+            for _read in (self["read"] if "read" in self else [])
+            if "cache" in (_read.get("use") or {})
+            and "registered" not in _read
+            and "*" not in _read.get("data_product", "*")
+        }
 
     @property
     def hash(self) -> str:

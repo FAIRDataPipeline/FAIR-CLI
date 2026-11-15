@@ -4,10 +4,12 @@ import logging
 import os
 import subprocess
 import sys
+import threading
 import time
 import typing
 
 import click.testing
+import psutil
 import pytest
 import pytest_mock
 import requests
@@ -881,3 +883,652 @@ def test_closing_a_session_removes_nothing_else(registry_dir: str):
     open(_outside, "w").close()
     assert not fdp_life.close_session("../outside")
     assert os.path.exists(_outside)
+
+
+class _Holder:
+    """A child process that holds the install for a command until it is killed
+
+    It is known by the id it gives itself: on Windows a virtual environment's
+    python.exe runs the interpreter as a process of its own, so the id of the
+    process started is not the one that holds the install.
+    """
+
+    def __init__(self, child: subprocess.Popen, pid: int):
+        self._child = child
+        self.pid = pid
+
+    def kill(self) -> None:
+        """Kill the process holding the install, and the one started for it"""
+        try:
+            _process = psutil.Process(self.pid)
+            _process.kill()
+            _process.wait(timeout=30)
+        except psutil.NoSuchProcess:
+            pass
+        self._child.kill()
+        self._child.wait()
+
+
+@pytest.fixture
+def holder(registry_dir: str) -> typing.Iterator[_Holder]:
+    _child = subprocess.Popen(
+        [
+            sys.executable,
+            "-c",
+            "import os, sys, time\n"
+            "import fair.registry.lifecycle as fdp_life\n"
+            "with fdp_life.held(sys.argv[1], 'fair registry reset'):\n"
+            "    print(os.getpid(), flush=True)\n"
+            "    time.sleep(300)\n",
+            registry_dir,
+        ],
+        stdout=subprocess.PIPE,
+        text=True,
+        cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    )
+    _holder = _Holder(_child, int(_child.stdout.readline()))
+    yield _holder
+    _holder.kill()
+
+
+@pytest.mark.faircli_lifecycle
+def test_a_hold_refuses_every_other_process(
+    registry_dir: str,
+    holder: _Holder,
+    mocker: pytest_mock.MockerFixture,
+):
+    _server = _Server(mocker)
+    _held = f"held by 'fair registry reset', process {holder.pid}"
+    with pytest.raises(fdp_exc.RegistryError, match=_held) as e:
+        fdp_life.open_session()
+    assert "once it has finished" in e.value.hint
+    with pytest.raises(fdp_exc.RegistryError, match=_held):
+        fdp_life.start_for_user(port=8000)
+    with pytest.raises(fdp_exc.RegistryError, match=_held):
+        fdp_life.stop_for_removal(registry_dir)
+    with pytest.raises(fdp_exc.RegistryError, match=_held):
+        with fdp_life.held(registry_dir, "fair registry upgrade"):
+            pass
+    assert not _server.running
+    assert not _sessions(registry_dir)
+    assert fdp_life.status()["hold"]["pid"] == holder.pid
+
+    # Refused as held, not as missing, while the install is moved aside
+    os.rename(registry_dir, f"{registry_dir}-aside")
+    try:
+        with pytest.raises(fdp_exc.RegistryError, match=_held):
+            fdp_life.open_session()
+    finally:
+        os.rename(f"{registry_dir}-aside", registry_dir)
+
+
+@pytest.mark.faircli_lifecycle
+def test_the_holder_uses_the_registry_and_the_hold_goes_after(
+    registry_dir: str, mocker: pytest_mock.MockerFixture
+):
+    _server = _Server(mocker)
+    with fdp_life.held(registry_dir, "fair registry reset"):
+        assert os.path.exists(fdp_life.hold_file(registry_dir))
+        with fdp_life.held(registry_dir, "fair registry reset"):
+            fdp_life.start_for_user(port=8000)
+        assert os.path.exists(fdp_life.hold_file(registry_dir))
+        assert fdp_life.stop_for_removal(registry_dir) == URI
+    assert not _server.running
+    assert not os.path.exists(fdp_life.hold_file(registry_dir))
+    assert not fdp_life.status()["hold"]
+
+
+@pytest.mark.faircli_lifecycle
+def test_a_hold_whose_process_has_ended_is_removed(
+    registry_dir: str,
+    holder: _Holder,
+    mocker: pytest_mock.MockerFixture,
+    capsys: pytest.CaptureFixture,
+):
+    _Server(mocker)
+    holder.kill()
+    fdp_life.open_session()
+    assert "which has ended, is removed" in capsys.readouterr().err
+    assert not os.path.exists(fdp_life.hold_file(registry_dir))
+
+
+@pytest.mark.faircli_lifecycle
+def test_a_hold_being_written_holds_until_it_is_too_old(
+    registry_dir: str, mocker: pytest_mock.MockerFixture
+):
+    _Server(mocker)
+    _hold = fdp_life.hold_file(registry_dir)
+    open(_hold, "w").close()
+    with pytest.raises(
+        fdp_exc.RegistryError, match="held by a command still taking the hold"
+    ):
+        fdp_life.open_session()
+    _then = time.time() - 2 * fdp_life.HOLD_WRITE_SECONDS
+    os.utime(_hold, (_then, _then))
+    fdp_life.open_session()
+    assert not os.path.exists(_hold)
+
+
+# The record of a hold by this test's parent process, which runs throughout
+def _parents_hold() -> typing.Dict:
+    return {
+        "command": "fair registry reset",
+        "pid": os.getppid(),
+        "process_started": fdp_life._process_start(os.getppid()),
+        "host": fdp_life._host(),
+        "started": "2026-11-13T00:00:00",
+    }
+
+
+# Write a hold's record in its file, as the process taking the hold does. A
+# reader meanwhile finds it empty or part written, and reads it again
+def _write_hold(registry_dir: str, record: typing.Dict) -> None:
+    with open(fdp_life.hold_file(registry_dir), "w") as out_f:
+        json.dump(record, out_f)
+
+
+@pytest.mark.faircli_lifecycle
+def test_a_hold_being_written_is_judged_by_what_it_says(registry_dir: str):
+    # Made and not yet written, then written a moment later
+    open(fdp_life.hold_file(registry_dir), "w").close()
+    _writer = threading.Timer(
+        0.2, _write_hold, (registry_dir, _parents_hold())
+    )
+    _writer.start()
+    try:
+        _hold = fdp_life.current_hold(registry_dir)
+    finally:
+        _writer.join()
+    assert _hold and _hold["pid"] == os.getppid()
+
+
+@pytest.mark.faircli_lifecycle
+def test_a_hold_another_process_takes_meanwhile_is_not_taken_as_this_ones(
+    registry_dir: str, mocker: pytest_mock.MockerFixture
+):
+    # A hold left by a process that has ended. As it is removed, another
+    # process takes the hold, between the two looks at it before this one
+    # would take it
+    _ended = subprocess.Popen([sys.executable, "-c", "pass"])
+    _ended.wait()
+    _write_hold(
+        registry_dir,
+        {
+            **_parents_hold(),
+            "pid": _ended.pid,
+            "process_started": time.time() - 60,
+        },
+    )
+    _current_hold = fdp_life.current_hold
+    _looks = []
+
+    def _taken_meanwhile(*args):
+        _hold = _current_hold(*args)
+        _looks.append(_hold)
+        if len(_looks) == 1:
+            _write_hold(registry_dir, _parents_hold())
+        return _hold
+
+    mocker.patch("fair.registry.lifecycle.current_hold", _taken_meanwhile)
+    _entered = False
+    with pytest.raises(
+        fdp_exc.RegistryError,
+        match=f"held by 'fair registry reset', process {os.getppid()}",
+    ):
+        with fdp_life.held(registry_dir, "fair registry upgrade"):
+            _entered = True
+    assert not _entered
+    assert _looks[0] is None
+
+
+@pytest.mark.faircli_lifecycle
+def test_a_hold_on_another_host_names_its_file(
+    registry_dir: str, mocker: pytest_mock.MockerFixture
+):
+    _Server(mocker)
+    with open(fdp_life.hold_file(registry_dir), "w") as out_f:
+        json.dump(
+            {"command": "fair registry upgrade", "pid": 1, "host": "another-host"},
+            out_f,
+        )
+    with pytest.raises(fdp_exc.RegistryError, match="another-host") as e:
+        fdp_life.open_session()
+    assert fdp_life.hold_file(registry_dir) in e.value.hint
+
+
+@pytest.mark.faircli_lifecycle
+def test_registry_status_names_the_hold(
+    local_config: typing.Tuple[str, str],
+    registry_dir: str,
+    holder: _Holder,
+):
+    _result = click.testing.CliRunner().invoke(cli, ["registry", "status"])
+    assert _result.exit_code == 0, _result.output
+    assert f"Held by 'fair registry reset', process {holder.pid}" in _result.output
+
+
+@pytest.mark.faircli_lifecycle
+def test_fair_add_starts_the_registry_and_stops_it_after(
+    local_config: typing.Tuple[str, str],
+    registry_dir: str,
+    mocker: pytest_mock.MockerFixture,
+):
+    _server = _Server(mocker)
+    _while_running = []
+    mocker.patch.object(
+        fair.session.FAIR,
+        "add_to_staging",
+        side_effect=lambda identifier: _while_running.append(_server.running),
+    )
+    _result = click.testing.CliRunner().invoke(cli, ["add", "PSU:data@v1.0.0"])
+    assert _result.exit_code == 0, _result.output
+    assert _while_running == [True]
+    assert not _server.running
+
+
+@pytest.mark.faircli_lifecycle
+def test_fair_add_of_nothing_is_refused(
+    local_config: typing.Tuple[str, str],
+    registry_dir: str,
+    mocker: pytest_mock.MockerFixture,
+):
+    _server = _Server(mocker)
+    _result = click.testing.CliRunner().invoke(cli, ["add", ""])
+    assert _result.exit_code != 0
+    assert "No data product or code run to stage was given" in _result.output
+    assert "'fair list'" in _result.output
+    _server.launch.assert_not_called()
+
+
+# A code run as the registry lists it
+def _run(
+    uuid: str,
+    repository: typing.Optional[str],
+    inputs: typing.List[str],
+    outputs: typing.List[str],
+) -> typing.Dict[str, typing.Any]:
+    return {
+        "uuid": uuid,
+        "code_repo": repository,
+        "inputs": inputs,
+        "outputs": outputs,
+        "run_date": "2026-11-13T12:00:00Z",
+        "description": f"A run, {uuid}",
+    }
+
+
+class _Runs:
+    """A stand-in for a local registry's code runs, with their repositories,
+    and for what a remote holds of them. This project's repository is
+    registered as Julia and R register one ('julia') and as Python does
+    ('python'); the requests made of it are kept"""
+
+    REMOTE = "http://127.0.0.1:8001/api/"
+
+    def __init__(self, mocker: pytest_mock.MockerFixture):
+        self.records = {
+            "julia": {"storage_location": "location/julia"},
+            "location/julia": {
+                "path": "FAIRDataPipeline/FAIR-CLI.git",
+                "storage_root": "root/github",
+            },
+            "root/github": {"root": "https://github.com/"},
+            "python": {"storage_location": "location/python"},
+            "location/python": {
+                "path": "https://github.com/FAIRDataPipeline/FAIR-CLI",
+                "storage_root": "root/python",
+            },
+            "root/python": {"root": "https://github.com"},
+            "other": {"storage_location": "location/other"},
+            "location/other": {
+                "path": "FAIRDataPipeline/other",
+                "storage_root": "root/github",
+            },
+        }
+        self.local = [
+            _run("new", "julia", ["a"], ["b"]),
+            _run("partly", "python", [], ["c", "d"]),
+            _run("held", "julia", ["a"], []),
+            _run("unfinished", "julia", [], []),
+            _run("elsewhere", "other", ["a"], ["e"]),
+            _run("no-repository", None, ["a"], []),
+        ]
+        # A push of one of its data products sent part of a run
+        self.remote = {
+            "partly": _run("partly", "there", [], ["c"]),
+            "held": _run("held", "there", ["a"], []),
+        }
+        self.asked = []
+        mocker.patch("fair.registry.requests.get", side_effect=self._get)
+        mocker.patch(
+            "fair.registry.requests.url_get", side_effect=self._url_get
+        )
+        mocker.patch("fair.registry.requests.local_token", lambda *args: "")
+        mocker.patch(
+            "fair.configuration.remote_git_repo",
+            lambda *args: "git@github.com:FAIRDataPipeline/FAIR-CLI.git",
+        )
+        mocker.patch(
+            "fair.configuration.get_remote_uri",
+            lambda *args, **kwargs: self.REMOTE,
+        )
+        mocker.patch(
+            "fair.configuration.get_remote_token", lambda *args, **kwargs: ""
+        )
+
+    def _get(self, uri, obj_path, token, params=None, **kwargs):
+        self.asked.append((uri, obj_path, params))
+        assert obj_path == "code_run"
+        if not params:
+            return self.local if uri == URI else [*self.remote.values()]
+        assert uri == self.REMOTE and list(params) == ["uuid"]
+        _there = self.remote.get(params["uuid"])
+        return [_there] if _there else []
+
+    def _url_get(self, url, token):
+        self.asked.append((url, None, None))
+        return self.records[url]
+
+
+@pytest.mark.faircli_lifecycle
+def test_fair_add_all_stages_the_finished_runs_the_remote_lacks(
+    local_config: typing.Tuple[str, str],
+    registry_dir: str,
+    mocker: pytest_mock.MockerFixture,
+):
+    _Server(mocker)
+    _runs = _Runs(mocker)
+    with open(fdp_com.staging_cache(local_config[1]), "w") as stage_f:
+        yaml.dump({"job": {}, "data_product": {}, "code_run": {}}, stage_f)
+    _result = click.testing.CliRunner().invoke(cli, ["add", "--all"])
+    assert _result.exit_code == 0, _result.output
+    with open(fdp_com.staging_cache(local_config[1])) as stage_f:
+        _staged = yaml.safe_load(stage_f)["code_run"]
+    assert _staged == {"new": True, "partly": True}
+    _staged_line = "Staged code run new of 2026-11-13T12:00:00Z: A run, new"
+    assert _staged_line in _result.output
+    assert "Not staged: code run unfinished of" in _result.output
+    assert (
+        "Code runs staged: 2; held by 'origin' already: 1; not finished: 1; "
+        "of other repositories: 2"
+    ) in _result.output
+    # Each repository's records are read once
+    assert _runs.asked.count(("julia", None, None)) == 1
+
+
+@pytest.mark.faircli_lifecycle
+def test_fair_add_all_is_refused_while_another_session_is_open(
+    local_config: typing.Tuple[str, str],
+    registry_dir: str,
+    mocker: pytest_mock.MockerFixture,
+    child,
+):
+    _Server(mocker)
+    _runs = _Runs(mocker)
+    fdp_life.open_session(pid=child.pid)
+    _result = click.testing.CliRunner().invoke(cli, ["add", "--all"])
+    assert _result.exit_code != 0
+    assert f"process {child.pid} since" in _result.output
+    assert "'fair registry status'" in _result.output
+    assert not _runs.asked
+
+
+@pytest.mark.faircli_lifecycle
+def test_fair_add_all_needs_the_projects_repository_address(
+    local_config: typing.Tuple[str, str],
+    registry_dir: str,
+    mocker: pytest_mock.MockerFixture,
+):
+    _Server(mocker)
+    _runs = _Runs(mocker)
+    mocker.patch(
+        "fair.configuration.remote_git_repo",
+        lambda *args: "git@notagit.com/user/project.git",
+    )
+    _result = click.testing.CliRunner().invoke(cli, ["add", "--all"])
+    assert _result.exit_code != 0
+    _refusal = "'git@notagit.com/user/project.git', is not an address"
+    assert _refusal in _result.output
+    assert "'git: remote_repo'" in _result.output
+    assert not _runs.asked
+
+
+@pytest.mark.faircli_lifecycle
+def test_fair_add_all_with_an_item_is_refused(
+    local_config: typing.Tuple[str, str],
+    registry_dir: str,
+    mocker: pytest_mock.MockerFixture,
+):
+    _server = _Server(mocker)
+    _result = click.testing.CliRunner().invoke(
+        cli, ["add", "--all", "PSU:data@v1.0.0"]
+    )
+    assert _result.exit_code != 0
+    assert "Give '--all' or an item to stage, not both" in _result.output
+    _server.launch.assert_not_called()
+
+
+# The code runs a listing of them prints as JSON, by UUID
+def _listed(result: click.testing.Result) -> typing.Dict[str, typing.Dict]:
+    return {_row["uuid"]: _row for _row in json.loads(result.stdout)}
+
+
+@pytest.fixture
+def listed_runs(
+    local_config: typing.Tuple[str, str],
+    registry_dir: str,
+    mocker: pytest_mock.MockerFixture,
+) -> _Runs:
+    _Server(mocker)
+    _staging = {"job": {}, "data_product": {}, "code_run": {"new": True}}
+    with open(fdp_com.staging_cache(local_config[1]), "w") as stage_f:
+        yaml.dump(_staging, stage_f)
+    return _Runs(mocker)
+
+
+@pytest.mark.faircli_lifecycle
+def test_fair_list_code_runs_gives_each_runs_state(listed_runs: _Runs):
+    _result = click.testing.CliRunner().invoke(
+        cli, ["list", "code-runs", "--json"]
+    )
+    assert _result.exit_code == 0, _result.output
+    _rows = _listed(_result)
+    assert _rows["new"] == {
+        "uuid": "new",
+        "run_date": "2026-11-13T12:00:00Z",
+        "description": "A run, new",
+        "finished": True,
+        "staged": True,
+        "on_remote": "none",
+    }
+    assert _rows["partly"]["on_remote"] == "part"
+    assert _rows["held"]["on_remote"] == "whole"
+    assert not _rows["unfinished"]["finished"]
+    assert not _rows["held"]["staged"]
+    assert len(_rows) == len(listed_runs.local)
+
+
+@pytest.mark.faircli_lifecycle
+def test_fair_list_code_runs_shows_every_run(listed_runs: _Runs):
+    listed_runs.local += [
+        _run(f"more-{_number}", "julia", ["a"], []) for _number in range(10)
+    ]
+    _result = click.testing.CliRunner().invoke(
+        cli, ["list", "code-runs"], env={"COLUMNS": "200"}
+    )
+    assert _result.exit_code == 0, _result.output
+    for _code_run in listed_runs.local:
+        assert f" {_code_run['uuid']} " in _result.stdout
+        assert _code_run["description"] in _result.stdout
+    assert "more..." not in _result.stdout
+    assert "On 'origin'" in _result.stdout
+    assert "in part" in _result.stdout
+
+
+@pytest.mark.faircli_lifecycle
+def test_fair_list_code_runs_without_origin(
+    listed_runs: _Runs, mocker: pytest_mock.MockerFixture
+):
+    def _no_remote(*args, **kwargs):
+        raise fdp_exc.CLIConfigurationError("No remote 'origin' is configured")
+
+    mocker.patch("fair.configuration.get_remote_uri", side_effect=_no_remote)
+    _result = click.testing.CliRunner().invoke(
+        cli, ["list", "code-runs", "--json"]
+    )
+    assert _result.exit_code == 0, _result.output
+    assert {_row["on_remote"] for _row in _listed(_result).values()} == {None}
+    assert "Not shown which code runs 'origin' holds" in _result.stderr
+
+
+@pytest.mark.faircli_lifecycle
+def test_fair_list_code_runs_of_the_remote(listed_runs: _Runs):
+    _result = click.testing.CliRunner().invoke(
+        cli, ["list", "--remote", "origin", "code-runs", "--json"]
+    )
+    assert _result.exit_code == 0, _result.output
+    _rows = _listed(_result)
+    assert sorted(_rows) == ["held", "partly"]
+    assert _rows["held"] == {
+        "uuid": "held",
+        "run_date": "2026-11-13T12:00:00Z",
+        "description": "A run, held",
+    }
+
+
+class _Removable:
+    """A stand-in for a local registry's code runs, and for whether a remote
+    holds them: 'writer' wrote what 'reader' read, the remote holds 'held',
+    and 'lone' is on its own; the deletions asked for are kept"""
+
+    REMOTE = "http://127.0.0.1:8001/api/"
+
+    def __init__(self, mocker: pytest_mock.MockerFixture):
+        _written = f"{URI}object_component/1/"
+        self.local = {
+            "writer": _run("writer", "repository", [], [_written]),
+            "reader": _run("reader", "repository", [_written], []),
+            "held": _run(
+                "held", "repository", [], [f"{URI}object_component/2/"]
+            ),
+            "lone": _run(
+                "lone", "repository", [], [f"{URI}object_component/3/"]
+            ),
+        }
+        for _number, _code_run in enumerate(self.local.values(), start=1):
+            _code_run["url"] = f"{URI}code_run/{_number}/"
+        self.deleted = []
+        mocker.patch("fair.registry.requests.get", side_effect=self._get)
+        mocker.patch(
+            "fair.registry.requests.delete",
+            side_effect=lambda url, token: self.deleted.append(url),
+        )
+        mocker.patch("fair.registry.requests.local_token", lambda *args: "")
+        mocker.patch(
+            "fair.configuration.get_remote_uri",
+            lambda *args, **kwargs: self.REMOTE,
+        )
+        mocker.patch(
+            "fair.configuration.get_remote_token", lambda *args, **kwargs: ""
+        )
+
+    def _get(self, uri, obj_path, token, params=None, **kwargs):
+        assert obj_path == "code_run"
+        if uri == self.REMOTE:
+            return [self.local["held"]] if params["uuid"] == "held" else []
+        if "uuid" in params:
+            _code_run = self.local.get(params["uuid"])
+            return [_code_run] if _code_run else []
+        _read = f"{URI}object_component/{params['inputs']}/"
+        return [
+            _code_run
+            for _code_run in self.local.values()
+            if _read in _code_run["inputs"]
+        ]
+
+    def url(self, code_run: str) -> str:
+        return self.local[code_run]["url"]
+
+
+@pytest.fixture
+def removable(
+    local_config: typing.Tuple[str, str],
+    registry_dir: str,
+    mocker: pytest_mock.MockerFixture,
+) -> _Removable:
+    _Server(mocker)
+    _staging = {"job": {}, "data_product": {}, "code_run": {"writer": True}}
+    with open(fdp_com.staging_cache(local_config[1]), "w") as stage_f:
+        yaml.dump(_staging, stage_f)
+    return _Removable(mocker)
+
+
+@pytest.mark.faircli_lifecycle
+def test_fair_rm_deletes_code_runs_and_drops_them_from_staging(
+    local_config: typing.Tuple[str, str], removable: _Removable
+):
+    _result = click.testing.CliRunner().invoke(
+        cli, ["rm", "writer", "reader", "--yes"]
+    )
+    assert _result.exit_code == 0, _result.output
+    assert removable.deleted == [
+        removable.url("writer"),
+        removable.url("reader"),
+    ]
+    with open(fdp_com.staging_cache(local_config[1])) as stage_f:
+        assert yaml.safe_load(stage_f)["code_run"] == {}
+    assert "Deleted code run writer" in _result.output
+    assert "The outputs stay registered" in _result.output
+
+
+@pytest.mark.faircli_lifecycle
+@pytest.mark.parametrize(
+    "arguments,refusal",
+    [
+        (["rm", "writer"], "code run reader read outputs of writer"),
+        (["rm", "held"], "The remote 'origin' holds these code runs"),
+        (["rm", "gone"], "No code run 'gone' is in the local registry"),
+        (["rm"], "No code run to delete was given"),
+    ],
+)
+def test_fair_rm_refuses(
+    removable: _Removable, arguments: typing.List[str], refusal: str
+):
+    _result = click.testing.CliRunner().invoke(cli, [*arguments, "--yes"])
+    assert _result.exit_code != 0
+    assert refusal in _result.output
+    assert not removable.deleted
+
+
+@pytest.mark.faircli_lifecycle
+def test_fair_rm_needs_the_remote_or_local(
+    removable: _Removable, mocker: pytest_mock.MockerFixture
+):
+    def _no_remote(*args, **kwargs):
+        raise fdp_exc.CLIConfigurationError("No remote 'origin' is configured")
+
+    mocker.patch("fair.configuration.get_remote_uri", side_effect=_no_remote)
+    _result = click.testing.CliRunner().invoke(cli, ["rm", "lone", "--yes"])
+    assert _result.exit_code != 0
+    assert "could not be asked" in _result.output
+    assert "'--local'" in _result.output
+    assert not removable.deleted
+
+    _result = click.testing.CliRunner().invoke(
+        cli, ["rm", "lone", "--yes", "--local"]
+    )
+    assert _result.exit_code == 0, _result.output
+    assert removable.deleted == [removable.url("lone")]
+
+
+@pytest.mark.faircli_lifecycle
+def test_fair_rm_with_no_terminal_needs_yes(
+    local_config: typing.Tuple[str, str],
+    registry_dir: str,
+    mocker: pytest_mock.MockerFixture,
+):
+    _server = _Server(mocker)
+    _result = click.testing.CliRunner().invoke(cli, ["rm", "lone"])
+    assert _result.exit_code != 0
+    assert "Give '--yes'" in _result.output
+    _server.launch.assert_not_called()

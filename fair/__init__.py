@@ -47,5 +47,20 @@ __status__ = "Development"
 __copyright__ = "Copyright 2021, SCRC"
 
 import logging
+import os
 
 logging.basicConfig()
+
+# GitPython looks for the 'git' program as it is imported, and without one
+# refuses to be imported, so that no command could run - '--version' and
+# '--help' included. Imported here without that look, unless the user has set
+# it, the commands that run git say when it is missing. The setting is not left
+# for the programs a command starts
+_GIT_REFRESH = "GIT_PYTHON_REFRESH"
+_git_refresh_set = _GIT_REFRESH in os.environ
+os.environ.setdefault(_GIT_REFRESH, "quiet")
+try:
+    import git  # noqa: F401, E402
+finally:
+    if not _git_refresh_set:
+        del os.environ[_GIT_REFRESH]

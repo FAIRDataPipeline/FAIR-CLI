@@ -16,11 +16,14 @@ Functions
 
     history_directory - returns the current repository logs directory
 """
+import collections
 import glob
 import os
+import typing
 
 import click
 import rich
+import yaml
 
 from pathlib import Path
 
@@ -74,7 +77,9 @@ def show_job_log(repo_loc: str, job_id: str) -> str:
         # Use the timestamp directory name for the hash
         _job_id = fdp_run.get_job_hash(job_dir)
 
-        if _job_id[: len(job_id)] == job_id:
+        # A job with no log here was run from another repository using the
+        # same data store
+        if _job_id[: len(job_id)] == job_id and os.path.exists(_log_file):
             with open(_log_file, encoding="utf-8") as f:
                 click.echo(f.read())
             _jobs_list = os.path.join(job_dir, "coderuns.txt")
@@ -90,18 +95,22 @@ def show_job_log(repo_loc: str, job_id: str) -> str:
 
             return _log_file
 
-    raise fdp_exc.FileNotFoundError(f"Could not find job matching id '{job_id}'")
+    raise fdp_exc.FileNotFoundError(
+        f"Could not find job matching id '{job_id}'",
+        hint="Run 'fair log' to list the jobs run from this repository.",
+    )
 
 
-def show_history(repo_loc: str, length: int = 10) -> None:
+def show_history(repo_loc: str, length: typing.Optional[int] = 10) -> None:
     """Show job history by time sorting log outputs, display metadata
 
     Parameters
     ----------
     repo_loc : str
         FAIR-CLI repository path
-    length : int, optional
-        max number of entries to display, by default 10
+    length : typing.Optional[int], optional
+        max number of entries to display, by default 10; None displays every
+        entry
     """
 
     _job_dir = Path(f"{fdp_com.default_jobs_dir()}")
@@ -113,11 +122,25 @@ def show_history(repo_loc: str, length: int = 10) -> None:
         for i in _sorted_time_dirs
     ]
 
+    # The jobs directory is shared by every repository using the data store,
+    # and each keeps the logs of its own jobs
+    _listed = []
+    _unlisted = []
+    for job_dir, _log_file in zip(_sorted_time_dirs, _log_files):
+        if os.path.exists(_log_file):
+            _listed.append((job_dir, _log_file))
+        else:
+            _unlisted.append(job_dir)
+
+    if not _listed:
+        click.echo("No jobs have been run from this repository")
+
     # Iterate through the logs printing out the job author
-    for i, (job_dir, _log_file) in enumerate(zip(_sorted_time_dirs, _log_files)):
+    _shown = 0
+    for job_dir, _log_file in _listed:
+        if _shown == length:
+            break
         _job_id = fdp_run.get_job_hash(job_dir)
-        if not os.path.exists(_log_file):
-            raise fdp_exc.FileNotFoundError(f"Cannot open log for job '{_job_id}'")
         with open(_log_file, encoding="utf-8") as f:
             _log_lines = f.readlines()
             _metadata = []
@@ -149,7 +172,46 @@ def show_history(repo_loc: str, length: int = 10) -> None:
             "user_email": _email,
             "datetime": _date,
         }
-        rich.print(fdp_tpl.hist_template.render(**_meta))
+        # Unhighlighted, as rich colours the numbers of a date in shades that
+        # some terminal backgrounds hide
+        rich.get_console().print(fdp_tpl.hist_template.render(**_meta), highlight=False)
+        _shown += 1
 
-        if i == length:
-            return
+    _report_unlisted(repo_loc, _job_dir, _unlisted)
+
+
+def _job_repository(job_dir: str) -> typing.Optional[str]:
+    """Return the repository a job's working config names, or None if it names none"""
+    try:
+        with open(
+            os.path.join(job_dir, fdp_com.USER_CONFIG_FILE), encoding="utf-8"
+        ) as f:
+            return yaml.safe_load(f)["run_metadata"]["local_repo"]
+    except (OSError, yaml.YAMLError, KeyError, TypeError):
+        return None
+
+
+def _jobs(count: int) -> str:
+    """Return a count of jobs in words"""
+    return f"{count} job{'' if count == 1 else 's'}"
+
+
+def _report_unlisted(repo_loc: str, jobs_dir: str, unlisted: typing.List[str]) -> None:
+    """Say how many jobs 'fair log' did not list, and which repository ran them"""
+    if not unlisted:
+        return
+    _here = os.path.realpath(fdp_com.find_fair_root(repo_loc))
+    _repos = collections.Counter(_job_repository(j) for j in unlisted)
+    click.echo(
+        f"Not listed: {_jobs(len(unlisted))} in '{jobs_dir}' with no log in "
+        "this repository"
+    )
+    for _repo, _count in sorted(_repos.items(), key=lambda r: (-r[1], str(r[0]))):
+        if _repo is None:
+            click.echo(f"    {_jobs(_count)} whose working config names no repository")
+        elif os.path.normcase(os.path.realpath(_repo)) == os.path.normcase(_here):
+            click.echo(f"    {_jobs(_count)} run from this repository, its log gone")
+        else:
+            click.echo(
+                f"    {_jobs(_count)} run from '{_repo}', where 'fair log' lists them"
+            )

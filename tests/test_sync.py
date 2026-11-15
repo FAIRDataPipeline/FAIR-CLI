@@ -4,6 +4,7 @@ import json
 import os
 import pathlib
 import tempfile
+import typing
 import uuid
 
 import click.testing
@@ -108,10 +109,21 @@ def test_fetch_data_product(
 
 
 @pytest.mark.faircli_sync
+@pytest.mark.parametrize(
+    "caches,cache",
+    [
+        (None, None),
+        (
+            {"testing:test@v1.0.0": "mine.csv", "testing:other@v1.0.0": "no.csv"},
+            "mine.csv",
+        ),
+    ],
+)
 def test_sync_data_products_fetches_the_data_product(
-    mocker: pytest_mock.MockerFixture,
+    mocker: pytest_mock.MockerFixture, caches, cache
 ):
-    """Pulling passes the data product itself, not the external object"""
+    """Pulling passes the data product itself, not the external object, and
+    the user's copy of its file where there is one"""
     _data_product = {
         "url": "data_product_url",
         "name": "test",
@@ -130,7 +142,11 @@ def test_sync_data_products_fetches_the_data_product(
 
     def mock_url_get(url, *args, **kwargs):
         if url == "object":
-            return {"storage_location": "storage_location", "components": []}
+            return {
+                "url": "object",
+                "storage_location": "storage_location",
+                "components": [],
+            }
         elif url == "storage_location":
             return {"public": True}
         # The external object, which replaces the data product in `result`
@@ -138,7 +154,11 @@ def test_sync_data_products_fetches_the_data_product(
 
     mocker.patch("fair.registry.requests.get", mock_get)
     mocker.patch("fair.registry.requests.url_get", mock_url_get)
-    mocker.patch("fair.registry.sync.sync_dependency_chain", lambda **kwargs: None)
+    mocker.patch(
+        "fair.registry.sync.sync_dependency_chain",
+        lambda **kwargs: {"object": "dest_object"},
+    )
+    mocker.patch("fair.registry.sync.sync_attached")
     mocker.patch("fair.registry.sync._has_file", return_value=True)
     _fetch = mocker.patch("fair.registry.sync._place_pulled_file")
 
@@ -150,11 +170,10 @@ def test_sync_data_products_fetches_the_data_product(
         remote_label="origin",
         data_products=["testing:test@v1.0.0"],
         local_data_store="/data/store",
+        caches=caches,
     )
 
-    _fetch.assert_called_once_with(
-        "dest", "", "", "/data/store", _data_product
-    )
+    _fetch.assert_called_once_with("dest", "", "", "/data/store", _data_product, cache)
 
 
 @pytest.mark.faircli_sync
@@ -193,8 +212,9 @@ def test_file_moves_before_its_records(
     mocker.patch("fair.registry.requests.url_get", mock_url_get)
     mocker.patch(
         "fair.registry.sync.sync_dependency_chain",
-        lambda **kwargs: _moved.append("records"),
+        lambda **kwargs: _moved.append("records") or {"object": "dest_object"},
     )
+    mocker.patch("fair.registry.sync.sync_attached")
     mocker.patch("fair.registry.sync._has_file", return_value=True)
     for _mover in ("_place_pulled_file", "upload_object"):
         mocker.patch(
@@ -272,6 +292,70 @@ def test_fetch_data_product_to_a_place(
 
 
 @pytest.mark.faircli_sync
+@pytest.mark.parametrize("cache", ["the file", "another file", "missing", "held"])
+def test_fetch_data_product_from_a_cache(
+    mocker: pytest_mock.MockerFixture, tmp_path, cache
+):
+    # The user's copy of the file stands in for the download, if it is the
+    # file the registry describes, and is left as it is. A file the data
+    # store holds already is the data product's, the copy not read
+    _made = b"made,elsewhere\n1,2\n"
+    _records = {
+        "object": {"storage_location": "storage_location"},
+        "storage_location": {
+            "path": "data.csv",
+            "hash": hashlib.sha1(_made).hexdigest(),
+            "storage_root": "storage_root",
+        },
+        "storage_root": {"root": "file:///elsewhere/"},
+        "namespace": {"name": "testing"},
+    }
+    mocker.patch(
+        "fair.registry.requests.url_get",
+        lambda url, *args, **kwargs: _records[url],
+    )
+    mocker.patch(
+        "fair.registry.sync.download_from_registry",
+        side_effect=AssertionError("the file was downloaded"),
+    )
+    _data_product = {
+        "version": "2.3.0",
+        "namespace": "namespace",
+        "name": "test",
+        "object": "object",
+    }
+    _copy = os.path.join(tmp_path, "copy.csv")
+    _copied = b"another,file\n" if cache == "another file" else _made
+    if cache != "missing":
+        with open(_copy, "wb") as out_f:
+            out_f.write(_copied)
+    _store = os.path.join(tmp_path, "store")
+    _out_file = os.path.join(_store, "testing", "test", "2.3.0")
+    if cache == "held":
+        os.remove(_copy)
+        os.makedirs(os.path.dirname(_out_file))
+        with open(_out_file, "wb") as out_f:
+            out_f.write(_made)
+
+    def _fetch():
+        return fdp_sync.fetch_data_product("", _store, _data_product, cache=_copy)
+
+    if cache in ("another file", "missing"):
+        with pytest.raises(
+            fdp_exc.SynchronisationError,
+            match="has hash" if cache == "another file" else "is not a file",
+        ):
+            _fetch()
+        assert not os.path.exists(_store)
+    else:
+        assert _fetch() == _out_file
+        assert open(_out_file, "rb").read() == _made
+        assert os.listdir(os.path.dirname(_out_file)) == ["2.3.0"]
+    if cache in ("the file", "another file"):
+        assert open(_copy, "rb").read() == _copied
+
+
+@pytest.mark.faircli_sync
 @pytest.mark.parametrize("held", [None, "the file", "as private"])
 def test_pulled_file_is_recorded_where_it_is_put(
     mocker: pytest_mock.MockerFixture, tmp_path, held
@@ -311,14 +395,14 @@ def test_pulled_file_is_recorded_where_it_is_put(
     )
     _fetch = mocker.patch(
         "fair.registry.sync.fetch_data_product",
-        side_effect=lambda token, store, data_product, out_file: (
+        side_effect=lambda token, store, data_product, out_file, cache=None: (
             out_file or _fetched
         ),
     )
     _data_product = {"object": "object"}
 
     _placed = fdp_sync._place_pulled_file(
-        _local, "", "", _store, _data_product
+        _local, "", "", _store, _data_product, cache="mine.csv"
     )
 
     assert _get.call_args.args[:2] == (_local, "storage_location")
@@ -328,11 +412,15 @@ def test_pulled_file_is_recorded_where_it_is_put(
     }
     if held == "the file":
         _held_file = os.path.join(_store, _held_location["path"])
-        _fetch.assert_called_once_with("", _store, _data_product, _held_file)
+        _fetch.assert_called_once_with(
+            "", _store, _data_product, _held_file, cache="mine.csv"
+        )
         _post.assert_not_called()
         assert _placed == {"location": _held_location["url"]}
     else:
-        _fetch.assert_called_once_with("", _store, _data_product, None)
+        _fetch.assert_called_once_with(
+            "", _store, _data_product, None, cache="mine.csv"
+        )
         assert _post.call_args.kwargs["data"] == {
             "path": os.path.join("testing", "second", "1.0.0.csv"),
             "storage_root": _root_url,
@@ -514,10 +602,13 @@ def test_sync_data_product_on_a_code_repo(
         assert url == "object"
         return {"url": "object", "components": [], **_AT_LOCATION}
 
+    # The destination holds no object for the repository's commit
+    mocker.patch("fair.registry.sync._dest_repository", return_value=None)
     mocker.patch("fair.registry.requests.get", mock_get)
     mocker.patch("fair.registry.requests.url_get", mock_url_get)
     mocker.patch("fair.registry.sync._has_file", return_value=False)
     _records = mocker.patch("fair.registry.sync.sync_dependency_chain")
+    mocker.patch("fair.registry.sync.sync_attached")
     _upload = mocker.patch("fair.registry.sync.upload_object")
     _place = mocker.patch("fair.registry.sync._place_pulled_file")
 
@@ -551,16 +642,19 @@ def test_sync_code_run_pushes_its_code_repo_as_it_is(
         "submission_script": "script",
         "code_repo": "repo",
     }
+    # The destination holds no object for the repository's commit
+    mocker.patch("fair.registry.sync._repository_placed", return_value={})
     mocker.patch(
         "fair.registry.requests.get",
         lambda uri, obj, *args, **kwargs: [] if uri == "dest" else [_run],
     )
     mocker.patch("fair.registry.sync.upload_object")
     mocker.patch(
-        "fair.registry.sync.get_dest_object_url", lambda url, *args: url
+        "fair.registry.sync.get_dest_object_url", lambda url, *args, **kwargs: url
     )
     mocker.patch("fair.registry.requests.post", return_value={})
     _records = mocker.patch("fair.registry.sync.sync_dependency_chain")
+    mocker.patch("fair.registry.sync.sync_attached")
 
     fdp_sync.sync_code_run("origin", "dest", "", "", "abc")
 
@@ -569,6 +663,221 @@ def test_sync_code_run_pushes_its_code_repo_as_it_is(
         for c in _records.call_args_list
     }
     assert _public == {"config": True, "repo": False, "script": True}
+
+
+@pytest.mark.faircli_sync
+@pytest.mark.parametrize("held", [True, False])
+def test_sync_code_run_looks_for_its_code_repo_once(
+    mocker: pytest_mock.MockerFixture, held: bool
+):
+    # The destination's object for the repository's commit, where it holds
+    # one, is taken as found before the push; else the one sent is looked
+    # for, as a repository. The run's files are never looked for as one
+    _run = {
+        "uuid": "abc",
+        "run_date": "2026-10-17T00:00:00Z",
+        "description": "A run",
+        "model_config": "config",
+        "submission_script": "script",
+        "code_repo": "repo",
+    }
+    mocker.patch(
+        "fair.registry.sync._repository_placed",
+        return_value={"repo": "held_repo"} if held else {},
+    )
+    mocker.patch(
+        "fair.registry.requests.get",
+        lambda uri, obj, *args, **kwargs: [] if uri == "dest" else [_run],
+    )
+    mocker.patch("fair.registry.sync.upload_object")
+    _found = mocker.patch(
+        "fair.registry.sync.get_dest_object_url",
+        side_effect=lambda url, *args, **kwargs: f"dest_{url}",
+    )
+    _post = mocker.patch("fair.registry.requests.post", return_value={})
+    mocker.patch("fair.registry.sync.sync_dependency_chain")
+    mocker.patch("fair.registry.sync.sync_attached")
+
+    fdp_sync.sync_code_run("origin", "dest", "", "", "abc")
+
+    _looked_for = {c.args[0]: c.kwargs for c in _found.call_args_list}
+    assert _looked_for == {
+        "config": {},
+        "script": {},
+        **({} if held else {"repo": {"repository": True}}),
+    }
+    _posted = next(c.args[3] for c in _post.call_args_list if c.args[1] == "code_run")
+    assert _posted["code_repo"] == ("held_repo" if held else "dest_repo")
+
+
+@pytest.mark.faircli_sync
+def test_dest_object_of_a_file_is_not_looked_for_as_a_repository(
+    mocker: pytest_mock.MockerFixture,
+):
+    _repository = mocker.patch(
+        "fair.registry.sync._dest_repository", return_value={"url": "held"}
+    )
+    mocker.patch(
+        "fair.registry.requests.url_get",
+        lambda *args, **kwargs: {
+            "storage_location": "location",
+            "hash": "abc",
+            "data_products": [],
+        },
+    )
+
+    def mock_get(uri, obj_type, *args, **kwargs):
+        if obj_type == "storage_location":
+            return [{"url": f"{_DEST}storage_location/1/"}]
+        return [{"url": f"{_DEST}object/7/"}]
+
+    mocker.patch("fair.registry.requests.get", mock_get)
+
+    assert (
+        fdp_sync.get_dest_object_url("object", _DEST, "", "")
+        == f"{_DEST}object/7/"
+    )
+    _repository.assert_not_called()
+    # One that may be a repository is looked for as one first
+    assert (
+        fdp_sync.get_dest_object_url("object", _DEST, "", "", repository=True)
+        == "held"
+    )
+
+
+@pytest.mark.faircli_sync
+def test_dest_component_of_a_data_product_may_be_of_a_repository(
+    mocker: pytest_mock.MockerFixture,
+):
+    # A data product may be of a code repository, so the object of its
+    # component is looked for as one
+    mocker.patch(
+        "fair.registry.requests.url_get",
+        lambda *args, **kwargs: {"object": "object", "name": "whole"},
+    )
+    _found = mocker.patch(
+        "fair.registry.sync.get_dest_object_url", return_value=f"{_DEST}object/7/"
+    )
+    mocker.patch(
+        "fair.registry.requests.get",
+        return_value=[{"url": f"{_DEST}object_component/2/"}],
+    )
+
+    assert (
+        fdp_sync.get_dest_component_url("component", _DEST, "", "")
+        == f"{_DEST}object_component/2/"
+    )
+    assert _found.call_args.kwargs == {"repository": True}
+
+
+@pytest.mark.faircli_sync
+def test_sync_code_runs_fetches_each_component_once(
+    mocker: pytest_mock.MockerFixture,
+):
+    # A run read two components and wrote three, one of them read too, and
+    # one of an object with no data product
+    _run = {
+        "uuid": "abc",
+        "inputs": ["in", "both"],
+        "outputs": ["out", "both", "none"],
+    }
+    _products = {"in": ["dp1"], "both": ["dp2"], "out": ["dp3"], "none": []}
+    _fetched = mocker.patch(
+        "fair.registry.sync.get_data_products_from_component",
+        side_effect=lambda component, token: _products[component],
+    )
+    _formatted = mocker.patch(
+        "fair.registry.sync.format_data_product",
+        side_effect=lambda url, token: f"testing:{url}@v1.0.0",
+    )
+    mocker.patch("fair.registry.requests.get", return_value=[_run])
+    _sent = mocker.patch("fair.registry.sync.sync_data_products")
+    mocker.patch(
+        "fair.registry.sync._dest_component",
+        side_effect=lambda context, component, *args: f"dest_{component}",
+    )
+    _synced = mocker.patch("fair.registry.sync.sync_code_run")
+
+    fdp_sync.sync_code_runs(
+        "origin", "dest", "", "", "origin", ["abc"], context=fdp_sync.PushContext()
+    )
+
+    assert sorted(c.args[0] for c in _fetched.call_args_list) == [
+        "both",
+        "in",
+        "none",
+        "out",
+    ]
+    assert sorted(c.args[0] for c in _formatted.call_args_list) == [
+        "dp1",
+        "dp2",
+        "dp3",
+    ]
+    assert _sent.call_args.args[5] == [
+        "testing:dp1@v1.0.0",
+        "testing:dp2@v1.0.0",
+        "testing:dp3@v1.0.0",
+        "testing:dp2@v1.0.0",
+    ]
+    # The component with no data product is left out
+    assert _synced.call_args.args[5:7] == (
+        ["dest_in", "dest_both"],
+        ["dest_out", "dest_both"],
+    )
+
+
+@pytest.mark.faircli_sync
+def test_code_run_data_products_fetches_its_components_where_not_given(
+    mocker: pytest_mock.MockerFixture,
+):
+    _run = {"inputs": ["in"], "outputs": ["out"]}
+    mocker.patch(
+        "fair.registry.sync.get_data_products_from_component",
+        side_effect=lambda component, token: [f"{component}_dp"],
+    )
+    mocker.patch(
+        "fair.registry.sync.format_data_product",
+        side_effect=lambda url, token: f"testing:{url}@v1.0.0",
+    )
+    assert fdp_sync._code_run_data_products(_run, "") == (
+        ["testing:in_dp@v1.0.0"],
+        ["testing:out_dp@v1.0.0"],
+    )
+
+
+@pytest.mark.faircli_sync
+def test_sync_code_run_patches_each_run_with_its_own_links(
+    mocker: pytest_mock.MockerFixture,
+):
+    # Two runs on the destination already, each given an input and no
+    # outputs: each is patched with its own outputs alone
+    def mock_get(uri, obj, token, params=None, **kwargs):
+        _uuid = params["uuid"]
+        _objects = {"model_config": "config", "submission_script": "script"}
+        if uri == "origin":
+            return [{"uuid": _uuid, "code_repo": None, **_objects}]
+        return [
+            {
+                "url": f"dest/{_uuid}",
+                "inputs": [],
+                "outputs": [f"output of {_uuid}"],
+                "code_repo": None,
+                **_objects,
+            }
+        ]
+
+    mocker.patch("fair.registry.requests.get", mock_get)
+    mocker.patch("fair.registry.sync.sync_attached")
+    _patch = mocker.patch("fair.registry.requests._access")
+
+    for _uuid in ("a", "b"):
+        fdp_sync.sync_code_run("origin", "dest", "", "", _uuid, inputs=[f"in {_uuid}"])
+
+    _patched = {c.args[0]: c.kwargs["data"] for c in _patch.call_args_list}
+    assert _patched == {
+        f"dest/{_uuid}": {"inputs": [f"in {_uuid}"], "outputs": [f"output of {_uuid}"]}
+        for _uuid in ("a", "b")
+    }
 
 
 # An object in the local registry whose file is under the given storage root
@@ -642,6 +951,8 @@ def test_dest_object_of_a_file_at_two_locations(
         {"url": f"{_DEST}storage_location/2/"},
     ]
     _stored = _locations[1 if fetched_from_first else 0]
+    # A file is not a code repository
+    mocker.patch("fair.registry.sync._dest_repository", return_value=None)
     mocker.patch(
         "fair.registry.requests.url_get",
         lambda *args, **kwargs: {
@@ -689,6 +1000,8 @@ def test_dest_object_of_one_of_two_with_the_same_file(
         },
         "namespace": {"name": "testing"},
     }
+    # A file is not a code repository
+    mocker.patch("fair.registry.sync._dest_repository", return_value=None)
     mocker.patch(
         "fair.registry.requests.url_get",
         lambda url, *args, **kwargs: _records[url],
@@ -793,6 +1106,7 @@ def test_sync_data_product_without_a_file(
     mocker.patch("fair.registry.requests.get", mock_get)
     mocker.patch("fair.registry.requests.url_get", mock_url_get)
     _records = mocker.patch("fair.registry.sync.sync_dependency_chain")
+    mocker.patch("fair.registry.sync.sync_attached")
     _upload = mocker.patch("fair.registry.sync.upload_object")
     _download = mocker.patch("fair.registry.sync.download_from_registry")
 
@@ -878,6 +1192,9 @@ def test_init(
         True,
     )
     yaml.dump(_config, open(config_path, "w"))
+    # The machine's first initialisation, so the file's settings become its
+    # global ones: the fixture's placeholder is emptied, which counts as none
+    open(fdp_com.global_fdpconfig(), "w").close()
     with capsys.disabled():
         print(_config)
         print("\tRUNNING: fair init --debug")
@@ -1930,3 +2247,1637 @@ def test_ci_remote_user_is_on_the_remote(remote_registry: RegistryTest, tmp_path
             remote_registry._token,
             params={"username": _user},
         )
+
+
+# A licence's identifier, as the registry holds one
+_LICENCE = "https://creativecommons.org/licenses/by/4.0/"
+
+# A source as an external object's record gives it
+_SOURCE = {
+    "identifier": "https://doi.org/10.1038/s41592-020-0856-2",
+    "alternate_identifier": None,
+    "alternate_identifier_type": None,
+    "title": "A deposit",
+    "version": "1.0.0",
+}
+
+
+# Stand-ins for two registries, 'here' and 'there', each holding the data
+# product 'PSU:x@v1.0.0' with the contents given - ("file", hash), ("source",
+# record) or ("nothing",) - or None for no such data product
+def _two_registries(
+    mocker: pytest_mock.MockerFixture, contents: typing.Dict[str, typing.Any]
+) -> None:
+    def mock_get(uri, obj, token=None, params=None, **kwargs):
+        if obj == "namespace":
+            return [{"url": f"http://{uri}/api/namespace/1/"}]
+        _held = contents[uri]
+        if obj != "data_product" or _held is None:
+            return []
+        return [
+            {
+                "url": f"http://{uri}/api/data_product/1/",
+                "object": f"http://{uri}/api/object/1/",
+                "external_object": (
+                    f"http://{uri}/api/external_object/1/"
+                    if _held[0] == "source"
+                    else None
+                ),
+            }
+        ]
+
+    def mock_url_get(url, token=None, **kwargs):
+        _held = contents[url.split("/")[2]]
+        if "/object/" in url:
+            return {
+                "storage_location": (
+                    url.replace("object", "storage_location")
+                    if _held[0] == "file"
+                    else None
+                )
+            }
+        if "/storage_location/" in url:
+            return {"hash": _held[1]}
+        return _held[1]
+
+    mocker.patch("fair.registry.requests.get", mock_get)
+    mocker.patch("fair.registry.requests.url_get", mock_url_get)
+
+
+@pytest.mark.faircli_sync
+@pytest.mark.parametrize(
+    "here, there, refused",
+    [
+        (("file", "a" * 40), ("file", "a" * 40), False),
+        (("file", "a" * 40), ("file", "b" * 40), True),
+        (("file", "a" * 40), ("nothing",), True),
+        (("file", "a" * 40), None, False),
+        (("source", _SOURCE), ("source", dict(_SOURCE)), False),
+        (("source", _SOURCE), ("source", {**_SOURCE, "title": "Another"}), True),
+        (("source", _SOURCE), ("source", {**_SOURCE, "version": "2.0.0"}), True),
+        (("source", _SOURCE), ("nothing",), True),
+        (("nothing",), ("nothing",), False),
+    ],
+)
+def test_a_data_product_held_with_other_contents_is_refused(
+    mocker: pytest_mock.MockerFixture,
+    here: typing.Any,
+    there: typing.Any,
+    refused: bool,
+):
+    _two_registries(mocker, {"here": here, "there": there})
+    _arguments = ("here", "there", "", "", ["PSU:x@v1.0.0"], "origin")
+    if not refused:
+        fdp_sync.refuse_conflicts(*_arguments)
+        return
+    with pytest.raises(fdp_exc.RegistryError, match="Nothing was pushed") as e:
+        fdp_sync.refuse_conflicts(*_arguments)
+    assert "'PSU:x@v1.0.0'" in e.value.msg
+    assert "a version the remote does not have" in e.value.hint
+
+
+@pytest.mark.faircli_sync
+def test_a_refusal_names_each_side(mocker: pytest_mock.MockerFixture):
+    _two_registries(mocker, {"here": ("file", "a" * 40), "there": ("file", "b" * 40)})
+    _arguments = ("here", "there", "", "", ["PSU:x@v1.0.0"], "origin")
+    with pytest.raises(fdp_exc.RegistryError) as e:
+        fdp_sync.refuse_conflicts(*_arguments)
+    assert f"on 'origin' a file with hash {'b' * 40}" in e.value.msg
+    assert f"in the local registry a file with hash {'a' * 40}" in e.value.msg
+    # Pulled, 'here' is the remote and 'there' the local registry
+    with pytest.raises(fdp_exc.RegistryError, match="Nothing was pulled") as e:
+        fdp_sync.refuse_conflicts(*_arguments, pulling=True)
+    assert f"on 'origin' a file with hash {'a' * 40}" in e.value.msg
+    assert f"in the local registry a file with hash {'b' * 40}" in e.value.msg
+    assert "'fair registry install --directory" in e.value.hint
+    assert "a data store of its own" in e.value.hint
+
+
+@pytest.mark.faircli_sync
+def test_a_conflict_is_refused_by_sync_whatever_force_says(
+    mocker: pytest_mock.MockerFixture,
+):
+    _two_registries(mocker, {"here": ("file", "a" * 40), "there": ("file", "b" * 40)})
+    _records = mocker.patch("fair.registry.sync.sync_dependency_chain")
+    with pytest.raises(fdp_exc.RegistryError, match="Nothing was pushed"):
+        fdp_sync.sync_data_products(
+            origin_uri="here",
+            dest_uri="there",
+            dest_token="",
+            origin_token="",
+            remote_label="origin",
+            data_products=["PSU:x@v1.0.0"],
+            force=True,
+        )
+    _records.assert_not_called()
+
+
+@pytest.mark.faircli_sync
+@pytest.mark.dependency(depends=["init"])
+def test_push_and_pull_refuse_a_name_held_with_another_file(
+    global_config: str,
+    local_registry: RegistryTest,
+    remote_registry: RegistryTest,
+    pyDataPipeline: str,
+    fair_bucket: MotoTestServer,
+    mocker: pytest_mock.MockerFixture,
+    tmp_path,
+):
+    # The remote holds a data product with one file; the local registry
+    # registers another file under the same namespace, name and version
+    _name = f"conflict/{uuid.uuid4().hex[:8]}"
+    _theirs = os.path.join(tmp_path, "theirs.csv")
+    _ours = os.path.join(tmp_path, "ours.csv")
+    with open(_theirs, "wb") as out_f:
+        out_f.write(b"the remote's,file\n")
+    with open(_ours, "wb") as out_f:
+        out_f.write(b"another,file\n")
+    _their_hash = fdp_store.calculate_file_hash(_theirs)
+    _our_hash = fdp_store.calculate_file_hash(_ours)
+    _cfg = {
+        "run_metadata": {"description": "Another file", "script": "echo done"},
+        "register": [
+            {"namespace": "PSU", "full_name": "Pennsylvania State University"},
+            {
+                "external_object": _name,
+                "namespace_name": "PSU",
+                "root": f"file://{tmp_path}{os.path.sep}",
+                "path": "ours.csv",
+                "title": f"Another file {_name}",
+                "identifier": "https://doi.org/10.1038/s41592-020-0856-2",
+                "file_type": "csv",
+                "release_date": "2021-09-20T12:00",
+                "version": "1.0.0",
+                "primary": False,
+            },
+        ],
+    }
+    _cfg_path = os.path.join(tmp_path, "ours.yaml")
+    with open(_cfg_path, "w") as f:
+        yaml.dump(_cfg, f, sort_keys=False)
+
+    _cli_runner = click.testing.CliRunner()
+    with remote_registry, local_registry, fair_bucket:
+        mocker.patch(
+            "fair.configuration.get_current_user_remote_user",
+            lambda *args, **kwargs: "admin",
+        )
+        _token = remote_registry._token
+        _root = fdp_req.post_else_get(
+            _DEST,
+            "storage_root",
+            _token,
+            data={"root": f"file://{tmp_path}{os.path.sep}", "local": False},
+        )
+        _location = fdp_req.post(
+            _DEST,
+            "storage_location",
+            _token,
+            data={
+                "path": "theirs.csv",
+                "hash": _their_hash,
+                "public": True,
+                "storage_root": _root,
+            },
+        )
+        _object = fdp_req.post(
+            _DEST,
+            "object",
+            _token,
+            data={"description": "The remote's", "storage_location": _location["url"]},
+        )
+        _namespace = fdp_req.post_else_get(
+            _DEST, "namespace", _token, data={"name": "PSU"}, params={"name": "PSU"}
+        )
+        fdp_req.post(
+            _DEST,
+            "data_product",
+            _token,
+            data={
+                "name": _name,
+                "version": "1.0.0",
+                "namespace": _namespace,
+                "object": _object["url"],
+            },
+        )
+
+        # Registered here: a pull fetches nothing it registers
+        _res = _cli_runner.invoke(cli, ["pull", _cfg_path])
+        assert _res.exit_code == 0, _res.output
+
+        _res = _cli_runner.invoke(cli, ["add", f"PSU:{_name}@v1.0.0"])
+        assert _res.exit_code == 0, _res.output
+        _res = _cli_runner.invoke(cli, ["push"])
+        assert _res.exit_code != 0
+        assert "Nothing was pushed" in _res.output, _res.output
+        assert _their_hash in _res.output and _our_hash in _res.output
+        # Left staged, it would be refused in every later test's push
+        _res = _cli_runner.invoke(cli, ["unstage", f"PSU:{_name}@v1.0.0"])
+        assert _res.exit_code == 0, _res.output
+
+        # Read from there, it is refused too
+        _read_path = os.path.join(tmp_path, "read.yaml")
+        with open(_read_path, "w") as f:
+            yaml.dump(
+                {
+                    "run_metadata": {"description": "Reads it", "script": "echo"},
+                    "read": [
+                        {
+                            "data_product": _name,
+                            "use": {"namespace": "PSU", "version": "1.0.0"},
+                        }
+                    ],
+                },
+                f,
+            )
+        _res = _cli_runner.invoke(cli, ["pull", _read_path])
+        assert _res.exit_code != 0
+        assert "Nothing was pulled" in _res.output, _res.output
+        assert _their_hash in _res.output and _our_hash in _res.output
+
+        # The remote's is as it was
+        _held = get(_DEST, "data_product", _token, params={"name": _name})
+        assert len(_held) == 1
+        _held_object = fdp_req.url_get(_held[0]["object"], _token)
+        assert (
+            fdp_req.url_get(_held_object["storage_location"], _token)["hash"]
+            == _their_hash
+        )
+
+
+@pytest.mark.faircli_sync
+@pytest.mark.dependency(depends=["init"])
+@pytest.mark.parametrize("cache", [None, "the file", "another file"])
+def test_pull_a_private_data_product_from_a_copy_of_its_file(
+    global_config: str,
+    local_registry: RegistryTest,
+    remote_registry: RegistryTest,
+    pyDataPipeline: str,
+    fair_bucket: MotoTestServer,
+    mocker: pytest_mock.MockerFixture,
+    tmp_path,
+    cache,
+):
+    # A private data product's file is not sent to the remote, which records
+    # it where it was made, on another machine, so a plain read cannot fetch
+    # it. Read from the user's own copy, its 'cache', it is pulled as any
+    # other read, if the copy is the file the remote describes
+    _name = f"private/{uuid.uuid4().hex[:8]}"
+    _made = f"made,elsewhere\n{_name},2\n".encode()
+    _hash = hashlib.sha1(_made).hexdigest()
+    _copy = os.path.join(tmp_path, "copy.csv")
+    _copied = b"another,file\n" if cache == "another file" else _made
+    with open(_copy, "wb") as out_f:
+        out_f.write(_copied)
+    _use = {"namespace": "testing", "version": "1.0.0"}
+    if cache:
+        _use["cache"] = _copy
+    _cfg_path = os.path.join(tmp_path, "private.yaml")
+    with open(_cfg_path, "w") as f:
+        yaml.dump(
+            {
+                "run_metadata": {"description": "Reads it", "script": "echo"},
+                "read": [{"data_product": _name, "use": _use}],
+            },
+            f,
+        )
+
+    _cli_runner = click.testing.CliRunner()
+    with remote_registry, local_registry, fair_bucket:
+        mocker.patch(
+            "fair.configuration.get_current_user_remote_user",
+            lambda *args, **kwargs: "admin",
+        )
+        _token = remote_registry._token
+        _root = fdp_req.post_else_get(
+            _DEST,
+            "storage_root",
+            _token,
+            data={"root": "file:///elsewhere/data_store/", "local": False},
+        )
+        _location = fdp_req.post(
+            _DEST,
+            "storage_location",
+            _token,
+            data={
+                "path": f"{_name}.csv",
+                "hash": _hash,
+                "public": False,
+                "storage_root": _root,
+            },
+        )
+        _object = fdp_req.post(
+            _DEST,
+            "object",
+            _token,
+            data={
+                "description": "Made elsewhere",
+                "storage_location": _location["url"],
+            },
+        )
+        _namespace = fdp_req.post_else_get(
+            _DEST,
+            "namespace",
+            _token,
+            data={"name": "testing"},
+            params={"name": "testing"},
+        )
+        fdp_req.post(
+            _DEST,
+            "data_product",
+            _token,
+            data={
+                "name": _name,
+                "version": "1.0.0",
+                "namespace": _namespace,
+                "object": _object["url"],
+            },
+        )
+
+        _res = _cli_runner.invoke(cli, ["pull", _cfg_path])
+
+        _token = local_registry._token
+        _pulled = get(
+            _ORIGIN,
+            "data_product",
+            _token,
+            params={"name": _name, "version": "1.0.0"},
+        )
+        if cache == "the file":
+            assert _res.exit_code == 0, _res.output
+            assert len(_pulled) == 1
+            _object = fdp_req.url_get(_pulled[0]["object"], _token)
+            _location = fdp_req.url_get(_object["storage_location"], _token)
+            assert _location["hash"] == _hash
+            assert _location["public"] is False
+            _root = fdp_req.url_get(_location["storage_root"], _token)["root"]
+            assert _root.startswith("file://")
+            _file = f'{_root}{_location["path"]}'.replace("file://", "")
+            with open(_file, "rb") as in_f:
+                assert in_f.read() == _made
+        else:
+            assert _res.exit_code != 0
+            _why = "has hash" if cache else "Failed to download"
+            assert _why in _res.output, _res.output
+            assert not _pulled
+        # The copy is the user's, and is left as it was
+        with open(_copy, "rb") as in_f:
+            assert in_f.read() == _copied
+
+
+@pytest.mark.faircli_sync
+def test_a_file_missing_from_the_destination_is_named(
+    mocker: pytest_mock.MockerFixture,
+):
+    _urls = {
+        "origin_object": {"storage_location": "origin_location"},
+        "origin_location": {"hash": "c" * 40},
+    }
+    # A file is not a code repository
+    mocker.patch("fair.registry.sync._dest_repository", return_value=None)
+    mocker.patch(
+        "fair.registry.requests.url_get", lambda url, *args, **kwargs: _urls[url]
+    )
+    mocker.patch("fair.registry.requests.get", lambda *args, **kwargs: [])
+    with pytest.raises(fdp_exc.RegistryError, match="c" * 40) as e:
+        fdp_sync.get_dest_object_url("origin_object", "dest", "", "")
+    assert "'fair add" in e.value.hint
+
+
+# A data product registered in the origin registry by the API, with a file in
+# the data store; returns its object, as the registry gives it
+def _registered_data_product(
+    token: str, name: str, contents: bytes
+) -> typing.Dict[str, typing.Any]:
+    _root = next(
+        _root
+        for _root in get(_ORIGIN, "storage_root", token)
+        if _root["local"] and _root["root"].startswith("file://")
+    )
+    _hash = hashlib.sha1(contents).hexdigest()
+    _path = f"testing/{name}/{_hash}.csv"
+    _file = f'{_root["root"]}{_path}'.replace("file://", "")
+    os.makedirs(os.path.dirname(_file), exist_ok=True)
+    with open(_file, "wb") as out_f:
+        out_f.write(contents)
+    _location = fdp_req.post(
+        _ORIGIN,
+        "storage_location",
+        token,
+        {"path": _path, "hash": _hash, "public": True, "storage_root": _root["url"]},
+    )
+    _object = fdp_req.post(
+        _ORIGIN,
+        "object",
+        token,
+        {"description": f"The file of {name}", "storage_location": _location["url"]},
+    )
+    fdp_req.post(
+        _ORIGIN,
+        "data_product",
+        token,
+        {
+            "namespace": get(_ORIGIN, "namespace", token, params={"name": "testing"})[
+                0
+            ]["url"],
+            "name": name,
+            "version": "1.0.0",
+            "object": _object["url"],
+        },
+    )
+    return fdp_req.url_get(_object["url"], token)
+
+
+# What a registry holds that points at a data product's object: its named
+# components, licences, keywords, key-values and the issues on its components
+def _held_with(uri: str, token: str, name: str) -> typing.Dict[str, typing.Any]:
+    _product = get(uri, "data_product", token, params={"name": name})[0]
+    _object = fdp_req.url_get(_product["object"], token)
+    _components = {
+        _component["name"]: _component
+        for _component in (
+            fdp_req.url_get(_url, token) for _url in _object["components"]
+        )
+    }
+    _issues = {}
+    for _component in _components.values():
+        for _url in _component["issues"]:
+            _issue = fdp_req.url_get(_url, token)
+            _issues[_issue["uuid"]] = (
+                _issue["severity"],
+                _issue["description"],
+                sorted(
+                    fdp_req.url_get(_c, token)["name"]
+                    for _c in _issue["component_issues"]
+                ),
+            )
+    _of_object = {"object": fdp_req.get_obj_id_from_url(_object["url"])}
+    return {
+        "components": {
+            _name: _component["description"]
+            for _name, _component in _components.items()
+            if not _component["whole_object"]
+        },
+        "licences": sorted(
+            (_l["identifier"] or "", _l["licence_info"])
+            for _l in get(uri, "licence", token, params=_of_object)
+        ),
+        "keywords": sorted(
+            _k["keyphrase"] for _k in get(uri, "keyword", token, params=_of_object)
+        ),
+        "key_values": sorted(
+            (_kv["key"], _kv["value"])
+            for _kv in get(uri, "key_value", token, params=_of_object)
+        ),
+        "issues": _issues,
+        "component_urls": {_n: _c["url"] for _n, _c in _components.items()},
+    }
+
+
+# Records attached to an object, as an API writes them: two named
+# components, two licences (one with no identifier), a keyword, a key-value
+# and an issue on the first component; returns the components' URLs by name
+# and the issue's UUID
+def _attach_records(
+    uri: str, token: str, object_url: str
+) -> typing.Tuple[typing.Dict[str, str], str]:
+    _parts = {
+        _part: fdp_req.post(
+            uri,
+            "object_component",
+            token,
+            {"object": object_url, "name": _part, "description": f"The {_part}"},
+        )["url"]
+        for _part in ("first", "second")
+    }
+    for _record, _data in (
+        ("licence", {"licence_info": "CC BY 4.0", "identifier": _LICENCE}),
+        ("licence", {"licence_info": "Only for this test"}),
+        ("keyword", {"keyphrase": "ecology"}),
+        ("key_value", {"key": "scale", "value": "50km"}),
+    ):
+        fdp_req.post(uri, _record, token, {"object": object_url, **_data})
+    _issue = str(uuid.uuid4())
+    fdp_req.post(
+        uri,
+        "issue",
+        token,
+        {
+            "severity": 2,
+            "description": "The first part is wrong",
+            "component_issues": [_parts["first"]],
+            "uuid": _issue,
+        },
+    )
+    return _parts, _issue
+
+
+# The records _attach_records makes, as _held_with reports them
+def _attached(issue: str) -> typing.Dict[str, typing.Any]:
+    return {
+        "components": {"first": "The first", "second": "The second"},
+        "licences": [("", "Only for this test"), (_LICENCE, "CC BY 4.0")],
+        "keywords": ["ecology"],
+        "key_values": [("scale", "50km")],
+        "issues": {issue: (2, "The first part is wrong", ["first"])},
+    }
+
+
+# A code run registered in the origin registry with the model run's
+# configuration and script; returns its UUID
+def _registered_run(
+    token: str,
+    inputs: typing.List[str],
+    outputs: typing.List[str],
+    code_repo: str = None,
+) -> str:
+    _model_run = get(_ORIGIN, "code_run", token)[0]
+    _run = str(uuid.uuid4())
+    fdp_req.post(
+        _ORIGIN,
+        "code_run",
+        token,
+        {
+            "run_date": _model_run["run_date"],
+            "description": "A run",
+            "model_config": _model_run["model_config"],
+            "submission_script": _model_run["submission_script"],
+            "code_repo": code_repo or _model_run["code_repo"],
+            "inputs": inputs,
+            "outputs": outputs,
+            "uuid": _run,
+        },
+    )
+    return _run
+
+
+# Stage each item and push them, leaving none staged, whatever the push did,
+# so that a failed push is not tried again by a later test's
+def _push(cli_runner: click.testing.CliRunner, *items: str) -> click.testing.Result:
+    for _item in items:
+        _res = cli_runner.invoke(cli, ["add", _item])
+        assert _res.exit_code == 0, _res.output
+    _pushed = cli_runner.invoke(cli, ["push"])
+    for _item in items:
+        _res = cli_runner.invoke(cli, ["unstage", _item])
+        assert _res.exit_code == 0, _res.output
+    return _pushed
+
+
+@pytest.mark.faircli_sync
+@pytest.mark.dependency(depends=["run"])
+def test_push_sends_what_points_at_what_it_sends(
+    global_config: str,
+    local_registry: RegistryTest,
+    remote_registry: RegistryTest,
+    pyDataPipeline: str,
+    fair_bucket: MotoTestServer,
+    mocker: pytest_mock.MockerFixture,
+    caplog,
+):
+    # A data product written in two named parts, with a licence, a keyword, a
+    # key-value and an issue on one part, and a run that read that part
+    _name = f"attached/{uuid.uuid4().hex[:8]}"
+    _cli_runner = click.testing.CliRunner()
+    with remote_registry, local_registry, fair_bucket:
+        mocker.patch(
+            "fair.configuration.get_current_user_remote_user",
+            lambda *args, **kwargs: "admin",
+        )
+        _token = local_registry._token
+        _object = _registered_data_product(_token, _name, b"in,two\nparts,here\n")
+        _parts, _issue = _attach_records(_ORIGIN, _token, _object["url"])
+        _output = _registered_data_product(_token, f"{_name}_read", b"read the first\n")
+        _run = _registered_run(_token, [_parts["first"]], _output["components"])
+        # Its document reaches the remote after it does, in the same push
+        fdp_req.post(
+            _ORIGIN,
+            "quality_controlled",
+            _token,
+            {"object": _object["url"], "document": _output["url"]},
+        )
+
+        _product = f"testing:{_name}@v1.0.0"
+        _res = _push(_cli_runner, _product, _run)
+        assert _res.exit_code == 0, _res.output
+        _there = _held_with(_DEST, remote_registry._token, _name)
+        _arrived = {_key: _there[_key] for _key in _there if _key != "component_urls"}
+        _pushed_run = get(
+            _DEST, "code_run", remote_registry._token, params={"uuid": _run}
+        )
+        _arrived["run_inputs"] = (
+            _pushed_run[0]["inputs"] if _pushed_run else "the run is not there"
+        )
+        assert _arrived == {
+            **_attached(_issue),
+            "run_inputs": [_there["component_urls"].get("first")],
+        }
+        _remote_objects = [
+            get(_DEST, "data_product", remote_registry._token, params={"name": _n})[0][
+                "object"
+            ]
+            for _n in (_name, f"{_name}_read")
+        ]
+        _checked = get(
+            _DEST,
+            "quality_controlled",
+            remote_registry._token,
+            params={"object": fdp_req.get_obj_id_from_url(_remote_objects[0])},
+        )
+        assert [_c["document"] for _c in _checked] == [_remote_objects[1]]
+
+        # Pushed again, each is there once
+        _res = _push(_cli_runner, _product, _run)
+        assert _res.exit_code == 0, _res.output
+        assert _held_with(_DEST, remote_registry._token, _name) == _there
+
+        # Records attached since are sent. The issue, changed here since it was
+        # sent, and a key-value the remote holds with another value are kept as
+        # they are there
+        fdp_req.post(
+            _ORIGIN, "keyword", _token, {"object": _object["url"], "keyphrase": "maps"}
+        )
+        _here = get(_ORIGIN, "issue", _token, params={"uuid": _issue})[0]
+        fdp_req._access(
+            _here["url"],
+            "patch",
+            _token,
+            data={"severity": 3, "description": "The first part is very wrong"},
+        )
+        fdp_req.post(
+            _ORIGIN,
+            "key_value",
+            _token,
+            {"object": _object["url"], "key": "grid", "value": "here"},
+        )
+        _remote_object = get(
+            _DEST, "data_product", remote_registry._token, params={"name": _name}
+        )[0]["object"]
+        fdp_req.post(
+            _DEST,
+            "key_value",
+            remote_registry._token,
+            {"object": _remote_object, "key": "grid", "value": "there"},
+        )
+        _res = _push(_cli_runner, _product)
+        assert _res.exit_code == 0, _res.output
+        _now = _held_with(_DEST, remote_registry._token, _name)
+        assert _now["keywords"] == ["ecology", "maps"]
+        assert _now["issues"] == _there["issues"]
+        assert _now["key_values"] == [("grid", "there"), ("scale", "50km")]
+        assert f"The issue {_issue} on '{_DEST}' is kept as it is there" in caplog.text
+        assert "The key_value of" in caplog.text
+
+
+@pytest.mark.faircli_sync
+@pytest.mark.dependency(depends=["run"])
+def test_push_sends_a_run_by_itself_with_what_it_read(
+    global_config: str,
+    local_registry: RegistryTest,
+    remote_registry: RegistryTest,
+    pyDataPipeline: str,
+    fair_bucket: MotoTestServer,
+    mocker: pytest_mock.MockerFixture,
+):
+    # A run that read one part of a file in two parts, of a code repository
+    # with an issue on it, staged by itself; then a release of its code
+    # registered after it was pushed
+    _name = f"read_alone/{uuid.uuid4().hex[:8]}"
+    _commit = hashlib.sha1(_name.encode()).hexdigest()
+    _cli_runner = click.testing.CliRunner()
+    with remote_registry, local_registry, fair_bucket:
+        mocker.patch(
+            "fair.configuration.get_current_user_remote_user",
+            lambda *args, **kwargs: "admin",
+        )
+        _token = local_registry._token
+        _object = _registered_data_product(_token, _name, b"one,of\ntwo,parts\n")
+        _parts, _ = _attach_records(_ORIGIN, _token, _object["url"])
+        _output = _registered_data_product(_token, f"{_name}_out", b"read one\n")
+        _repo_root = fdp_req.post_else_get(
+            _ORIGIN,
+            "storage_root",
+            _token,
+            data={"root": "https://github.com/", "local": False},
+            params={"root": "https://github.com/"},
+        )
+        _repo = fdp_req.post(
+            _ORIGIN,
+            "object",
+            _token,
+            {
+                "description": "Remote code repository.",
+                "storage_location": fdp_req.post(
+                    _ORIGIN,
+                    "storage_location",
+                    _token,
+                    {
+                        "path": f"FAIRDataPipeline/{_commit[:8]}",
+                        "hash": _commit,
+                        "public": True,
+                        "storage_root": _repo_root,
+                    },
+                )["url"],
+            },
+        )
+        _repo_issue = str(uuid.uuid4())
+        fdp_req.post(
+            _ORIGIN,
+            "issue",
+            _token,
+            {
+                "severity": 1,
+                "description": "Run from uncommitted changes",
+                "component_issues": _repo["components"],
+                "uuid": _repo_issue,
+            },
+        )
+        _run = _registered_run(
+            _token, [_parts["first"]], _output["components"], _repo["url"]
+        )
+
+        _res = _push(_cli_runner, _run)
+        assert _res.exit_code == 0, _res.output
+        _remote_token = remote_registry._token
+        _pushed_run = get(_DEST, "code_run", _remote_token, params={"uuid": _run})[0]
+        _there = _held_with(_DEST, _remote_token, _name)
+        assert _pushed_run["inputs"] == [_there["component_urls"]["first"]]
+        _pushed_repo = fdp_req.url_get(_pushed_run["code_repo"], _remote_token)
+        _issue_there = get(_DEST, "issue", _remote_token, params={"uuid": _repo_issue})
+        assert _issue_there[0]["component_issues"] == _pushed_repo["components"]
+        assert not _pushed_repo["code_repo_release"]
+
+        fdp_req.post(
+            _ORIGIN,
+            "code_repo_release",
+            _token,
+            {
+                "object": _repo["url"],
+                "name": _name,
+                "version": "1.0.0",
+                "website": "https://github.com/FAIRDataPipeline",
+            },
+        )
+        _res = _push(_cli_runner, _run)
+        assert _res.exit_code == 0, _res.output
+        _pushed_repo = fdp_req.url_get(_pushed_run["code_repo"], _remote_token)
+        _release = fdp_req.url_get(_pushed_repo["code_repo_release"], _remote_token)
+        assert (_release["name"], _release["version"]) == (_name, "1.0.0")
+
+
+# Data products registered as one run's outputs, each with a file of its own,
+# their whole-object components in order
+def _written(token: str, name: str, count: int) -> typing.List[str]:
+    return [
+        _registered_data_product(
+            token, f"{name}/{_i}", f"{name} {_i}\n".encode()
+        )["components"][0]
+        for _i in range(count)
+    ]
+
+
+# A code run as the destination holds it
+def _run_there(token: str, run: str) -> typing.Dict[str, typing.Any]:
+    return get(_DEST, "code_run", token, params={"uuid": run})[0]
+
+
+# The data products a call of refuse_conflicts looked at
+def _looked_at(call) -> typing.List[str]:
+    if "data_products" in call.kwargs:
+        return call.kwargs["data_products"]
+    return call.args[4]
+
+
+@pytest.mark.faircli_sync
+@pytest.mark.dependency(depends=["run"])
+def test_a_push_handles_each_data_product_and_run_once(
+    global_config: str,
+    local_registry: RegistryTest,
+    remote_registry: RegistryTest,
+    pyDataPipeline: str,
+    fair_bucket: MotoTestServer,
+    mocker: pytest_mock.MockerFixture,
+):
+    # A run that wrote twenty data products and a run that read them all,
+    # pushed by the first. Each data product is checked once and sent once,
+    # each run linked once, and no data product is sent inside the sending of
+    # another. Calls are counted, not requests, so a call grown dearer passes
+    _name = f"many/{uuid.uuid4().hex[:8]}"
+    _count = 20
+    _cli_runner = click.testing.CliRunner()
+    with remote_registry, local_registry, fair_bucket:
+        mocker.patch(
+            "fair.configuration.get_current_user_remote_user",
+            lambda *args, **kwargs: "admin",
+        )
+        _token = local_registry._token
+        _components = _written(_token, _name, _count)
+        _writer = _registered_run(_token, [], _components)
+        _reader = _registered_run(_token, _components, [])
+        _checks = mocker.spy(fdp_sync, "refuse_conflicts")
+        _links = mocker.spy(fdp_sync, "sync_code_run")
+        _depth = {"now": 0, "most": 0}
+        _sync_data_products = fdp_sync.sync_data_products
+
+        def _nested(*args, **kwargs):
+            _depth["now"] += 1
+            _depth["most"] = max(_depth["most"], _depth["now"])
+            try:
+                return _sync_data_products(*args, **kwargs)
+            finally:
+                _depth["now"] -= 1
+
+        mocker.patch("fair.registry.sync.sync_data_products", _nested)
+
+        _res = _push(_cli_runner, _writer)
+        assert _res.exit_code == 0, _res.output
+        _checked = collections.Counter(
+            _product
+            for _call in _checks.call_args_list
+            for _product in _looked_at(_call)
+        )
+        assert _checked == {
+            f"testing:{_name}/{_i}@v1.0.0": 1 for _i in range(_count)
+        }
+        assert collections.Counter(
+            _call.args[4] for _call in _links.call_args_list
+        ) == {_writer: 1, _reader: 1}
+        assert _depth["most"] == 1
+        _remote_token = remote_registry._token
+        _outputs = _run_there(_remote_token, _writer)["outputs"]
+        assert len(_outputs) == _count
+        assert sorted(_run_there(_remote_token, _reader)["inputs"]) == sorted(
+            _outputs
+        )
+
+
+@pytest.mark.faircli_sync
+@pytest.mark.dependency(depends=["run"])
+def test_a_push_that_fails_links_what_it_sent(
+    global_config: str,
+    local_registry: RegistryTest,
+    remote_registry: RegistryTest,
+    pyDataPipeline: str,
+    fair_bucket: MotoTestServer,
+    mocker: pytest_mock.MockerFixture,
+):
+    # Three data products of one run, pushed without the run, the third's
+    # file refused. The run is linked with the two sent; pushed again, with all
+    # three
+    _name = f"failed/{uuid.uuid4().hex[:8]}"
+    _cli_runner = click.testing.CliRunner()
+    with remote_registry, local_registry, fair_bucket:
+        mocker.patch(
+            "fair.configuration.get_current_user_remote_user",
+            lambda *args, **kwargs: "admin",
+        )
+        _token = local_registry._token
+        _components = _written(_token, _name, 3)
+        _writer = _registered_run(_token, [], _components)
+        _refused = fdp_req.url_get(_components[2], _token)["object"]
+        _upload_object = fdp_sync.upload_object
+
+        def _refusing(*args):
+            if args[4] == _refused:
+                raise fdp_exc.SynchronisationError("Refused", error_code=1)
+            return _upload_object(*args)
+
+        mocker.patch("fair.registry.sync.upload_object", _refusing)
+        _products = [f"testing:{_name}/{_i}@v1.0.0" for _i in range(3)]
+
+        _res = _push(_cli_runner, *_products)
+        assert _res.exit_code != 0, _res.output
+        _remote_token = remote_registry._token
+        assert len(_run_there(_remote_token, _writer)["outputs"]) == 2
+
+        mocker.patch("fair.registry.sync.upload_object", _upload_object)
+        _res = _push(_cli_runner, *_products)
+        assert _res.exit_code == 0, _res.output
+        assert len(_run_there(_remote_token, _writer)["outputs"]) == 3
+
+
+@pytest.mark.faircli_sync
+@pytest.mark.dependency(depends=["run"])
+def test_push_sends_an_issue_on_two_data_products_pushed_apart(
+    global_config: str,
+    local_registry: RegistryTest,
+    remote_registry: RegistryTest,
+    pyDataPipeline: str,
+    fair_bucket: MotoTestServer,
+    mocker: pytest_mock.MockerFixture,
+):
+    _names = [f"apart/{uuid.uuid4().hex[:8]}/{_n}" for _n in ("one", "two")]
+    _cli_runner = click.testing.CliRunner()
+    with remote_registry, local_registry, fair_bucket:
+        mocker.patch(
+            "fair.configuration.get_current_user_remote_user",
+            lambda *args, **kwargs: "admin",
+        )
+        _token = local_registry._token
+        _objects = [
+            _registered_data_product(_token, _name, _name.encode()) for _name in _names
+        ]
+        _issue = str(uuid.uuid4())
+        fdp_req.post(
+            _ORIGIN,
+            "issue",
+            _token,
+            {
+                "severity": 2,
+                "description": "Both are wrong",
+                "component_issues": sum((_o["components"] for _o in _objects), []),
+                "uuid": _issue,
+            },
+        )
+
+        _remote_token = remote_registry._token
+        _wholes = []
+        for _name in _names:
+            _res = _push(_cli_runner, f"testing:{_name}@v1.0.0")
+            assert _res.exit_code == 0, _res.output
+            _wholes.append(
+                _held_with(_DEST, _remote_token, _name)["component_urls"][
+                    "whole_object"
+                ]
+            )
+            _there = get(_DEST, "issue", _remote_token, params={"uuid": _issue})
+            assert sorted(_there[0]["component_issues"]) == sorted(_wholes)
+
+
+@pytest.mark.faircli_sync
+@pytest.mark.dependency(depends=["run"])
+def test_an_issue_raised_in_both_registries_is_not_doubled(
+    global_config: str,
+    local_registry: RegistryTest,
+    remote_registry: RegistryTest,
+    pyDataPipeline: str,
+    fair_bucket: MotoTestServer,
+    mocker: pytest_mock.MockerFixture,
+    tmp_path,
+):
+    # The same issue - its severity and description - raised on a data product
+    # in each registry separately, after the data product was pushed
+    _name = f"raised_twice/{uuid.uuid4().hex[:8]}"
+    _cfg_path = os.path.join(tmp_path, "read.yaml")
+    with open(_cfg_path, "w") as f:
+        yaml.dump(
+            {
+                "run_metadata": {"description": "Reads it", "script": "echo"},
+                "read": [
+                    {
+                        "data_product": _name,
+                        "use": {"namespace": "testing", "version": "1.0.0"},
+                    }
+                ],
+            },
+            f,
+        )
+    _cli_runner = click.testing.CliRunner()
+    with remote_registry, local_registry, fair_bucket:
+        mocker.patch(
+            "fair.configuration.get_current_user_remote_user",
+            lambda *args, **kwargs: "admin",
+        )
+        _token = local_registry._token
+        _remote_token = remote_registry._token
+        _object = _registered_data_product(_token, _name, _name.encode())
+        _res = _push(_cli_runner, f"testing:{_name}@v1.0.0")
+        assert _res.exit_code == 0, _res.output
+        _issue = {"severity": 2, "description": "Raised in both"}
+        _ours = str(uuid.uuid4())
+        fdp_req.post(
+            _ORIGIN,
+            "issue",
+            _token,
+            {**_issue, "component_issues": _object["components"], "uuid": _ours},
+        )
+        _theirs = str(uuid.uuid4())
+        _remote_whole = _held_with(_DEST, _remote_token, _name)["component_urls"][
+            "whole_object"
+        ]
+        fdp_req.post(
+            _DEST,
+            "issue",
+            _remote_token,
+            {**_issue, "component_issues": [_remote_whole], "uuid": _theirs},
+        )
+
+        _res = _push(_cli_runner, f"testing:{_name}@v1.0.0")
+        assert _res.exit_code == 0, _res.output
+        assert list(_held_with(_DEST, _remote_token, _name)["issues"]) == [_theirs]
+
+        _res = _cli_runner.invoke(cli, ["pull", _cfg_path])
+        assert _res.exit_code == 0, _res.output
+        assert list(_held_with(_ORIGIN, _token, _name)["issues"]) == [_ours]
+
+
+@pytest.mark.faircli_sync
+@pytest.mark.dependency(depends=["run"])
+def test_pull_brings_what_points_at_what_it_pulls(
+    global_config: str,
+    local_registry: RegistryTest,
+    remote_registry: RegistryTest,
+    pyDataPipeline: str,
+    fair_bucket: MotoTestServer,
+    mocker: pytest_mock.MockerFixture,
+    tmp_path,
+):
+    # A data product pushed from elsewhere with records attached to it
+    _name = f"pulled_with/{uuid.uuid4().hex[:8]}"
+    _made = _name.encode()
+    _hash = hashlib.sha1(_made).hexdigest()
+    _file = os.path.join(tmp_path, "made.csv")
+    with open(_file, "wb") as out_f:
+        out_f.write(_made)
+    _cfg_path = os.path.join(tmp_path, "read.yaml")
+    with open(_cfg_path, "w") as f:
+        yaml.dump(
+            {
+                "run_metadata": {"description": "Reads it", "script": "echo"},
+                "read": [
+                    {
+                        "data_product": _name,
+                        "use": {"namespace": "testing", "version": "1.0.0"},
+                    }
+                ],
+            },
+            f,
+        )
+    _cli_runner = click.testing.CliRunner()
+    with remote_registry, local_registry, fair_bucket:
+        mocker.patch(
+            "fair.configuration.get_current_user_remote_user",
+            lambda *args, **kwargs: "admin",
+        )
+        _token = remote_registry._token
+        fdp_store.upload_remote_file(_file, _DEST, _token)
+        _object = fdp_req.post(
+            _DEST,
+            "object",
+            _token,
+            {
+                "description": "Made elsewhere",
+                "storage_location": fdp_req.post(
+                    _DEST,
+                    "storage_location",
+                    _token,
+                    {
+                        "path": _hash,
+                        "hash": _hash,
+                        "public": True,
+                        "storage_root": fdp_sync._remote_data_store_url(_DEST, _token),
+                    },
+                )["url"],
+            },
+        )
+        fdp_req.post(
+            _DEST,
+            "data_product",
+            _token,
+            {
+                "namespace": fdp_req.post_else_get(
+                    _DEST,
+                    "namespace",
+                    _token,
+                    data={"name": "testing"},
+                    params={"name": "testing"},
+                ),
+                "name": _name,
+                "version": "1.0.0",
+                "object": _object["url"],
+            },
+        )
+        _, _issue = _attach_records(_DEST, _token, _object["url"])
+
+        for _ in range(2):
+            _res = _cli_runner.invoke(cli, ["pull", _cfg_path])
+            assert _res.exit_code == 0, _res.output
+            _here = _held_with(_ORIGIN, local_registry._token, _name)
+            del _here["component_urls"]
+            assert _here == _attached(_issue)
+
+
+@pytest.mark.faircli_sync
+@pytest.mark.dependency(depends=["run"])
+def test_push_warns_of_a_run_the_remote_lacks(
+    global_config: str,
+    local_registry: RegistryTest,
+    remote_registry: RegistryTest,
+    pyDataPipeline: str,
+    fair_bucket: MotoTestServer,
+    mocker: pytest_mock.MockerFixture,
+):
+    # A run read a data product another run wrote; the remote holds that data
+    # product, sent before its run was, and not the run
+    _name = f"behind/{uuid.uuid4().hex[:8]}"
+    _contents = _name.encode()
+    _cli_runner = click.testing.CliRunner()
+    with remote_registry, local_registry, fair_bucket:
+        mocker.patch(
+            "fair.configuration.get_current_user_remote_user",
+            lambda *args, **kwargs: "admin",
+        )
+        _token = local_registry._token
+        _read = _registered_data_product(_token, _name, _contents)
+        _out = _registered_data_product(_token, f"{_name}_out", b"made from it\n")
+        _res = _push(_cli_runner, f"testing:{_name}@v1.0.0")
+        assert _res.exit_code == 0, _res.output
+        _writer = _registered_run(_token, [], _read["components"])
+        _reader = _registered_run(_token, _read["components"], _out["components"])
+
+        _res = _push(_cli_runner, _reader)
+        assert _res.exit_code == 0, _res.output
+        assert (
+            f"Warning: the remote 'origin' does not hold code run {_writer}, which "
+            f"wrote testing:{_name}@v1.0.0. 'fair add {_writer}' and 'fair push' "
+            "would send it."
+        ) in _res.output
+
+        _res = _push(_cli_runner, _writer, _reader)
+        assert _res.exit_code == 0, _res.output
+        assert "does not hold code run" not in _res.output
+
+
+@pytest.mark.faircli_sync
+@pytest.mark.dependency(depends=["run"])
+def test_push_keeps_a_runs_uuid(
+    global_config: str,
+    local_registry: RegistryTest,
+    remote_registry: RegistryTest,
+    pyDataPipeline: str,
+    fair_bucket: MotoTestServer,
+    mocker: pytest_mock.MockerFixture,
+):
+    # A push, and 'fair add --all', find a run the remote holds by its UUID.
+    # The remote's runs are listed whole, not asked for by that UUID
+    _name = f"uuid/{uuid.uuid4().hex[:8]}"
+    _cli_runner = click.testing.CliRunner()
+    with remote_registry, local_registry, fair_bucket:
+        mocker.patch(
+            "fair.configuration.get_current_user_remote_user",
+            lambda *args, **kwargs: "admin",
+        )
+        _token = local_registry._token
+        _read = _registered_data_product(_token, _name, _name.encode())
+        _run = _registered_run(_token, _read["components"], [])
+        _res = _push(_cli_runner, _run)
+        assert _res.exit_code == 0, _res.output
+        _held = get(_DEST, "code_run", remote_registry._token)
+        assert _run in [_code_run["uuid"] for _code_run in _held]
+
+
+# Delete a code run from the origin registry through its API
+def _delete_run(token: str, run: str) -> None:
+    _url = get(_ORIGIN, "code_run", token, params={"uuid": run})[0]["url"]
+    requests.delete(
+        _url,
+        headers={
+            "Authorization": f"token {token}",
+            "Accept": "application/json; version=1.0.0",
+        },
+    ).raise_for_status()
+
+
+# The code runs the project's staging names, each with whether it is staged
+def _staged_runs() -> typing.Dict[str, bool]:
+    with open(fdp_com.staging_cache(os.getcwd()), encoding="utf-8") as stage_f:
+        return yaml.safe_load(stage_f)["code_run"]
+
+
+@pytest.mark.faircli_sync
+@pytest.mark.dependency(depends=["run"])
+def test_staging_drops_a_run_the_registry_no_longer_holds(
+    global_config: str,
+    local_registry: RegistryTest,
+    remote_registry: RegistryTest,
+    pyDataPipeline: str,
+    fair_bucket: MotoTestServer,
+    mocker: pytest_mock.MockerFixture,
+):
+    # Runs that read a data product, each staged and then deleted from the
+    # registry before 'fair add', 'fair push' or 'fair status'
+    _name = f"deleted/{uuid.uuid4().hex[:8]}"
+    _gone = (
+        "is no longer in the local registry, and has been removed from "
+        "staging"
+    )
+    _cli_runner = click.testing.CliRunner()
+    with remote_registry, local_registry, fair_bucket:
+        mocker.patch(
+            "fair.configuration.get_current_user_remote_user",
+            lambda *args, **kwargs: "admin",
+        )
+        _token = local_registry._token
+        _written = _registered_data_product(_token, _name, _name.encode())
+        _read = _written["components"]
+
+        def _staged_and_deleted() -> str:
+            _run = _registered_run(_token, _read, [])
+            _res = _cli_runner.invoke(cli, ["add", _run])
+            assert _res.exit_code == 0, _res.output
+            assert _staged_runs()[_run]
+            _delete_run(_token, _run)
+            return _run
+
+        _run = _staged_and_deleted()
+        _res = _cli_runner.invoke(cli, ["add", _run])
+        assert _res.exit_code != 0
+        assert f"Code run '{_run}' {_gone}" in _res.output
+        assert _run not in _staged_runs()
+
+        # The push goes on with what is held
+        _run = _staged_and_deleted()
+        _kept = _registered_run(_token, _read, [])
+        _res = _push(_cli_runner, _kept)
+        assert _res.exit_code == 0, _res.output
+        assert f"Code run '{_run}' {_gone}" in _res.output
+        assert _run not in _staged_runs()
+        assert get(
+            _DEST, "code_run", remote_registry._token, params={"uuid": _kept}
+        )
+
+        # A run that has not finished records no inputs or outputs
+        _unfinished = _registered_run(_token, [], [])
+        _res = _cli_runner.invoke(cli, ["add", _unfinished])
+        assert _res.exit_code != 0
+        _refusal = f"Code run '{_unfinished}' records no inputs or outputs"
+        assert _refusal in _res.output
+        assert not _staged_runs().get(_unfinished)
+
+        _run = _staged_and_deleted()
+        _res = _cli_runner.invoke(cli, ["status"])
+        assert _res.exit_code == 0, _res.output
+        assert f"Code run '{_run}' {_gone}" in _res.output
+        assert _run not in _staged_runs()
+
+
+@pytest.mark.faircli_sync
+@pytest.mark.dependency(depends=["run"])
+def test_add_all_stages_the_finished_runs_the_remote_lacks(
+    global_config: str,
+    local_registry: RegistryTest,
+    remote_registry: RegistryTest,
+    pyDataPipeline: str,
+    fair_bucket: MotoTestServer,
+    mocker: pytest_mock.MockerFixture,
+):
+    # Runs of a repository of the test's own, which the project is said to be:
+    # one the remote holds in part, one it holds whole, one it lacks, one not
+    # finished; and a run of another repository
+    _here = f"FAIRDataPipeline/all-{uuid.uuid4().hex[:8]}"
+    mocker.patch(
+        "fair.configuration.remote_git_repo",
+        lambda *args: f"git@github.com:{_here}.git",
+    )
+    _cli_runner = click.testing.CliRunner()
+    with remote_registry, local_registry, fair_bucket:
+        mocker.patch(
+            "fair.configuration.get_current_user_remote_user",
+            lambda *args, **kwargs: "admin",
+        )
+        _token = local_registry._token
+        _commit = hashlib.sha1(_here.encode()).hexdigest()
+        _repo = _repository(_ORIGIN, _token, _commit, _here)["url"]
+        _first = _registered_data_product(_token, f"{_here}/first", b"first\n")
+        _second = _registered_data_product(
+            _token, f"{_here}/second", b"second\n"
+        )
+        _partly = _registered_run(
+            _token, [], _first["components"] + _second["components"], _repo
+        )
+        # A push of one of its data products sends that part of the run
+        _res = _push(_cli_runner, f"testing:{_here}/first@v1.0.0")
+        assert _res.exit_code == 0, _res.output
+        _whole = _registered_run(_token, _first["components"], [], _repo)
+        _res = _push(_cli_runner, _whole)
+        assert _res.exit_code == 0, _res.output
+        _new = _registered_run(_token, _second["components"], [], _repo)
+        _unfinished = _registered_run(_token, [], [], _repo)
+        _other = _repository(_ORIGIN, _token, _commit[::-1], f"{_here}-other")
+        _elsewhere = _registered_run(
+            _token, _first["components"], [], _other["url"]
+        )
+
+        _res = _cli_runner.invoke(cli, ["add", "--all"])
+        try:
+            assert _res.exit_code == 0, _res.output
+            _staged = _staged_runs()
+            assert _staged.get(_partly) and _staged.get(_new)
+            assert not _staged.get(_whole)
+            assert not _staged.get(_unfinished)
+            assert not _staged.get(_elsewhere)
+            assert f"Not staged: code run {_unfinished} of" in _res.output
+
+            _res = _cli_runner.invoke(cli, ["push"])
+            assert _res.exit_code == 0, _res.output
+            _pushed = get(
+                _DEST,
+                "code_run",
+                remote_registry._token,
+                params={"uuid": _partly},
+            )
+            assert len(_pushed[0]["outputs"]) == 2
+        finally:
+            _cli_runner.invoke(cli, ["reset"])
+
+
+@pytest.mark.faircli_sync
+@pytest.mark.dependency(depends=["run"])
+def test_rm_deletes_runs_the_remote_lacks(
+    global_config: str,
+    local_registry: RegistryTest,
+    remote_registry: RegistryTest,
+    pyDataPipeline: str,
+    fair_bucket: MotoTestServer,
+    mocker: pytest_mock.MockerFixture,
+):
+    # A run wrote what another run read, and a third run read a data product
+    # of its own and was pushed
+    _name = f"removed/{uuid.uuid4().hex[:8]}"
+    _cli_runner = click.testing.CliRunner()
+    with remote_registry, local_registry, fair_bucket:
+        mocker.patch(
+            "fair.configuration.get_current_user_remote_user",
+            lambda *args, **kwargs: "admin",
+        )
+        _token = local_registry._token
+        _written = _registered_data_product(_token, _name, b"written\n")
+        _writer = _registered_run(_token, [], _written["components"])
+        _reader = _registered_run(_token, _written["components"], [])
+        _read = _registered_data_product(_token, f"{_name}-read", b"read\n")
+        _pushed = _registered_run(_token, _read["components"], [])
+        _res = _push(_cli_runner, _pushed)
+        assert _res.exit_code == 0, _res.output
+
+        _res = _cli_runner.invoke(cli, ["rm", _writer, "--yes"])
+        assert _res.exit_code != 0
+        assert f"code run {_reader} read outputs of {_writer}" in _res.output
+        _res = _cli_runner.invoke(cli, ["rm", _pushed, "--yes"])
+        assert _res.exit_code != 0
+        assert "The remote 'origin' holds these code runs" in _res.output
+        assert get(_ORIGIN, "code_run", _token, params={"uuid": _pushed})
+
+        _res = _cli_runner.invoke(cli, ["add", _writer])
+        assert _res.exit_code == 0, _res.output
+        _res = _cli_runner.invoke(cli, ["rm", _writer, _reader, "--yes"])
+        assert _res.exit_code == 0, _res.output
+        for _run in (_writer, _reader):
+            assert not get(_ORIGIN, "code_run", _token, params={"uuid": _run})
+        assert _writer not in _staged_runs()
+        # What the deleted runs wrote stays
+        assert get(_ORIGIN, "data_product", _token, params={"name": _name})
+
+
+@pytest.mark.faircli_sync
+@pytest.mark.parametrize(
+    "objects,expected",
+    [([(10, None), (9, None)], 9), ([(9, None), (10, "a release")], 10), ([], None)],
+)
+def test_dest_repository_is_the_released_object_else_the_oldest(
+    mocker: pytest_mock.MockerFixture, objects, expected
+):
+    # The destination's objects at a commit, each as (id, release), one on each
+    # of two locations whose paths differ, under one root
+    _records = {
+        "origin_location": {"hash": "c" * 40, "storage_root": "origin_root"},
+        "origin_root": {"root": "https://github.com/"},
+    }
+    mocker.patch(
+        "fair.registry.requests.url_get", lambda url, *args, **kwargs: _records[url]
+    )
+    mocker.patch("fair.registry.sync._has_file", return_value=False)
+    _locations = [f"{_DEST}storage_location/{_n}/" for _n in (1, 2)]
+
+    def mock_get(uri, obj, token, params=None, **kwargs):
+        if obj == "storage_root":
+            assert params == {"root": "https://github.com/"}
+            return [{"url": f"{_DEST}storage_root/3/"}]
+        if obj == "storage_location":
+            assert params == {"hash": "c" * 40, "public": True, "storage_root": "3"}
+            return [{"url": _url} for _url in _locations]
+        _at = _locations.index(f"{_DEST}storage_location/{params['storage_location']}/")
+        return [
+            {
+                "url": f"{_DEST}object/{_id}/",
+                "storage_location": _locations[_at],
+                "code_repo_release": _release,
+            }
+            for _n, (_id, _release) in enumerate(objects)
+            if _n == _at
+        ]
+
+    mocker.patch("fair.registry.requests.get", mock_get)
+    _held = fdp_sync._dest_repository(
+        {"url": "origin_object", "storage_location": "origin_location"}, _DEST, "", ""
+    )
+    assert (_held and int(fdp_req.get_obj_id_from_url(_held["url"]))) == expected
+
+
+@pytest.mark.faircli_sync
+def test_dest_repository_of_an_object_with_a_file_is_none(
+    mocker: pytest_mock.MockerFixture,
+):
+    mocker.patch("fair.registry.sync._has_file", return_value=True)
+    _get = mocker.patch("fair.registry.requests.get")
+    assert (
+        fdp_sync._dest_repository(
+            {"url": "origin_object", "storage_location": "origin_location"},
+            _DEST,
+            "",
+            "",
+        )
+        is None
+    )
+    _get.assert_not_called()
+
+
+# A code repository's object at a commit, as an API registers one, with a
+# release of the given name if one is given; returns the object's record. A
+# registry holds one location for a commit under a host, so a second object at
+# the commit is made on it, whatever path is given
+def _repository(
+    uri: str, token: str, commit: str, path: str, release: str = None
+) -> typing.Dict[str, typing.Any]:
+    _root = fdp_req.post_else_get(
+        uri,
+        "storage_root",
+        token,
+        data={"root": "https://github.com/", "local": False},
+        params={"root": "https://github.com/"},
+    )
+    _location = fdp_req.post_else_get(
+        uri,
+        "storage_location",
+        token,
+        data={"path": path, "hash": commit, "public": True, "storage_root": _root},
+        params={"hash": commit, "storage_root": fdp_req.get_obj_id_from_url(_root)},
+    )
+    _object = fdp_req.post(
+        uri,
+        "object",
+        token,
+        {"description": "Remote code repository.", "storage_location": _location},
+    )
+    if release:
+        fdp_req.post(
+            uri,
+            "code_repo_release",
+            token,
+            {
+                "object": _object["url"],
+                "name": release,
+                "version": "1.0.0",
+                "website": "https://github.com/FAIRDataPipeline",
+            },
+        )
+    return fdp_req.url_get(_object["url"], token)
+
+
+# The objects a registry holds at a commit, by URL
+def _objects_at(uri: str, token: str, commit: str) -> typing.List[str]:
+    return sorted(
+        _object["url"]
+        for _location in get(uri, "storage_location", token, params={"hash": commit})
+        for _object in get(
+            uri,
+            "object",
+            token,
+            params={"storage_location": fdp_req.get_obj_id_from_url(_location["url"])},
+        )
+    )
+
+
+@pytest.mark.faircli_sync
+@pytest.mark.dependency(depends=["run"])
+@pytest.mark.parametrize("there", ["released", "same path", "unreleased", "two"])
+def test_push_gives_a_run_the_remotes_object_for_its_commit(
+    global_config: str,
+    local_registry: RegistryTest,
+    remote_registry: RegistryTest,
+    pyDataPipeline: str,
+    fair_bucket: MotoTestServer,
+    mocker: pytest_mock.MockerFixture,
+    caplog,
+    there: str,
+):
+    # Another machine's push left the remote an object for a commit - with the
+    # release, at this registry's path or another, without the release, or two
+    # objects, the newer with it; a run here of that commit and release is
+    # pushed
+    _release = f"repository-{uuid.uuid4().hex[:8]}"
+    _commit = hashlib.sha1(_release.encode()).hexdigest()
+    _cli_runner = click.testing.CliRunner()
+    with remote_registry, local_registry, fair_bucket:
+        mocker.patch(
+            "fair.configuration.get_current_user_remote_user",
+            lambda *args, **kwargs: "admin",
+        )
+        _remote_token = remote_registry._token
+        _held = []
+        if there == "two":
+            _held.append(
+                _repository(_DEST, _remote_token, _commit, "FAIRDataPipeline/older")
+            )
+        _held.append(
+            _repository(
+                _DEST,
+                _remote_token,
+                _commit,
+                f"FAIRDataPipeline/{'here' if there == 'same path' else 'elsewhere'}",
+                _release if there != "unreleased" else None,
+            )
+        )
+        _token = local_registry._token
+        _repo = _repository(_ORIGIN, _token, _commit, "FAIRDataPipeline/here", _release)
+        _output = _registered_data_product(
+            _token, f"made_at/{_release}", f"made at {_release}".encode()
+        )
+        _run = _registered_run(_token, [], _output["components"], _repo["url"])
+
+        _res = _push(_cli_runner, _run)
+        assert _res.exit_code == 0, _res.output
+        _pushed = get(_DEST, "code_run", _remote_token, params={"uuid": _run})[0]
+        assert _pushed["code_repo"] == _held[-1]["url"]
+        assert _objects_at(_DEST, _remote_token, _commit) == sorted(
+            _object["url"] for _object in _held
+        )
+        _object = fdp_req.url_get(_pushed["code_repo"], _remote_token)
+        assert (
+            fdp_req.url_get(_object["code_repo_release"], _remote_token)["name"]
+            == _release
+        )
+        assert not [
+            _record.getMessage()
+            for _record in caplog.records
+            if _record.levelname == "WARNING"
+            and "code_repo_release" in _record.getMessage()
+        ]
+
+
+@pytest.mark.faircli_sync
+@pytest.mark.dependency(depends=["run"])
+def test_pull_gives_a_data_product_the_local_object_for_its_commit(
+    global_config: str,
+    local_registry: RegistryTest,
+    remote_registry: RegistryTest,
+    pyDataPipeline: str,
+    fair_bucket: MotoTestServer,
+    mocker: pytest_mock.MockerFixture,
+    tmp_path,
+):
+    # A release registered on the remote as a data product on its repository's
+    # object, at a commit the local registry holds an object for at another path
+    _release = f"repository-{uuid.uuid4().hex[:8]}"
+    _commit = hashlib.sha1(_release.encode()).hexdigest()
+    _name = f"release/{_release}"
+    _cfg_path = os.path.join(tmp_path, "release.yaml")
+    with open(_cfg_path, "w") as f:
+        yaml.dump(
+            {
+                "run_metadata": {"description": "Reading a release", "script": "echo"},
+                "read": [
+                    {
+                        "data_product": _name,
+                        "use": {"namespace": "testing", "version": "1.0.0"},
+                    }
+                ],
+            },
+            f,
+        )
+    _cli_runner = click.testing.CliRunner()
+    with remote_registry, local_registry, fair_bucket:
+        mocker.patch(
+            "fair.configuration.get_current_user_remote_user",
+            lambda *args, **kwargs: "admin",
+        )
+        _remote_token = remote_registry._token
+        _theirs = _repository(
+            _DEST, _remote_token, _commit, "FAIRDataPipeline/there", _release
+        )
+        fdp_req.post(
+            _DEST,
+            "data_product",
+            _remote_token,
+            {
+                "namespace": fdp_req.post_else_get(
+                    _DEST,
+                    "namespace",
+                    _remote_token,
+                    data={"name": "testing"},
+                    params={"name": "testing"},
+                ),
+                "name": _name,
+                "version": "1.0.0",
+                "object": _theirs["url"],
+            },
+        )
+        _token = local_registry._token
+        _ours = _repository(_ORIGIN, _token, _commit, "FAIRDataPipeline/here")
+
+        _res = _cli_runner.invoke(cli, ["pull", _cfg_path])
+        assert _res.exit_code == 0, _res.output
+        _pulled = get(_ORIGIN, "data_product", _token, params={"name": _name})
+        assert _pulled[0]["object"] == _ours["url"]
+        assert _objects_at(_ORIGIN, _token, _commit) == [_ours["url"]]
+        _object = fdp_req.url_get(_ours["url"], _token)
+        assert fdp_req.url_get(_object["code_repo_release"], _token)["name"] == _release

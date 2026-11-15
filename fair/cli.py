@@ -22,6 +22,7 @@ import typing
 
 import click
 import click.shell_completion
+import git
 import yaml
 
 import fair.common as fdp_com
@@ -30,6 +31,7 @@ import fair.exceptions as fdp_exc
 import fair.history as fdp_hist
 import fair.registry.lifecycle as fdp_life
 import fair.registry.server as fdp_svr
+import fair.registry.stores as fdp_stores
 import fair.run as fdp_run
 import fair.session as fdp_session
 
@@ -63,7 +65,8 @@ def complete_data_products(ctx, param, incomplete) -> typing.List[str]:
     if not os.path.exists(_staging_file):
         return []
     _staging_data = yaml.safe_load(open(_staging_file, encoding="utf-8"))
-    _candidates = list(_staging_data["data_product"].keys())
+    # 'list' is the command here, not the builtin
+    _candidates = [*_staging_data["data_product"]]
     return [
         click.shell_completion.CompletionItem(c)
         for c in _candidates
@@ -85,7 +88,23 @@ def complete_jobs(ctx, param, incomplete) -> typing.List[str]:
     ]
 
 
-@click.group()
+class _Commands(click.Group):
+    """The commands, each of which may run git: one that finds none says so"""
+
+    def invoke(self, ctx: click.Context) -> typing.Any:
+        """Run the command, saying so where it needs git and finds none"""
+        try:
+            return super().invoke(ctx)
+        except git.exc.GitCommandNotFound:
+            fdp_exc.FAIRCLIException(
+                "The FAIR CLI needs git, and could not run it",
+                hint="Install git, or give the path of its program in the "
+                "environment variable GIT_PYTHON_GIT_EXECUTABLE",
+            ).err_print()
+            sys.exit(1)
+
+
+@click.group(cls=_Commands)
 @click.version_option(package_name="fair-cli")
 @click.pass_context
 def cli(ctx):
@@ -181,8 +200,7 @@ def list(ctx, debug, remote) -> None:
         ctx.obj = {}
     ctx.obj["DEBUG"] = debug
     ctx.obj["REMOTE"] = remote
-    _current_args = " ".join(sys.argv)
-    if not ("data-products" in _current_args or "code-runs" in _current_args):
+    if ctx.invoked_subcommand is None:
         ctx.invoke(data_products)
         ctx.invoke(code_runs)
 
@@ -204,15 +222,20 @@ def data_products(ctx) -> None:
 
 
 @list.command()
+@click.option(
+    "--json", "as_json", is_flag=True, default=False, help="Print them as JSON"
+)
 @click.pass_context
-def code_runs(ctx) -> None:
+def code_runs(ctx, as_json: bool) -> None:
+    """List the code runs, with whether each has finished, is staged, and is
+    held by the remote 'origin'"""
     debug = ctx.obj["DEBUG"]
     remote = ctx.obj["REMOTE"]
     try:
         with fdp_session.FAIR(
             os.getcwd(), debug=debug, server_mode=fdp_svr.SwitchMode.CLI
         ) as fair_session:
-            fair_session.show_all_code_runs(remote=remote)
+            fair_session.show_all_code_runs(remote=remote, as_json=as_json)
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
         if e.level.lower() != "warning":
@@ -400,7 +423,7 @@ def uninstall(debug: bool):
 @click.option("--directory", help="Installation location", default=None)
 @click.option(
     "--version",
-    help="Specify version tag of registry to install, else latest repo tag",
+    help="A tag or branch of the registry's repository to install, else its newest tag",
     default=None,
 )
 def install(debug: bool, force: bool, directory: str, version: str):
@@ -408,12 +431,57 @@ def install(debug: bool, force: bool, directory: str, version: str):
     try:
         if debug:
             logging.getLogger("FAIRDataPipeline").setLevel(logging.DEBUG)
+        # The version is found before anything is stopped or replaced
+        if version:
+            version = fdp_svr.resolve_reference(version)
+        _directory = directory or fdp_com.registry_home()
         if force:
-            fdp_life.stop_for_removal(directory or fdp_com.DEFAULT_REGISTRY_LOCATION)
-        _version = fdp_svr.install_registry(
-            install_dir=directory, reference=version, force=force
-        )
+            with fdp_life.held(_directory, "fair registry install --force"):
+                fdp_life.stop_for_removal(_directory)
+                _version = fdp_svr.install_registry(
+                    install_dir=_directory, reference=version, force=True
+                )
+        else:
+            _version = fdp_svr.install_registry(
+                install_dir=_directory, reference=version
+            )
         click.echo(f"Installed registry version '{_version}'")
+    except fdp_exc.FAIRCLIException as e:
+        e.err_print()
+        if e.level.lower() != "warning":
+            sys.exit(e.exit_code)
+
+
+@registry.command()
+@click.option(
+    "--version",
+    help="A tag or branch of the registry's repository to install, else its newest tag",
+    default=None,
+)
+@click.option("--debug/--no-debug", help="Run in debug mode", default=False)
+def upgrade(version: str, debug: bool) -> None:
+    """Install another version of the local registry, keeping its records"""
+    try:
+        if debug:
+            logging.getLogger("FAIRDataPipeline").setLevel(logging.DEBUG)
+        _registry_dir = fdp_com.registry_home()
+        _result = fdp_svr.upgrade_registry(
+            reference=version, registry_dir=_registry_dir
+        )
+        click.echo(
+            f"Installed registry version '{_result['version']}' in "
+            f"'{_registry_dir}', "
+            + (
+                "keeping its records"
+                if _result["kept"]
+                else "which had no database to keep"
+            )
+        )
+        if _result["restarted"]:
+            click.echo(
+                f"It is running again at {_result['restarted']}, until "
+                "'fair registry stop'"
+            )
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
         if e.level.lower() != "warning":
@@ -453,6 +521,110 @@ def stop(force: bool, debug: bool) -> None:
     _mode = fdp_svr.SwitchMode.FORCE_STOP if force else fdp_svr.SwitchMode.USER_STOP
     try:
         fdp_session.FAIR(os.getcwd(), server_mode=_mode, debug=debug)
+    except fdp_exc.FAIRCLIException as e:
+        e.err_print()
+        if e.level.lower() != "warning":
+            sys.exit(e.exit_code)
+
+
+@registry.command("erase-unknown-data")
+@click.option(
+    "--delete-all/--no-delete-all",
+    help="Also erase the files a run in progress could still be writing: outputs "
+    "named 'dat-...' or by their hash, and files under 'jobs/'",
+    default=False,
+)
+@click.option(
+    "--dry-run/--no-dry-run",
+    help="List what would be erased, erasing nothing",
+    default=False,
+)
+@click.option("--debug/--no-debug", help="Run in debug mode", default=False)
+def erase_unknown_data(delete_all: bool, dry_run: bool, debug: bool) -> None:
+    """Erase the files in the data stores that the local registry does not hold
+
+    Each data store is named, and its files are erased only once its path is
+    typed. Another registry using the store may hold some of them.
+    """
+    try:
+        if debug:
+            logging.getLogger("FAIRDataPipeline").setLevel(logging.DEBUG)
+        fdp_stores.erase_unknown_data(delete_all=delete_all, dry_run=dry_run)
+    except fdp_exc.FAIRCLIException as e:
+        e.err_print()
+        if e.level.lower() != "warning":
+            sys.exit(e.exit_code)
+
+
+@registry.command("reset")
+@click.option(
+    "--delete-files/--keep-files",
+    help="Also delete the files the registry holds in its data stores, which "
+    "another registry using the same stores may also hold",
+    default=False,
+)
+@click.option("--yes/--no", help="Empty it without asking", default=False)
+@click.option("--debug/--no-debug", help="Run in debug mode", default=False)
+def registry_reset(delete_files: bool, yes: bool, debug: bool) -> None:
+    """Empty the local registry, deleting every record in it"""
+    try:
+        if debug:
+            logging.getLogger("FAIRDataPipeline").setLevel(logging.DEBUG)
+        _registry_dir = fdp_com.registry_home()
+        _what = (
+            f"empty the local registry installed in '{_registry_dir}', deleting "
+            "every record in it"
+            + (
+                " and the files it holds in its data stores. Warning: another "
+                "registry using those stores may hold some of the same files"
+                if delete_files
+                else ""
+            )
+        )
+        if not yes:
+            if not sys.stdin.isatty():
+                raise fdp_exc.FAIRCLIException(
+                    f"There is no terminal to ask whether to {_what}",
+                    hint="Give '--yes' to empty it",
+                )
+            if not click.confirm(f"{_what[0].upper()}{_what[1:]}?", default=False):
+                return
+        _project = fdp_com.find_fair_root(os.getcwd()) or None
+        _result = fdp_svr.reset_registry(
+            registry_dir=_registry_dir, repo_dir=_project, delete_files=delete_files
+        )
+        click.echo(f"Emptied the local registry installed in '{_registry_dir}'")
+        if delete_files:
+            click.echo(
+                f"Deleted {_result['deleted']} file"
+                f"{'' if _result['deleted'] == 1 else 's'} from "
+                f"{len(_result['stores'])} data store"
+                f"{'' if len(_result['stores']) == 1 else 's'}"
+            )
+            for _store in _result["too_wide"]:
+                click.echo(
+                    f"Not deleted from: the data store '{_store}' is your home "
+                    "folder or one above it"
+                )
+            for _path, _why in _result["failed"]:
+                click.echo(f"Warning: '{_path}' could not be deleted: {_why}", err=True)
+        if _result["restarted"]:
+            click.echo(
+                f"It is running again at {_result['restarted']}, until "
+                "'fair registry stop'"
+            )
+        if _project:
+            click.echo(
+                "This project's staging is cleared and its user registered "
+                "again. In each other project, run 'fair reset' to unstage what "
+                "it had staged."
+            )
+        else:
+            click.echo(
+                "In each project, run 'fair init', which registers its user "
+                "again, and 'fair reset', which unstages what it had staged, "
+                "before it next runs."
+            )
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
         if e.level.lower() != "warning":
@@ -530,11 +702,30 @@ def status(debug) -> None:
 
 
 @cli.command()
+@click.option(
+    "-n",
+    "--count",
+    type=click.IntRange(min=1),
+    default=None,
+    metavar="COUNT",
+    help="Show the newest COUNT jobs, by default 10",
+)
+@click.option(
+    "--all", "all_jobs", is_flag=True, default=False, help="Show every job"
+)
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
-def log(debug: bool) -> None:
-    """Show a full job history"""
+def log(count: typing.Optional[int], all_jobs: bool, debug: bool) -> None:
+    """Show this repository's jobs, newest first: by default the newest 10"""
     try:
-        fdp_hist.show_history(os.getcwd())
+        if all_jobs and count:
+            raise fdp_exc.FAIRCLIException(
+                "Give '-n' or '--all', not both",
+                hint="'fair log --all' shows every job, and 'fair log -n "
+                "<count>' the newest <count>",
+            )
+        fdp_hist.show_history(
+            os.getcwd(), length=None if all_jobs else count or 10
+        )
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
         if e.level.lower() != "warning":
@@ -577,9 +768,27 @@ def unstage(identifier: str, debug: bool, job: bool) -> None:
 
 
 @cli.command()
-@click.argument("identifier", shell_complete=complete_data_products)
+@click.argument(
+    "identifier",
+    required=False,
+    default="",
+    shell_complete=complete_data_products,
+)
+@click.option(
+    "--all",
+    "all_runs",
+    is_flag=True,
+    default=False,
+    help="Stage every finished code run of this repository that the remote "
+    "lacks",
+)
+@click.option(
+    "--remote",
+    default="origin",
+    help="The remote registry that '--all' looks at",
+)
 @click.option("--debug/--no-debug", help="Run in debug mode", default=False)
-def add(identifier: str, debug: bool) -> None:
+def add(identifier: str, all_runs: bool, remote: str, debug: bool) -> None:
     """
     Add a data product or coderun to staging
 
@@ -592,13 +801,35 @@ def add(identifier: str, debug: bool) -> None:
 
     Use `fair list` to view Data Products and Code Runs
 
+    With `--all`, every finished code run of this repository that the remote
+    registry lacks is staged
+
     """
     try:
+        if all_runs and identifier.strip():
+            raise fdp_exc.StagingError(
+                "Give '--all' or an item to stage, not both",
+                hint="'fair add --all' stages every finished code run of this "
+                "repository that the remote lacks, and 'fair add <item>' one "
+                "item",
+            )
+        if not all_runs and not identifier.strip():
+            raise fdp_exc.StagingError(
+                "No data product or code run to stage was given",
+                hint="Give a data product as <namespace>:<name>@v<version>, a "
+                "code run by its UUID, or '--all': 'fair list' lists them",
+            )
+        # The items are looked for in the local registry, started if it is not
+        # running
         with fdp_session.FAIR(
             os.getcwd(),
             debug=debug,
+            server_mode=fdp_svr.SwitchMode.CLI,
         ) as fair_session:
-            fair_session.add_to_staging(identifier)
+            if all_runs:
+                fair_session.add_all_code_runs(remote)
+            else:
+                fair_session.add_to_staging(identifier)
     except fdp_exc.FAIRCLIException as e:
         e.err_print()
         if e.level.lower() != "warning":
@@ -606,16 +837,69 @@ def add(identifier: str, debug: bool) -> None:
 
 
 @cli.command()
-@click.argument("job_ids", nargs=-1)
-@click.option("--debug/--no-debug", help="Run in debug mode", default=False)
+@click.argument("code_runs", nargs=-1)
 @click.option(
-    "--cached/--not-cached",
-    default=False,
-    help="remove from tracking but do not delete from file system",
+    "--remote",
+    default="origin",
+    help="The remote registry, which must not hold the code runs",
 )
-def rm(job_ids: typing.List[str], cached: bool = False, debug: bool = False) -> None:
-    """Removes jobs from system or just tracking"""
-    pass
+@click.option(
+    "--local/--no-local",
+    help="Do not ask the remote registry whether it holds them",
+    default=False,
+)
+@click.option("--yes/--no", help="Delete them without asking", default=False)
+@click.option("--debug/--no-debug", help="Run in debug mode", default=False)
+def rm(
+    code_runs: typing.List[str],
+    remote: str,
+    local: bool,
+    yes: bool,
+    debug: bool,
+) -> None:
+    """Delete code runs from the local registry
+
+    Give each code run by its UUID. A run that the remote registry holds is
+    kept, as is a run whose outputs another run read, unless that run is
+    deleted too. What the runs wrote stays registered, and its files stay in
+    the data store.
+    """
+    try:
+        if not code_runs:
+            raise fdp_exc.FAIRCLIException(
+                "No code run to delete was given",
+                hint="Give each by its UUID: 'fair list code-runs' lists them",
+            )
+        if not yes and not sys.stdin.isatty():
+            raise fdp_exc.FAIRCLIException(
+                "There is no terminal to ask whether to delete the code runs",
+                hint="Give '--yes' to delete them",
+            )
+        with fdp_session.FAIR(
+            os.getcwd(),
+            debug=debug,
+            server_mode=fdp_svr.SwitchMode.CLI,
+        ) as fair_session:
+            # 'list' is the command here, not the builtin
+            _code_runs = fair_session.code_runs_to_remove(
+                [*code_runs], remote=remote, local=local
+            )
+            if not yes:
+                for _code_run in _code_runs:
+                    click.echo(
+                        f"Code run {_code_run['uuid']} of "
+                        f"{_code_run['run_date']}: {_code_run['description']}"
+                    )
+                if not click.confirm(
+                    "Delete these code runs from the local registry?",
+                    default=False,
+                ):
+                    return
+            fair_session.remove_code_runs(_code_runs)
+    except fdp_exc.FAIRCLIException as e:
+        e.err_print()
+        if e.level.lower() != "warning":
+            sys.exit(e.exit_code)
 
 
 @cli.command()

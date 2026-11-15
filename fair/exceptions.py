@@ -186,8 +186,8 @@ class NotImplementedError(FAIRCLIException):
 class StagingError(FAIRCLIException):
     """Errors relating to the staging of jobs"""
 
-    def __init__(self, msg):
-        super().__init__(msg)
+    def __init__(self, msg, hint=""):
+        super().__init__(msg, hint=hint)
 
 
 class SynchronisationError(FAIRCLIException):

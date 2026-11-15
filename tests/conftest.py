@@ -287,7 +287,7 @@ def local_config(mocker: pytest_mock.MockerFixture, tmp_path):
     with open(
         os.path.join(templ, fdp_com.USER_CONFIG_FILE), encoding="utf-8", mode="w"
     ) as conf:
-        yaml.dump({"run_metadata": {}}, conf)
+        yaml.dump({"run_metadata": {"description": "A test run"}}, conf)
     mocker.patch("fair.common.find_fair_root", lambda *args: templ)
     yield (tempg, templ)
 

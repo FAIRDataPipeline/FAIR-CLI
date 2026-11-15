@@ -76,3 +76,29 @@ def test_api_url_check_outside_api_path(endpoint):
     # A remote registry serves its own data store from the same host, so
     # a StorageRoot's root must not be taken for a reference to an object
     assert not fdp_util.is_api_url(_endpoint, f"{_domain}/data/")
+
+
+_FAIR_CLI = ("github.com", "FAIRDataPipeline/FAIR-CLI")
+
+
+@pytest.mark.faircli_utilities
+@pytest.mark.parametrize(
+    "address,expected",
+    [
+        ("https://github.com/FAIRDataPipeline/FAIR-CLI", _FAIR_CLI),
+        ("https://GitHub.com/FAIRDataPipeline/FAIR-CLI.git", _FAIR_CLI),
+        ("https://github.com/FAIRDataPipeline/FAIR-CLI/", _FAIR_CLI),
+        ("git@github.com:FAIRDataPipeline/FAIR-CLI.git", _FAIR_CLI),
+        ("ssh://git@github.com:22/FAIRDataPipeline/FAIR-CLI.git", _FAIR_CLI),
+        (" https://github.com/FAIRDataPipeline/FAIR-CLI\n", _FAIR_CLI),
+        (
+            "https://gitlab.com/FAIRDataPipeline/FAIR-CLI",
+            ("gitlab.com", "FAIRDataPipeline/FAIR-CLI"),
+        ),
+        ("FAIRDataPipeline/FAIR-CLI", None),
+        ("git@github.com/FAIRDataPipeline/FAIR-CLI.git", None),
+        ("", None),
+    ],
+)
+def test_repository_address(address, expected):
+    assert fdp_util.repository_address(address) == expected

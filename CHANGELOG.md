@@ -1,3 +1,125 @@
+# 2026-11-11 [v0.12.0](https://github.com/FAIRDataPipeline/FAIR-CLI/releases/tag/v0.12.0)
+
+## Changed behaviour
+- `fair run` refuses a configuration with no `description` in `run_metadata`, or a blank one. So do `fair run --ci`
+  and `--rehearse`. The registry needs a description of every code run, and without one the run's API failed later.
+  The refusal comes before anything is registered. `fair pull` needs no description.
+- `fair run` and `fair pull` check each name that a `write:` or `register:` entry would register. They refuse a name
+  that breaks the naming convention before registering anything, and name the entry. A namespace holds ASCII letters,
+  digits, `_` and `-`. A data product's name is one or more such parts joined by single `/`. A part may also hold
+  `.`, but not at its start or end. A `read:` entry is not checked.
+- `fair registry install` without `--directory` now looks for the registry in the directory the configuration names.
+  With `--force` it replaces the registry there. Before, it installed in `~/.fair/registry` whatever the
+  configuration said. When a registry is installed already, the refusal names `fair registry upgrade`.
+- `fair init --using <file>` and `fair init --ci` keep a machine's global configuration where there is one. Before,
+  they replaced its user, namespaces, remote, local registry and data store for every project on the machine. Their
+  settings are now the project's alone, and the project uses the machine's local registry. A file naming another
+  local registry, port or data store is refused; a project's own store is `run_metadata: write_data_store`.
+- A `read:` entry's `use: cache` names your own copy of the data product's file, such as a private one the remote
+  cannot send. `fair pull` now pulls the entry as any other read, and copies that file into the local data store in
+  place of the download. It refuses a file without the hash the remote records. Before, it pulled nothing for the
+  entry, and `fair run` let it through unregistered. A wildcard `read:` entry with `cache` is refused.
+- A `write:` pattern's version token is now bumped from the highest version of any name the pattern matches, and
+  every name written under the pattern takes that version. Before, a name already registered was bumped from its own
+  highest version, so it could be written below another name under the pattern. A `write:` entry for one name now
+  takes the place of a pattern's entry for that name. Two `write:` patterns matching one registered name are refused.
+- `fair add` refuses a code run that records no inputs or outputs. A run records them as it finishes, so such a run
+  is still running, or stopped before it finished.
+
+## Added
+- `fair add --all` stages every finished code run of this repository that the remote lacks, or holds only in part.
+  `--remote` names the remote, `origin` by default. A run has finished once it records inputs or outputs. It is
+  refused while another process holds a session on the local registry, since that may be a run in progress.
+- `fair rm <uuid>...` deletes code runs from the local registry and from the project's staging. It refuses a run the
+  remote holds (`--local` does not ask it), and a run whose outputs another run read, unless that run is deleted too.
+  It asks first (`--yes` answers for you). What the runs wrote stays registered. Before, `fair rm` did nothing.
+- `fair list code-runs` lists every code run, not the first ten. It shows whether each has finished, whether the
+  project has staged it, and how much of it `origin` holds. `--json` prints them as JSON, for a program to read.
+- `fair log -n <count>` lists the newest `<count>` jobs, and `fair log --all` every one. Ten is still the default.
+- `fair registry erase-unknown-data` erases the files in the local registry's data stores that the registry does not
+  hold. It runs only while the registry is stopped. It names each store and warns that another registry using it may
+  hold the files, then erases them only once the store's path is typed. `--dry-run` lists what it would erase. It keeps
+  any file that a run in progress could still be writing, unless given `--delete-all`. We recommend a data store for
+  each local registry.
+- `fair registry reset` empties the local registry. It deletes every record and keeps the install. It asks first
+  (`--yes` answers for you). It registers the file types again, and restarts the registry if it was running. If it
+  fails, or is stopped by Ctrl-C, the registry keeps its records. Run in a project, it also registers the project's
+  user again and clears the project's staging. `--delete-files` also deletes the files the registry held in its data
+  stores.
+- `fair registry upgrade` moves the local registry to another version: the newest release, or the one given by
+  `--version`. It keeps the registry's records if the new version's tables are the same. If they differ, it leaves
+  the registry as it was, as it does if it fails or is stopped by Ctrl-C. Given the installed version, it rebuilds the
+  registry. That mends one whose Python has gone.
+- While `fair registry erase-unknown-data`, `reset`, `upgrade` or `install --force` runs, any other command that would
+  start, stop or use the registry is refused. The refusal names the command that is running, and so does
+  `fair registry status`.
+- `fair push` and `fair pull` send the records attached to what they send. These are named components, licences,
+  keywords, key-values, quality-control records, code releases, and the issues on components. A record added after its
+  object was sent goes with the next push or pull of that object. If the other registry holds a record with other
+  values, the record there is kept as it is, with a warning.
+- An issue is not sent again if the other registry holds it already. It is found there by its UUID, or else by its
+  severity and description on the same component.
+- `fair push` warns of earlier code runs that the remote does not hold. Each such run wrote a pushed data product, an
+  input of a pushed run, or an input of another such run. The warning names the `fair add` command that would send it.
+
+## Fixed
+- `fair push` took time growing with the square of the number of data products a code run read: about 23 hours for a
+  run that read 600. A push now sends or checks each data product once, and links each code run once, after the data
+  products are sent. A push that fails links the runs of what it sent before the failure.
+- A code run that read or wrote a named part (a component) of a data product could not be pushed. The push failed
+  with "Failed to access component ... on remote registry". A run is now recorded on the remote as reading and
+  writing the parts it did. Before, a run pushed by itself was given every part of each file it used.
+- When two machines ran one commit of a code repository and pushed to the same registry, the registry got two objects
+  for that commit. The repository's release was on only one of them. If the machines registered the repository at
+  different paths, the push failed instead. A push or pull now gives a run the object that the other registry holds
+  for its commit. If there are several, it takes the one with a release, else the oldest, as DataPipeline.jl does
+  locally. A release registered as a data product gets the same object.
+- A push that reached two code runs the remote held already could give the second run the first's outputs. Registry
+  v1.5.0 refuses that, so the push failed.
+- `fair push` and `fair pull` took a data product on the other registry with the same namespace, name and version to
+  be the same one, whatever its file or source. A push then left the remote's data product in place without a word.
+  A run that used it failed with "Failed to access [] on remote registry". Both commands now check every data product
+  they would send before sending anything. They refuse one held there with other contents, and name each side's file
+  or source.
+- With a web proxy set in the environment (`http_proxy`, `https_proxy` or `all_proxy`), every request to the local
+  registry went to the proxy. Commands then failed with an error naming the registry's token or another server.
+  Requests to this machine now go to it directly. Requests to a remote registry or an identifier service still use
+  the proxy.
+- `fair add` failed unless the local registry was running. It now starts the registry, and stops it afterwards if it
+  started it. `fair add ""` staged an empty name, and is now refused.
+- A code run deleted from the local registry stayed in the project's staging. `fair add` staged it again, and
+  `fair push` then failed naming it. `fair status`, `fair add` and `fair push` now remove it from staging and say so.
+  `fair add` refuses it, and a push sends the rest.
+- Shell completion of a data product for `fair add` offered nothing: it ran `fair list` and stopped. It now offers
+  the data products the project's staging names.
+- A registry search dropped any filter set to `false` or `0`, so it found everything.
+- With no `git` on the path, every command failed with GitPython's own error, even `fair --version` and `--help`.
+  These two now run. A command that needs `git` says so, and names `GIT_PYTHON_GIT_EXECUTABLE`.
+- `fair registry install --version` took a branch only as `origin/<branch>`. It now takes the branch's name. Given a
+  version that the registry's repository does not have, it stopped the running registry before refusing. It now
+  checks the version before stopping anything.
+- `fair log` stopped with "Cannot open log for job" at the first job that another repository ran with the same data
+  store. By default every project on a machine shares one data store. `fair log` now lists this repository's jobs,
+  then says how many others it skipped and which repositories ran them. It lists at most 10 jobs, not 11. If this
+  repository has run no jobs, it says so.
+- `fair view` stopped with a Python traceback when given a job that another repository ran. It now says it found no
+  such job, and names `fair log`.
+- `fair log` and `fair remote` printed some text in white or yellow, which is hard or impossible to read on a light
+  background. A job's id and date, and a remote's name, are now bold in the terminal's own colour. A remote's address
+  is plain.
+- `fair init --using` failed on a file with a top-level `description`, as earlier documented examples had. It now
+  ignores the key. A registry in the file with no `data_store` is now refused naming that key, not another.
+- A user whose identifier, such as an ORCID, the local registry held under another spelling of the name could not
+  register: `fair init` and `fair pull` stopped with "Expected to receive a URL location from registry post". The
+  registry's author with that identifier is now used, with a warning naming both spellings.
+
+## Development
+- The implementations workflow no longer installs `libmemcached-dev`, which the registry has not needed since before
+  v1.0.0. So the Python, Java and Julia jobs no longer need Ubuntu's package archive, which GitHub's runners could
+  not reach for a time.
+- The C++ job of the implementations workflow no longer upgrades the runner's own packages, which it does not use.
+- A storage test no longer checks its DOI online. It failed when the site the DOI leads to closed the connection.
+
 # 2026-10-19 [v0.11.0](https://github.com/FAIRDataPipeline/FAIR-CLI/releases/tag/v0.11.0)
 
 ## Changed behaviour

@@ -8,63 +8,72 @@
 | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | The following document is largely conceptual and therefore does *not* represent a manual for the final interface. Statements within the following are likely to change, further details of possible changes are given throughout. Please either open an issue or pull request on the [source repository](https://github.com/FAIRDataPipeline/FAIR-CLI) raising any changes/issues. |
 
-FAIR-CLI forms the main interface for synchronising changes between your local and shared remote FAIR Data Pipeline registries, it is also used to instantiate model runs/data submissions to the pipeline.
+FAIR-CLI is the main interface for synchronising changes between a local FAIR Data Pipeline registry and shared remote ones. It also launches model runs and data submissions to the pipeline.
 
-The project is still under development with many features still to be implemented and checked. Available commands are summarised below along with their usage.
+The project is still under development, with features still to be implemented and checked. The commands are summarised below, with their usage. The [README](https://github.com/FAIRDataPipeline/FAIR-CLI#readme) is the user's guide.
 
 ## Installation
 
-The project makes use of [Poetry](https://python-poetry.org/) for development which allows quick and easy mangement of dependencies, and provides a virtual environment exclusive to the project. Ultimately the project will be built into a pip installable module (using `poetry build`) meaning users will not need Poetry. You can access this environment by installing poetry:
+The project is developed with [Poetry](https://python-poetry.org/), which manages its dependencies and gives it a virtual environment of its own. Users do not need Poetry: `poetry build` makes the package that `pip` installs. To use the environment, install Poetry:
 
 ```sh
 pip install poetry
 ```
 
-and, ensuring you are in the project repository, running:
+Then, in the project repository, run:
 
 ```sh
 poetry install
 ```
 
-which will setup the virtual environment and install requirements. You can then either launch the environment as a shell using:
+This sets up the virtual environment and installs the requirements. Then either start a shell in the environment:
 
 ```sh
 poetry shell
 ```
 
-or run commands within it externally using:
+or run a command in it from outside:
 
 ```sh
 poetry run <command>
 ```
 
 ## Publishing
-If publishing a new version of `fair-cli` it is recommended that you first upload to [test.pypi.org](https://test.pypi.org/) before performing a final submission to [PyPi](https://pypi.org/) itself. Note also that both sites only allow submission of a file once, even if the file is deleted a re-submission is not allowed so the built tarball/wheel files will require renaming should a re-upload be required. After upload is complete create a release from the tag on GitHub and verify the release has been detected by Zenodo.
 
-|**NOTE**|
-|----|
-|Before creating a release you must ensure that the version numbers stated within the `CITATION.cff` and `pyproject.toml` files match the git tag to be assigned.|
+A release is made on GitHub. Its tag starts two workflows, which publish the package to PyPI and attach its files to the GitHub release.
 
-### Building the Module
-To build the module run:
-```
-poetry build
-```
-this will produce a `dist` folder containing a tarball archive and a wheels file.
+### Preparing a release
 
-### Publishing to PyPi
-Although Poetry does allow you to publish via the `poetry publish` command it is recommended that `twine` be used as it performs a couple of validation checks. To use `twine`:
+Work is merged into the `Dev` branch. When `Dev` is ready, one commit there sets the new version in three files:
+
+- `pyproject.toml`: `version`.
+- `CITATION.cff`: `version`, and `date-released`, the day of the release.
+- `CHANGELOG.md`: the "Unreleased" heading becomes the release's date and version, linked to its page on GitHub, as the earlier releases' headings are.
+
+Then `Dev` is merged into `main` by a pull request. The merge closes each issue that the pull request's description or a commit message names with `Fixes #<number>`.
+
+### Making the release
+
+Make a release on GitHub from `main`, with a new tag `v<version>`, such as `v0.12.0`. The tag must match the version in `pyproject.toml` and `CITATION.cff`. The new tag starts two workflows:
+
+- `.github/workflows/release.yaml` builds the package, checks it with `twine check --strict`, and publishes it to PyPI. It stops if the tag is not the version in `pyproject.toml`. It publishes through PyPI's trusted publishing, so it needs no token or password.
+- `.github/workflows/deploy.yaml` builds a single-file binary with PyInstaller on Linux, macOS (Apple Silicon) and Windows, and checks that each one runs. It then checks that the tag matches the versions in `pyproject.toml` and `CITATION.cff`. Last, it attaches the wheel, the source archive and the three binaries to the GitHub release. If any binary fails its check, nothing is attached.
+
+When both have finished, check that the release is on [PyPI](https://pypi.org/project/fair-cli/), and that Zenodo has archived it.
+
+PyPI accepts each file only once, even after it is deleted. So a release with a fault is mended by a new version, not by uploading again.
+
+### Building the package yourself
+
+To check the package before a release, build it and check it as `release.yaml` does:
+
+```sh
+pip install build twine
+python -m build
+python -m twine check --strict dist/*
 ```
-pip install twine
-```
-if you have an account on [test.pypi.org](https://test.pypi.org/) and you are a member of the `fair-cli` project you can then perform a test upload:
-```
-twine upload --repository-url https://test.pypi.org/legacy/ dist/* -u <user-name> -p <password>
-```
-if submission is successful the resultant URL should be displayed. If you are satisfied with the result you can then upload to [PyPi](https://pypi.org/) itself by running:
-```
-twine upload dist/* -u <user-name> -p <password>
-```
+
+`python -m build` makes a `dist` folder holding a source archive and a wheel.
 
 ## Structure
 
@@ -91,38 +100,34 @@ $HOME
 
 ### Global and Local Directories
 
-FAIR-CLI stores information for projects in two locations. The first is a *global* directory stored in the user's home folder in the same location as the registry itself `$HOME/.fair/cli`, and the second is a *local* directory which exists within the model project itself `$PROJECT_HOME/.fair`.
+FAIR-CLI stores information about projects in two places. The *global* directory is `$HOME/.fair/cli`, in the user's home folder beside the registry. The *local* directory is `$PROJECT_HOME/.fair`, inside the model project itself.
 
-The CLI holds metadata for the user in it's own configuration file (not to be confused with the user modifiable `config.yaml`), `cli-config.yaml`, the *global* version of which is initialised during first use. In a manner similar to `git`, FAIR-CLI has repositories which allow the user to override these *global* configurations, this then forming a *local* variant.
+The CLI holds metadata about the user in its own configuration file, `cli-config.yaml`. This is not the `config.yaml` that the user edits. The *global* version is made on first use. As in `git`, each project can override the *global* configuration with a *local* one.
 
 ### Data Directory
 
-The directory `$HOME/.fair/data` is the default data store initialised by FAIR-CLI. During setup an alternative can be provided and this can be later changed on a per-run basis if the user so desires. The subdirectory `$HOME/data/jobs` contains timestamped directories of jobs.
+`$HOME/.fair/data` is the default data store. Setup can give another, and a run's configuration can give another again. The subdirectory `jobs` of the default data store holds a timestamped directory for each job.
 
 ### Sessions Directory
 
-The directory `sessions` in the registry's own directory records the registry's server - the host it runs on, its address, and whether `fair registry start` or a command started it - and a session for each process using it, naming the process. The registry is not stopped while a session is open, and one a command started is stopped when the last session closes. A file `lock` there lets one process at a time start or stop the registry.
+The directory `sessions`, in the registry's own directory, records the registry's server. The record gives the host the server runs on, its address, and whether `fair registry start` or a command started it. The directory also holds a record of each session, naming the process that holds it. The registry is not stopped while a session is open. A registry that a command started stops when the last session closes. A file `lock` there lets only one process at a time start or stop the registry.
 
 ### Logs Directory
 
-The directory `$PROJECT/.fair/logs` stores `stdout` logs for jobs also giving information on who launched the job and how long it lasted.
+The directory `$PROJECT/.fair/logs` holds each job's log. The log records the job's output, who launched it and how long it took.
 
 ### Staging File
 
-The staging file, `$PROJECT/.fair/staging`, contains information of what jobs are being tracked, by default all jobs are added to this file after completion and are set to "unstaged". Simply contains a dictionary of booleans where items for sync (staged) are marked true `True` and those to be held only locally `False`. The file uses paths relative to the *local* `.fair` folder as keys, to behave in a manner identical to `git` staging.
+The staging file, `$PROJECT/.fair/staging`, records what can be pushed: jobs, files, data products and code runs. Each item is marked `True` if it is staged, to be pushed, or `False` if it is to stay local. A job is added after it finishes, unstaged. Jobs and files are keyed by their paths relative to the *local* `.fair` folder, much as `git` stages files.
 
 ### `config.yaml`
 
-This is the main file the user will interact with to customise their run. FAIR-CLI automatically generates a starter version of this file with everything in place. The only addition required is setting of either `script` or `script_path` (with the exception of running using `fair run bash` - see [below](#run)) under `run_metadata`.
-|                                                                                                                                                      |
-| ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **`script`**                                                                                                                                         |
-| This should be a command callable by a shell for running a model/submitting data to the registry. This script is saved to a file prior to execution. |
-|                                                                                                                                                      |
-| **`script_path`**                                                                                                                                    |
-| This is a direct path to an existing script to use for submission.                                                                                   |
+This is the file the user edits to configure a run. `fair create`, or `fair init --config <file>`, writes a starter version of it. `run_metadata` must say what to run, with one of these keys, unless the run is given `fair run --script` (see [below](#run)):
 
-By default the shell used will be `sh` or `batch` for UNIX and Windows systems respectively, however this can be overwritten with the optional `shell` key which recognises the following values (where `{0}` is the script file):
+- **`script`**: commands for a shell, which run a model or submit data to the registry. The CLI saves them to a file before running it.
+- **`script_path`**: the path of an existing script to run.
+
+By default a script runs in `sh` on UNIX and in `batch` on Windows. The optional `shell` key chooses another shell from this table, in which `{0}` stands for the script file:
 
 | **Shell**    | **Command**                     |
 | ------------ | ------------------------------- |
@@ -136,8 +141,9 @@ By default the shell used will be `sh` or `batch` for UNIX and Windows systems r
 | `python`     | `python {0}`                    |
 | `R`          | `R -f {0}`                      |
 | `sh`         | `sh -e {0}`                     |
+| `batch`      | `{0}`                           |
 
-Flags for a shell's program follow its name, separated by spaces, and go straight after the program: `shell: julia --project=@.` runs `julia --project=@. {0}`, starting Julia in the repository's project. A flag cannot contain a space, and `batch`, which has no program, takes none.
+Flags for a shell's program follow its name, separated by spaces. They go straight after the program. So `shell: julia --project=@.` runs `julia --project=@. {0}`, which starts Julia in the repository's project. A flag cannot contain a space. `batch` has no program, so it takes no flags.
 
 | **NOTE**                                                                                                                                                                                                                                            |
 | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -145,84 +151,98 @@ Flags for a shell's program follow its name, separated by spaces, and go straigh
 
 ## Registry Interaction
 
-Currently `FAIR-CLI` sets up the write data storage location on the local registry if it does not exist. Entries are created for the YAML file type, current user as an author, and object for a given run.
+`fair init` registers the file types, and the project's user as an author, in the local registry. The CLI registers nothing about a run itself: the run's language API registers what the run reads and writes.
 
 ## Command Line Usage
 
-As mentioned, all of the subcommands within FAIR-CLI are still under review with many still serving as placeholders for future features. Running `fair` without arguments or `fair --help` will show all of these.
+Running `fair` without arguments, or `fair --help`, lists the commands. Some are still under review.
 
 ### `init`
 
-Initialises a new FAIR repository within the given directory. This should ideally be the same location as the `.git` folder for the current project, although setup will ask if you want to use an alternative location. The command will ask the user a series of questions which will provide metadata for tracking run authors, and also allow for the creation of a starter `config.yaml`.
+`fair init` makes the current directory a FAIR project. The directory should ideally be the root of the project's git repository, the folder holding `.git`. Setup asks where the git repository is, so another location can be given. The command asks the user a series of questions. The answers record who ran each run. With `--config <file>`, it also writes a starter `config.yaml`.
 
-The first time this command is launched the *global* CLI configuration will be populated. In subsequent calls the *global* will provide default suggestions towards creating the CLI configuration for the repository (*local*).
+The first `fair init` on a machine fills in the *global* CLI configuration. Later calls offer the *global* values as defaults for the project's own, *local*, configuration.
 
-A repository directory matching the structure above will be placed in the current location and a starter `config.yaml` file will be generated (see below).
+`fair init` makes a `.fair` directory, laid out as above, in the current location.
 
 #### Example: First call to `fair init`
 
-This example shows the process of setting up for the first time. Note the default suggestions for each prompt, in the case of `Full name` and `Default output namespace` this is the hostname of the system and an abbreviated version of this name.
+The first `fair init` on a machine asks for the global configuration, then for the project's. Pressing Enter takes the default in square brackets. In this example the local registry was installed already, by `fair registry install`. If none is installed, `fair init` asks whether to use an existing installation, and otherwise installs one.
 
-```sh
+The remote registry in this example is a test one on the same machine. Taking the default gives the FAIR Data Pipeline's registry. To get a token for it, log in to [its website](https://data.fairdatapipeline.org/) with GitHub, and create an API token there. Answering no to starting the local registry starts it only while `fair init` needs it. The ORCID is the one ORCID uses for its example researcher, whose name `fair init` looks up.
+
+```text
 $ fair init
-Initialising FAIR repository, setup will now ask for basic info:
+Initialising FAIR repository, setup will now ask for basic info (leave blank for default value):
 
+Setup will now ask you questions regarding the global configuration
 Checking for local registry
-Local registry found
-Remote Data Storage Root [http://data.fairdatapipeline.org/data/]:
-Remote API Token File: $HOME/scrc_token.txt
-Local API URL [http://127.0.0.1:8000/api/]:
-Local registry is offline, would you like to start it? [y/N]: y
-Default Data Store:  [/home/joebloggs/.fair/data]:
-Email: jbloggs@noreply.uk
-ORCID [None]:
-Full Name: Joe Bloggs
-Default output namespace [joebloggs]:
-Default input namespace [joebloggs]: SCRC
-Project description: Test project
-Local Git repository [/home/joebloggs/Documents/AnalysisProject]:
+Local registry found at '/home/jcarberry/.fair/registry'
+Local Registry Port [8000]:
+Remote API URL [https://data.fairdatapipeline.org/api/]: http://127.0.0.1:8001/api/
+Remote Data Storage Root [http://127.0.0.1:8001/data/]:
+Remote API Token: <your 40-character token>
+Local registry is offline, would you like to start it and for it to remain running? [y/N]:
+Temporarily launching local registry to retrieve API token.
+Default Data Store [/home/jcarberry/.fair/data/]:
+User ID system (GITHUB/GITLAB/ORCID/ROR/GRID/None) [GITHUB]: ORCID
+ORCID: 0000-0002-1825-0097
+Found entry: Josiah Carberry
+Email (optional) []: jcarberry@example.org
+Default output namespace [josiahcarberry]:
+Default input namespace [josiahcarberry]:
+Setup will now ask you questions regarding this repo configuration
+Local Git repository [/home/jcarberry/Documents/AnalysisProject]:
 Git remote name [origin]:
-Using git repository remote 'origin': git@notagit.com:jbloggs/AnalysisProject.git
-Initialised empty fair repository in /home/joebloggs/Documents/AnalysisProject/.fair
+Using git repository remote 'origin': https://git.example.org/jcarberry/AnalysisProject.git
+Remote API URL [http://127.0.0.1:8001/api/]:
+Remote API Token File [/home/jcarberry/.fair/cli/remotetoken.txt]:
+Default output namespace [josiahcarberry]:
+Default input namespace [josiahcarberry]:
+Initialised empty fair repository in /home/jcarberry/Documents/AnalysisProject/.fair
 ```
 
-#### Example: Subsequent runs
+#### Example: A second project
 
-In subsequent runs the first time setup will provide further defaults.
+On a machine already set up, `fair init` asks only for the project's configuration. It offers the global values as defaults:
 
-```sh
+```text
 $ fair init
-Initialising FAIR repository, setup will now ask for basic info:
+Initialising FAIR repository, setup will now ask for basic info (leave blank for default value):
 
-Project description: Test Project
-Local Git repository [/home/joebloggs/Documents/AnalysisProject]:
+Setup will now ask you questions regarding this repo configuration
+Local Git repository [/home/jcarberry/Documents/AnotherProject]:
 Git remote name [origin]:
-Using git repository remote 'origin': git@nogit.com:joebloggs/AnalysisProject.git
-Remote API URL [http://data.fairdatapipeline.org/api/]:
-Remote API Token File [/home/kristian/scrc_token.txt]:
-Local API URL [http://127.0.0.1:8000/api/]:
-Default output namespace [joebloggs]:
-Default input namespace [joebloggs]:
-Initialised empty fair repository in /home/joebloggs/Documents/AnalysisProject/.fair
+Using git repository remote 'origin': https://git.example.org/jcarberry/AnotherProject.git
+Remote API URL [http://127.0.0.1:8001/api/]:
+Remote API Token File [/home/jcarberry/.fair/cli/remotetoken.txt]:
+Default output namespace [josiahcarberry]:
+Default input namespace [josiahcarberry]:
+Initialised empty fair repository in /home/jcarberry/Documents/AnotherProject/.fair
 ```
 
 #### Generated `config.yaml`
 
-```yaml
-run_metadata:
-  default_input_namespace: SCRC
-  default_output_namespace: joebloggs
-  description: Test Project
-  local_data_registry: http://127.0.0.1:8000/api/
-  local_repo: /home/joebloggs/Documents/AnalysisProject
-  write_data_store: /home/joebloggs/.fair/data/
+`fair create` then writes a starter `config.yaml` in the project:
+
+```text
+$ fair create
+Generating new user configuration file '/home/jcarberry/Documents/AnalysisProject/config.yaml'
 ```
 
-the user then only needs to add a `script` or `script_path` entry to execute a code run. This is only required for `run`.
+```yaml
+run_metadata:
+  default_input_namespace: josiahcarberry
+  default_output_namespace: josiahcarberry
+  description: Project description
+  script: echo "Hello World!"
+```
+
+The user then replaces the `description`, and the `script` with what the project runs, or gives a `script_path` instead.
 
 #### Advanced usage
 
-CLI configuration can be read directly from a file which should contain the following:
+`fair init --using <file>` reads the CLI configuration from a file. `fair init --export <file>` writes one. On a machine with no CLI configuration yet, the file's settings become the machine's as well as the project's. On a machine set up already, they are the project's alone. One local registry, with its data store, serves every project on a machine, so a file naming another one is refused. Each key below is required, except `orcid` and `uri` under `user`, and `registries: local` on a machine set up already:
 
 ```yaml
 namespaces:
@@ -231,41 +251,42 @@ namespaces:
 registries:
   local:
     data_store: /path/to/local/data_store/
-    directory: /local/registry/install/directory
+    directory: /path/to/local/registry/
+    token: /path/to/local/registry/token
     uri: http://127.0.0.1:8000/api/
   origin:
-    data_store: /remote/registry/data/store/path/
+    data_store: https://data.fairdatapipeline.org/data/
     token: /path/to/remote/token
     uri: https://data.fairdatapipeline.org/api/
 user:
-  email: 'test@noreply'
-  family_name: 'Test'
-  given_names: 'Interface'
-  orcid: None
-  uuid: '2ddb2358-84bf-43ff-b2aa-3ac7dc3b49f1'
+  email: jbloggs@example.org
+  family_name: Bloggs
+  given_names: Joe
+  orcid: 0000-0002-1825-0097
+  uri: https://orcid.org/0000-0002-1825-0097
+  uuid: 2ddb2358-84bf-43ff-b2aa-3ac7dc3b49f1
+  remote_user: jbloggs
 git:
-  local_repo: /local/repo/path
+  local_repo: /path/to/project/
   remote: origin
-description: Testing Project
+  remote_repo: https://github.com/jbloggs/project
 ```
-
-this file is then read during initialisation:
 
 ```sh
-fair init --using <cli-config.yaml file>
+fair init --using <file>
 ```
 
-For the purposes of CI runs, the initialisation can be "skipped" by running:
+For CI runs, `fair init --ci` skips the questions:
 
 ```sh
 fair init --ci
 ```
 
-which will create temporary directories for some locations.
+It gives the project the user "Interface Test" and both namespaces `testing`, and expects the remote registry at `http://127.0.0.1:8001/api/`. On a machine with no CLI configuration yet, such as a CI runner, these settings become the machine's too, with the local registry on port 8000 and its data store in the project's `.fair/data_store` folder. On a machine set up already, the project uses the machine's local registry and data store.
 
 ### `run`
 
-The purpose of `run` is to execute a model/submission run to the local registry. The command fills any specified template variables of the form `${{ VAR }}` to match those outlined [below](#template-variables). Outputs of a run will be stored within the `coderun` folder in the directory specified under the `data_store` tag in the `config.yaml`, by default this is `$HOME/.fair/data/coderun`.
+`fair run` runs a model, or a data submission, as `config.yaml` configures it. It fills in each template variable of the form `${{ VAR }}`, as listed [below](#template-variables). The run's language API registers what the run reads and writes in the local registry. The outputs go in the data store that `run_metadata: write_data_store` names, by default `$HOME/.fair/data/`. Each run's job folder, holding its working config and its script, is under `jobs` in the default data store.
 
 ```sh
 fair run
@@ -277,31 +298,32 @@ If you wish to use an alternative `config.yaml` then specify it as an additional
 fair run /path/to/config.yaml
 ```
 
-You can also launch a bash command directly which will then be automatically written into the `config.yaml` for you:
+`--script` runs a command directly, and writes it into the `config.yaml`:
 
 ```sh
 fair run --script "echo \"Hello World\""
 ```
 
-note the command itself must be quoted as it is a single argument.
+Quote the command, since it is one argument.
 
 ### `pull`
 
-Currently `pull` will update any entries within the `config.yaml` under the `register` heading creating `external_object` and `data_product` objects on the registry and downloading the data to the local data storage. For example:
+`fair pull` registers the entries under `register:` in `config.yaml`. It downloads each entry's file into the local data store, and registers it in the local registry as an external object and a data product. For example:
 
 ```yaml
 run_metadata:
   default_input_namespace: SCRC
   default_output_namespace: joebloggs
   description: Test project
-  local_data_registry: http://127.0.0.1:8000/api/
+  local_data_registry_url: http://127.0.0.1:8000/api/
   local_repo: /home/joebloggs/Documents/SCRC/FAIR-CLI
   write_data_store: /home/joebloggs/.fair/data/
 register:
+- namespace: scottish_government
+  full_name: Scottish Government Open Data Repository
+  website: https://statistics.gov.scot/
 - external_object: records/SARS-CoV-2/scotland/human-mortality
-  namespace_name: Scottish Government Open Data Repository
-  namespace_full_name: Scottish Government Open Data Repository
-  namespace_website: https://statistics.gov.scot/
+  namespace_name: scottish_government
   root: https://statistics.gov.scot/sparql.csv?query=
   path: |-
     PREFIX qb: <http://purl.org/linked-data/cube#>
@@ -336,23 +358,29 @@ register:
   title: Deaths involving COVID19
   description: Nice description of the dataset
   unique_name: Scottish deaths involving COVID19
+  alternate_identifier_type: ods_name
   file_type: csv
   release_date: ${{DATETIME}}
   version: 0.${{DATE}}.0
   primary: True
 ```
 
-if run on `10/10/2021` would download the data from the given `root`/`path` URL and store in a file:
+Run on 10 October 2021, this downloads the data from the URL that `root` and `path` give, and stores it in this file:
 
 ```sh
-/home/joebloggs/.fair/data/records/SARS-CoV-2/scotland/human-mortality/0.20211010.0.csv
+/home/joebloggs/.fair/data/scottish_government/records/SARS-CoV-2/scotland/human-mortality/0.20211010.0.csv
 ```
 
-and register all required objects into the local registry.
+It then registers the file in the local registry. A namespace named by `namespace_name` must have a `namespace:` entry of its own in the same `register:` block.
 
-An entry's `version` may instead be a placeholder, which is resolved once the file has been fetched. With `${{PATCH}}` - the default, when no version is given - or `${{MINOR}}` or `${{MAJOR}}`, the highest version registered is kept while the file is that version's, and a changed file is registered at the next version. With `${{LATEST}}` the highest version is kept, and a changed file, or a name with no version yet, is refused: a way of pinning an input that is expected not to change. `fair run` reads the version that `fair pull` registered, and refuses an entry it has not.
+An entry's `version` may instead be a placeholder, which `fair pull` resolves once it has fetched the file:
 
-A source with no file of its own - such as a data store that a run queries for the files it needs, named by its DOI - is registered with `no_file: true` in place of `root`, `path` and `file_type`. It becomes a data product with no file, whose source is the external object, and a run may then name it in its `read` block. Its `version` must be given, and stays as it is: with no file, nothing else says when it changes. `cache` and `public` describe a file, and are refused with `no_file`:
+- With `${{PATCH}}`, `${{MINOR}}` or `${{MAJOR}}`, the highest version registered is kept if the file is that version's file. A changed file is registered at the next version. `${{PATCH}}` is the default, when no version is given.
+- With `${{LATEST}}`, the highest version is kept. A changed file is refused, and so is a name with no version yet. This pins an input that is expected not to change.
+
+`fair run` reads the version that `fair pull` registered, and refuses an entry that `fair pull` has not registered.
+
+Some sources have no file of their own, such as a data store, named by its DOI, that a run queries for the files it needs. Such a source is registered with `no_file: true` in place of `root`, `path` and `file_type`. It becomes a data product with no file, whose source is the external object. A run may then name it in its `read` block. Its `version` must be given, and stays as it is, since with no file nothing else says when it changes. `cache` and `public` describe a file, so they are refused with `no_file`:
 
 ```yaml
 register:
@@ -368,29 +396,42 @@ register:
   no_file: true
 ```
 
+A file you already hold can stand in for a download. In a `register:` entry, `cache: <file>` registers your file, and `root` and `path` still record where it came from. In a `read:` entry, `use: cache: <file>` is for a data product that the remote registry holds but cannot send. A private data product is one: its file is not uploaded, so the remote records it on the machine that made it. `fair pull` pulls such an entry as any other read, and copies your file into the local data store in place of the download. It first checks that the file has the hash the remote records. If not, it refuses the file and registers nothing for it. `fair run` then reads the entry as any other, and refuses it if `fair pull` has not registered it:
+
+```yaml
+read:
+- data_product: survey/responses
+  use:
+    namespace: my_namespace
+    version: 1.0.0
+    cache: ${{REPO_DIR}}/data/responses.csv
+```
+
+Your file is left as it was. A relative path is taken from the current directory. A wildcard entry cannot give `cache`, since one file cannot stand for several data products.
+
 ### `purge`
 
-Removes the local `.fair` (FAIR repository) folder by default so the user can reinitialise:
+`fair purge` removes the project's `.fair` folder, so that the project can be initialised again:
 
 ```sh
 fair purge
 ```
 
-You can remove the global configuration and start again entirely by running:
+`--global` also removes the global configuration, to start again entirely:
 
 ```sh
 fair purge --global
 ```
 
-and also the data directory by running:
+`--data` also removes the default data store:
 
 ```sh
 fair purge --data
 ```
 
-**WARNING**: This is not recommended as the registry may still have entries pointing to this location!
+**Warning**: this is not recommended. The registry may still hold records of the files in that data store.
 
-You can skip any confirmation messages by running:
+`--yes` answers every question for you:
 
 ```sh
 fair purge --yes
@@ -398,44 +439,39 @@ fair purge --yes
 
 ### `registry`
 
-A command that uses the local registry starts it, on the configured port, if it is not running, and a registry started that way is stopped when the last command using it finishes. `fair registry start` starts it - or keeps the one a command started - until `fair registry stop`. The [README](https://github.com/FAIRDataPipeline/FAIR-CLI#registry) says more, including the session commands for programs that use the registry outside a `fair` command.
+A command that uses the local registry starts it if it is not running, on the configured port. A registry started this way stops when the last command using it finishes. `fair registry start` starts the registry, or keeps the one a command started, until `fair registry stop`. The [README](https://github.com/FAIRDataPipeline/FAIR-CLI#registry) says more. It includes the session commands for programs that use the registry outside a `fair` command.
 
 ### `log`
 
-Runs are logged locally within the local FAIR repository. A full list of runs is shown by running:
+Each job's log is kept in the project's `.fair/logs` folder. `fair log` lists the 10 most recent jobs that this repository ran:
 
 ```sh
 fair log
 ```
 
-This will present a list of runs in a summary analogous to a `git log` call:
+Each job is shown much as `git log` shows a commit:
 
-```yaml
-run 0db35c20946a1ebeaafdc3b30103cd74a57eb6b6
+```text
+job # 0db35c20946a1ebeaafdc3b30103cd74a57eb6b6
 Author: Joe Bloggs <jbloggs@noreply.uk>
 Date:   Wed Jun 30 09:09:30 2021
 ```
 
-| **NOTE**                                                                                                                            |
-| ----------------------------------------------------------------------------------------------------------------------------------- |
-| The SHA for a job is *not* yet related to a registry code run identifier as multiple code runs can be executed within a single job. |
+A job's SHA is not a code run's identifier on the registry: one job can hold several code runs.
 
 ### `view`
 
-To view the `stdout` of a run given its SHA as shown by running `fair log` use the command:
+`fair view` shows a job's log, given its SHA from `fair log`. The first few characters of the SHA are enough:
 
 ```sh
 fair view <sha>
 ```
 
-you do not need to specify the full SHA but rather the first few characters:
-
 ```text
 --------------------------------
  Commenced = Wed Jun 30 09:09:30 2021
  Author    = Joe Bloggs <jbloggs@noreply.uk>
- Namespace = joebloggs
- Command   = bash -eo pipefail /home/jbloggs/.fair/data/coderun/2021-06-30_09_09_30_721358/script.sh
+ Command   = bash -eo pipefail /home/jbloggs/.fair/data/jobs/2021-06-30_09_09_30_721358/script.sh
 --------------------------------
 0
 1
@@ -453,18 +489,21 @@ you do not need to specify the full SHA but rather the first few characters:
 
 ## Template Variables
 
-Within the `config.yaml` file, template variables can be specified by using the notation `${{ VAR }}`, the following variables are currently recognised:
+In `config.yaml`, `${{ VAR }}` stands for the value of a template variable. `fair run` substitutes these:
 
-| **Variable**        | **Description**                                                                  |
-| ------------------- | -------------------------------------------------------------------------------- |
-| `DATE`              | Date in the form `%Y%m%d`                                                        |
-| `DATETIME`          | Date and time in the form `%Y-%m-%sT%H:%M:S`                                     |
-| `DATETIME-%Y%H%M`   | Date and time in custom format (where `%Y%H%M` can be any valid form)            |
-| `USER`              | The current user as defined in the CLI                                           |
-| `REPO_DIR`          | The FAIR repository root directory                                               |
-| `CONFIG_DIR`        | The directory containing the `config.yaml` after template substitution           |
-| `LOCAL_TOKEN`       | The token for access to the local registry                                       |
-| `SOURCE_CONFIG`     | Path of the user defined `config.yaml`                                           |
-| `GIT_BRANCH`        | Current branch of the `git` repository                                           |
-| `GIT_REMOTE`        | The URI of the git repository specified during setup                             |
-| `GIT_TAG`           | The latest tag on `git`                                                          |
+| **Variable**      | **Description**                                                   |
+| ----------------- | ----------------------------------------------------------------- |
+| `DATE`            | The date, in the form `%Y%m%d`                                    |
+| `DATETIME`        | The date and time, in the form `%Y-%m-%dT%H:%M:%S`                |
+| `DATETIME-%Y%H%M` | The date and time in a form of your own, here `%Y%H%M`            |
+| `USER`            | The user's name, from the CLI's configuration                     |
+| `USER_ID`         | The user's identifier as a URL, else their UUID                   |
+| `REPO_DIR`        | The project's root directory                                      |
+| `CONFIG_DIR`      | The job's folder, which holds the working config                  |
+| `LOCAL_TOKEN`     | The local registry's token                                        |
+| `SOURCE_CONFIG`   | The file name of the user's `config.yaml`                         |
+| `GIT_BRANCH`      | The git repository's current branch                               |
+| `GIT_REMOTE`      | The URL of the git remote chosen at setup                         |
+| `GIT_TAG`         | The nearest tag in the history of the current commit              |
+
+`${{ RUN_ID }}` is left in place for the language API, which puts the code run's UUID there.

@@ -12,6 +12,7 @@ import inspect
 import json
 import os
 import shutil
+import subprocess
 import sys
 import traceback
 import typing
@@ -27,6 +28,7 @@ import pytest_mock
 import requests
 import yaml
 
+import fair.cli
 import fair.common as fdp_com
 import fair.exceptions as fdp_exc
 import fair.registry.lifecycle
@@ -114,6 +116,21 @@ def test_status(
             cli, ["status", "--debug", "--verbose"], catch_exceptions=True
         )
         assert _result.exit_code == 0
+
+
+@pytest.mark.faircli_cli
+def test_fair_add_completes_a_data_product(
+    local_config: typing.Tuple[str, str],
+):
+    _staging = {
+        "job": {},
+        "data_product": {"PSU:a/b@v1.0.0": False, "other:c@v1.0.0": True},
+        "code_run": {},
+    }
+    with open(fdp_com.staging_cache(local_config[1]), "w") as staged:
+        yaml.dump(_staging, staged)
+    _offered = fair.cli.complete_data_products(None, None, "PSU")
+    assert [_item.value for _item in _offered] == ["PSU:a/b@v1.0.0"]
 
 
 @pytest.mark.faircli_cli
@@ -626,6 +643,150 @@ def test_init_using_a_configuration_that_does_not_validate_leaves_nothing(
     _update.assert_not_called()
 
 
+# Give the machine a global configuration, as its first 'fair init' leaves it,
+# returning what the file holds
+def _set_up_machine(tmp_path) -> bytes:
+    os.makedirs(fdp_com.global_config_dir())
+    _config = _cli_configuration(tmp_path)
+    del _config["git"]
+    _config["user"]["given_names"] = "Machine"
+    with open(fdp_com.global_fdpconfig(), "w") as out_f:
+        yaml.dump(_config, out_f)
+    return _global_configuration()
+
+
+# The CLI configuration of the project in the working directory
+def _project_configuration() -> typing.Dict:
+    with open(fdp_com.local_fdpconfig(os.getcwd())) as in_f:
+        return yaml.safe_load(in_f)
+
+
+@pytest.mark.faircli_cli
+@pytest.mark.parametrize(
+    "local_given", [True, False], ids=["the machine's registry", "no registry"]
+)
+def test_init_using_a_configuration_keeps_the_machines(
+    click_test: click.testing.CliRunner,
+    fresh_fair_dir: str,
+    mocker: pytest_mock.MockerFixture,
+    tmp_path,
+    local_given: bool,
+):
+    _before = _set_up_machine(tmp_path)
+    _update = mocker.patch("fair.registry.server.update_registry_post_setup")
+    _config = _cli_configuration(tmp_path)
+    _config["user"]["given_names"] = "Project"
+    _config["namespaces"] = {"input": "project", "output": "project"}
+    if not local_given:
+        del _config["registries"]["local"]
+    _result = click_test.invoke(
+        cli, ["init", "--using", _using_file(tmp_path, _config)]
+    )
+    assert _result.exit_code == 0, _result.output
+    assert _global_configuration() == _before
+    _project = _project_configuration()
+    assert _project["user"]["given_names"] == "Project"
+    assert _project["namespaces"] == {"input": "project", "output": "project"}
+    assert "local" not in _project["registries"]
+    _update.assert_called_once()
+
+
+@pytest.mark.faircli_cli
+@pytest.mark.parametrize(
+    "key, value, said",
+    [
+        ("directory", "other-registry", "One local registry serves every project"),
+        (
+            "uri",
+            "http://127.0.0.1:8002/api/",
+            "One local registry serves every project",
+        ),
+        ("data_store", "other-store", "'run_metadata: write_data_store'"),
+    ],
+    ids=["another directory", "another port", "another data store"],
+)
+def test_init_using_another_local_registry_is_refused(
+    click_test: click.testing.CliRunner,
+    fresh_fair_dir: str,
+    mocker: pytest_mock.MockerFixture,
+    tmp_path,
+    key: str,
+    value: str,
+    said: str,
+):
+    _before = _set_up_machine(tmp_path)
+    _update = mocker.patch("fair.registry.server.update_registry_post_setup")
+    _config = _cli_configuration(tmp_path)
+    _config["registries"]["local"][key] = (
+        value if key == "uri" else os.path.join(tmp_path, value)
+    )
+    _result = click_test.invoke(
+        cli, ["init", "--using", _using_file(tmp_path, _config)]
+    )
+    assert _result.exit_code == 1
+    assert said in _result.output
+    assert not os.path.exists(os.path.join(os.getcwd(), fdp_com.FAIR_FOLDER))
+    assert _global_configuration() == _before
+    _update.assert_not_called()
+
+
+@pytest.mark.faircli_cli
+def test_init_ci_keeps_the_machines_configuration(
+    click_test: click.testing.CliRunner,
+    fresh_fair_dir: str,
+    mocker: pytest_mock.MockerFixture,
+    tmp_path,
+):
+    _before = _set_up_machine(tmp_path)
+    _update = mocker.patch("fair.registry.server.update_registry_post_setup")
+    _result = click_test.invoke(cli, ["init", "--ci", "--local"])
+    assert _result.exit_code == 0, _result.output
+    assert _global_configuration() == _before
+    _project = _project_configuration()
+    assert _project["user"]["given_names"] == "Interface"
+    assert _project["namespaces"] == {"input": "testing", "output": "testing"}
+    assert "local" not in _project["registries"]
+    _update.assert_called_once()
+
+
+@pytest.mark.faircli_cli
+def test_init_ci_naming_another_registry_is_refused(
+    click_test: click.testing.CliRunner,
+    fresh_fair_dir: str,
+    mocker: pytest_mock.MockerFixture,
+    tmp_path,
+):
+    _before = _set_up_machine(tmp_path)
+    _update = mocker.patch("fair.registry.server.update_registry_post_setup")
+    _result = click_test.invoke(
+        cli,
+        ["init", "--ci", "--local", "--registry", os.path.join(tmp_path, "other")],
+    )
+    assert _result.exit_code == 1
+    assert "One local registry serves every project" in _result.output
+    assert not os.path.exists(os.path.join(os.getcwd(), fdp_com.FAIR_FOLDER))
+    assert _global_configuration() == _before
+    _update.assert_not_called()
+
+
+@pytest.mark.faircli_cli
+def test_init_using_a_configuration_with_a_description(
+    click_test: click.testing.CliRunner,
+    fresh_fair_dir: str,
+    mocker: pytest_mock.MockerFixture,
+    tmp_path,
+):
+    mocker.patch("fair.registry.server.update_registry_post_setup")
+    _config = _cli_configuration(tmp_path)
+    _config["description"] = "Testing Project"
+    _result = click_test.invoke(
+        cli, ["init", "--using", _using_file(tmp_path, _config)]
+    )
+    assert _result.exit_code == 0, _result.output
+    assert "description" not in yaml.safe_load(_global_configuration())
+    assert "description" not in _project_configuration()
+
+
 @pytest.mark.faircli_cli
 @pytest.mark.parametrize("failure", ["refused token", "invalid configuration"])
 def test_init_that_fails_in_a_subdirectory_leaves_the_repository(
@@ -687,7 +848,16 @@ def test_init_in_a_subdirectory_makes_its_own_staging_file(
         local_config[1], fdp_com.FAIR_FOLDER, "staging"
     )
     assert not os.path.exists(_repo_staging)
-    _using = _using_file(tmp_path, _cli_configuration(tmp_path))
+    # The machine set up already, its global configuration as 'fair init'
+    # writes it, with no 'git', has its own local registry
+    with open(fdp_com.global_fdpconfig()) as in_f:
+        _global = yaml.safe_load(in_f)
+    del _global["git"]
+    with open(fdp_com.global_fdpconfig(), "w") as out_f:
+        yaml.dump(_global, out_f)
+    _config = _cli_configuration(tmp_path)
+    del _config["registries"]["local"]
+    _using = _using_file(tmp_path, _config)
     _result = click_test.invoke(cli, ["init", "--using", _using], input="y\n")
     assert _result.exit_code == 0, _result.output
     with open(os.path.join(_subdir, fdp_com.FAIR_FOLDER, "staging")) as in_f:
@@ -1370,3 +1540,51 @@ def test_cli_run_local(
         assert _result.output
 
         assert _result.exit_code == 0
+
+
+@pytest.mark.faircli_cli
+def test_the_cli_runs_without_git_and_leaves_no_setting(tmp_path):
+    # A path with no git on it, and nothing naming git otherwise
+    _env = {
+        _name: _value
+        for _name, _value in os.environ.items()
+        if not _name.startswith("GIT_PYTHON_")
+    }
+    _env["PATH"] = str(tmp_path)
+    _repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    _imported = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import os, fair.cli; print(os.environ.get('GIT_PYTHON_REFRESH'))",
+        ],
+        env=_env,
+        cwd=_repo,
+        capture_output=True,
+        text=True,
+    )
+    assert _imported.returncode == 0, _imported.stderr
+    assert _imported.stdout.strip() == "None"
+    _help = subprocess.run(
+        [sys.executable, "-m", "fair.cli", "--help"],
+        env=_env,
+        cwd=_repo,
+        capture_output=True,
+        text=True,
+    )
+    assert _help.returncode == 0, _help.stderr
+    assert "Usage:" in _help.stdout
+
+
+@pytest.mark.faircli_cli
+def test_a_command_that_finds_no_git_says_so(mocker: pytest_mock.MockerFixture):
+    mocker.patch(
+        "fair.registry.server.resolve_reference",
+        side_effect=git.exc.GitCommandNotFound("git", "not found"),
+    )
+    _result = click.testing.CliRunner().invoke(
+        cli, ["registry", "install", "--version", "v1.5.0"]
+    )
+    assert _result.exit_code == 1
+    assert "The FAIR CLI needs git" in _result.output
+    assert "GIT_PYTHON_GIT_EXECUTABLE" in _result.output
